@@ -6,7 +6,7 @@ import { useAccent } from "../helper.ts";
 import { navigate, type Page, type PageId } from "../navigation.ts";
 import { isText } from "../checks.ts";
 import { readState, saveState } from "../store.ts";
-import { colors, sizes } from "../theme.ts";
+import { colors, sizes, toAccentTint } from "../theme.ts";
 
 type Item = { id: PageId; label: string; icon: IconName };
 
@@ -57,7 +57,9 @@ function Row({
   isSelected: boolean;
   onClick: () => void;
 }) {
-  const background = isSelected ? colors.selected : undefined;
+  const accent = useAccent();
+  // The selected row takes the accent, as the playing song does. A plain white layer faded into the blur.
+  const background = isSelected ? toAccentTint(accent) : undefined;
 
   return (
     <div
@@ -73,10 +75,10 @@ function Row({
         borderRadius: 7,
         backgroundColor: background,
         cursor: "pointer",
-        hover: { backgroundColor: isSelected ? colors.selected : colors.hover },
+        hover: { backgroundColor: background ?? colors.hover },
       }}
     >
-      <Icon name={icon} color={iconColor} sizePx={16} />
+      <Icon name={icon} color={isSelected ? accent : iconColor} sizePx={16} />
       <text
         style={{
           color: colors.text,

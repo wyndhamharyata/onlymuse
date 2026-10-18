@@ -4,6 +4,8 @@ import { fetchLibraryPlaylists, type Playlist } from "../apple-music.ts";
 import { Icon, type IconName } from "../icons.tsx";
 import { useHelper } from "../helper.ts";
 import { navigate, type Page, type PageId } from "../navigation.ts";
+import { isText } from "../checks.ts";
+import { readState, saveState } from "../store.ts";
 import { colors, sizes } from "../theme.ts";
 
 type Item = { id: PageId; label: string; icon: IconName };
@@ -93,7 +95,11 @@ function Row({
 }
 
 function SearchField({ accent }: { accent: string }) {
-  const [term, setTerm] = useState("");
+  const [term, setShownTerm] = useState(readState("searchTerm", isText, ""));
+  const setTerm = (next: string): void => {
+    setShownTerm(next);
+    saveState("searchTerm", next);
+  };
 
   const search = (event: EventPayload): void => {
     const trimmedTerm = (event.value ?? term).trim();

@@ -1,5 +1,7 @@
 import { join } from "node:path";
 import { useSyncExternalStore } from "react";
+import { isText } from "./checks.ts";
+import { readState, saveState } from "./store.ts";
 
 export type Song = {
   name: string;
@@ -57,7 +59,8 @@ const listeners = new Set<() => void>();
 let state: HelperState = {
   nowPlaying: { state: "closed" },
   nowPlayingReceivedAtMs: Date.now(),
-  accent: "#0A84FF",
+  // The accent of the last run, so the first frame has the right colour before the helper answers.
+  accent: readState("accent", isText, "#0A84FF"),
   isSignInNeeded: false,
 };
 
@@ -87,7 +90,10 @@ function applyMessage(message: Incoming): void {
 
   if (message.type === "signInNeeded") state = { ...state, isSignInNeeded: true };
 
-  if (message.type === "accent") state = { ...state, accent: message.color };
+  if (message.type === "accent") {
+    state = { ...state, accent: message.color };
+    saveState("accent", message.color);
+  }
 
   if (message.type === "nowPlaying") {
     state = { ...state, nowPlaying: message, nowPlayingReceivedAtMs: Date.now() };

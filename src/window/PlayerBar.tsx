@@ -3,12 +3,13 @@ import type { EventPayload } from "@gpuix/native";
 import { findCatalogArtistId, toArtworkUrl, type CatalogSong } from "../apple-music.ts";
 import { toClockText } from "../format.ts";
 import { Icon, type IconName } from "../icons.tsx";
-import { sendToHelper, useHelper, type HelperState } from "../helper.ts";
+import { sendToHelper, useHelper, type Song } from "../helper.ts";
 import { usePositionSeconds } from "../position.ts";
 import { navigate } from "../navigation.ts";
 import {
   cycleRepeat,
   findQueueSong,
+  resumeLastSong,
   skipToNext,
   skipToPrevious,
   toggleShuffle,
@@ -182,14 +183,14 @@ function SongText({
 }
 
 function NowPlayingInfo({
-  helper,
+  song,
   addingSong,
+  placeholderText,
 }: {
-  helper: HelperState;
+  song: Song | null;
   addingSong: CatalogSong | null;
+  placeholderText: string;
 }) {
-  const nowPlaying = helper.nowPlaying;
-
   if (addingSong) {
     const artworkUrl = addingSong.artwork
       ? toArtworkUrl(addingSong.artwork, artworkSizePx * 2)
@@ -203,10 +204,7 @@ function NowPlayingInfo({
     );
   }
 
-  if (nowPlaying.state !== "playing" && nowPlaying.state !== "paused") {
-    const placeholderText =
-      nowPlaying.state === "closed" ? "Music.app is closed" : "Nothing in Music.app";
-
+  if (!song) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <Artwork />
@@ -215,7 +213,6 @@ function NowPlayingInfo({
     );
   }
 
-  const song = nowPlaying.song;
   const queueSong = findQueueSong(song.persistentID);
   const badge = queueSong?.isLossless ? "LOSSLESS" : undefined;
   const queueArtworkUrl = queueSong?.artwork && toArtworkUrl(queueSong.artwork, artworkSizePx * 2);
@@ -246,11 +243,19 @@ export function PlayerBar({
   const nowPlaying = helper.nowPlaying;
   const isPlaying = nowPlaying.state === "playing";
 
+  const playingPositionSeconds = usePositionSeconds();
   const hasSong = nowPlaying.state === "playing" || nowPlaying.state === "paused";
-  const durationSeconds = hasSong ? nowPlaying.song.durationSeconds : 0;
-  const positionSeconds = usePositionSeconds();
   const volumePercent = nowPlaying.state === "closed" ? 0 : nowPlaying.volumePercent;
   const addingSong = queue.isAdding ? queue.songs[queue.index] : null;
+
+  // With Music.app stopped or closed, the player shows the last song, paused where it was.
+  const resumePoint = hasSong ? null : queue.resumePoint;
+  const shownSong = hasSong ? nowPlaying.song : (resumePoint?.song ?? null);
+  const positionSeconds = resumePoint ? resumePoint.positionSeconds : playingPositionSeconds;
+  const durationSeconds = shownSong?.durationSeconds ?? 0;
+  const placeholderText =
+    nowPlaying.state === "closed" ? "Music.app is closed" : "Nothing in Music.app";
+  const playPause = resumePoint ? resumeLastSong : () => sendToHelper({ type: "playPause" });
 
   const progressRatio = durationSeconds > 0 ? positionSeconds / durationSeconds : 0;
   const playIcon = isPlaying ? "pause" : "play";
@@ -278,7 +283,11 @@ export function PlayerBar({
       }}
     >
       <div style={{ flexGrow: 1, flexBasis: 0, minWidth: 0 }}>
-        <NowPlayingInfo helper={helper} addingSong={addingSong} />
+        <NowPlayingInfo
+          song={shownSong}
+          addingSong={addingSong}
+          placeholderText={placeholderText}
+        />
       </div>
       <div
         style={{
@@ -304,7 +313,7 @@ export function PlayerBar({
             onClick={() => skipToPrevious(positionSeconds)}
           />
           <div
-            onClick={() => sendToHelper({ type: "playPause" })}
+            onClick={playPause}
             style={{
               width: 34,
               height: 34,

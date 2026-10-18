@@ -6,6 +6,7 @@ import { playSongs, shuffleSongs, useQueue } from "../../queue.ts";
 import { colors, toAccentTint } from "../../theme.ts";
 import { ActionButton } from "../../window/ActionButton.tsx";
 import { PageStatus, useFetched } from "../../window/Fetched.tsx";
+import { PageList, toRowKeys, type PageRow } from "../../window/PageList.tsx";
 
 const coverSizePx = 240;
 
@@ -153,20 +154,28 @@ export function AlbumPage({ albumId }: { albumId: string }) {
 
   if (!album) return <PageStatus text={statusText} />;
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-      <Header album={album} />
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        {album.songs.map((song, index) => (
-          <SongLine
-            key={song.id}
-            song={song}
-            number={index + 1}
-            isCurrent={song.id === currentSongId}
-            onPlay={() => playSongs(album.songs, index)}
-          />
-        ))}
+  const rowKeys = toRowKeys(album.songs.map((song) => song.id));
+  const headerRow: PageRow = {
+    key: "header",
+    element: (
+      <div style={{ paddingBottom: 22 }}>
+        <Header album={album} />
       </div>
-    </div>
+    ),
+  };
+  const songRows: PageRow[] = album.songs.map((song, index) => ({
+    key: rowKeys[index],
+    element: (
+      <SongLine
+        song={song}
+        number={index + 1}
+        isCurrent={song.id === currentSongId}
+        onPlay={() => playSongs(album.songs, index)}
+      />
+    ),
+  }));
+
+  return (
+    <PageList rows={[headerRow, ...songRows]} isComplete estimatedRowHeightPx={40} gapPx={0} />
   );
 }

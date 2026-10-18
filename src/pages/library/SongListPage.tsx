@@ -5,6 +5,7 @@ import { playSongs, shuffleSongs } from "../../queue.ts";
 import { colors } from "../../theme.ts";
 import { ActionButton } from "../../window/ActionButton.tsx";
 import { PageStatus, useFetched } from "../../window/Fetched.tsx";
+import { PageList, toRowKeys, type PageRow } from "../../window/PageList.tsx";
 import { SongRow } from "../../window/SongRow.tsx";
 
 const rowHeightPx = 54;
@@ -23,6 +24,17 @@ export function SongListPage({
   const listText = list?.description ? `${songCountText} · ${list.description}` : songCountText;
   const countText = list ? listText : statusText;
   const hasSongs = (songs?.length ?? 0) > 0;
+  const rowKeys = toRowKeys((songs ?? []).map((song) => song.id));
+  const rows: PageRow[] = (songs ?? []).map((song, index) => ({
+    key: rowKeys[index],
+    element: (
+      <SongRow
+        song={song}
+        subtitle={`${song.artistName} · ${song.albumName}`}
+        onPlay={() => playSongs(songs ?? [], index)}
+      />
+    ),
+  }));
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, flexGrow: 1, minHeight: 0 }}>
@@ -47,16 +59,7 @@ export function SongListPage({
       </div>
       {songs && !hasSongs && <PageStatus text="Nothing here yet." />}
       {songs && hasSongs && (
-        <virtual-list estimatedItemHeight={rowHeightPx} style={{ flexGrow: 1, minHeight: 0 }}>
-          {songs.map((song, index) => (
-            <SongRow
-              key={`${index}-${song.id}`}
-              song={song}
-              subtitle={`${song.artistName} · ${song.albumName}`}
-              onPlay={() => playSongs(songs, index)}
-            />
-          ))}
-        </virtual-list>
+        <PageList rows={rows} isComplete estimatedRowHeightPx={rowHeightPx} gapPx={0} />
       )}
     </div>
   );

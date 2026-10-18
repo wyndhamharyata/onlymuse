@@ -1,6 +1,8 @@
 import { useSyncExternalStore } from "react";
 import { fetchCatalogAlbumId, type Card, type Playlist } from "./apple-music.ts";
+import { hasText, isFields, isWholeNumberIn, type Fields } from "./checks.ts";
 import { playSongs } from "./queue.ts";
+import { readState, saveState } from "./store.ts";
 
 export type PageId =
   | "home"
@@ -20,22 +22,94 @@ export type Page =
   | { id: "album"; albumId: string }
   | { id: "search"; term: string };
 
-export type Navigation = { pages: Page[]; index: number };
+// Each page in the history keeps the key of the row at its top, so Back, Forward and the next open return there.
+export type Navigation = { pages: Page[]; topRowKeys: (string | null)[]; index: number };
+
+const stateKey = "navigation";
+const maxPageCount = 50;
+
+const pageIds = new Set<string>([
+  "home",
+  "new",
+  "favouriteSongs",
+  "recentlyAdded",
+  "artists",
+  "albums",
+  "songs",
+  "downloaded",
+]);
+
+// The text field each page with an ID of its own needs.
+const pageFields: Record<string, string> = {
+  catalogPlaylist: "playlistId",
+  artist: "artistId",
+  album: "albumId",
+  search: "term",
+};
+
+function isPlaylist(value: unknown): boolean {
+  return (
+    isFields(value) && hasText(value, "id", "name") && typeof value.isFavouriteSongs === "boolean"
+  );
+}
+
+function isPage(value: unknown): value is Page {
+  if (!isFields(value) || typeof value.id !== "string") return false;
+  if (pageIds.has(value.id)) return true;
+  if (value.id === "playlist") return isPlaylist(value.playlist);
+
+  const field = pageFields[value.id];
+
+  return field !== undefined && hasText(value, field);
+}
+
+function isNavigation(value: unknown): value is Navigation {
+  if (!isFields(value) || !Array.isArray(value.pages) || !Array.isArray(value.topRowKeys))
+    return false;
+
+  const fields: Fields = value;
+  const pages = value.pages;
+  const hasPages = pages.length > 0 && pages.every(isPage);
+  const hasKeys = value.topRowKeys.length === pages.length;
+
+  return hasPages && hasKeys && isWholeNumberIn(fields.index, 0, pages.length - 1);
+}
 
 const listeners = new Set<() => void>();
+const firstNavigation: Navigation = { pages: [{ id: "home" }], topRowKeys: [null], index: 0 };
 
-let navigation: Navigation = { pages: [{ id: "home" }], index: 0 };
+let navigation = readState(stateKey, isNavigation, firstNavigation);
 
 function setNavigation(next: Navigation): void {
   navigation = next;
+  saveState(stateKey, navigation);
   for (const listener of listeners) listener();
 }
 
-// A new page drops the pages Forward would have reached, as a browser does.
+// A new page drops the pages Forward would have reached, as a browser does. The oldest pages go past 50.
 export function navigate(page: Page): void {
-  const pages = [...navigation.pages.slice(0, navigation.index + 1), page];
+  const keptCount = navigation.index + 1;
+  const firstKept = Math.max(0, keptCount + 1 - maxPageCount);
+  const pages = [...navigation.pages.slice(firstKept, keptCount), page];
+  const topRowKeys = [...navigation.topRowKeys.slice(firstKept, keptCount), null];
 
-  setNavigation({ pages, index: pages.length - 1 });
+  setNavigation({ pages, topRowKeys, index: pages.length - 1 });
+}
+
+export function readTopRowKey(index: number): string | null {
+  return navigation.topRowKeys[index] ?? null;
+}
+
+export function setTopRowKey(index: number, key: string): void {
+  if (navigation.topRowKeys[index] === key) return;
+
+  const topRowKeys = navigation.topRowKeys.map((oldKey, keyIndex) =>
+    keyIndex === index ? key : oldKey
+  );
+
+  // Nothing on screen shows the key, so a scroll saves it without drawing the window again.
+  navigation = { ...navigation, topRowKeys };
+  saveState(stateKey, navigation);
 }
 
 export function goBack(): void {

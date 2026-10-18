@@ -13,6 +13,10 @@ import { PageStatus, useFetched } from "./Fetched.tsx";
 
 export type Panel = "queue" | "lyrics";
 
+export function isPanel(value: unknown): value is Panel | null {
+  return value === null || value === "queue" || value === "lyrics";
+}
+
 export const panelWidthPx = 300;
 const artworkSizePx = 36;
 const historyCount = 2;

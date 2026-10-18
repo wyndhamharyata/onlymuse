@@ -1,12 +1,15 @@
 import { useSyncExternalStore } from "react";
 import { addToLibrary, type CatalogSong } from "./apple-music.ts";
+import { hasNumber, hasText, isFields, isWholeNumberIn } from "./checks.ts";
 import {
   playSongInMusic,
   readHelperState,
   sendToHelper,
   subscribeToHelper,
+  type Song,
   type SongMatch,
 } from "./helper.ts";
+import { readState, saveState } from "./store.ts";
 
 export type Repeat = "off" | "all" | "one";
 
@@ -19,7 +22,11 @@ export type QueueState = {
   repeat: Repeat;
   isAdding: boolean;
   playingPersistentID: string | null;
+  // The last song Music.app played and where it was. The player shows it when Music.app has stopped.
+  resumePoint: ResumePoint | null;
 };
+
+export type ResumePoint = { song: Song; positionSeconds: number };
 
 // Where Music.app was in the song the queue plays, as of its last post.
 type Tracking = {
@@ -38,7 +45,46 @@ const restartAfterSeconds = 3;
 
 const listeners = new Set<() => void>();
 
-let state: QueueState = {
+const stateKey = "queue";
+// While a song plays, its position is saved this often, so a force quit loses at most this much.
+const positionSaveMs = 5000;
+const repeats = new Set<string>(["off", "all", "one"]);
+
+function isCatalogSong(value: unknown): value is CatalogSong {
+  if (!isFields(value)) return false;
+
+  return (
+    hasText(value, "id", "name", "artistName", "albumName") && hasNumber(value, "durationSeconds")
+  );
+}
+
+function isSong(value: unknown): value is Song {
+  if (!isFields(value)) return false;
+
+  return (
+    hasText(value, "name", "artist", "album", "persistentID") && hasNumber(value, "durationSeconds")
+  );
+}
+
+function isResumePoint(value: unknown): value is ResumePoint {
+  return isFields(value) && isSong(value.song) && hasNumber(value, "positionSeconds");
+}
+
+function isQueueState(value: unknown): value is QueueState {
+  if (!isFields(value) || !Array.isArray(value.songs) || !Array.isArray(value.originalSongs))
+    return false;
+
+  const hasSongs = value.songs.every(isCatalogSong) && value.originalSongs.every(isCatalogSong);
+  const hasIndex = isWholeNumberIn(value.index, -1, value.songs.length - 1);
+  const hasSwitches = typeof value.isShuffled === "boolean" && repeats.has(String(value.repeat));
+  const hasPlaying =
+    value.playingPersistentID === null || typeof value.playingPersistentID === "string";
+  const hasResumePoint = value.resumePoint === null || isResumePoint(value.resumePoint);
+
+  return hasSongs && hasIndex && hasSwitches && hasPlaying && hasResumePoint;
+}
+
+const emptyState: QueueState = {
   songs: [],
   originalSongs: [],
   index: -1,
@@ -46,13 +92,18 @@ let state: QueueState = {
   repeat: "off",
   isAdding: false,
   playingPersistentID: null,
+  resumePoint: null,
 };
+
+// A song that was being added when the app quit is not being added any more.
+let state: QueueState = { ...readState(stateKey, isQueueState, emptyState), isAdding: false };
 let tracking: Tracking | null = null;
 // Each new play counts up, so an older play that is still adding a song knows to stop.
 let playCount = 0;
 
 function setState(changes: Partial<QueueState>): void {
   state = { ...state, ...changes };
+  saveState(stateKey, state);
   for (const listener of listeners) listener();
 }
 
@@ -244,11 +295,64 @@ function applyNowPlaying(): void {
   const hasEnded = finished !== null && toEstimateSeconds(finished, nowMs) >= endSeconds;
   const nextIndex = state.repeat === "one" ? state.index : findNextIndex();
 
+  const resumePoint = state.resumePoint;
+
   tracking = null;
+  if (hasEnded && resumePoint) setState({ resumePoint: { ...resumePoint, positionSeconds: 0 } });
   if (isQueueSong && hasEnded && nextIndex !== null) playAt(nextIndex);
 }
 
-subscribeToHelper(applyNowPlaying);
+// Keeps the resume point on each post from Music.app, and every few seconds while a song plays.
+function applyResumePoint(): void {
+  const nowPlaying = readHelperState().nowPlaying;
+  const hasSong = nowPlaying.state === "playing" || nowPlaying.state === "paused";
+
+  if (!hasSong || !tracking) return;
+
+  const resumePoint = {
+    song: nowPlaying.song,
+    positionSeconds: toEstimateSeconds(tracking, Date.now()),
+  };
+  const isSameSong = state.resumePoint?.song.persistentID === nowPlaying.song.persistentID;
+
+  if (isSameSong) {
+    state = { ...state, resumePoint };
+    return saveState(stateKey, state);
+  }
+
+  setState({ resumePoint });
+}
+
+// Plays the last song again from where it was. Music.app may have quit or stopped since.
+export async function resumeLastSong(): Promise<void> {
+  const resumePoint = state.resumePoint;
+
+  if (!resumePoint) return;
+
+  const song = resumePoint.song;
+  const isQueueSong = song.persistentID === state.playingPersistentID;
+  const match = {
+    name: song.name,
+    artistName: song.artist,
+    albumName: song.album,
+    durationSeconds: song.durationSeconds,
+  };
+
+  playCount += 1;
+
+  const persistentID = await playSongInMusic(match);
+
+  if (!persistentID) return;
+  if (isQueueSong) setState({ playingPersistentID: persistentID });
+
+  sendToHelper({ type: "seek", positionSeconds: resumePoint.positionSeconds });
+}
+
+subscribeToHelper(() => {
+  applyNowPlaying();
+  applyResumePoint();
+});
+setInterval(applyResumePoint, positionSaveMs);
 
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);

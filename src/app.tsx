@@ -27,7 +27,8 @@ import { colors, sizes } from "./theme.ts";
 import { ContentWidthContext } from "./window/ContentWidth.tsx";
 import { PlayerBar } from "./window/PlayerBar.tsx";
 import { Sidebar } from "./window/Sidebar.tsx";
-import { SidePanel, panelWidthPx, type Panel } from "./window/SidePanel.tsx";
+import { SidePanel, isPanel, panelWidthPx, type Panel } from "./window/SidePanel.tsx";
+import { readState, saveState } from "./store.ts";
 import { SignInCard } from "./window/SignInCard.tsx";
 
 // The key makes each visit a new page, so a page never shows what the one before it loaded.
@@ -89,6 +90,7 @@ const listPageIds = new Set<Page["id"]>([
   "albums",
   "artists",
   "recentlyAdded",
+  "album",
 ]);
 
 function NavigationButton({
@@ -118,7 +120,11 @@ function NavigationButton({
 export function App() {
   const navigation = useNavigation();
   const { isSignInNeeded } = useHelper();
-  const [panel, setPanel] = useState<Panel | null>(null);
+  const [panel, setShownPanel] = useState(readState("panel", isPanel, null));
+  const setPanel = (next: Panel | null): void => {
+    setShownPanel(next);
+    saveState("panel", next);
+  };
   const togglePanel = (next: Panel): void => setPanel(panel === next ? null : next);
   const windowSize = useWindowSize();
   const panelWidth = panel ? panelWidthPx : 0;

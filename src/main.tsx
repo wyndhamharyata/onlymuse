@@ -15,6 +15,7 @@ render(
     minWidth: 900,
     minHeight: 560,
     titlebarTransparent: true,
+    windowBackground: "blurred",
     trafficLightX: 16,
     trafficLightY: 17,
     focus: process.env.GPUIX_BACKGROUND !== "1",

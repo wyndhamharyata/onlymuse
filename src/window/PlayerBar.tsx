@@ -326,7 +326,7 @@ export function PlayerBar({
               cursor: "pointer",
             }}
           >
-            <Icon name={playIcon} color={colors.window} sizePx={16} />
+            <Icon name={playIcon} color={colors.ink} sizePx={16} />
           </div>
           <Button icon="next" color={colors.text} sizePx={18} onClick={skipToNext} />
           <div style={{ display: "flex", alignItems: "center" }}>

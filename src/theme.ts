@@ -1,7 +1,10 @@
+// The window blurs what is behind it and tints it at 72%. Sidebar, player and panel add a faint light layer.
 export const colors = {
-  window: "#1b1b1e",
-  sidebar: "#212125",
-  player: "#1f1f23",
+  window: "#1b1b1eb8",
+  sidebar: "#ffffff08",
+  player: "#ffffff06",
+  // Solid, for marks drawn on white, such as the play icon.
+  ink: "#1b1b1e",
   line: "#2e2e33",
   card: "#2a2a2f",
   hover: "#ffffff12",

@@ -10,6 +10,15 @@ import { toRowKeys } from "./PageList.tsx";
 // Twice the drawn size, for the Retina screen.
 const pixelsPerPoint = 2;
 const cardGapPx = 16;
+// Artwork is asked for in steps of this many pixels, so a resized window reuses the saved files.
+const artworkStepPx = 100;
+
+// The tile size that fits a whole number of tiles across widthPx, as close to targetPx as it can.
+export function fitTileSizePx(widthPx: number, targetPx: number, gapPx: number): number {
+  const count = Math.max(1, Math.round((widthPx + gapPx) / (targetPx + gapPx)));
+
+  return Math.floor((widthPx - gapPx * (count - 1)) / count);
+}
 // Cards drawn past each edge of the shelf, so a fast scroll finds them already drawn.
 const extraCardCount = 2;
 
@@ -24,7 +33,8 @@ export function CardTile({
   sizePx: number;
   isRound?: boolean;
 }) {
-  const artworkUrl = card.artwork ? toArtworkUrl(card.artwork, sizePx * pixelsPerPoint) : undefined;
+  const artworkPx = Math.ceil((sizePx * pixelsPerPoint) / artworkStepPx) * artworkStepPx;
+  const artworkUrl = card.artwork ? toArtworkUrl(card.artwork, artworkPx) : undefined;
   const radiusPx = isRound ? sizePx / 2 : 8;
   const canOpen = card.kind !== "other";
   const textAlign = isRound ? "center" : "left";
@@ -70,11 +80,11 @@ export function CardTile({
   );
 }
 
-// A shelf draws only the cards in view. Empty boxes keep the width of the rest, so the scroll bar stays true.
+// A shelf of whole tiles near sizePx, drawing only those in view. Empty boxes keep the width of the rest.
 export function CardRow({
   title,
   cards,
-  sizePx,
+  sizePx: targetSizePx,
   isRound,
 }: {
   title: string;
@@ -85,6 +95,7 @@ export function CardRow({
   const renderer = useGpuixRequired();
   const shelfRef = useRef<PublicInstance | null>(null);
   const widthPx = useContentWidthPx();
+  const sizePx = fitTileSizePx(widthPx, targetSizePx, cardGapPx);
   const stepPx = sizePx + cardGapPx;
   const shownCount = Math.ceil(widthPx / stepPx) + extraCardCount * 2;
   const [firstIndex, setFirstIndex] = useState(0);

@@ -1,14 +1,14 @@
 import type { Card } from "../../apple-music.ts";
 import { colors } from "../../theme.ts";
-import { CardTile } from "../../window/Cards.tsx";
+import { CardTile, fitTileSizePx } from "../../window/Cards.tsx";
 import { PageList, toRowKeys, type PageRow } from "../../window/PageList.tsx";
 import { useContentWidthPx } from "../../window/ContentWidth.tsx";
 import { PageStatus, useFetched } from "../../window/Fetched.tsx";
 
-const tileSizePx = 160;
+const targetTileSizePx = 160;
 const gapPx = 18;
 // A tile is its artwork, then one or two lines of text.
-const rowHeightPx = tileSizePx + 70;
+const textHeightPx = 70;
 
 // Albums, Artists and Recently Added. Each list row holds as many tiles as the page is wide.
 export function CardGridPage({
@@ -22,6 +22,7 @@ export function CardGridPage({
 }) {
   const { value: cards, statusText } = useFetched(fetchCards, [title]);
   const widthPx = useContentWidthPx();
+  const tileSizePx = fitTileSizePx(widthPx, targetTileSizePx, gapPx);
   const columnCount = Math.max(1, Math.floor((widthPx + gapPx) / (tileSizePx + gapPx)));
 
   const cardKeys = toRowKeys((cards ?? []).map((card) => card.id));
@@ -53,7 +54,14 @@ export function CardGridPage({
         )}
       </div>
       {!cards && <PageStatus text={statusText} />}
-      {cards && <PageList rows={rows} isComplete estimatedRowHeightPx={rowHeightPx} gapPx={20} />}
+      {cards && (
+        <PageList
+          rows={rows}
+          isComplete
+          estimatedRowHeightPx={tileSizePx + textHeightPx}
+          gapPx={20}
+        />
+      )}
     </div>
   );
 }

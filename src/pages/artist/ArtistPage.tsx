@@ -6,6 +6,7 @@ import { ActionButton } from "../../window/ActionButton.tsx";
 import { Artwork } from "../../window/Artwork.tsx";
 import { CardRow, CardTile } from "../../window/Cards.tsx";
 import { PageStatus, useFetched } from "../../window/Fetched.tsx";
+import { toRowKeys } from "../../window/PageList.tsx";
 import { SongRow } from "../../window/SongRow.tsx";
 
 const headerHeightPx = 300;
@@ -92,6 +93,8 @@ export function ArtistPage({ artistId }: { artistId: string }) {
 
   if (!artist) return <PageStatus text={statusText} />;
 
+  const songKeys = toRowKeys(artist.topSongs.map((song) => song.id));
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
       <Header artist={artist} />
@@ -111,7 +114,7 @@ export function ArtistPage({ artistId }: { artistId: string }) {
           <div style={{ display: "grid", gridTemplateColumns: 2, columnGap: 20 }}>
             {artist.topSongs.map((song, index) => (
               <SongRow
-                key={song.id}
+                key={songKeys[index]}
                 song={song}
                 subtitle={song.albumName}
                 onPlay={() => playSongs(artist.topSongs, index)}

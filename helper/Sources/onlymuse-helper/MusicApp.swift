@@ -27,6 +27,9 @@ final class MusicApp {
     end tell
     """)!
 
+  private let volumeScript = NSAppleScript(source: "tell application \"Music\" to return sound volume")!
+  private var lastVolumePercent: Int?
+
   private let commandScripts = [
     "playPause": NSAppleScript(source: "tell application \"Music\" to playpause")!,
     "next": NSAppleScript(source: "tell application \"Music\" to next track")!,
@@ -75,10 +78,13 @@ final class MusicApp {
     case "seek":
       guard let positionSeconds = command.positionSeconds, isRunning else { return }
       _ = run(NSAppleScript(source: "tell application \"Music\" to set player position to \(positionSeconds)")!)
+      // Music.app posts nothing for a new position or volume, so the helper sends its state itself.
+      send(readNowPlaying())
     case "setVolume":
       guard let volumePercent = command.volumePercent, isRunning else { return }
       let clampedPercent = min(max(volumePercent, 0), 100)
       _ = run(NSAppleScript(source: "tell application \"Music\" to set sound volume to \(clampedPercent)")!)
+      send(readNowPlaying())
     default:
       sendError("The helper has no command named \(command.type).")
     }
@@ -124,6 +130,15 @@ final class MusicApp {
     let escaped = text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
 
     return "\"\(escaped)\""
+  }
+
+  // Music.app posts nothing when its own volume slider moves, so the helper asks every few seconds.
+  func sendVolumeWhenChanged() {
+    guard isRunning, let volumePercent = run(volumeScript).map({ Int($0.int32Value) }) else { return }
+    guard volumePercent != lastVolumePercent else { return }
+
+    lastVolumePercent = volumePercent
+    send(readNowPlaying())
   }
 
   // Opens Music.app in the background, so it never comes in front of onlymuse.

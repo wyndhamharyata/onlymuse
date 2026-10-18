@@ -11,6 +11,7 @@ import { findQueueSong, playQueueAt, removeFromQueue, useQueue } from "../queue.
 import { colors, toAccentTint } from "../theme.ts";
 import { PageStatus, useFetched } from "./Fetched.tsx";
 import { Artwork } from "./Artwork.tsx";
+import { ScrollingText } from "./ScrollingText.tsx";
 
 export type Panel = "queue" | "lyrics";
 
@@ -75,6 +76,7 @@ function QueueRow({
       style={{
         display: "flex",
         alignItems: "center",
+        width: "100%",
         borderRadius: 6,
         backgroundColor: background,
         opacity: isPast ? 0.45 : 1,
@@ -98,33 +100,18 @@ function QueueRow({
           heightPx={artworkSizePx}
           radiusPx={4}
         />
-        <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-          <text
-            style={{
-              color: isCurrent ? accent : colors.text,
-              fontSize: 12.5,
-              whiteSpace: "nowrap",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {song.name}
-          </text>
-          <text
-            style={{
-              color: colors.dim,
-              fontSize: 11.5,
-              whiteSpace: "nowrap",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {song.artistName}
-          </text>
+        <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0 }}>
+          <ScrollingText
+            text={song.name}
+            style={{ color: isCurrent ? accent : colors.text, fontSize: 12.5 }}
+          />
+          <ScrollingText text={song.artistName} style={{ color: colors.dim, fontSize: 11.5 }} />
         </div>
       </div>
       {!isCurrent && (
         <div
           onClick={() => removeFromQueue(index)}
-          style={{ paddingLeft: 8, paddingRight: 8, cursor: "pointer" }}
+          style={{ flexShrink: 0, paddingLeft: 8, paddingRight: 8, cursor: "pointer" }}
         >
           <text style={{ color: colors.faint, fontSize: 14 }}>×</text>
         </div>
@@ -157,7 +144,10 @@ function UpNext() {
   return (
     <virtual-list estimatedItemHeight={48} style={{ flexGrow: 1, minHeight: 0 }}>
       {rows.map(({ song, index }) => (
-        <div key={`${index}-${song.id}`} style={{ display: "flex", flexDirection: "column" }}>
+        <div
+          key={`${index}-${song.id}`}
+          style={{ display: "flex", flexDirection: "column", width: "100%" }}
+        >
           {index === queue.index && <Heading text="Now Playing" />}
           {index === queue.index + 1 && <Heading text="Up Next" />}
           <QueueRow

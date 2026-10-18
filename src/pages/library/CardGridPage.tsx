@@ -1,7 +1,7 @@
 import type { Card } from "../../apple-music.ts";
 import { colors } from "../../theme.ts";
 import { CardTile } from "../../window/Cards.tsx";
-import { PageList, type PageRow } from "../../window/PageList.tsx";
+import { PageList, toRowKeys, type PageRow } from "../../window/PageList.tsx";
 import { useContentWidthPx } from "../../window/ContentWidth.tsx";
 import { PageStatus, useFetched } from "../../window/Fetched.tsx";
 
@@ -24,18 +24,20 @@ export function CardGridPage({
   const widthPx = useContentWidthPx();
   const columnCount = Math.max(1, Math.floor((widthPx + gapPx) / (tileSizePx + gapPx)));
 
+  const cardKeys = toRowKeys((cards ?? []).map((card) => card.id));
   const rows: PageRow[] = [];
 
   for (let first = 0; first < (cards?.length ?? 0); first += columnCount) {
     const rowCards = (cards ?? []).slice(first, first + columnCount);
+    const rowCardKeys = cardKeys.slice(first, first + columnCount);
 
     rows.push({
-      key: rowCards[0].id,
-      cardKeys: rowCards.map((card) => card.id),
+      key: rowCardKeys[0],
+      cardKeys: rowCardKeys,
       element: (
         <div style={{ display: "flex", gap: gapPx }}>
-          {rowCards.map((card) => (
-            <CardTile key={card.id} card={card} sizePx={tileSizePx} isRound={isRound} />
+          {rowCards.map((card, index) => (
+            <CardTile key={rowCardKeys[index]} card={card} sizePx={tileSizePx} isRound={isRound} />
           ))}
         </div>
       ),

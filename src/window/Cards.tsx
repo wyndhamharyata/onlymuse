@@ -2,6 +2,7 @@ import { toArtworkUrl, type Card } from "../apple-music.ts";
 import { openCard } from "../navigation.ts";
 import { colors } from "../theme.ts";
 import { Artwork } from "./Artwork.tsx";
+import { toRowKeys } from "./PageList.tsx";
 
 // Twice the drawn size, for the Retina screen.
 const pixelsPerPoint = 2;
@@ -76,12 +77,21 @@ export function CardRow({
 }) {
   if (cards.length === 0) return null;
 
+  // A shelf can hold the same album twice.
+  const cardKeys = toRowKeys(cards.map((card) => card.id));
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <text style={{ color: colors.text, fontSize: 17, fontWeight: 700 }}>{title}</text>
       <div style={{ display: "flex", gap: 16, overflowX: "scroll" }}>
-        {cards.map((card) => (
-          <CardTile key={card.id} card={card} row={cards} sizePx={sizePx} isRound={isRound} />
+        {cards.map((card, index) => (
+          <CardTile
+            key={cardKeys[index]}
+            card={card}
+            row={cards}
+            sizePx={sizePx}
+            isRound={isRound}
+          />
         ))}
       </div>
     </div>

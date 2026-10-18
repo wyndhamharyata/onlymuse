@@ -3,6 +3,7 @@ import { playSongs } from "../../queue.ts";
 import { colors } from "../../theme.ts";
 import { CardRow, CardTile } from "../../window/Cards.tsx";
 import { PageStatus, useFetched } from "../../window/Fetched.tsx";
+import { toRowKeys } from "../../window/PageList.tsx";
 import { SongRow } from "../../window/SongRow.tsx";
 
 const topResultSizePx = 180;
@@ -17,6 +18,7 @@ export function SearchPage({ term }: { term: string }) {
 
   const topArtist = results.artists[0];
   const shownSongs = results.songs.slice(0, shownSongCount);
+  const songKeys = toRowKeys(shownSongs.map((song) => song.id));
   const hasResults = results.songs.length + results.albums.length + results.artists.length > 0;
 
   if (!hasResults) return <PageStatus text={`Apple Music has nothing for "${term}".`} />;
@@ -39,7 +41,7 @@ export function SearchPage({ term }: { term: string }) {
           <text style={{ color: colors.text, fontSize: 17, fontWeight: 700 }}>Songs</text>
           {shownSongs.map((song, index) => (
             <SongRow
-              key={song.id}
+              key={songKeys[index]}
               song={song}
               subtitle={`${song.artistName} · ${song.albumName}`}
               onPlay={() => playSongs(shownSongs, index)}

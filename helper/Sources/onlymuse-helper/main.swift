@@ -35,6 +35,12 @@ for name in workspaceNotifications {
   }
 }
 
+let volumeCheckSeconds = 2.0
+
+Timer.scheduledTimer(withTimeInterval: volumeCheckSeconds, repeats: true) { _ in
+  MainActor.assumeIsolated { music.sendVolumeWhenChanged() }
+}
+
 let webPlayer = WebPlayer()
 
 startReadingCommands { command in

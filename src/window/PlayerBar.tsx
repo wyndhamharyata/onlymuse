@@ -17,6 +17,7 @@ import {
 } from "../queue.ts";
 import { colors, sizes } from "../theme.ts";
 import { Artwork } from "./Artwork.tsx";
+import { ScrollingText } from "./ScrollingText.tsx";
 import type { Panel } from "./SidePanel.tsx";
 
 const artworkSizePx = 52;
@@ -118,22 +119,16 @@ function SongText({
   onSubtitleClick?: () => void;
 }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-        <text
-          style={{
-            color: colors.text,
-            fontSize: 13.5,
-            fontWeight: 600,
-            whiteSpace: "nowrap",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {title}
-        </text>
+    <div style={{ display: "flex", flexDirection: "column", minWidth: 0, flexGrow: 1 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+        <ScrollingText
+          text={title}
+          style={{ color: colors.text, fontSize: 13.5, fontWeight: 600 }}
+        />
         {badge && (
           <div
             style={{
+              flexShrink: 0,
               paddingLeft: 4,
               paddingRight: 4,
               borderRadius: 4,
@@ -145,17 +140,11 @@ function SongText({
           </div>
         )}
       </div>
-      <div onClick={onSubtitleClick} style={{ cursor: onSubtitleClick ? "pointer" : "default" }}>
-        <text
-          style={{
-            color: colors.dim,
-            fontSize: 12.5,
-            whiteSpace: "nowrap",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {subtitle}
-        </text>
+      <div
+        onClick={onSubtitleClick}
+        style={{ display: "flex", minWidth: 0, cursor: onSubtitleClick ? "pointer" : "default" }}
+      >
+        <ScrollingText text={subtitle} style={{ color: colors.dim, fontSize: 12.5 }} />
       </div>
     </div>
   );

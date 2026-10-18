@@ -486,15 +486,17 @@ export async function fetchLibraryAlbums(): Promise<Card[]> {
 // A library artist has no photo. Its catalog artist has one and opens the full artist page.
 export async function fetchLibraryArtists(): Promise<Card[]> {
   const artists = await fetchAllPages("/v1/me/library/artists?sort=name&include=catalog");
-  const cards: Card[] = [];
+  const cards = new Map<string, Card>();
 
+  // Two library artists can share one catalog artist, such as a name spelled two ways. It shows once.
   for (const artist of artists) {
     const catalogArtist = artist.relationships?.catalog?.data[0];
 
-    if (catalogArtist) cards.push(toCard(catalogArtist));
+    if (catalogArtist && !cards.has(catalogArtist.id))
+      cards.set(catalogArtist.id, toCard(catalogArtist));
   }
 
-  return cards;
+  return [...cards.values()];
 }
 
 export async function fetchRecentlyAdded(): Promise<Card[]> {

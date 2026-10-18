@@ -11,14 +11,16 @@ type Report = {
   stalls: { p99Ms: number; maxMs: number; missedFrames: number; blockedMs: number };
   rssMb: number;
   canReset: boolean;
+  framesPerSecond?: number;
 };
 
 const savedData = join(homedir(), "Library", "Application Support", "onlymuse", "onlymuse.sqlite");
 const modes =
   process.argv.slice(2).length > 0 ? process.argv.slice(2) : ["development", "production"];
 const wheelTickCount = 120;
-const wheelTickMs = 16;
-const wheelTickPx = -120;
+// A trackpad sends about 120 steps a second. GPUI draws an unfocused window at full rate only under input that fast.
+const wheelTickMs = 7;
+const wheelTickPx = -60;
 const idleMs = 5000;
 const loadMs = 9000;
 
@@ -41,13 +43,24 @@ async function readReport(reportPath: string): Promise<Report> {
   return JSON.parse(await Bun.file(reportPath).text()) as Report;
 }
 
+// The frame count keeps growing, so the frames of a scene are the count after it less the count before it.
 async function measure(reportPath: string, run: () => Promise<void>): Promise<Report> {
   await Bun.write(`${reportPath}.reset`, "reset");
+  stepsPerSecond = 0;
   await sleep(600);
-  await run();
-  await sleep(600);
+  const framesBefore = (await readReport(reportPath)).frames?.frames ?? 0;
+  const startMs = performance.now();
 
-  return readReport(reportPath);
+  await run();
+  const runMs = performance.now() - startMs;
+
+  await sleep(600);
+  const report = await readReport(reportPath);
+
+  return {
+    ...report,
+    framesPerSecond: (((report.frames?.frames ?? 0) - framesBefore) / runMs) * 1000,
+  };
 }
 
 function toRow(mode: string, scene: string, report: Report): string {
@@ -56,16 +69,27 @@ function toRow(mode: string, scene: string, report: Report): string {
   const drawText = `draw p90 ${frames?.p90Ms?.toFixed(1)} max ${frames?.maxMs?.toFixed(1)} ms (${frames?.frames ?? 0} frames)`;
   const stallText = `JS stalls p99 ${stalls.p99Ms.toFixed(1)} max ${stalls.maxMs.toFixed(0)} ms, ${stalls.missedFrames} frames missed, ${stalls.blockedMs} ms blocked`;
 
-  return `${mode.padEnd(12)}${scene.padEnd(22)}${stallText.padEnd(76)}${drawText}  ${report.rssMb} MB`;
+  const stepsText = stepsPerSecond > 0 ? ` for ${stepsPerSecond.toFixed(0)} steps/s` : "";
+  const rateText = `${(report.framesPerSecond ?? 0).toFixed(0).padStart(4)} fps${stepsText}`.padEnd(
+    24
+  );
+
+  return `${mode.padEnd(12)}${scene.padEnd(22)}${rateText}  ${stallText.padEnd(76)}${drawText}  ${report.rssMb} MB`;
 }
+
+// The wheel steps a second the last scroll sent, which a frame rate is read against.
+let stepsPerSecond = 0;
 
 async function scroll(app: Awaited<ReturnType<typeof launch>>, isSideways = false): Promise<void> {
   const point = isSideways ? { x: 800, y: 300 } : { x: 800, y: 500 };
+  const startMs = performance.now();
 
   for (let tick = 0; tick < wheelTickCount; tick += 1) {
     await app.mouse.wheel(point, isSideways ? wheelTickPx / 2 : 0, isSideways ? 0 : wheelTickPx);
     await sleep(wheelTickMs);
   }
+
+  stepsPerSecond = (wheelTickCount / (performance.now() - startMs)) * 1000;
 }
 
 async function clickSidebar(app: Awaited<ReturnType<typeof launch>>, text: string): Promise<void> {

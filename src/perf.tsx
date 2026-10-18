@@ -15,7 +15,38 @@ export const isMeasuring = reportPath !== undefined;
 // Bun writes a --cpu-prof profile on a normal exit only, and the automation stops the app with SIGTERM.
 if (isMeasuring) process.on("SIGTERM", () => process.exit(0));
 
-let stallsMs: number[] = [];
+// Counts per 0.25 ms of stall, so a report reads a percentile without sorting every wake.
+const bucketMs = 0.25;
+const bucketCount = 400;
+
+type Stalls = {
+  buckets: number[];
+  wakeCount: number;
+  maxMs: number;
+  missedFrames: number;
+  blockedMs: number;
+};
+
+const toEmptyStalls = (): Stalls => ({
+  buckets: Array.from({ length: bucketCount }, () => 0),
+  wakeCount: 0,
+  maxMs: 0,
+  missedFrames: 0,
+  blockedMs: 0,
+});
+
+let stalls = toEmptyStalls();
+
+function countStall(stallMs: number): void {
+  stalls.buckets[Math.min(bucketCount - 1, Math.floor(stallMs / bucketMs))] += 1;
+  stalls.wakeCount += 1;
+  stalls.maxMs = Math.max(stalls.maxMs, stallMs);
+
+  if (stallMs <= frameBudgetMs) return;
+
+  stalls.missedFrames += Math.floor(stallMs / frameBudgetMs);
+  stalls.blockedMs += stallMs;
+}
 
 function startStallProbe(): void {
   let expectedMs = performance.now() + probeMs;
@@ -23,27 +54,30 @@ function startStallProbe(): void {
   setInterval(() => {
     const nowMs = performance.now();
 
-    stallsMs.push(Math.max(0, nowMs - expectedMs));
+    countStall(Math.max(0, nowMs - expectedMs));
     expectedMs = nowMs + probeMs;
   }, probeMs);
 }
 
-function toPercentile(sortedMs: number[], share: number): number {
-  return sortedMs[Math.min(sortedMs.length - 1, Math.floor(sortedMs.length * share))] ?? 0;
+function readP99Ms(): number {
+  const wanted = stalls.wakeCount * 0.99;
+  let seen = 0;
+
+  for (const [index, count] of stalls.buckets.entries()) {
+    seen += count;
+
+    if (seen >= wanted) return (index + 1) * bucketMs;
+  }
+
+  return stalls.maxMs;
 }
 
 function readStalls(): { p99Ms: number; maxMs: number; missedFrames: number; blockedMs: number } {
-  const sortedMs = [...stallsMs].sort((left, right) => left - right);
-  const longStallsMs = sortedMs.filter((stallMs) => stallMs > frameBudgetMs);
-
   return {
-    p99Ms: toPercentile(sortedMs, 0.99),
-    maxMs: sortedMs.at(-1) ?? 0,
-    missedFrames: longStallsMs.reduce(
-      (count, stallMs) => count + Math.floor(stallMs / frameBudgetMs),
-      0
-    ),
-    blockedMs: Math.round(longStallsMs.reduce((total, stallMs) => total + stallMs, 0)),
+    p99Ms: readP99Ms(),
+    maxMs: stalls.maxMs,
+    missedFrames: stalls.missedFrames,
+    blockedMs: Math.round(stalls.blockedMs),
   };
 }
 
@@ -59,7 +93,7 @@ function Reporter() {
       if (existsSync(resetPath)) {
         unlinkSync(resetPath);
         renderer.resetDebugFrameOverlayStats?.();
-        stallsMs = [];
+        stalls = toEmptyStalls();
       }
 
       const report = {

@@ -1,4 +1,12 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { readTokens, refreshTokens, type Tokens } from "./helper.ts";
+import {
+  markResponseFetched,
+  markResponsesStale,
+  readResponse,
+  saveResponse,
+  type StoredResponse,
+} from "./store.ts";
 
 const baseUrl = "https://amp-api.music.apple.com";
 const language = "en-GB";
@@ -109,38 +117,128 @@ export class AppleMusicError extends Error {
   }
 }
 
-function fetchWithTokens(url: string, method: "GET" | "POST", tokens: Tokens): Promise<Response> {
-  return fetch(url, {
-    method,
-    headers: {
-      ...webPlayerHeaders,
-      Authorization: `Bearer ${tokens.developerToken}`,
-      "media-user-token": tokens.userToken,
-    },
-    signal: AbortSignal.timeout(timeoutMs),
-  });
+function fetchWithTokens(
+  url: string,
+  method: "GET" | "POST",
+  tokens: Tokens,
+  etag: string | null
+): Promise<Response> {
+  const headers: Record<string, string> = {
+    ...webPlayerHeaders,
+    Authorization: `Bearer ${tokens.developerToken}`,
+    "media-user-token": tokens.userToken,
+  };
+
+  if (etag) headers["If-None-Match"] = etag;
+
+  return fetch(url, { method, headers, signal: AbortSignal.timeout(timeoutMs) });
 }
 
-// Apple answers 401 or 403 once a token expires. The helper reads new ones from the web player.
-async function fetchResponse(path: string, method: "GET" | "POST"): Promise<Response> {
+// Apple answers 401 or 403 once a token expires, and 304 when the stored body is current.
+async function fetchResponse(
+  path: string,
+  method: "GET" | "POST",
+  etag: string | null = null
+): Promise<Response> {
   const separator = path.includes("?") ? "&" : "?";
   const url = `${baseUrl}${path}${separator}l=${language}`;
 
-  const firstResponse = await fetchWithTokens(url, method, await readTokens());
+  const firstResponse = await fetchWithTokens(url, method, await readTokens(), etag);
   const isRefused = firstResponse.status === 401 || firstResponse.status === 403;
   const response = isRefused
-    ? await fetchWithTokens(url, method, await refreshTokens())
+    ? await fetchWithTokens(url, method, await refreshTokens(), etag)
     : firstResponse;
+  const isCurrent = response.status === 304;
 
-  if (!response.ok) throw new AppleMusicError(response.status, path);
+  if (!response.ok && !isCurrent) throw new AppleMusicError(response.status, path);
 
   return response;
 }
 
-async function fetchJson<Body>(path: string): Promise<Body> {
-  const response = await fetchResponse(path, "GET");
+const minuteMs = 60 * 1000;
+const dayMs = 24 * 60 * minuteMs;
 
-  return (await response.json()) as Body;
+// How long an answer counts as fresh. The first rule whose text the path holds applies.
+const freshRules: [string, number][] = [
+  ["/v1/me/storefront", 30 * dayMs],
+  ["/lyrics", 30 * dayMs],
+  ["/v1/me/recommendations", 10 * minuteMs],
+  ["/v1/me/", 0],
+  ["/v1/editorial/", 60 * minuteMs],
+  ["/search?", 10 * minuteMs],
+  ["/v1/catalog/", dayMs],
+];
+
+function toFreshMs(path: string): number {
+  const rule = freshRules.find(([pathPart]) => path.includes(pathPart));
+
+  return rule?.[1] ?? 0;
+}
+
+// The paths each page read, so a newer answer from Apple redraws the pages that showed the old one.
+const readPaths = new AsyncLocalStorage<Set<string>>();
+const changeListeners = new Set<(path: string) => void>();
+const checks = new Map<string, Promise<void>>();
+
+async function checkResponse(path: string, stored: StoredResponse): Promise<void> {
+  const response = await fetchResponse(path, "GET", stored.etag);
+
+  if (response.status === 304) return markResponseFetched(path);
+
+  const body = await response.text();
+
+  saveResponse(path, body, response.headers.get("etag"));
+  if (body !== stored.body) for (const listener of changeListeners) listener(path);
+}
+
+// One check per path at a time. A check that fails keeps the stored answer, so the app works offline.
+function startCheck(path: string, stored: StoredResponse): void {
+  if (checks.has(path)) return;
+
+  const check = checkResponse(path, stored)
+    .catch(() => undefined)
+    .finally(() => checks.delete(path));
+
+  checks.set(path, check);
+}
+
+// A stored answer shows at once, without waiting for the tokens. A stale one is checked with Apple meanwhile.
+async function fetchJson<Body>(path: string): Promise<Body> {
+  const stored = readResponse(path);
+
+  readPaths.getStore()?.add(path);
+
+  if (stored) {
+    const isFresh = Date.now() - stored.fetchedAtMs < toFreshMs(path);
+
+    if (!isFresh) startCheck(path, stored);
+
+    return JSON.parse(stored.body) as Body;
+  }
+
+  const response = await fetchResponse(path, "GET");
+  const body = await response.text();
+
+  saveResponse(path, body, response.headers.get("etag"));
+
+  return JSON.parse(body) as Body;
+}
+
+export type Watched<Value> = { value: Promise<Value>; stop: () => void };
+
+// Runs a fetch and calls onChange when Apple sends something newer for any path it read.
+export function watchFetch<Value>(
+  fetchValue: () => Promise<Value>,
+  onChange: () => void
+): Watched<Value> {
+  const paths = new Set<string>();
+  const listener = (path: string): void => {
+    if (paths.has(path)) onChange();
+  };
+
+  changeListeners.add(listener);
+
+  return { value: readPaths.run(paths, fetchValue), stop: () => changeListeners.delete(listener) };
 }
 
 async function fetchData(path: string): Promise<Resource[]> {
@@ -361,8 +459,10 @@ export async function findCatalogArtistId(artistName: string): Promise<string | 
   return artist?.id ?? null;
 }
 
+// The library pages check with Apple on their next visit, so the new song shows there.
 export async function addToLibrary(kind: "songs" | "albums", catalogId: string): Promise<void> {
   await fetchResponse(`/v1/me/library?ids[${kind}]=${catalogId}`, "POST");
+  markResponsesStale("/v1/me/library");
 }
 
 export async function fetchPlaylistSongs(playlistId: string): Promise<CatalogSong[]> {

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { flushSync } from "@gpuix/react";
 import {
   fetchLyrics,
   findCatalogSong,
@@ -25,7 +26,7 @@ export const panelWidthPx = 300;
 const artworkSizePx = 36;
 const historyCount = 2;
 // Up Next mounts this many rows around the ones in view, whatever the length of the queue.
-const queueWindowCount = 32;
+const queueWindowCount = 64;
 const queueRowHeightPx = 48;
 // One object for every row, so a render of Up Next sends no style that did not change.
 const queueRowStyle = { display: "flex", flexDirection: "column", width: "100%" } as const;
@@ -142,6 +143,7 @@ function Heading({ text }: { text: string }) {
 function UpNext() {
   const queue = useQueue();
   const [windowStart, setWindowStart] = useState(0);
+  const firstInViewRef = useRef(0);
 
   if (queue.index < 0)
     return <PageStatus text="Play an album, a playlist or a song to fill the queue." />;
@@ -154,9 +156,11 @@ function UpNext() {
     .map((song, offset) => ({ song, index: firstIndex + offset }));
 
   const moveWindow = (event: { startIndex?: number; endIndex?: number }): void => {
-    const nextStart = toWindowStart(windowStart, event, queueWindowCount);
+    const nextStart = toWindowStart(windowStart, event, queueWindowCount, firstInViewRef.current);
 
-    if (nextStart !== windowStart) setWindowStart(nextStart);
+    firstInViewRef.current = Math.floor(event.startIndex ?? 0);
+
+    if (nextStart !== windowStart) flushSync(() => setWindowStart(nextStart));
   };
 
   return (

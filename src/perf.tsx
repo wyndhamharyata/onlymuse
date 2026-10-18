@@ -13,6 +13,13 @@ const frameBudgetMs = 8.3;
 
 export const isMeasuring = reportPath !== undefined;
 
+// How often a list showed a row that React had not mounted, which draws as an empty box.
+let unmountedViews = { events: 0, rows: 0 };
+
+export function countUnmountedRows(rowCount: number): void {
+  unmountedViews = { events: unmountedViews.events + 1, rows: unmountedViews.rows + rowCount };
+}
+
 // Bun writes a --cpu-prof profile on a normal exit only, and the automation stops the app with SIGTERM.
 if (isMeasuring) process.on("SIGTERM", () => process.exit(0));
 
@@ -132,12 +139,14 @@ function Reporter() {
         renderer.resetDebugFrameOverlayStats?.();
         stalls = toEmptyStalls();
         nativeCalls = { applyBatch: toEmptyCalls(), tick: toEmptyCalls() };
+        unmountedViews = { events: 0, rows: 0 };
       }
 
       const report = {
         frames: renderer.getDebugFrameOverlayStats?.(),
         stalls: readStalls(),
         nativeCalls,
+        unmountedViews,
         rssMb: Math.round(process.memoryUsage().rss / 1_048_576),
         canReset: typeof renderer.resetDebugFrameOverlayStats === "function",
       };

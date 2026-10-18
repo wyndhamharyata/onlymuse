@@ -1,6 +1,7 @@
-import { useGpuixRequired, type PublicInstance } from "@gpuix/react";
+import { flushSync, useGpuixRequired, type PublicInstance } from "@gpuix/react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { readTopRowKey, setTopRowKey, useNavigation } from "../navigation.ts";
+import { countUnmountedRows, isMeasuring } from "../perf.tsx";
 
 // A grid row lists the keys of all its cards, so a saved card is found in whichever row holds it now.
 export type PageRow = { key: string; element: ReactNode; cardKeys?: string[] };
@@ -18,23 +19,34 @@ export function toRowKeys(ids: string[]): string[] {
   });
 }
 
-// The first row a list mounts. It moves by a sixth of the window or more, so a scroll mounts rows in small groups.
+// The first row a list mounts. Most of the window lies ahead of the scroll, and it moves before a third is left.
 export function toWindowStart(
   windowStart: number,
   event: { startIndex?: number; endIndex?: number },
-  windowCount: number
+  windowCount: number,
+  previousFirstInView: number
 ): number {
   const firstInView = Math.floor(event.startIndex ?? 0);
   const lastInView = Math.ceil(event.endIndex ?? firstInView);
-  const wantedStart = Math.max(0, firstInView - Math.floor(windowCount / 4));
+  const isGoingUp = firstInView < previousFirstInView;
+  const rowsAheadCount = isGoingUp
+    ? firstInView - windowStart
+    : windowStart + windowCount - 1 - lastInView;
   const isInViewMounted = firstInView >= windowStart && lastInView < windowStart + windowCount;
-  const hasDrifted = Math.abs(wantedStart - windowStart) >= Math.floor(windowCount / 6);
 
-  return isInViewMounted && !hasDrifted ? windowStart : wantedStart;
+  const hasRowsAhead = rowsAheadCount > windowCount / 3 || (isGoingUp && windowStart === 0);
+
+  if (isInViewMounted && hasRowsAhead) return windowStart;
+
+  const behindCount = Math.floor(windowCount / 4);
+
+  return isGoingUp
+    ? Math.max(0, lastInView + behindCount - windowCount + 1)
+    : Math.max(0, firstInView - behindCount);
 }
 
 // A list mounts about this much height of rows, whatever its length.
-const windowHeightPx = 2400;
+const windowHeightPx = 6000;
 const minWindowCount = 24;
 
 // A page that scrolls as rows. It saves the key of its top row, never a pixel offset, and returns to that row on the next visit.
@@ -56,6 +68,7 @@ export function PageList({
   const windowCount = Math.max(minWindowCount, Math.ceil(windowHeightPx / estimatedRowHeightPx));
   const [windowStart, setWindowStart] = useState(0);
   const windowStartRef = useRef(0);
+  const firstInViewRef = useRef(0);
   const rowStyle = useMemo(() => ({ paddingBottom: gapPx }), [gapPx]);
   const shownStart = Math.min(windowStart, Math.max(0, rows.length - 1));
 
@@ -81,12 +94,27 @@ export function PageList({
   const onVisibleRange = (event: { startIndex?: number; endIndex?: number }): void => {
     const list = listRef.current;
 
-    const nextStart = toWindowStart(windowStartRef.current, event, windowCount);
+    const firstInView = Math.floor(event.startIndex ?? 0);
+    const lastInView = Math.ceil(event.endIndex ?? firstInView);
+    const mountedEnd = windowStartRef.current + windowCount;
+    const unmountedCount =
+      Math.max(0, windowStartRef.current - firstInView) + Math.max(0, lastInView - mountedEnd);
 
-    // A render on every scroll step would send the rows again and cost a draw, so only a move renders.
+    if (isMeasuring && unmountedCount > 0) countUnmountedRows(unmountedCount);
+
+    const nextStart = toWindowStart(
+      windowStartRef.current,
+      event,
+      windowCount,
+      firstInViewRef.current
+    );
+
+    firstInViewRef.current = firstInView;
+
+    // Only a move renders, and inside the scroll event, so the new rows are there for the frame it draws.
     if (nextStart !== windowStartRef.current) {
       windowStartRef.current = nextStart;
-      setWindowStart(nextStart);
+      flushSync(() => setWindowStart(nextStart));
     }
 
     if (pendingKey.current || !list) return;

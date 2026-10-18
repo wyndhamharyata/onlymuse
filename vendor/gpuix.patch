@@ -22,6 +22,19 @@ index a2c2aff..ec3f5a9 100644
                      })
                      .collect::<Vec<_>>()
                  {
+diff --git a/crates/gpui/src/elements/div.rs b/crates/gpui/src/elements/div.rs
+index ff7e6c2..7df2e84 100644
+--- a/crates/gpui/src/elements/div.rs
++++ b/crates/gpui/src/elements/div.rs
+@@ -3393,7 +3393,7 @@ impl Interactivity {
+                     false
+                 };
+ 
+-                if is_hovered {
++                if is_hovered && !window.is_scrolling() {
+                     style.refine(hover_style);
+                 }
+             }
 diff --git a/crates/gpui/src/platform.rs b/crates/gpui/src/platform.rs
 index e37ab99..6e0d479 100644
 --- a/crates/gpui/src/platform.rs
@@ -37,6 +50,59 @@ index e37ab99..6e0d479 100644
      fn is_hovered(&self) -> bool;
      fn background_appearance(&self) -> WindowBackgroundAppearance;
      fn set_title(&mut self, title: &str);
+diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
+index 3e55040..d6bff07 100644
+--- a/crates/gpui/src/window.rs
++++ b/crates/gpui/src/window.rs
+@@ -1191,6 +1191,8 @@ pub struct Window {
+     /// Tracks recent input event timestamps to determine if input is arriving at a high rate.
+     /// Used to selectively enable VRR optimization only when input rate exceeds 60fps.
+     pub(crate) input_rate_tracker: Rc<RefCell<InputRateTracker>>,
++    // onlymuse patch: when the last scroll wheel event arrived, so hover styles rest during a scroll.
++    last_scroll_wheel_at: Option<Instant>,
+     #[cfg(feature = "profiler")]
+     window_profiler: profiler::WindowProfiler,
+     last_input_modality: InputModality,
+@@ -1883,6 +1885,7 @@ impl Window {
+             hovered,
+             needs_present,
+             input_rate_tracker,
++            last_scroll_wheel_at: None,
+             #[cfg(feature = "profiler")]
+             window_profiler: profiler::WindowProfiler::new(handle.window_id())?,
+             last_input_modality: InputModality::Mouse,
+@@ -2908,6 +2911,13 @@ impl Window {
+         self.last_input_modality == InputModality::Keyboard
+     }
+ 
++    /// onlymuse patch: true until 150 ms after the last scroll wheel event. The rows under a still
++    /// pointer change every frame of a scroll, so a hover style would jump from row to row.
++    pub fn is_scrolling(&self) -> bool {
++        self.last_scroll_wheel_at
++            .is_some_and(|at| at.elapsed() < Duration::from_millis(150))
++    }
++
+     /// The current state of the keyboard's capslock
+     pub fn capslock(&self) -> Capslock {
+         self.capslock
+@@ -3233,6 +3243,9 @@ impl Window {
+         }
+ 
+         self.mouse_hit_test = self.next_frame.hit_test(self.mouse_position);
++        if self.is_scrolling() {
++            self.on_next_frame(|window, _| window.refresh());
++        }
+ 
+         // Now actually paint the elements.
+         self.invalidator.set_phase(DrawPhase::Paint);
+@@ -5278,6 +5291,7 @@ impl Window {
+                 PlatformInput::ModifiersChanged(modifiers_changed)
+             }
+             PlatformInput::ScrollWheel(scroll_wheel) => {
++                self.last_scroll_wheel_at = Some(Instant::now());
+                 self.mouse_position = scroll_wheel.position;
+                 self.modifiers = scroll_wheel.modifiers;
+                 PlatformInput::ScrollWheel(scroll_wheel)
 diff --git a/crates/gpui_macos/src/display_link.rs b/crates/gpui_macos/src/display_link.rs
 index 5387cb6..1ce4219 100644
 --- a/crates/gpui_macos/src/display_link.rs

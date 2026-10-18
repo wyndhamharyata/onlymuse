@@ -166,14 +166,17 @@ the layout and the rules.
 - A frame takes 5 to 7 ms at p90 against 8.3 ms at 120 Hz. Single frames reach 15 to 30 ms.
 - gpuix 0.10 ships with GPUI's `test-support` on. With it, every update that dirties the window draws
   a whole frame at once: each wheel event over a list costs about 6.5 ms, a click costs two draws,
-  and each React commit costs a draw too. `vendor/gpuix-draw-per-frame.patch` limits that draw
+  and each React commit costs a draw too. `vendor/gpuix.patch` limits that draw
   to test windows and covered windows, so a visible window draws once per display frame. A wheel
   event then costs 0.5 ms and a commit about 0 ms.
 - The app runs the patched build. `vendor/gpuix-native.darwin-arm64.node` is gpuix 0.10.0 (commit
-  410fb56) built with `vendor/gpuix-draw-per-frame.patch` and Rust 1.97.1, then given SDK 26.5 with
+  410fb56) built with `vendor/gpuix.patch` and Rust 1.97.1, then given SDK 26.5 with
   `vtool`. dyld rejects the string table that the SDK 27 linker writes. `bun install` runs
   `scripts/gpuix-native.ts`, which puts it in place of the published binary. On a gpuix upgrade, the
   patch must be built again or dropped.
+- The patch also rests hover styles during a scroll, until 150 ms after the last wheel event. The
+  rows under a still pointer change every frame, so the highlight jumped from row to row and could
+  trail the content by a frame. Clicks and the cursor are unchanged.
 - With the display asleep, `CGGetActiveDisplayList` lists no display and GPUI cannot create its
   display link. A bench run then measures nothing on screen.
 - Up Next mounts 32 rows through gpuix's `itemCount`, not one per queued song. Opening it stalls for

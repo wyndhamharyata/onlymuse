@@ -12,6 +12,7 @@ type Report = {
   rssMb: number;
   canReset: boolean;
   nativeCalls?: Record<string, { count: number; totalMs: number; maxMs: number }>;
+  unmountedViews?: { events: number; rows: number };
   framesPerSecond?: number;
 };
 
@@ -78,6 +79,10 @@ function toRow(mode: string, scene: string, report: Report): string {
   const stalls = report.stalls;
   const batch = report.nativeCalls?.applyBatch;
   const tick = report.nativeCalls?.tick;
+  const unmounted = report.unmountedViews;
+  const unmountedText = unmounted?.events
+    ? `  EMPTY ROWS ${unmounted.rows} in ${unmounted.events} steps`
+    : "";
   const nativeText = `batch ${batch?.count ?? 0}x max ${batch?.maxMs.toFixed(0)} total ${batch?.totalMs.toFixed(0)} | tick max ${tick?.maxMs.toFixed(0)} total ${tick?.totalMs.toFixed(0)} ms`;
   const drawText = `draw p90 ${frames?.p90Ms?.toFixed(1)} max ${frames?.maxMs?.toFixed(1)} ms (${frames?.frames ?? 0} frames)`;
   const stallText = `JS stalls p99 ${stalls.p99Ms.toFixed(1)} max ${stalls.maxMs.toFixed(0)} ms, ${stalls.missedFrames} frames missed, ${stalls.blockedMs} ms blocked`;
@@ -87,11 +92,19 @@ function toRow(mode: string, scene: string, report: Report): string {
     24
   );
 
-  return `${mode.padEnd(12)}${scene.padEnd(22)}${rateText}  ${stallText.padEnd(76)}${nativeText.padEnd(58)}${drawText}  ${report.rssMb} MB`;
+  return `${mode.padEnd(12)}${scene.padEnd(22)}${rateText}  ${stallText.padEnd(76)}${nativeText.padEnd(58)}${drawText}  ${report.rssMb} MB${unmountedText}`;
 }
 
 // The wheel steps a second the last scroll sent, which a frame rate is read against.
 let stepsPerSecond = 0;
+
+// A fast flick of the trackpad: large steps, down then back up.
+async function fling(app: Awaited<ReturnType<typeof launch>>): Promise<void> {
+  for (let tick = 0; tick < 160; tick += 1) {
+    await app.mouse.wheel({ x: 800, y: 500 }, 0, tick < 80 ? -400 : 400);
+    await sleep(wheelTickMs);
+  }
+}
 
 async function scroll(app: Awaited<ReturnType<typeof launch>>, isSideways = false): Promise<void> {
   const point = isSideways ? { x: 800, y: 300 } : { x: 800, y: 500 };
@@ -182,6 +195,7 @@ for (const mode of modes) {
       )
     );
     rows.push(toRow(mode, "scroll Songs", await measure(reportPath, () => scroll(app))));
+    rows.push(toRow(mode, "fling Songs", await measure(reportPath, () => fling(app))));
     rows.push(toRow(mode, "idle on Songs", await measure(reportPath, () => sleep(idleMs))));
     rows.push(
       toRow(

@@ -7,6 +7,7 @@ import { colors, toAccentTint } from "../../theme.ts";
 import { ActionButton } from "../../window/ActionButton.tsx";
 import { PageStatus, useFetched } from "../../window/Fetched.tsx";
 import { PageList, toRowKeys, type PageRow } from "../../window/PageList.tsx";
+import { Artwork } from "../../window/Artwork.tsx";
 
 const coverSizePx = 240;
 
@@ -98,22 +99,7 @@ function Header({ album }: { album: Album }) {
 
   return (
     <div style={{ display: "flex", alignItems: "flex-end", gap: 28 }}>
-      {coverUrl ? (
-        <img
-          src={coverUrl}
-          objectFit="cover"
-          style={{ width: coverSizePx, height: coverSizePx, borderRadius: 10 }}
-        />
-      ) : (
-        <div
-          style={{
-            width: coverSizePx,
-            height: coverSizePx,
-            borderRadius: 10,
-            backgroundColor: colors.card,
-          }}
-        />
-      )}
+      <Artwork source={coverUrl} widthPx={coverSizePx} heightPx={coverSizePx} radiusPx={10} />
       <div style={{ display: "flex", flexDirection: "column", gap: 6, flexGrow: 1, minWidth: 0 }}>
         <text style={{ color: colors.text, fontSize: 32, fontWeight: 800 }}>{album.name}</text>
         <div onClick={openArtist} style={{ cursor: openArtist ? "pointer" : "default" }}>

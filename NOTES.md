@@ -140,6 +140,21 @@ the layout and the rules.
 - **Signing.** The helper is signed with the self-signed certificate "onlymuse local", from
   `scripts/make-signing-certificate.sh`. Every build then keeps its Automation permission.
 
+### Persistence
+
+- `~/Library/Application Support/onlymuse/onlymuse.sqlite`, in WAL mode, holds two tables.
+  `responses` keeps Apple's answers with their ETags. `state` keeps the page and its history, the
+  queue, the resume point, the open panel, the search term and the accent, as JSON per key.
+- A stored answer shows at once, without waiting for the tokens. A stale one is checked with
+  `If-None-Match`. Apple answers 304 for an unchanged library or catalog answer. Home changes on
+  every request.
+- State is saved 300 ms after each change, and the play position every 5 seconds. A force quit
+  loses at most that much.
+- Song lists, grids and the album page save the key of their top row, never a pixel offset. Pages
+  with sideways shelves open at the top. GPUIX allows no scrolling inside a list row.
+- Artwork is saved in `~/Library/Caches/onlymuse/images`, named by a hash of its URL. A file unused
+  for 60 days is removed.
+
 ## Open questions
 
 - **Token refresh with an expired token.** The refresh reads a fresh developer token from the web
@@ -150,7 +165,6 @@ the layout and the rules.
 - **Silence between songs.** Not measured. Gapless albums will not stay gapless.
 - **Library growth.** Every song played goes into the library. A cleanup of songs the app added only
   to play them may help.
-- **The queue is lost when the app quits.**
 - **The sidebar reads the playlists once,** on start.
 - **Songs started in Music.app** show no artwork in the player bar.
 

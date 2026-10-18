@@ -16,6 +16,7 @@ import {
   useQueue,
 } from "../queue.ts";
 import { colors, sizes } from "../theme.ts";
+import { Artwork } from "./Artwork.tsx";
 import type { Panel } from "./SidePanel.tsx";
 
 const artworkSizePx = 52;
@@ -105,28 +106,6 @@ function Bar({
   );
 }
 
-function Artwork({ source }: { source?: string }) {
-  if (!source)
-    return (
-      <div
-        style={{
-          width: artworkSizePx,
-          height: artworkSizePx,
-          borderRadius: 6,
-          backgroundColor: colors.card,
-        }}
-      />
-    );
-
-  return (
-    <img
-      src={source}
-      objectFit="cover"
-      style={{ width: artworkSizePx, height: artworkSizePx, borderRadius: 6 }}
-    />
-  );
-}
-
 function SongText({
   title,
   badge,
@@ -198,7 +177,12 @@ function NowPlayingInfo({
 
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-        <Artwork source={artworkUrl} />
+        <Artwork
+          source={artworkUrl}
+          widthPx={artworkSizePx}
+          heightPx={artworkSizePx}
+          radiusPx={6}
+        />
         <SongText title={addingSong.name} subtitle="Adding to library…" />
       </div>
     );
@@ -207,7 +191,7 @@ function NowPlayingInfo({
   if (!song) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <Artwork />
+        <Artwork widthPx={artworkSizePx} heightPx={artworkSizePx} radiusPx={6} />
         <SongText title="Not playing" subtitle={placeholderText} />
       </div>
     );
@@ -219,7 +203,12 @@ function NowPlayingInfo({
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-      <Artwork source={queueArtworkUrl ?? song.artworkPath} />
+      <Artwork
+        source={queueArtworkUrl ?? song.artworkPath}
+        widthPx={artworkSizePx}
+        heightPx={artworkSizePx}
+        radiusPx={6}
+      />
       <SongText
         title={song.name}
         badge={badge}

@@ -3,6 +3,7 @@ import { shuffleSongs, playSongs } from "../../queue.ts";
 import { colors } from "../../theme.ts";
 import { useContentWidthPx } from "../../window/ContentWidth.tsx";
 import { ActionButton } from "../../window/ActionButton.tsx";
+import { Artwork } from "../../window/Artwork.tsx";
 import { CardRow, CardTile } from "../../window/Cards.tsx";
 import { PageStatus, useFetched } from "../../window/Fetched.tsx";
 import { SongRow } from "../../window/SongRow.tsx";
@@ -34,11 +35,7 @@ function Header({ artist }: { artist: Artist }) {
       }}
     >
       {photoUrl && (
-        <img
-          src={photoUrl}
-          objectFit="cover"
-          style={{ width: widthPx, height: headerHeightPx, borderRadius: 12 }}
-        />
+        <Artwork source={photoUrl} widthPx={widthPx} heightPx={headerHeightPx} radiusPx={12} />
       )}
       <div
         style={{

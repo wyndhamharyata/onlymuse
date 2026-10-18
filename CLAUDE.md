@@ -35,6 +35,9 @@ src/
   navigation.ts     The page shown, with Back and Forward.
   position.ts       The play position between Music.app's posts.
   downloads.ts      The songs Music.app has downloaded, read from its download folder.
+  store.ts          The SQLite file: Apple's answers and the saved state of the window.
+  artwork.ts        Apple's artwork saved on disk.
+  checks.ts         The checks a saved value goes through as it comes back from the store.
   format.ts         Times as text.
   theme.ts          Colours, sizes and the accent.
   icons.tsx         The SVG icons and the Icon component.

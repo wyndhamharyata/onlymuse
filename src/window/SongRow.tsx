@@ -3,6 +3,7 @@ import { toClockText } from "../format.ts";
 import { useHelper } from "../helper.ts";
 import { useQueue } from "../queue.ts";
 import { colors, toAccentTint } from "../theme.ts";
+import { Artwork } from "./Artwork.tsx";
 
 const artworkSizePx = 40;
 
@@ -37,22 +38,7 @@ export function SongRow({
         hover: { backgroundColor: isCurrent ? toAccentTint(accent) : colors.hover },
       }}
     >
-      {artworkUrl ? (
-        <img
-          src={artworkUrl}
-          objectFit="cover"
-          style={{ width: artworkSizePx, height: artworkSizePx, borderRadius: 5 }}
-        />
-      ) : (
-        <div
-          style={{
-            width: artworkSizePx,
-            height: artworkSizePx,
-            borderRadius: 5,
-            backgroundColor: colors.card,
-          }}
-        />
-      )}
+      <Artwork source={artworkUrl} widthPx={artworkSizePx} heightPx={artworkSizePx} radiusPx={5} />
       <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0 }}>
         <text
           style={{ color: nameColor, fontSize: 13, whiteSpace: "nowrap", textOverflow: "ellipsis" }}

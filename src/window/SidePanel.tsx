@@ -10,6 +10,7 @@ import { usePositionSeconds } from "../position.ts";
 import { findQueueSong, playQueueAt, removeFromQueue, useQueue } from "../queue.ts";
 import { colors, toAccentTint } from "../theme.ts";
 import { PageStatus, useFetched } from "./Fetched.tsx";
+import { Artwork } from "./Artwork.tsx";
 
 export type Panel = "queue" | "lyrics";
 
@@ -91,22 +92,12 @@ function QueueRow({
           cursor: "pointer",
         }}
       >
-        {artworkUrl ? (
-          <img
-            src={artworkUrl}
-            objectFit="cover"
-            style={{ width: artworkSizePx, height: artworkSizePx, borderRadius: 4 }}
-          />
-        ) : (
-          <div
-            style={{
-              width: artworkSizePx,
-              height: artworkSizePx,
-              borderRadius: 4,
-              backgroundColor: colors.card,
-            }}
-          />
-        )}
+        <Artwork
+          source={artworkUrl}
+          widthPx={artworkSizePx}
+          heightPx={artworkSizePx}
+          radiusPx={4}
+        />
         <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
           <text
             style={{

@@ -1,6 +1,7 @@
 import { toArtworkUrl, type Card } from "../apple-music.ts";
 import { openCard } from "../navigation.ts";
 import { colors } from "../theme.ts";
+import { Artwork } from "./Artwork.tsx";
 
 // Twice the drawn size, for the Retina screen.
 const pixelsPerPoint = 2;
@@ -33,22 +34,7 @@ export function CardTile({
         cursor: canOpen ? "pointer" : "default",
       }}
     >
-      {artworkUrl ? (
-        <img
-          src={artworkUrl}
-          objectFit="cover"
-          style={{ width: sizePx, height: sizePx, borderRadius: radiusPx }}
-        />
-      ) : (
-        <div
-          style={{
-            width: sizePx,
-            height: sizePx,
-            borderRadius: radiusPx,
-            backgroundColor: colors.card,
-          }}
-        />
-      )}
+      <Artwork source={artworkUrl} widthPx={sizePx} heightPx={sizePx} radiusPx={radiusPx} />
       <text
         style={{
           color: colors.text,

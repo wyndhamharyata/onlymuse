@@ -82,6 +82,8 @@ function PageContent({ page, visit }: { page: Page; visit: number }) {
 
 // These pages scroll inside their own list, so the page area around them stays still.
 const listPageIds = new Set<Page["id"]>([
+  "home",
+  "new",
   "favouriteSongs",
   "songs",
   "downloaded",

@@ -12,6 +12,9 @@ const frameBudgetMs = 8.3;
 
 export const isMeasuring = reportPath !== undefined;
 
+// Bun writes a --cpu-prof profile on a normal exit only, and the automation stops the app with SIGTERM.
+if (isMeasuring) process.on("SIGTERM", () => process.exit(0));
+
 let stallsMs: number[] = [];
 
 function startStallProbe(): void {

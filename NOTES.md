@@ -150,8 +150,9 @@ the layout and the rules.
   every request.
 - State is saved 300 ms after each change, and the play position every 5 seconds. A force quit
   loses at most that much.
-- Song lists, grids and the album page save the key of their top row, never a pixel offset. Pages
-  with sideways shelves open at the top. GPUIX allows no scrolling inside a list row.
+- Song lists, grids, Home, New and the album page save the key of their top row, never a pixel
+  offset. A list row can scroll sideways in GPUIX 0.10, so each shelf of Home and New is a list row.
+  A shelf draws only the cards in view, between two empty boxes as wide as the cards it skips.
 - Artwork is saved in `~/Library/Caches/onlymuse/images`, named by a hash of its URL. A file unused
   for 60 days is removed.
 

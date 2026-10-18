@@ -1,11 +1,17 @@
+import { useGpuixRequired, type PublicInstance } from "@gpuix/react";
+import { useRef, useState } from "react";
 import { toArtworkUrl, type Card } from "../apple-music.ts";
 import { openCard } from "../navigation.ts";
 import { colors } from "../theme.ts";
 import { Artwork } from "./Artwork.tsx";
+import { useContentWidthPx } from "./ContentWidth.tsx";
 import { toRowKeys } from "./PageList.tsx";
 
 // Twice the drawn size, for the Retina screen.
 const pixelsPerPoint = 2;
+const cardGapPx = 16;
+// Cards drawn past each edge of the shelf, so a fast scroll finds them already drawn.
+const extraCardCount = 2;
 
 export function CardTile({
   card,
@@ -64,6 +70,7 @@ export function CardTile({
   );
 }
 
+// A shelf draws only the cards in view. Empty boxes keep the width of the rest, so the scroll bar stays true.
 export function CardRow({
   title,
   cards,
@@ -75,24 +82,48 @@ export function CardRow({
   sizePx: number;
   isRound?: boolean;
 }) {
+  const renderer = useGpuixRequired();
+  const shelfRef = useRef<PublicInstance | null>(null);
+  const widthPx = useContentWidthPx();
+  const stepPx = sizePx + cardGapPx;
+  const shownCount = Math.ceil(widthPx / stepPx) + extraCardCount * 2;
+  const [firstIndex, setFirstIndex] = useState(0);
+
   if (cards.length === 0) return null;
 
   // A shelf can hold the same album twice.
   const cardKeys = toRowKeys(cards.map((card) => card.id));
+  const lastIndex = Math.min(cards.length - 1, firstIndex + shownCount - 1);
+  const beforeWidthPx = firstIndex * stepPx - cardGapPx;
+  const afterWidthPx = (cards.length - 1 - lastIndex) * stepPx - cardGapPx;
+
+  const moveWindow = (): void => {
+    const shelf = shelfRef.current;
+    const [offsetXPx] = (shelf && renderer.getScrollOffset?.(shelf.id)) ?? [0];
+    const next = Math.max(0, Math.floor(-offsetXPx / stepPx) - extraCardCount);
+
+    if (next !== firstIndex) setFirstIndex(next);
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <text style={{ color: colors.text, fontSize: 17, fontWeight: 700 }}>{title}</text>
-      <div style={{ display: "flex", gap: 16, overflowX: "scroll" }}>
-        {cards.map((card, index) => (
+      <div
+        ref={shelfRef}
+        onScroll={moveWindow}
+        style={{ display: "flex", gap: cardGapPx, overflowX: "scroll" }}
+      >
+        {beforeWidthPx > 0 && <div style={{ width: beforeWidthPx, flexShrink: 0 }} />}
+        {cards.slice(firstIndex, lastIndex + 1).map((card, index) => (
           <CardTile
-            key={cardKeys[index]}
+            key={cardKeys[firstIndex + index]}
             card={card}
             row={cards}
             sizePx={sizePx}
             isRound={isRound}
           />
         ))}
+        {afterWidthPx > 0 && <div style={{ width: afterWidthPx, flexShrink: 0 }} />}
       </div>
     </div>
   );

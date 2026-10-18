@@ -59,9 +59,11 @@ function toRow(mode: string, scene: string, report: Report): string {
   return `${mode.padEnd(12)}${scene.padEnd(22)}${stallText.padEnd(76)}${drawText}  ${report.rssMb} MB`;
 }
 
-async function scroll(app: Awaited<ReturnType<typeof launch>>): Promise<void> {
+async function scroll(app: Awaited<ReturnType<typeof launch>>, isSideways = false): Promise<void> {
+  const point = isSideways ? { x: 800, y: 300 } : { x: 800, y: 500 };
+
   for (let tick = 0; tick < wheelTickCount; tick += 1) {
-    await app.mouse.wheel({ x: 800, y: 500 }, 0, wheelTickPx);
+    await app.mouse.wheel(point, isSideways ? wheelTickPx / 2 : 0, isSideways ? 0 : wheelTickPx);
     await sleep(wheelTickMs);
   }
 }
@@ -121,6 +123,18 @@ for (const mode of modes) {
     console.error(`${mode}: frame counts can reset: ${(await readReport(reportPath)).canReset}`);
     rows.push(toRow(mode, "idle on Home", await measure(reportPath, () => sleep(idleMs))));
     rows.push(toRow(mode, "scroll Home", await measure(reportPath, () => scroll(app))));
+    rows.push(
+      toRow(
+        mode,
+        "open New",
+        await measure(reportPath, () => clickSidebar(app, "New").then(() => sleep(3000)))
+      )
+    );
+    rows.push(
+      toRow(mode, "scroll New sideways", await measure(reportPath, () => scroll(app, true)))
+    );
+    rows.push(toRow(mode, "scroll New", await measure(reportPath, () => scroll(app))));
+    rows.push(toRow(mode, "idle on New", await measure(reportPath, () => sleep(idleMs))));
     await clickSidebar(app, "Songs");
     await sleep(4000);
     rows.push(toRow(mode, "scroll Songs", await measure(reportPath, () => scroll(app))));

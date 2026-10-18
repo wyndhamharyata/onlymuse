@@ -275,6 +275,12 @@ function applyNowPlaying(): void {
 
   if (nowPlaying.state === "playing" || nowPlaying.state === "paused") {
     const isSameSong = tracking?.persistentID === nowPlaying.song.persistentID;
+    const hasQueueSongEnded =
+      tracking !== null &&
+      !isSameSong &&
+      tracking.persistentID === state.playingPersistentID &&
+      toEstimateSeconds(tracking, nowMs) >= tracking.durationSeconds - endToleranceSeconds;
+
     const estimateSeconds = tracking && isSameSong ? toEstimateSeconds(tracking, nowMs) : 0;
     const isPaused = nowPlaying.state === "paused";
     const pausedSeconds = Math.max(nowPlaying.positionSeconds, estimateSeconds);
@@ -286,6 +292,10 @@ function applyNowPlaying(): void {
       receivedAtMs: nowMs,
       isPlaying: !isPaused,
     };
+
+    // Music.app's Autoplay can go on to a song of its own with no Stopped, so a switch at the end is the end.
+    if (hasQueueSongEnded) playNextAfterEnd();
+
     return;
   }
 
@@ -293,13 +303,18 @@ function applyNowPlaying(): void {
   const isQueueSong = finished?.persistentID === state.playingPersistentID;
   const endSeconds = (finished?.durationSeconds ?? 0) - endToleranceSeconds;
   const hasEnded = finished !== null && toEstimateSeconds(finished, nowMs) >= endSeconds;
-  const nextIndex = state.repeat === "one" ? state.index : findNextIndex();
 
   const resumePoint = state.resumePoint;
 
   tracking = null;
   if (hasEnded && resumePoint) setState({ resumePoint: { ...resumePoint, positionSeconds: 0 } });
-  if (isQueueSong && hasEnded && nextIndex !== null) playAt(nextIndex);
+  if (isQueueSong && hasEnded) playNextAfterEnd();
+}
+
+function playNextAfterEnd(): void {
+  const nextIndex = state.repeat === "one" ? state.index : findNextIndex();
+
+  if (nextIndex !== null) playAt(nextIndex);
 }
 
 // Keeps the resume point on each post from Music.app, and every few seconds while a song plays.

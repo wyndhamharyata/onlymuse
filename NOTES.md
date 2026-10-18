@@ -88,6 +88,9 @@ the layout and the rules.
 - The app is a Bun process that draws with GPUIX. A Swift helper speaks JSON lines with it.
 - **The app owns the queue.** Music.app plays one song at a time. On `Stopped` near the end of a
   song, the app plays the next one. A stop far from the end is the user, so the queue waits.
+  With Autoplay on in Music.app, it goes on to a song of its own at the end, with no `Stopped`. A
+  switch to another song within 3 seconds of the end counts as the end too. AppleScript can neither
+  read nor turn off Autoplay. A switch earlier in the song is the user, and the queue waits.
 - **Playing a song.** The helper looks for the song in Music.app's library by name, artist and
   album, and plays the one closest in length. When the library has none, the app puts the song in
   the library through the API, then asks again every 1.5 seconds until Music.app shows it.

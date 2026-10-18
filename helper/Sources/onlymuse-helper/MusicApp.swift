@@ -48,6 +48,9 @@ final class MusicApp {
     guard isRunning else { return ["type": "nowPlaying", "state": "closed"] }
     guard let text = run(nowPlayingScript)?.stringValue else { return ["type": "nowPlaying", "state": "closed"] }
 
+    // The artwork below can take a while, so the app counts the position on from when it was read.
+    let positionReadAtMs = Self.nowMs()
+
     let fields = text.components(separatedBy: "\u{1F}")
     let volumePercent = Int(fields[1]) ?? 0
 
@@ -63,8 +66,22 @@ final class MusicApp {
 
     return [
       "type": "nowPlaying", "state": Self.toState(fields[0]), "volumePercent": volumePercent,
-      "positionSeconds": Self.readSeconds(fields[2]), "song": song,
+      "positionSeconds": Self.readSeconds(fields[2]), "positionReadAtMs": positionReadAtMs, "song": song,
     ]
+  }
+
+  // The position alone, read with no artwork, so the app's clock stays with Music.app's. nil unless it plays.
+  func readPosition() -> [String: Any]? {
+    guard let playback = readPlayback() else { return nil }
+
+    return [
+      "type": "position", "persistentID": playback.persistentID,
+      "positionSeconds": playback.positionSeconds, "positionReadAtMs": Self.nowMs(),
+    ]
+  }
+
+  static func nowMs() -> Double {
+    Date().timeIntervalSince1970 * 1000
   }
 
   func apply(_ command: Command) {

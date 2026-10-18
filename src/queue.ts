@@ -330,7 +330,7 @@ function applyPlayingSong(nowPlaying: PlayingSong, nowMs: number): void {
     persistentID: nowPlaying.song.persistentID,
     durationSeconds: nowPlaying.song.durationSeconds,
     positionSeconds: isPaused ? pausedSeconds : nowPlaying.positionSeconds,
-    receivedAtMs: nowMs,
+    receivedAtMs: readHelperState().nowPlayingReceivedAtMs,
     isPlaying: !isPaused,
   };
 

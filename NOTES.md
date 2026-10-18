@@ -107,6 +107,11 @@ the layout and the rules.
 - **One helper across hot reloads.** `bun --hot` runs every module again on each save, which
   started one more helper per save. The helper process lives on `globalThis`, and a reload only
   swaps the function that reads its messages, then asks it to send its state again.
+- **The play position** is Music.app's last report, counted on from the moment the helper read it,
+  which `positionReadAtMs` carries. The helper reads the artwork after the position, which could
+  hold a report back. While a song plays the helper also sends the position every 2 seconds, read
+  with no artwork, so drift and a seek made in Music.app are corrected. The lyrics change line on a
+  timer set for the next line's start, not on a 250 ms tick.
 - **Shuffle and repeat** belong to the app's queue. Repeat one plays the song again when Music.app
   stops at its end.
 - **Next and previous** move through the queue while Music.app plays the song the queue started.

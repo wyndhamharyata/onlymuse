@@ -21,7 +21,8 @@ export type Tokens = { developerToken: string; userToken: string };
 
 // Each message the helper sends, as send() in helper/Sources/onlymuse-helper names it.
 type Incoming =
-  | ({ type: "nowPlaying" } & NowPlaying)
+  | ({ type: "nowPlaying"; positionReadAtMs?: number } & NowPlaying)
+  | { type: "position"; persistentID: string; positionSeconds: number; positionReadAtMs: number }
   | { type: "accent"; color: string }
   | ({ type: "tokens" } & Tokens)
   | { type: "signInNeeded" }
@@ -110,8 +111,25 @@ function applyMessage(message: Incoming): void {
     saveState("accent", message.color);
   }
 
+  // The position counts on from when the helper read it, not from when its message arrived.
   if (message.type === "nowPlaying") {
-    state = { ...state, nowPlaying: message, nowPlayingReceivedAtMs: Date.now() };
+    const receivedAtMs = Math.min(message.positionReadAtMs ?? Date.now(), Date.now());
+
+    state = { ...state, nowPlaying: message, nowPlayingReceivedAtMs: receivedAtMs };
+  }
+
+  if (message.type === "position") {
+    const nowPlaying = state.nowPlaying;
+    const isSameSong =
+      nowPlaying.state === "playing" && nowPlaying.song.persistentID === message.persistentID;
+
+    if (!isSameSong) return;
+
+    state = {
+      ...state,
+      nowPlaying: { ...nowPlaying, positionSeconds: message.positionSeconds },
+      nowPlayingReceivedAtMs: Math.min(message.positionReadAtMs, Date.now()),
+    };
   }
 
   for (const listener of listeners) listener();

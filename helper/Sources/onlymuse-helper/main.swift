@@ -53,6 +53,15 @@ Timer.scheduledTimer(withTimeInterval: volumeCheckSeconds, repeats: true) { _ in
   MainActor.assumeIsolated { music.sendVolumeWhenChanged() }
 }
 
+// Music.app posts no position as a song plays, so the helper sends it, and the app's clock follows a seek made in Music.app.
+let positionCheckSeconds = 2.0
+
+Timer.scheduledTimer(withTimeInterval: positionCheckSeconds, repeats: true) { _ in
+  MainActor.assumeIsolated {
+    if let position = music.readPosition() { send(position) }
+  }
+}
+
 let webPlayer = WebPlayer()
 
 startReadingCommands(onCommand: { command in

@@ -156,6 +156,26 @@ the layout and the rules.
 - Artwork is saved in `~/Library/Caches/onlymuse/images`, named by a hash of its URL. A file unused
   for 60 days is removed.
 
+## Frame times (18 Oct 2026)
+
+`bun run bench` measures each build behind the other windows. Findings from the profile of a scroll:
+
+- React does almost no work during a scroll. GPUI's frame is the cost: gpuix builds the element tree
+  from its retained tree (about half), taffy lays it out (about a third), then prepaint and paint.
+  A frame costs in proportion to the elements laid out, about 300 on a list page.
+- A frame takes 5 to 7 ms at p90 against 8.3 ms at 120 Hz. Single frames reach 15 to 30 ms.
+- gpuix 0.10 ships with GPUI's `test-support` on. With it, every update that dirties the window draws
+  a whole frame at once: each wheel event over a list costs about 6.5 ms, and each React commit costs
+  a draw too. A frame of its own per event is fine at one event a frame, and doubles the work when an
+  event and a commit share a frame. A build with that draw limited to test windows and covered
+  windows answers a wheel event in 0.5 ms. The automation sends at most about 80 steps a second, so
+  the bench could not show a gain, and the app keeps the published binary. The patch belongs with
+  gpuix upstream.
+- macOS 27 refuses `CVDisplayLinkCreateWithActiveCGDisplays` (-6661), so GPUI's display link never
+  runs here. A visible window draws from AppKit's display cycle, and a covered window only through
+  the draw in each update.
+- Opening Up Next builds a row for each queued song, about 2,000, and stalls for 60 to 70 ms.
+
 ## Open questions
 
 - **Token refresh with an expired token.** The refresh reads a fresh developer token from the web

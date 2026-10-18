@@ -2,6 +2,7 @@ import { useGpuixRequired, type PublicInstance } from "@gpuix/react";
 import { useRef, useState } from "react";
 import { toArtworkUrl, type Card } from "../apple-music.ts";
 import { openCard } from "../navigation.ts";
+import { markScrolled } from "../scrolling.ts";
 import { colors } from "../theme.ts";
 import { Artwork } from "./Artwork.tsx";
 import { useContentWidthPx } from "./ContentWidth.tsx";
@@ -109,6 +110,8 @@ export function CardRow({
   const afterWidthPx = (cards.length - 1 - lastIndex) * stepPx - cardGapPx;
 
   const moveWindow = (): void => {
+    markScrolled();
+
     const shelf = shelfRef.current;
     const [offsetXPx] = (shelf && renderer.getScrollOffset?.(shelf.id)) ?? [0];
     const next = Math.max(0, Math.floor(-offsetXPx / stepPx) - extraCardCount);

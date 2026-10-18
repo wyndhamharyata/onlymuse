@@ -156,6 +156,9 @@ the layout and the rules.
 - A stored answer shows at once, without waiting for the tokens. A stale one is checked with
   `If-None-Match`. Apple answers 304 for an unchanged library or catalog answer. Home changes on
   every request.
+- A newer answer never shows during a scroll. On Home and New it shows only if the page has not
+  been scrolled yet, and otherwise on the next visit. Elsewhere it waits until the page has rested
+  for 1 second. A newer Home arriving mid-scroll redrew every shelf at once.
 - State is saved 300 ms after each change, and the play position every 5 seconds. A force quit
   loses at most that much.
 - Song lists, grids, Home, New and the album page save the key of their top row, never a pixel

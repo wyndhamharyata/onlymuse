@@ -17,7 +17,7 @@ export function ShelvesPage({
   title: string;
   fetchShelves: () => Promise<Shelf[]>;
 }) {
-  const { value: shelves, statusText } = useFetched(fetchShelves, [title]);
+  const { value: shelves, statusText } = useFetched(fetchShelves, [title], "untilScrolled");
   const shelfKeys = toRowKeys((shelves ?? []).map((shelf) => shelf.title));
   const rows: PageRow[] = (shelves ?? []).map((shelf, index) => ({
     key: shelfKeys[index],

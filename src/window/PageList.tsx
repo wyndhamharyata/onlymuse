@@ -2,6 +2,7 @@ import { flushSync, useGpuixRequired, type PublicInstance } from "@gpuix/react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { readTopRowKey, setTopRowKey, useNavigation } from "../navigation.ts";
 import { countUnmountedRows, isMeasuring } from "../perf.tsx";
+import { markScrolled } from "../scrolling.ts";
 
 // A grid row lists the keys of all its cards, so a saved card is found in whichever row holds it now.
 export type PageRow = { key: string; element: ReactNode; cardKeys?: string[] };
@@ -93,6 +94,8 @@ export function PageList({
   // The key waits until the saved row is back on screen, so a first draw of the top never replaces it.
   const onVisibleRange = (event: { startIndex?: number; endIndex?: number }): void => {
     const list = listRef.current;
+
+    markScrolled();
 
     const firstInView = Math.floor(event.startIndex ?? 0);
     const lastInView = Math.ceil(event.endIndex ?? firstInView);

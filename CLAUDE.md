@@ -34,12 +34,15 @@ src/
   queue.ts          The play queue, shuffle and repeat. Plays the next song when Music.app stops.
   navigation.ts     The page shown, with Back and Forward.
   position.ts       The play position between Music.app's posts.
+  downloads.ts      The songs Music.app has downloaded, read from its download folder.
+  format.ts         Times as text.
   theme.ts          Colours, sizes and the accent.
   icons.tsx         The SVG icons and the Icon component.
   window/           The parts two or more pages share: Sidebar, PlayerBar, SidePanel, rows and cards.
-  pages/<page>/     One folder per page, with the components only that page renders.
+  pages/<page>/     One folder per page, with the components only that page renders. shelves/ draws
+                    Home and New. library/ draws every song list and every grid.
 helper/             The Swift helper.
-scripts/            The lint checks.
+scripts/            The lint checks, the screenshot and the signing certificate.
 design/             The mock.
 experiments/        The scripts behind NOTES.md.
 ```
@@ -52,7 +55,9 @@ experiments/        The scripts behind NOTES.md.
 | Catalog | Everything Apple Music offers, in the storefront. |
 | Library | The songs, albums and playlists added to the account. |
 | Storefront | The Apple Music country of the account. `id` for this one. |
-| Shelf | One row on Home, such as Made for You. |
+| Shelf | One named row on Home or New, such as Made for You. |
+| Card | One tile on a shelf or a grid: an album, an artist, a playlist or a song. |
+| Download | A song Music.app keeps on the Mac, as a package in its download folder. |
 | Now playing | The song Music.app plays, its state, its position and the volume. |
 | Queue | The songs onlymuse plays next, in order. Up Next shows it. |
 | Helper | The Swift process in `helper/`. |

@@ -215,7 +215,6 @@ const esc = (s = '') => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<'
 const icons = {
   home: '<path d="M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z"/>',
   new: '<path d="M12 3l2.4 5.6L20 11l-5.6 2.4L12 19l-2.4-5.6L4 11l5.6-2.4z"/>',
-  radio: '<circle cx="12" cy="12" r="2.5"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
   album: '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="12" cy="12" r="3"/>',
@@ -252,7 +251,7 @@ function sidebar(active, searchText) {
     <div class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
     <div class="search ${searchText ? 'active' : ''}">${ic('search', 14)}${searchText ? esc(searchText) : 'Search'}</div>
     <div class="group">Apple Music</div>
-    ${item('home', 'home', 'Home')}${item('new', 'new', 'New')}${item('radio', 'radio', 'Radio')}
+    ${item('home', 'home', 'Home')}${item('new', 'new', 'New')}
     <div class="group">Library</div>
     ${favourite}${item('recent', 'clock', 'Recently Added')}${item('artists', 'mic', 'Artists')}${item('albums', 'album', 'Albums')}${item('songs', 'note', 'Songs')}${item('downloaded', 'down', 'Downloaded')}
     <div class="group">Playlists</div>
@@ -310,7 +309,8 @@ function panelHtml(kind) {
 const tile = (t, cls = '') => `<div class="tile ${cls}"><img src="${t.art || t.photo}"><div class="n">${esc(t.name)}</div>${t.sub !== undefined || t.year ? `<div class="d">${esc(t.sub ?? t.year)}</div>` : ''}</div>`
 
 function homeContent() {
-  const [made, ...rest] = D.home
+  // onlymuse has no page for a station, so a station shelf stays off Home.
+  const [made, ...rest] = D.home.filter((shelf) => shelf.title !== 'Stations for You')
   return `<div class="h-page">Home</div>
     <div class="shelf"><div class="shelf-title">${esc(made.title)} <span class="more">›</span></div><div class="row">${made.items.map((t) => tile(t, 'big')).join('')}</div></div>
     ${rest.slice(0, 3).map((s) => `<div class="shelf"><div class="shelf-title">${esc(s.title)} <span class="more">›</span></div><div class="row">${s.items.map((t) => tile(t)).join('')}</div></div>`).join('')}`
@@ -353,7 +353,7 @@ function albumContent() {
 function searchContent() {
   const s = D.search
   const artist = s.artists[0]
-  return `<div class="tabs-row"><span class="on">Apple Music</span><span>Your Library</span></div>
+  return `<div class="h-page">Results for "she's"</div>
     <div style="display:grid;grid-template-columns:300px 1fr;gap:28px;margin-bottom:24px">
       <div><div class="shelf-title">Top Result</div>
         <div style="background:var(--card);border-radius:12px;padding:18px;height:230px;display:flex;flex-direction:column;justify-content:flex-end;gap:8px">
@@ -387,7 +387,7 @@ page.innerHTML = `
   </div>
   <ol class="legend" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0 24px;margin-top:22px">
     <li><b>Search</b>Searches Apple Music first, with your library as a second tab. ⌘F jumps here.</li>
-    <li><b>Apple Music</b>Home, New and Radio. Nothing from the iTunes Store.</li>
+    <li><b>Apple Music</b>Home and New. Nothing from the iTunes Store, and no Radio. onlymuse has no page for stations.</li>
     <li><b>Library</b>Favourite Songs comes first. Then only what an Apple Music user needs. No Genres, Composers, Compilations or Music Videos.</li>
     <li><b>Playlists</b>Your library playlists, from the API. Favourite Songs is not listed again here.</li>
     <li><b>Now playing</b>Artwork, song, artist and album. A LOSSLESS or ATMOS badge comes from the song's audio traits. Clicking the artist goes to the Apple Music artist page, every time.</li>
@@ -410,7 +410,7 @@ page.innerHTML = `
   <p class="caption">Each song's <b>···</b> menu offers Play Next, Add to Queue, Go to Artist, Go to Album and Add to Playlist. Up Next shows songs already played (faded), the current song, and the rest. Drag ≡ to reorder.</p>
 
   <h2 id="search">Search</h2>
-  <p class="note">Apple Music results come first, with Top Result, Songs, Albums and Artists. <b>Your Library</b> is a separate tab, not mixed in.</p>
+  <p class="note">Type in the sidebar and press Return. Apple Music's results show as Top Result, Songs, Albums and Artists.</p>
   <div class="screen">${windowFrame({ active: null, content: searchContent(), searchText: "she's" })}</div>
 
   <h2 id="lyrics">Lyrics</h2>
@@ -421,8 +421,8 @@ page.innerHTML = `
   <p class="note">The times the app is waiting, or can't do its job.</p>
   <div class="states">
     <div class="state"><h4>Adding a song</h4><div class="player" style="grid-template-columns:1fr;margin-top:12px;border-radius:8px;border:none">${nowPlaying('adding')}</div><p>A song not in your library takes about 6 seconds to reach Music.app (an album about 13). The player says so rather than looking stuck.</p></div>
-    <div class="state"><h4>Music.app not running</h4><div class="player" style="grid-template-columns:1fr;margin-top:12px;border-radius:8px;border:none">${nowPlaying('stopped')}</div><p>The player reads "Not playing". Pressing play opens Music.app quietly in the background first.</p></div>
-    <div class="state"><h4>Signed out</h4><div class="sheet-wrap"><div class="sheet"><b>Sign in to Apple Music</b><div class="field">Email or Phone Number</div><div class="go">Continue</div></div></div><p>Apple's own sign-in page, in a sheet over the window. It appears only when the tokens are missing or have expired.</p></div>
+    <div class="state"><h4>Music.app not running</h4><div class="player" style="grid-template-columns:1fr;margin-top:12px;border-radius:8px;border:none">${nowPlaying('stopped')}</div><p>The player reads "Not playing". Pressing play opens Music.app in the background, so it never comes in front of onlymuse.</p></div>
+    <div class="state"><h4>Signed out</h4><div class="sheet-wrap"><div class="sheet"><b>Sign in to Apple Music</b><div class="field">Email or Phone Number</div><div class="go">Continue</div></div></div><p>A card over the window with a Sign In button. Apple's own sign-in opens in a window of its own. It appears only when the web player has no sign-in.</p></div>
   </div>
 
   <h2 id="tech">Tech plan</h2>
@@ -437,7 +437,7 @@ page.innerHTML = `
       <div class="link">⇅ JSON lines over stdin/stdout</div>
       <div class="layer"><b><span class="tag2 sw">Swift</span> &nbsp;onlymuse-helper</b>
         <div class="layer"><b>Music.app</b><span>AppleScript commands (play, pause, seek, volume) and the <code>playerInfo</code> broadcasts as events. Artwork saved to files.</span></div>
-        <div class="layer"><b>Tokens</b><span>Keychain, and a WKWebView sign-in sheet on music.apple.com that reads fresh tokens from MusicKit</span></div>
+        <div class="layer"><b>Tokens</b><span>A hidden WKWebView on music.apple.com. It reads both tokens from MusicKit on start and on a 401, and shows Apple's sign-in when needed. WebKit keeps the sign-in, so onlymuse stores no token.</span></div>
       </div>
     </div>
     <div class="box"><h4>Outside the app</h4><div class="sub">What onlymuse talks to</div>
@@ -457,9 +457,9 @@ page.innerHTML = `
     <tr><td>Lists</td><td>GPUIX <code>&lt;virtual-list&gt;</code></td><td>Library Songs can be thousands of rows.</td></tr>
     <tr><td>Window look</td><td><code>titlebarTransparent</code>, traffic lights at (16, 17), <code>windowBackground: "blurred"</code> under the sidebar</td><td>Matches the drawings. Content uses flex, grid, radius, shadows and gradients only.</td></tr>
     <tr><td>Accent</td><td><code>NSColor.controlAccentColor</code>, sent by the helper, sent again when the system colour changes</td><td>Follows the system accent, as Music.app does.</td></tr>
-    <tr><td>Helper</td><td>Swift 6.2, SwiftPM, macOS 26+, no packages. Foundation (<code>NSAppleScript</code>, <code>DistributedNotificationCenter</code>), Security (Keychain), WebKit and AppKit for the sign-in sheet</td><td>The native-only parts, kept small, as in goui.</td></tr>
+    <tr><td>Helper</td><td>Swift 6.2, SwiftPM, macOS 26+, no packages. Foundation (<code>NSAppleScript</code>, <code>DistributedNotificationCenter</code>), WebKit and AppKit for the web player and its sign-in window</td><td>The native-only parts, kept small, as in goui.</td></tr>
     <tr><td>Link</td><td>JSON lines over stdin/stdout</td><td>Simple, easy to log, easy to test with a fake helper.</td></tr>
-    <tr><td>Tests</td><td>GPUIX <code>TestRenderer</code> and <code>launch()</code> screenshots for UI, <code>bun test</code> for logic, Swift Testing for the helper</td><td>The UI can be checked without taking focus.</td></tr>
+    <tr><td>Tests</td><td>Not written yet. Planned: GPUIX <code>TestRenderer</code> and <code>launch()</code> screenshots for UI, <code>bun test</code> for logic, Swift Testing for the helper</td><td>The UI can be checked without taking focus.</td></tr>
     <tr><td>Lint</td><td>ESLint, as in goui</td><td></td></tr>
     <tr><td>Packaging</td><td>One <code>.app</code> holding both binaries, ad hoc signed by a <code>make-app.sh</code> like goui's</td><td>Personal use only. No Developer account.</td></tr>
   </table>
@@ -475,10 +475,10 @@ page.innerHTML = `
 
   <h3>Build order</h3>
   <div class="phases">
-    <div class="phase"><b>1. Shell</b><ul><li>Window, sidebar, player</li><li>Helper: now playing, controls</li><li>Tokens in Keychain, sign-in sheet</li></ul></div>
-    <div class="phase"><b>2. Browse</b><ul><li>Home, Artist, Album, Search</li><li>Play, add to library</li><li>The app's queue and Up Next</li></ul></div>
-    <div class="phase"><b>3. Library</b><ul><li>Recently Added, Artists, Albums, Songs, Downloaded</li><li>Playlists</li><li>Lyrics panel</li></ul></div>
-    <div class="phase"><b>4. Finish</b><ul><li>Packaging and install</li><li>Keyboard shortcuts</li><li>Clean up songs added only to play</li></ul></div>
+    <div class="phase"><b>1. Shell</b><ul><li>Window, sidebar, player</li><li>Helper: now playing, controls</li><li>Tokens from the web player, sign-in window</li></ul><p style="color:#7ee2a8;font-size:12px;margin:8px 0 0">Built</p></div>
+    <div class="phase"><b>2. Browse</b><ul><li>Home, Artist, Album, Search</li><li>Play, add to library</li><li>The app's queue and Up Next</li></ul><p style="color:#7ee2a8;font-size:12px;margin:8px 0 0">Built</p></div>
+    <div class="phase"><b>3. Library</b><ul><li>Recently Added, Artists, Albums, Songs, Downloaded</li><li>Playlists</li><li>Lyrics panel</li><li>New</li></ul><p style="color:#7ee2a8;font-size:12px;margin:8px 0 0">Built</p></div>
+    <div class="phase"><b>4. Finish</b><ul><li>Packaging and install</li><li>Keyboard shortcuts</li><li>Clean up songs added only to play</li><li>Full-app tests</li></ul><p style="color:var(--faint);font-size:12px;margin:8px 0 0">Next, after refinement</p></div>
   </div>
 
   <h3>Open</h3>
@@ -489,9 +489,10 @@ page.innerHTML = `
       <li><b>Accent</b> follows the system. Decided.</li>
     </ul>
     <ul>
-      <li><b>GPUIX is pre-1.0</b> and untested on macOS 27. A first run decides it.</li>
-      <li><b>Gaps between songs.</b> Albums meant to be gapless won't be.</li>
-      <li><b>Token refresh</b> through the sign-in sheet is untested. The current developer token expires on 22 Dec 2026.</li>
+      <li><b>GPUIX</b> runs on macOS 27. It is pre-1.0, so an update can break the app.</li>
+      <li><b>Silence between songs.</b> Albums meant to be gapless won't be.</li>
+      <li><b>Token refresh</b> ran with a valid token only. The current developer token expires on 22 Dec 2026.</li>
+      <li><b>Radio</b> is gone. A station plays only from Music.app's own page.</li>
     </ul>
   </div>
 `

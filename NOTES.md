@@ -88,29 +88,71 @@ the layout and the rules.
 - The app is a Bun process that draws with GPUIX. A Swift helper speaks JSON lines with it.
 - **The app owns the queue.** Music.app plays one song at a time. On `Stopped` near the end of a
   song, the app plays the next one. A stop far from the end is the user, so the queue waits.
-- **Playing a song:** if `?relate=library` gives a library ID, play it at once. If not, add it,
-  wait for it in Music.app, then play it.
-- **Playing an album or playlist:** add it once, then queue its songs in order.
-- The helper is signed with the self-signed certificate "onlymuse local", from
+- **Playing a song.** The helper looks for the song in Music.app's library by name, artist and
+  album, and plays the one closest in length. When the library has none, the app puts the song in
+  the library through the API, then asks again every 1.5 seconds until Music.app shows it.
+- **Shuffle and repeat** belong to the app's queue. Repeat one plays the song again when Music.app
+  stops at its end.
+- **Next and previous** move through the queue while Music.app plays the song the queue started.
+  For any other song they go to Music.app.
+- **onlymuse shows only what it has a page for.** Stations, radio shows and videos stay off every
+  shelf. Music.app can play a station only from its own page, so onlymuse never opens Music.app.
+
+### Pages and where their data comes from
+
+| Page | Source |
+| --- | --- |
+| Home | `/v1/me/recommendations` |
+| New | `/v1/editorial/{storefront}/groupings?platform=web&name=music`. A shelf with no name is a banner and is skipped. |
+| Search | `/v1/catalog/{storefront}/search` |
+| Artist | `/v1/catalog/{storefront}/artists/{id}?views=…`, and the library albums of the library artist with the same name |
+| Album | `/v1/catalog/{storefront}/albums/{id}?include=artists&relate=library` |
+| Apple Music playlist | `/v1/catalog/{storefront}/playlists/{id}` and its `/tracks` |
+| Favourite Songs, playlists | `/v1/me/library/playlists/{id}/tracks` |
+| Recently Added, Artists, Albums, Songs | `/v1/me/library/…`. Artists come with `include=catalog`, for the photo and the full artist page. |
+| Downloaded | The download packages of Music.app, then `/v1/catalog/{storefront}/songs?ids=…` |
+| Lyrics | `/v1/catalog/{storefront}/songs/{id}/lyrics`. A 404 means the song has none. |
+
+### Found while building
+
+- **Tokens.** The Keychain asks again after every helper build. macOS ties Keychain access to each
+  build's hash when the app has no Apple Team ID. So the tokens live only in the hidden web player's
+  own WebKit storage, and in memory. The helper reads them from `MusicKit.getInstance()` on start.
+- **Sign-in.** `MusicKit.getInstance().authorize()` opens Apple's sign-in popup straight away. The
+  helper shows the popup in a window of its own and hides the web player's window meanwhile.
+- **Favourite Songs** is the one library playlist with `canEdit` and `canDelete` both false. Its
+  name follows the account's language, "Favourite Songs" in en-GB.
+- **Library pages.** A library list answers at most 100 items. Its `next` link drops the query, so
+  the sort order goes with it. The app keeps its own query and reads only the offset from `next`.
+- **Library search** finds nothing for a term with an apostrophe, such as "SHE'S". The artist page
+  searches the longest word of the name and checks the full name.
+- **Library artists** have no photo. Their catalog artist has one. 6 of 629 library artists have no
+  catalog artist.
+- **Downloads.** Each download is a folder
+  `~/Music/Music/Media.localized/Apple Music/<artist>/<album>/<song>.movpkg`. Its `boot.xml`
+  names the stream file `P…_A<catalog ID>_audio_<language>_gr<rate>[_alac].m3u8` and says
+  `<Complete>YES</Complete>` once the download is done. `_alac` marks a lossless download. On
+  18 Oct 2026 the library held 850 downloads, 731 of them lossless.
+- **Artwork.** For a streamed song, AppleScript answers the four bytes `msng`, its missing value,
+  instead of an image. The helper keeps only data that starts like a PNG or a JPEG.
+- **Images in GPUIX** need a definite width and height. A width of 100% draws the image at its own
+  size.
+- **Signing.** The helper is signed with the self-signed certificate "onlymuse local", from
   `scripts/make-signing-certificate.sh`. Every build then keeps its Automation permission.
-- The Keychain asks again after every build. macOS ties Keychain access to each build's hash when
-  the app has no Apple Team ID. So the tokens live only in the hidden web player's own WebKit
-  storage, and in memory.
-- Favourite Songs is the one library playlist with `canEdit` and `canDelete` both false.
 
 ## Open questions
 
-- **Token refresh.** Untested. The hidden web view should read
-  `MusicKit.getInstance().developerToken` and `.musicUserToken`. Apple's sign-in may need a Safari
-  user agent and popup handling.
+- **Token refresh with an expired token.** The refresh reads a fresh developer token from the web
+  player, and the app retries a 401 or a 403 once. It ran with a valid token only. The developer
+  token in use expires on 22 Dec 2026.
+- **Sign-in with the popup.** Tested signed out in a throwaway session. Not yet tested to the end
+  with the real account.
 - **Silence between songs.** Not measured. Gapless albums will not stay gapless.
 - **Library growth.** Every song played goes into the library. A cleanup of songs the app added only
   to play them may help.
-- **Using Music.app directly** while the app plays. The playerInfo posts show it. The app should
-  follow, not fight.
-- **Downloads with automatic downloads off.** Not needed now.
-- **Accessibility permission** for the Play-button route resets on every ad hoc rebuild, as goui's
-  audio permission does.
+- **The queue is lost when the app quits.**
+- **The sidebar reads the playlists once,** on start.
+- **Songs started in Music.app** show no artwork in the player bar.
 
 ## Experiments
 

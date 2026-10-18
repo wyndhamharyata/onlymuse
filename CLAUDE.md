@@ -94,6 +94,9 @@ A React component is a noun, such as `PlayerBar`.
 | `bun run dev` | Builds the helper and opens the app with hot reload. |
 | `bun run helper` | Builds the helper and signs it as "onlymuse local". |
 | `scripts/make-signing-certificate.sh` | Makes the "onlymuse local" certificate, once per Mac. Music.app's Automation permission then holds across builds. |
+| `bun run start` | Builds the helper and opens the app as the production build, with no hot reload. |
+| `bun run bench` | Measures JavaScript stalls, draw times and memory in both builds, behind the other windows. |
+| `ONLYMUSE_FRAMES=1 bun run dev` | Shows GPUI's frame-time overlay in the window. |
 | `bun scripts/screenshot.ts <file>` | Opens the app behind the other windows and saves a picture of it. |
 | `bun run lint` | ESLint, then `scripts/check-words.mjs` and `scripts/check-structure.mjs`. |
 | `bun run typecheck` | TypeScript over `src/`. |
@@ -247,6 +250,12 @@ The rules above govern the helper too.
 ## Format
 
 Prettier with a print width of 100, double quotes, semicolons and ES5 trailing commas.
+
+## Accepted exceptions
+
+- `src/store.ts` reads `ONLYMUSE_DATA` and `src/perf.tsx` reads `ONLYMUSE_PERF`, against rule 9.3. They exist for
+  `scripts/bench.ts`, which measures and does not test. A measurement must not change the saved state, and the
+  stall probe must run inside the app's own thread.
 
 ## Where the four projects disagreed
 

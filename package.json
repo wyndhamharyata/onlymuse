@@ -7,7 +7,9 @@
     "helper": "swift build -c release --package-path helper && codesign --force --sign \"onlymuse local\" --identifier dev.mwyndham.onlymuse.helper helper/.build/release/onlymuse-helper",
     "lint": "eslint . && node scripts/check-words.mjs && node scripts/check-structure.mjs",
     "typecheck": "tsc -p tsconfig.json",
-    "format": "prettier --write"
+    "format": "prettier --write",
+    "start": "bun run helper && NODE_ENV=production bun src/main.tsx",
+    "bench": "bun scripts/bench.ts"
   },
   "dependencies": {
     "@gpuix/native": "0.10.0",

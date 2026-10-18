@@ -3,8 +3,9 @@ import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-// Apple's answers and the state of the window, in one file that outlives a quit, a crash or a restart.
-const folder = join(homedir(), "Library", "Application Support", "onlymuse");
+// Apple's answers and the window's state, in one file that outlives a quit. scripts/bench.ts points ONLYMUSE_DATA at a copy.
+const folder =
+  process.env.ONLYMUSE_DATA ?? join(homedir(), "Library", "Application Support", "onlymuse");
 const schemaVersion = 1;
 const dayMs = 24 * 60 * 60 * 1000;
 const unusedResponseMaxAgeMs = 30 * dayMs;

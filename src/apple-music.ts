@@ -188,7 +188,8 @@ async function checkResponse(path: string, stored: StoredResponse): Promise<void
   const body = await response.text();
 
   saveResponse(path, body, response.headers.get("etag"));
-  if (body !== stored.body) for (const listener of changeListeners) listener(path);
+  // A listener starts a new watch, which joins the set. The loop walks a copy, so it ends.
+  if (body !== stored.body) for (const listener of [...changeListeners]) listener(path);
 }
 
 // One check per path at a time. A check that fails keeps the stored answer, so the app works offline.

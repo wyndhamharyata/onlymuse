@@ -1,8 +1,8 @@
 import { fetchAlbum, toArtworkUrl, type Album, type CatalogSong } from "../../apple-music.ts";
 import { toClockText } from "../../format.ts";
-import { useHelper } from "../../helper.ts";
+import { useAccent } from "../../helper.ts";
 import { navigate } from "../../navigation.ts";
-import { playSongs, shuffleSongs, useQueue } from "../../queue.ts";
+import { playSongs, shuffleSongs, useCurrentSongId } from "../../queue.ts";
 import { colors, toAccentTint } from "../../theme.ts";
 import { ActionButton } from "../../window/ActionButton.tsx";
 import { PageStatus, useFetched } from "../../window/Fetched.tsx";
@@ -46,7 +46,7 @@ function SongLine({
   isCurrent: boolean;
   onPlay: () => void;
 }) {
-  const { accent } = useHelper();
+  const accent = useAccent();
   const textColor = isCurrent ? accent : colors.text;
   const background = isCurrent ? toAccentTint(accent) : undefined;
 
@@ -87,7 +87,7 @@ function SongLine({
 }
 
 function Header({ album }: { album: Album }) {
-  const { accent } = useHelper();
+  const accent = useAccent();
   const coverUrl = album.artwork ? toArtworkUrl(album.artwork, coverSizePx * 2) : undefined;
   const badges = album.audioTraits
     .filter((trait) => trait in badgeLabels)
@@ -135,8 +135,7 @@ function Header({ album }: { album: Album }) {
 
 export function AlbumPage({ albumId }: { albumId: string }) {
   const { value: album, statusText } = useFetched(() => fetchAlbum(albumId), [albumId]);
-  const queue = useQueue();
-  const currentSongId = queue.songs[queue.index]?.id;
+  const currentSongId = useCurrentSongId();
 
   if (!album) return <PageStatus text={statusText} />;
 

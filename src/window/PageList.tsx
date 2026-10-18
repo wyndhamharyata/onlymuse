@@ -18,6 +18,21 @@ export function toRowKeys(ids: string[]): string[] {
   });
 }
 
+// The first row a list mounts. It moves by a sixth of the window or more, so a scroll mounts rows in small groups.
+export function toWindowStart(
+  windowStart: number,
+  event: { startIndex?: number; endIndex?: number },
+  windowCount: number
+): number {
+  const firstInView = Math.floor(event.startIndex ?? 0);
+  const lastInView = Math.ceil(event.endIndex ?? firstInView);
+  const wantedStart = Math.max(0, firstInView - Math.floor(windowCount / 4));
+  const isInViewMounted = firstInView >= windowStart && lastInView < windowStart + windowCount;
+  const hasDrifted = Math.abs(wantedStart - windowStart) >= Math.floor(windowCount / 6);
+
+  return isInViewMounted && !hasDrifted ? windowStart : wantedStart;
+}
+
 // A page that scrolls as rows. It saves the key of its top row, never a pixel offset, and returns to that row on the next visit.
 export function PageList({
   rows,

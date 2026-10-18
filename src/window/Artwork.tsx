@@ -13,7 +13,8 @@ export function Artwork({
   heightPx: number;
   radiusPx: number;
 }) {
-  const style = { width: widthPx, height: heightPx, borderRadius: radiusPx };
+  // A long title next to it must not squeeze it narrower.
+  const style = { width: widthPx, height: heightPx, borderRadius: radiusPx, flexShrink: 0 };
 
   if (!source) return <div style={{ ...style, backgroundColor: colors.card }} />;
 

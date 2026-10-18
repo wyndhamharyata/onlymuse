@@ -11,6 +11,7 @@ type Report = {
   stalls: { p99Ms: number; maxMs: number; missedFrames: number; blockedMs: number };
   rssMb: number;
   canReset: boolean;
+  nativeCalls?: Record<string, { count: number; totalMs: number; maxMs: number }>;
   framesPerSecond?: number;
 };
 
@@ -39,8 +40,17 @@ function copySavedData(folder: string): void {
   copy.close();
 }
 
+// The app may be halfway through writing the report, so a read that fails tries again.
 async function readReport(reportPath: string): Promise<Report> {
-  return JSON.parse(await Bun.file(reportPath).text()) as Report;
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return JSON.parse(await Bun.file(reportPath).text()) as Report;
+    } catch (error) {
+      if (attempt === 5) throw error;
+
+      await sleep(20);
+    }
+  }
 }
 
 // The frame count keeps growing, so the frames of a scene are the count after it less the count before it.
@@ -66,6 +76,9 @@ async function measure(reportPath: string, run: () => Promise<void>): Promise<Re
 function toRow(mode: string, scene: string, report: Report): string {
   const frames = report.frames;
   const stalls = report.stalls;
+  const batch = report.nativeCalls?.applyBatch;
+  const tick = report.nativeCalls?.tick;
+  const nativeText = `batch ${batch?.count ?? 0}x max ${batch?.maxMs.toFixed(0)} total ${batch?.totalMs.toFixed(0)} | tick max ${tick?.maxMs.toFixed(0)} total ${tick?.totalMs.toFixed(0)} ms`;
   const drawText = `draw p90 ${frames?.p90Ms?.toFixed(1)} max ${frames?.maxMs?.toFixed(1)} ms (${frames?.frames ?? 0} frames)`;
   const stallText = `JS stalls p99 ${stalls.p99Ms.toFixed(1)} max ${stalls.maxMs.toFixed(0)} ms, ${stalls.missedFrames} frames missed, ${stalls.blockedMs} ms blocked`;
 
@@ -74,7 +87,7 @@ function toRow(mode: string, scene: string, report: Report): string {
     24
   );
 
-  return `${mode.padEnd(12)}${scene.padEnd(22)}${rateText}  ${stallText.padEnd(76)}${drawText}  ${report.rssMb} MB`;
+  return `${mode.padEnd(12)}${scene.padEnd(22)}${rateText}  ${stallText.padEnd(76)}${nativeText.padEnd(58)}${drawText}  ${report.rssMb} MB`;
 }
 
 // The wheel steps a second the last scroll sent, which a frame rate is read against.

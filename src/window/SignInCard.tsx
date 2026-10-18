@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { sendToHelper, useHelper } from "../helper.ts";
+import { sendToHelper, useAccent } from "../helper.ts";
 import { colors } from "../theme.ts";
 
 const cardWidthPx = 380;
 
 export function SignInCard() {
-  const { accent } = useHelper();
+  const accent = useAccent();
   const [isWaiting, setIsWaiting] = useState(false);
 
   const signIn = (): void => {

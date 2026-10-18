@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   fetchLyrics,
   findCatalogSong,
@@ -5,13 +6,14 @@ import {
   type CatalogSong,
   type LyricLine,
 } from "../apple-music.ts";
-import { useHelper } from "../helper.ts";
+import { useAccent, useHelper } from "../helper.ts";
 import { usePositionSeconds } from "../position.ts";
 import { findQueueSong, playQueueAt, removeFromQueue, useQueue } from "../queue.ts";
 import { colors, toAccentTint } from "../theme.ts";
 import { PageStatus, useFetched } from "./Fetched.tsx";
 import { Artwork } from "./Artwork.tsx";
 import { ScrollingText } from "./ScrollingText.tsx";
+import { toWindowStart } from "./PageList.tsx";
 
 export type Panel = "queue" | "lyrics";
 
@@ -22,6 +24,9 @@ export function isPanel(value: unknown): value is Panel | null {
 export const panelWidthPx = 300;
 const artworkSizePx = 36;
 const historyCount = 2;
+// Up Next mounts this many rows around the ones in view, whatever the length of the queue.
+const queueWindowCount = 32;
+const queueRowHeightPx = 48;
 const linesBeforeCurrent = 3;
 const shownLineCount = 14;
 
@@ -67,7 +72,7 @@ function QueueRow({
   isCurrent: boolean;
   isPast: boolean;
 }) {
-  const { accent } = useHelper();
+  const accent = useAccent();
   const artworkUrl = song.artwork ? toArtworkUrl(song.artwork, artworkSizePx * 2) : undefined;
   const background = isCurrent ? toAccentTint(accent) : undefined;
 
@@ -132,17 +137,30 @@ function Heading({ text }: { text: string }) {
 
 function UpNext() {
   const queue = useQueue();
+  const [windowStart, setWindowStart] = useState(0);
 
   if (queue.index < 0)
     return <PageStatus text="Play an album, a playlist or a song to fill the queue." />;
 
   const firstShownIndex = Math.max(0, queue.index - historyCount);
+  const rowCount = queue.songs.length - firstShownIndex;
+  const firstIndex = firstShownIndex + Math.min(windowStart, rowCount);
   const rows = queue.songs
-    .slice(firstShownIndex)
-    .map((song, offset) => ({ song, index: firstShownIndex + offset }));
+    .slice(firstIndex, firstIndex + queueWindowCount)
+    .map((song, offset) => ({ song, index: firstIndex + offset }));
+
+  const moveWindow = (event: { startIndex?: number; endIndex?: number }): void => {
+    setWindowStart((current) => toWindowStart(current, event, queueWindowCount));
+  };
 
   return (
-    <virtual-list estimatedItemHeight={48} style={{ flexGrow: 1, minHeight: 0 }}>
+    <virtual-list
+      itemCount={rowCount}
+      windowStart={Math.min(windowStart, rowCount)}
+      estimatedItemHeight={queueRowHeightPx}
+      onVisibleRange={moveWindow}
+      style={{ flexGrow: 1, minHeight: 0 }}
+    >
       {rows.map(({ song, index }) => (
         <div
           key={`${index}-${song.id}`}

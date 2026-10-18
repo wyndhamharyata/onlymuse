@@ -162,3 +162,14 @@ export function readHelperState(): HelperState {
 export function useHelper(): HelperState {
   return useSyncExternalStore(subscribeToHelper, readHelperState);
 }
+
+// One value of the state. A component re-renders when that value changes, not on every message.
+export function useHelperValue<Value extends string | number | boolean>(
+  select: (helper: HelperState) => Value
+): Value {
+  return useSyncExternalStore(subscribeToHelper, () => select(state));
+}
+
+export function useAccent(): string {
+  return useHelperValue((helper) => helper.accent);
+}

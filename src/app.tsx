@@ -1,5 +1,5 @@
 import { useWindowSize } from "@gpuix/react";
-import { useState } from "react";
+import { memo, useState } from "react";
 import {
   fetchNewShelves,
   fetchHomeShelves,
@@ -7,7 +7,7 @@ import {
   fetchLibraryArtists,
   fetchRecentlyAdded,
 } from "./apple-music.ts";
-import { useHelper } from "./helper.ts";
+import { useHelperValue } from "./helper.ts";
 import { Icon, type IconName } from "./icons.tsx";
 import { goBack, goForward, useNavigation, type Page } from "./navigation.ts";
 import { AlbumPage } from "./pages/album/AlbumPage.tsx";
@@ -32,7 +32,7 @@ import { readState, saveState } from "./store.ts";
 import { SignInCard } from "./window/SignInCard.tsx";
 
 // The key makes each visit a new page, so a page never shows what the one before it loaded.
-function PageContent({ page, visit }: { page: Page; visit: number }) {
+function PageContentOf({ page, visit }: { page: Page; visit: number }) {
   if (page.id === "home")
     return <ShelvesPage key={visit} title="Home" fetchShelves={fetchHomeShelves} />;
   if (page.id === "new")
@@ -80,6 +80,9 @@ function PageContent({ page, visit }: { page: Page; visit: number }) {
   );
 }
 
+// The page draws again only when it changes, not when the panel opens or Music.app sends news.
+const PageContent = memo(PageContentOf);
+
 // These pages scroll inside their own list, so the page area around them stays still.
 const listPageIds = new Set<Page["id"]>([
   "home",
@@ -121,7 +124,7 @@ function NavigationButton({
 
 export function App() {
   const navigation = useNavigation();
-  const { isSignInNeeded } = useHelper();
+  const isSignInNeeded = useHelperValue((helper) => helper.isSignInNeeded);
   const [panel, setShownPanel] = useState(readState("panel", isPanel, null));
   const setPanel = (next: Panel | null): void => {
     setShownPanel(next);

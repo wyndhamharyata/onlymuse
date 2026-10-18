@@ -1,4 +1,4 @@
-import { useHelper } from "../helper.ts";
+import { useAccent } from "../helper.ts";
 import { Icon, type IconName } from "../icons.tsx";
 import { colors } from "../theme.ts";
 
@@ -14,7 +14,7 @@ export function ActionButton({
   isPrimary: boolean;
   onClick: () => void;
 }) {
-  const { accent } = useHelper();
+  const accent = useAccent();
   const background = isPrimary ? accent : colors.selected;
 
   return (

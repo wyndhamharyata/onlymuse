@@ -2,7 +2,7 @@ import type { EventPayload } from "@gpuix/native";
 import { useEffect, useState } from "react";
 import { fetchLibraryPlaylists, type Playlist } from "../apple-music.ts";
 import { Icon, type IconName } from "../icons.tsx";
-import { useHelper } from "../helper.ts";
+import { useAccent } from "../helper.ts";
 import { navigate, type Page, type PageId } from "../navigation.ts";
 import { isText } from "../checks.ts";
 import { readState, saveState } from "../store.ts";
@@ -138,7 +138,7 @@ function SearchField({ accent }: { accent: string }) {
 }
 
 export function Sidebar({ page }: { page: Page }) {
-  const { accent } = useHelper();
+  const accent = useAccent();
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
 
   useEffect(() => {

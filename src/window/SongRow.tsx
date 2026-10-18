@@ -1,7 +1,7 @@
 import { toArtworkUrl, type CatalogSong } from "../apple-music.ts";
 import { toClockText } from "../format.ts";
-import { useHelper } from "../helper.ts";
-import { useQueue } from "../queue.ts";
+import { useAccent } from "../helper.ts";
+import { useIsCurrentSong } from "../queue.ts";
 import { colors, toAccentTint } from "../theme.ts";
 import { Artwork } from "./Artwork.tsx";
 
@@ -16,9 +16,8 @@ export function SongRow({
   subtitle: string;
   onPlay: () => void;
 }) {
-  const { accent } = useHelper();
-  const queue = useQueue();
-  const isCurrent = queue.songs[queue.index]?.id === song.id;
+  const accent = useAccent();
+  const isCurrent = useIsCurrentSong(song.id);
   const artworkUrl = song.artwork ? toArtworkUrl(song.artwork, artworkSizePx * 2) : undefined;
   const nameColor = isCurrent ? accent : colors.text;
 

@@ -363,3 +363,12 @@ function subscribe(listener: () => void): () => void {
 export function useQueue(): QueueState {
   return useSyncExternalStore(subscribe, () => state);
 }
+
+// A song row re-renders when the song starts or stops being the current one, not on every change to the queue.
+export function useIsCurrentSong(songId: string): boolean {
+  return useSyncExternalStore(subscribe, () => state.songs[state.index]?.id === songId);
+}
+
+export function useCurrentSongId(): string | undefined {
+  return useSyncExternalStore(subscribe, () => state.songs[state.index]?.id);
+}

@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { useGpuixRequired } from "@gpuix/react";
-import { existsSync, unlinkSync } from "node:fs";
+import { GpuixRenderer } from "@gpuix/native";
+import { existsSync, unlinkSync, writeFileSync } from "node:fs";
 
 // With ONLYMUSE_PERF set to a file, the app writes its stalls and draw times there. A ".reset" file next to it starts again.
 const reportPath = process.env.ONLYMUSE_PERF;
@@ -36,6 +37,42 @@ const toEmptyStalls = (): Stalls => ({
 });
 
 let stalls = toEmptyStalls();
+
+type NativeCalls = { count: number; totalMs: number; maxMs: number };
+
+const toEmptyCalls = (): NativeCalls => ({ count: 0, totalMs: 0, maxMs: 0 });
+
+// The time inside gpuix's native calls: a batch applies React's changes, a tick pumps events and draws.
+let nativeCalls: Record<"applyBatch" | "tick", NativeCalls> = {
+  applyBatch: toEmptyCalls(),
+  tick: toEmptyCalls(),
+};
+
+function timeNativeCall(name: "applyBatch" | "tick"): void {
+  const prototype = GpuixRenderer.prototype as unknown as Record<
+    string,
+    (...args: unknown[]) => unknown
+  >;
+  const call = prototype[name];
+
+  prototype[name] = function (this: unknown, ...args: unknown[]): unknown {
+    const startMs = performance.now();
+    const result = call.apply(this, args);
+    const durationMs = performance.now() - startMs;
+    const calls = nativeCalls[name];
+
+    calls.count += 1;
+    calls.totalMs += durationMs;
+    calls.maxMs = Math.max(calls.maxMs, durationMs);
+
+    return result;
+  };
+}
+
+if (isMeasuring) {
+  timeNativeCall("applyBatch");
+  timeNativeCall("tick");
+}
 
 function countStall(stallMs: number): void {
   stalls.buckets[Math.min(bucketCount - 1, Math.floor(stallMs / bucketMs))] += 1;
@@ -94,16 +131,18 @@ function Reporter() {
         unlinkSync(resetPath);
         renderer.resetDebugFrameOverlayStats?.();
         stalls = toEmptyStalls();
+        nativeCalls = { applyBatch: toEmptyCalls(), tick: toEmptyCalls() };
       }
 
       const report = {
         frames: renderer.getDebugFrameOverlayStats?.(),
         stalls: readStalls(),
+        nativeCalls,
         rssMb: Math.round(process.memoryUsage().rss / 1_048_576),
         canReset: typeof renderer.resetDebugFrameOverlayStats === "function",
       };
 
-      Bun.write(reportPath ?? "", JSON.stringify(report));
+      writeFileSync(reportPath ?? "", JSON.stringify(report));
     }, reportMs);
 
     return () => clearInterval(timer);

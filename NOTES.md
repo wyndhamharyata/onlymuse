@@ -165,16 +165,18 @@ the layout and the rules.
   A frame costs in proportion to the elements laid out, about 300 on a list page.
 - A frame takes 5 to 7 ms at p90 against 8.3 ms at 120 Hz. Single frames reach 15 to 30 ms.
 - gpuix 0.10 ships with GPUI's `test-support` on. With it, every update that dirties the window draws
-  a whole frame at once: each wheel event over a list costs about 6.5 ms, and each React commit costs
-  a draw too. A frame of its own per event is fine at one event a frame, and doubles the work when an
-  event and a commit share a frame. A build with that draw limited to test windows and covered
-  windows answers a wheel event in 0.5 ms. The automation sends at most about 80 steps a second, so
-  the bench could not show a gain, and the app keeps the published binary. The patch belongs with
-  gpuix upstream.
-- macOS 27 refuses `CVDisplayLinkCreateWithActiveCGDisplays` (-6661), so GPUI's display link never
-  runs here. A visible window draws from AppKit's display cycle, and a covered window only through
-  the draw in each update.
-- Opening Up Next builds a row for each queued song, about 2,000, and stalls for 60 to 70 ms.
+  a whole frame at once: each wheel event over a list costs about 6.5 ms, a click costs two draws,
+  and each React commit costs a draw too. `experiments/gpuix-draw-per-frame.patch` limits that draw
+  to test windows and covered windows, so a visible window draws once per display frame. A wheel
+  event then costs 0.5 ms and a commit about 0 ms.
+- The patch needs a screen that is on to judge. With the display asleep, `CGGetActiveDisplayList`
+  lists no display, GPUI cannot create its display link, and frames go nowhere. Every bench run of
+  18 Oct ran that way. To compare, with the screen on: `bun scripts/gpuix-native.ts patched`, then
+  `bun run bench`, then the same with `stock`. Both binaries live in `~/Library/Caches/onlymuse/gpuix`.
+  The patched one is gpuix 0.10.0 (commit 410fb56) built with the patch and Rust 1.97.1, then given
+  SDK 26.5 with `vtool`. dyld rejects the string table that the SDK 27 linker writes.
+- Up Next mounts 32 rows through gpuix's `itemCount`, not one per queued song. Opening it stalls for
+  about 40 ms, most of it the two draws of the click and the first draw of the new rows.
 
 ## Open questions
 

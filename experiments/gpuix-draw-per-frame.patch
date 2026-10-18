@@ -1,0 +1,121 @@
+diff --git a/crates/gpui/src/app.rs b/crates/gpui/src/app.rs
+index a2c2aff..ec3f5a9 100644
+--- a/crates/gpui/src/app.rs
++++ b/crates/gpui/src/app.rs
+@@ -1708,13 +1708,18 @@ impl App {
+                     }
+                 }
+             } else {
++                // onlymuse patch: a visible window draws once per display frame, so a scroll event or a
++                // JavaScript commit never draws a whole frame of its own. Test windows and covered
++                // windows, which get no display frames, still draw here.
+                 #[cfg(any(test, feature = "test-support", feature = "bench"))]
+                 for window in self
+                     .windows
+                     .values()
+                     .filter_map(|window| {
+                         let window = window.as_deref()?;
+-                        window.invalidator.is_dirty().then_some(window.handle)
++                        let draws_here = !matches!(self.mode, GpuiMode::Production)
++                            || window.platform_window.is_occluded();
++                        (draws_here && window.invalidator.is_dirty()).then_some(window.handle)
+                     })
+                     .collect::<Vec<_>>()
+                 {
+diff --git a/crates/gpui/src/platform.rs b/crates/gpui/src/platform.rs
+index e37ab99..6e0d479 100644
+--- a/crates/gpui/src/platform.rs
++++ b/crates/gpui/src/platform.rs
+@@ -848,6 +848,10 @@ pub trait PlatformWindow: HasWindowHandle + HasDisplayHandle {
+     /// Requests that the operating system draw attention to this window.
+     fn request_attention(&self) {}
+     fn is_active(&self) -> bool;
++    /// True while no part of the window can be seen, so the platform sends it no frames.
++    fn is_occluded(&self) -> bool {
++        false
++    }
+     fn is_hovered(&self) -> bool;
+     fn background_appearance(&self) -> WindowBackgroundAppearance;
+     fn set_title(&mut self, title: &str);
+diff --git a/crates/gpui_macos/src/display_link.rs b/crates/gpui_macos/src/display_link.rs
+index 5387cb6..1ce4219 100644
+--- a/crates/gpui_macos/src/display_link.rs
++++ b/crates/gpui_macos/src/display_link.rs
+@@ -257,6 +257,21 @@ impl WindowFrameSource {
+ 
+     pub fn start(&mut self, display_id: CGDirectDisplayID) -> Result<()> {
+         self.stop();
++        // onlymuse patch: with GPUI_FRAMES_WHEN_COVERED=1 and no display link, a thread asks for a
++        // frame at 120 Hz, as a visible window's display would. It serves measurement only.
++        if std::env::var_os("GPUI_FRAMES_WHEN_COVERED").is_some_and(|value| value == "1") {
++            if let Err(error) = unsafe {
++                sys::DisplayLink::new(display_id, display_link_output_callback, std::ptr::null_mut())
++            } {
++                log::warn!("{error}; asking for frames at 120 Hz from a thread");
++                let frame_requests = self.frame_requests.clone();
++                std::thread::spawn(move || loop {
++                    std::thread::sleep(std::time::Duration::from_micros(8333));
++                    frame_requests.merge_data(1);
++                });
++                return Ok(());
++            }
++        }
+         let subscriber_id = subscribe(display_id, self.frame_requests.clone())?;
+         self.registration = Some((display_id, subscriber_id));
+         Ok(())
+diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
+index faf27e0..46edad6 100644
+--- a/crates/gpui_macos/src/window.rs
++++ b/crates/gpui_macos/src/window.rs
+@@ -759,7 +759,8 @@ impl MacWindowState {
+     fn start_display_link(&mut self) {
+         self.stop_display_link();
+         unsafe {
+-            if !self
++            if !frames_when_covered()
++                && !self
+                 .native_window
+                 .occlusionState()
+                 .contains(NSWindowOcclusionState::NSWindowOcclusionStateVisible)
+@@ -1624,6 +1625,19 @@ impl PlatformWindow for MacWindow {
+         unsafe { self.0.lock().native_window.isKeyWindow() == YES }
+     }
+ 
++    // The display link stops while the window is covered, so only a draw in the update shows a change.
++    fn is_occluded(&self) -> bool {
++        unsafe {
++            !frames_when_covered()
++                && !self
++                .0
++                .lock()
++                .native_window
++                .occlusionState()
++                .contains(NSWindowOcclusionState::NSWindowOcclusionStateVisible)
++        }
++    }
++
+     // is_hovered is unused on macOS. See Window::is_window_hovered.
+     fn is_hovered(&self) -> bool {
+         false
+@@ -2703,11 +2717,20 @@ extern "C" fn handle_view_event(this: &Object, _: Sel, native_event: id) {
+     }
+ }
+ 
++// onlymuse patch: GPUI_FRAMES_WHEN_COVERED=1 keeps the display link running behind other windows,
++// so a measurement of a covered window runs the code a visible window runs.
++fn frames_when_covered() -> bool {
++    static FRAMES_WHEN_COVERED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
++    *FRAMES_WHEN_COVERED
++        .get_or_init(|| std::env::var_os("GPUI_FRAMES_WHEN_COVERED").is_some_and(|value| value == "1"))
++}
++
+ extern "C" fn window_did_change_occlusion_state(this: &Object, _: Sel, _: id) {
+     let window_state = unsafe { get_window_state(this) };
+     let lock = &mut *window_state.lock();
+     unsafe {
+-        if lock
++        if frames_when_covered()
++            || lock
+             .native_window
+             .occlusionState()
+             .contains(NSWindowOcclusionState::NSWindowOcclusionStateVisible)

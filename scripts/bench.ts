@@ -149,6 +149,8 @@ for (const mode of modes) {
     args: ["src/main.tsx"],
     env: {
       GPUIX_BACKGROUND: "1",
+      // The patched gpuix keeps drawing once per display frame behind other windows. The published one ignores it.
+      GPUI_FRAMES_WHEN_COVERED: "1",
       ONLYMUSE_PERF: reportPath,
       ONLYMUSE_DATA: folder,
       NODE_ENV: mode,

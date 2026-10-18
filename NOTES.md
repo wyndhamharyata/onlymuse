@@ -177,6 +177,13 @@ the layout and the rules.
 - The patch also rests hover styles during a scroll, until 150 ms after the last wheel event. The
   rows under a still pointer change every frame, so the highlight jumped from row to row and could
   trail the content by a frame. Clicks and the cursor are unchanged.
+- GPUI keeps the layout of a line of text only while some frame draws it. A shelf of Home or New
+  that scrolled out and back had each line laid out again by CoreText, card by card, which showed as
+  a jolt on scrolling back. The patch keeps dropped layouts in a cache of up to 8,192 and takes them
+  from there first. CoreText then
+  shows in 0 to 3 samples of a back-and-forth scroll of New, from 16 to 20.
+- With `GPUI_FRAMES_WHEN_COVERED=1` the patched build draws from a 120 Hz thread instead of the
+  display, so a bench run behind other windows draws as a visible window does, screen on or asleep.
 - With the display asleep, `CGGetActiveDisplayList` lists no display and GPUI cannot create its
   display link. A bench run then measures nothing on screen.
 - Up Next mounts 32 rows through gpuix's `itemCount`, not one per queued song. Opening it stalls for

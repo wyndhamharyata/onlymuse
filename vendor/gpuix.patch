@@ -50,6 +50,58 @@ index e37ab99..6e0d479 100644
      fn is_hovered(&self) -> bool;
      fn background_appearance(&self) -> WindowBackgroundAppearance;
      fn set_title(&mut self, title: &str);
+diff --git a/crates/gpui/src/text_system/line_layout.rs b/crates/gpui/src/text_system/line_layout.rs
+index e7362f7..b889319 100644
+--- a/crates/gpui/src/text_system/line_layout.rs
++++ b/crates/gpui/src/text_system/line_layout.rs
+@@ -451,9 +451,14 @@ impl WrappedLineLayout {
+     }
+ }
+ 
++const RETIRED_LINES_MAX: usize = 8192;
++
+ pub(crate) struct LineLayoutCache {
+     previous_frame: Mutex<FrameCache>,
+     current_frame: RwLock<FrameCache>,
++    // onlymuse patch: lines dropped from the frame caches, kept so a row that scrolls out of view and
++    // back is not shaped again. Cleared whole once it passes RETIRED_LINES_MAX.
++    retired_lines: Mutex<FxHashMap<Arc<CacheKey>, Arc<LineLayout>>>,
+     platform_text_system: Arc<dyn PlatformTextSystem>,
+ }
+ 
+@@ -489,6 +494,7 @@ impl LineLayoutCache {
+         Self {
+             previous_frame: Mutex::default(),
+             current_frame: RwLock::default(),
++            retired_lines: Mutex::default(),
+             platform_text_system,
+         }
+     }
+@@ -560,6 +566,13 @@ impl LineLayoutCache {
+         let mut prev_frame = self.previous_frame.lock();
+         let mut curr_frame = self.current_frame.write();
+         std::mem::swap(&mut *prev_frame, &mut *curr_frame);
++        {
++            let mut retired_lines = self.retired_lines.lock();
++            if retired_lines.len() + curr_frame.lines.len() > RETIRED_LINES_MAX {
++                retired_lines.clear();
++            }
++            retired_lines.extend(curr_frame.lines.drain());
++        }
+         curr_frame.lines.clear();
+         curr_frame.wrapped_lines.clear();
+         curr_frame.used_lines.clear();
+@@ -665,6 +678,10 @@ impl LineLayoutCache {
+             current_frame.lines.insert(key.clone(), layout.clone());
+             current_frame.used_lines.push(key);
+             layout
++        } else if let Some((key, layout)) = self.retired_lines.lock().remove_entry(key) {
++            current_frame.lines.insert(key.clone(), layout.clone());
++            current_frame.used_lines.push(key);
++            layout
+         } else {
+             let text = SharedString::from(text);
+             let mut layout = self
 diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
 index 3e55040..d6bff07 100644
 --- a/crates/gpui/src/window.rs
@@ -104,27 +156,26 @@ index 3e55040..d6bff07 100644
                  self.modifiers = scroll_wheel.modifiers;
                  PlatformInput::ScrollWheel(scroll_wheel)
 diff --git a/crates/gpui_macos/src/display_link.rs b/crates/gpui_macos/src/display_link.rs
-index 5387cb6..1ce4219 100644
+index 5387cb6..eb3864b 100644
 --- a/crates/gpui_macos/src/display_link.rs
 +++ b/crates/gpui_macos/src/display_link.rs
-@@ -257,6 +257,21 @@ impl WindowFrameSource {
+@@ -257,6 +257,20 @@ impl WindowFrameSource {
  
      pub fn start(&mut self, display_id: CGDirectDisplayID) -> Result<()> {
          self.stop();
-+        // onlymuse patch: with GPUI_FRAMES_WHEN_COVERED=1 and no display link, a thread asks for a
-+        // frame at 120 Hz, as a visible window's display would. It serves measurement only.
++        // onlymuse patch: with GPUI_FRAMES_WHEN_COVERED=1 a thread asks for a frame at 120 Hz, as a
++        // visible window's display would, covered or not and screen asleep or not. Measurement only.
 +        if std::env::var_os("GPUI_FRAMES_WHEN_COVERED").is_some_and(|value| value == "1") {
-+            if let Err(error) = unsafe {
-+                sys::DisplayLink::new(display_id, display_link_output_callback, std::ptr::null_mut())
-+            } {
-+                log::warn!("{error}; asking for frames at 120 Hz from a thread");
++            static FRAME_THREAD_STARTED: std::sync::atomic::AtomicBool =
++                std::sync::atomic::AtomicBool::new(false);
++            if !FRAME_THREAD_STARTED.swap(true, std::sync::atomic::Ordering::Relaxed) {
 +                let frame_requests = self.frame_requests.clone();
 +                std::thread::spawn(move || loop {
 +                    std::thread::sleep(std::time::Duration::from_micros(8333));
 +                    frame_requests.merge_data(1);
 +                });
-+                return Ok(());
 +            }
++            return Ok(());
 +        }
          let subscriber_id = subscribe(display_id, self.frame_requests.clone())?;
          self.registration = Some((display_id, subscriber_id));

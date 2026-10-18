@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
-import { useHelper, type HelperState } from "./helper.ts";
-
-const tickMs = 250;
+import { readHelperState, useHelper, type HelperState } from "./helper.ts";
 
 // Music.app posts only on a change, so the position moves on here between its posts.
 function readPositionSeconds(helper: HelperState, nowMs: number): number {
@@ -10,12 +8,19 @@ function readPositionSeconds(helper: HelperState, nowMs: number): number {
   if (nowPlaying.state !== "playing" && nowPlaying.state !== "paused") return 0;
   if (nowPlaying.state === "paused") return nowPlaying.positionSeconds;
 
-  const elapsedSeconds = (nowMs - helper.nowPlayingReceivedAtMs) / 1000;
+  const elapsedSeconds =
+    (Math.max(nowMs, helper.nowPlayingReceivedAtMs) - helper.nowPlayingReceivedAtMs) / 1000;
 
   return Math.min(nowPlaying.positionSeconds + elapsedSeconds, nowPlaying.song.durationSeconds);
 }
 
-export function usePositionSeconds(): number {
+// The position now, for a click. It renders nothing.
+export function readCurrentPositionSeconds(): number {
+  return readPositionSeconds(readHelperState(), Date.now());
+}
+
+// The position, drawn again just after each step of tickMs while Music.app plays, so a clock of whole seconds turns on time.
+export function usePositionSeconds(tickMs: number): number {
   const helper = useHelper();
   const isPlaying = helper.nowPlaying.state === "playing";
   const [nowMs, setNowMs] = useState(Date.now());
@@ -23,10 +28,22 @@ export function usePositionSeconds(): number {
   useEffect(() => {
     if (!isPlaying) return;
 
-    const timer = setInterval(() => setNowMs(Date.now()), tickMs);
+    let timer: ReturnType<typeof setTimeout>;
 
-    return () => clearInterval(timer);
-  }, [isPlaying]);
+    const scheduleTick = (): void => {
+      const positionMs = readPositionSeconds(readHelperState(), Date.now()) * 1000;
+      const untilStepMs = tickMs - (positionMs % tickMs) + 5;
 
-  return readPositionSeconds(helper, Math.max(nowMs, helper.nowPlayingReceivedAtMs));
+      timer = setTimeout(() => {
+        setNowMs(Date.now());
+        scheduleTick();
+      }, untilStepMs);
+    };
+
+    scheduleTick();
+
+    return () => clearTimeout(timer);
+  }, [isPlaying, tickMs, helper]);
+
+  return readPositionSeconds(helper, nowMs);
 }

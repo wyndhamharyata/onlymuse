@@ -30,6 +30,8 @@ const queueRowHeightPx = 48;
 // One object for every row, so a render of Up Next sends no style that did not change.
 const queueRowStyle = { display: "flex", flexDirection: "column", width: "100%" } as const;
 const linesBeforeCurrent = 3;
+// The sung line changes on time to a quarter of a second.
+const lyricTickMs = 250;
 const shownLineCount = 14;
 
 const panelTitles: Record<Panel, string> = { queue: "Up Next", lyrics: "Lyrics" };
@@ -206,7 +208,7 @@ async function fetchPlayingLyrics(
 
 function Lyrics() {
   const { accent, nowPlaying } = useHelper();
-  const positionSeconds = usePositionSeconds();
+  const positionSeconds = usePositionSeconds(lyricTickMs);
   const song =
     nowPlaying.state === "playing" || nowPlaying.state === "paused" ? nowPlaying.song : null;
   const persistentID = song?.persistentID ?? "";

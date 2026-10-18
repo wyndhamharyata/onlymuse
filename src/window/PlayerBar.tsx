@@ -4,7 +4,7 @@ import { findCatalogArtistId, toArtworkUrl, type CatalogSong } from "../apple-mu
 import { toClockText } from "../format.ts";
 import { Icon, type IconName } from "../icons.tsx";
 import { sendToHelper, useHelper, type Song } from "../helper.ts";
-import { usePositionSeconds } from "../position.ts";
+import { readCurrentPositionSeconds, usePositionSeconds } from "../position.ts";
 import { navigate } from "../navigation.ts";
 import {
   cycleRepeat,
@@ -103,6 +103,31 @@ function Bar({
           }}
         />
       </div>
+    </div>
+  );
+}
+
+// The clock and the bar draw again once a second while a song plays. The rest of the player does not.
+const progressTickMs = 1000;
+
+function Progress({
+  resumePositionSeconds,
+  durationSeconds,
+  onSeek,
+}: {
+  resumePositionSeconds: number | null;
+  durationSeconds: number;
+  onSeek: (ratio: number) => void;
+}) {
+  const playingPositionSeconds = usePositionSeconds(progressTickMs);
+  const positionSeconds = resumePositionSeconds ?? playingPositionSeconds;
+  const progressRatio = durationSeconds > 0 ? positionSeconds / durationSeconds : 0;
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
+      <text style={{ color: colors.faint, fontSize: 11 }}>{toClockText(positionSeconds)}</text>
+      <Bar ratio={progressRatio} onRatio={onSeek} />
+      <text style={{ color: colors.faint, fontSize: 11 }}>{toClockText(durationSeconds)}</text>
     </div>
   );
 }
@@ -220,8 +245,6 @@ export function PlayerBar({
   const toToggleColor = (isOn: boolean): string => (isOn ? helper.accent : colors.faint);
   const nowPlaying = helper.nowPlaying;
   const isPlaying = nowPlaying.state === "playing";
-
-  const playingPositionSeconds = usePositionSeconds();
   const hasSong = nowPlaying.state === "playing" || nowPlaying.state === "paused";
   const volumePercent = nowPlaying.state === "closed" ? 0 : nowPlaying.volumePercent;
   const addingSong = queue.isAdding ? queue.songs[queue.index] : null;
@@ -229,13 +252,11 @@ export function PlayerBar({
   // With Music.app stopped or closed, the player shows the last song, paused where it was.
   const resumePoint = hasSong ? null : queue.resumePoint;
   const shownSong = hasSong ? nowPlaying.song : (resumePoint?.song ?? null);
-  const positionSeconds = resumePoint ? resumePoint.positionSeconds : playingPositionSeconds;
   const durationSeconds = shownSong?.durationSeconds ?? 0;
   const placeholderText =
     nowPlaying.state === "closed" ? "Music.app is closed" : "Nothing in Music.app";
   const playPause = resumePoint ? resumeLastSong : () => sendToHelper({ type: "playPause" });
 
-  const progressRatio = durationSeconds > 0 ? positionSeconds / durationSeconds : 0;
   const playIcon = isPlaying ? "pause" : "play";
 
   const seek = (ratio: number): void => {
@@ -288,7 +309,9 @@ export function PlayerBar({
             icon="previous"
             color={colors.text}
             sizePx={18}
-            onClick={() => skipToPrevious(positionSeconds)}
+            onClick={() =>
+              skipToPrevious(resumePoint?.positionSeconds ?? readCurrentPositionSeconds())
+            }
           />
           <div
             onClick={playPause}
@@ -318,11 +341,11 @@ export function PlayerBar({
             )}
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-          <text style={{ color: colors.faint, fontSize: 11 }}>{toClockText(positionSeconds)}</text>
-          <Bar ratio={progressRatio} onRatio={seek} />
-          <text style={{ color: colors.faint, fontSize: 11 }}>{toClockText(durationSeconds)}</text>
-        </div>
+        <Progress
+          resumePositionSeconds={resumePoint?.positionSeconds ?? null}
+          durationSeconds={durationSeconds}
+          onSeek={seek}
+        />
       </div>
       <div
         style={{

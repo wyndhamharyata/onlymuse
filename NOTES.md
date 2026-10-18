@@ -190,6 +190,13 @@ the layout and the rules.
   a jolt on scrolling back. The patch keeps dropped layouts in a cache of up to 8,192 and takes them
   from there first. CoreText then
   shows in 0 to 3 samples of a back-and-forth scroll of New, from 16 to 20.
+- gpuix 0.10 pumps GPUI from an 8 ms JavaScript timer, against a display frame of 8.3 ms, so a
+  frame often waited a tick and a scroll moved every second or third refresh. Upstream commit
+  515df19 wakes JavaScript when the display link asks for a frame, with a 100 ms timer as fallback.
+  It is backported: `vendor/gpuix-native.patch` (gpuix) and the hook in `vendor/gpuix.patch` (GPUI),
+  and `vendor/gpuix-runtime.js`, which `scripts/gpuix-native.ts` installs. A back-and-forth scroll
+  of New then missed 2 to 3 frames in place of 1 to 48, and its longest stall fell from up to 51 ms
+  to 16 ms.
 - With `GPUI_FRAMES_WHEN_COVERED=1` the patched build draws from a 120 Hz thread instead of the
   display, so a bench run behind other windows draws as a visible window does, screen on or asleep.
 - With the display asleep, `CGGetActiveDisplayList` lists no display and GPUI cannot create its

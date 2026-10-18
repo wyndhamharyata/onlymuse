@@ -156,10 +156,74 @@ index 3e55040..d6bff07 100644
                  self.modifiers = scroll_wheel.modifiers;
                  PlatformInput::ScrollWheel(scroll_wheel)
 diff --git a/crates/gpui_macos/src/display_link.rs b/crates/gpui_macos/src/display_link.rs
-index 5387cb6..eb3864b 100644
+index 5387cb6..0d92c08 100644
 --- a/crates/gpui_macos/src/display_link.rs
 +++ b/crates/gpui_macos/src/display_link.rs
-@@ -257,6 +257,20 @@ impl WindowFrameSource {
+@@ -59,7 +59,7 @@ use gpui_util::ResultExt;
+ use std::{
+     collections::{BTreeMap, btree_map},
+     ffi::c_void,
+-    sync::{Mutex, MutexGuard, PoisonError},
++    sync::{Arc, Mutex, MutexGuard, PoisonError},
+ };
+ 
+ static REGISTRY: Mutex<Registry> = Mutex::new(Registry::new());
+@@ -67,6 +67,7 @@ static REGISTRY: Mutex<Registry> = Mutex::new(Registry::new());
+ struct Registry {
+     displays: BTreeMap<CGDirectDisplayID, DisplayEntry>,
+     next_subscriber_id: u64,
++    frame_wake_hook: Option<Arc<dyn Fn() + Send + Sync>>,
+ }
+ 
+ impl Registry {
+@@ -74,6 +75,7 @@ impl Registry {
+         Registry {
+             displays: BTreeMap::new(),
+             next_subscriber_id: 0,
++            frame_wake_hook: None,
+         }
+     }
+ }
+@@ -102,6 +104,14 @@ fn lock_registry() -> MutexGuard<'static, Registry> {
+     REGISTRY.lock().unwrap_or_else(PoisonError::into_inner)
+ }
+ 
++pub fn set_frame_wake_hook(hook: Option<Arc<dyn Fn() + Send + Sync>>) {
++    let previous = {
++        let mut registry = lock_registry();
++        std::mem::replace(&mut registry.frame_wake_hook, hook)
++    };
++    drop(previous);
++}
++
+ fn debug_assert_main_thread() {
+     #[cfg(debug_assertions)]
+     {
+@@ -125,11 +135,21 @@ unsafe extern "C" fn display_link_output_callback(
+     display_id: *mut c_void,
+ ) -> i32 {
+     let display_id = display_id as usize as CGDirectDisplayID;
+-    let registry = lock_registry();
+-    if let Some(entry) = registry.displays.get(&display_id) {
++    let hook = {
++        let registry = lock_registry();
++        let Some(entry) = registry.displays.get(&display_id) else {
++            return 0;
++        };
++        if entry.subscribers.is_empty() {
++            return 0;
++        }
+         for (_, frame_requests) in &entry.subscribers {
+             frame_requests.merge_data(1);
+         }
++        registry.frame_wake_hook.clone()
++    };
++    if let Some(hook) = hook {
++        hook();
+     }
+     0
+ }
+@@ -257,6 +277,24 @@ impl WindowFrameSource {
  
      pub fn start(&mut self, display_id: CGDirectDisplayID) -> Result<()> {
          self.stop();
@@ -173,6 +237,10 @@ index 5387cb6..eb3864b 100644
 +                std::thread::spawn(move || loop {
 +                    std::thread::sleep(std::time::Duration::from_micros(8333));
 +                    frame_requests.merge_data(1);
++                    let hook = lock_registry().frame_wake_hook.clone();
++                    if let Some(hook) = hook {
++                        hook();
++                    }
 +                });
 +            }
 +            return Ok(());
@@ -180,6 +248,18 @@ index 5387cb6..eb3864b 100644
          let subscriber_id = subscribe(display_id, self.frame_requests.clone())?;
          self.registration = Some((display_id, subscriber_id));
          Ok(())
+diff --git a/crates/gpui_macos/src/gpui_macos.rs b/crates/gpui_macos/src/gpui_macos.rs
+index 1ee1872..9088246 100644
+--- a/crates/gpui_macos/src/gpui_macos.rs
++++ b/crates/gpui_macos/src/gpui_macos.rs
+@@ -55,6 +55,7 @@ pub(crate) use window::*;
+ #[cfg(feature = "font-kit")]
+ pub(crate) use text_system::*;
+ 
++pub use display_link::set_frame_wake_hook;
+ pub use platform::MacPlatform;
+ 
+ trait BoolExt {
 diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
 index faf27e0..46edad6 100644
 --- a/crates/gpui_macos/src/window.rs

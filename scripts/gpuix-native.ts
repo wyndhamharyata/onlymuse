@@ -31,6 +31,12 @@ if (
   copyFileSync(installedPath, sources.stock);
 }
 
+// The frame loop of upstream commit 515df19 wakes on the display. With the published binary it keeps its timer.
+copyFileSync(
+  join("vendor", "gpuix-runtime.js"),
+  join("node_modules", "@gpuix", "native", "dist", "runtime.js")
+);
+
 if (existsSync(installedPath) && hashOf(installedPath) === hashOf(sourcePath)) {
   console.log(`gpuix: ${choice} already in use`);
   process.exit(0);

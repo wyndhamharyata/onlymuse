@@ -36,7 +36,7 @@ index ff7e6c2..7df2e84 100644
                  }
              }
 diff --git a/crates/gpui/src/platform.rs b/crates/gpui/src/platform.rs
-index e37ab99..6e0d479 100644
+index e37ab99..9f82b7b 100644
 --- a/crates/gpui/src/platform.rs
 +++ b/crates/gpui/src/platform.rs
 @@ -848,6 +848,10 @@ pub trait PlatformWindow: HasWindowHandle + HasDisplayHandle {
@@ -50,6 +50,37 @@ index e37ab99..6e0d479 100644
      fn is_hovered(&self) -> bool;
      fn background_appearance(&self) -> WindowBackgroundAppearance;
      fn set_title(&mut self, title: &str);
+@@ -1571,8 +1575,17 @@ impl PlatformInputHandler {
+     }
+ 
+     pub fn bounds_for_range(&mut self, range_utf16: Range<usize>) -> Option<Bounds<Pixels>> {
++        // onlymuse patch: the platform places the IME window in points, so zoomed bounds scale back.
+         self.cx
+-            .update(|window, cx| self.handler.bounds_for_range(range_utf16, window, cx))
++            .update(|window, cx| {
++                let zoom = window.content_zoom();
++                self.handler
++                    .bounds_for_range(range_utf16, window, cx)
++                    .map(|bounds| {
++                        let size = crate::size(bounds.size.width * zoom, bounds.size.height * zoom);
++                        Bounds::new(bounds.origin * zoom, size)
++                    })
++            })
+             .ok()
+             .flatten()
+     }
+@@ -1640,7 +1653,10 @@ impl PlatformInputHandler {
+     #[allow(unused)]
+     pub fn character_index_for_point(&mut self, point: Point<Pixels>) -> Option<usize> {
+         self.cx
+-            .update(|window, cx| self.handler.character_index_for_point(point, window, cx))
++            .update(|window, cx| {
++                let point = point / window.content_zoom();
++                self.handler.character_index_for_point(point, window, cx)
++            })
+             .ok()
+             .flatten()
+     }
 diff --git a/crates/gpui/src/text_system/line_layout.rs b/crates/gpui/src/text_system/line_layout.rs
 index e7362f7..b889319 100644
 --- a/crates/gpui/src/text_system/line_layout.rs
@@ -103,10 +134,19 @@ index e7362f7..b889319 100644
              let text = SharedString::from(text);
              let mut layout = self
 diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
-index 3e55040..d6bff07 100644
+index 3e55040..19309c2 100644
 --- a/crates/gpui/src/window.rs
 +++ b/crates/gpui/src/window.rs
-@@ -1191,6 +1191,8 @@ pub struct Window {
+@@ -1181,6 +1181,8 @@ pub struct Window {
+     modifiers: Modifiers,
+     capslock: Capslock,
+     scale_factor: f32,
++    // onlymuse patch: the user's zoom. Layout runs in points divided by it, and drawing scales by it.
++    content_zoom: f32,
+     pub(crate) bounds_observers: SubscriberSet<(), AnyObserver>,
+     appearance: WindowAppearance,
+     pub(crate) appearance_observers: SubscriberSet<(), AnyObserver>,
+@@ -1191,6 +1193,8 @@ pub struct Window {
      /// Tracks recent input event timestamps to determine if input is arriving at a high rate.
      /// Used to selectively enable VRR optimization only when input rate exceeds 60fps.
      pub(crate) input_rate_tracker: Rc<RefCell<InputRateTracker>>,
@@ -115,15 +155,106 @@ index 3e55040..d6bff07 100644
      #[cfg(feature = "profiler")]
      window_profiler: profiler::WindowProfiler,
      last_input_modality: InputModality,
-@@ -1883,6 +1885,7 @@ impl Window {
+@@ -1883,6 +1887,8 @@ impl Window {
              hovered,
              needs_present,
              input_rate_tracker,
 +            last_scroll_wheel_at: None,
++            content_zoom: 1.0,
              #[cfg(feature = "profiler")]
              window_profiler: profiler::WindowProfiler::new(handle.window_id())?,
              last_input_modality: InputModality::Mouse,
-@@ -2908,6 +2911,13 @@ impl Window {
+@@ -2481,10 +2487,11 @@ impl Window {
+     /// the platform window, then notifies observers. Normally called automatically
+     /// by the platform's resize callback, but exposed publicly for test infrastructure.
+     pub fn bounds_changed(&mut self, cx: &mut App) {
+-        self.scale_factor = self.platform_window.scale_factor();
+-        self.viewport_size = self.platform_window.content_size();
++        let zoom = self.content_zoom;
++        self.scale_factor = self.platform_window.scale_factor() * zoom;
++        self.viewport_size = self.platform_window.content_size() / zoom;
+         self.display_id = self.platform_window.display().map(|display| display.id());
+-        self.mouse_position = self.platform_window.mouse_position();
++        self.mouse_position = self.platform_window.mouse_position() / zoom;
+ 
+         self.refresh();
+ 
+@@ -2493,6 +2500,74 @@ impl Window {
+             .retain(&(), |callback| callback(self, cx));
+     }
+ 
++    /// onlymuse patch: the user's zoom, 1.0 by default.
++    pub fn content_zoom(&self) -> f32 {
++        self.content_zoom
++    }
++
++    /// onlymuse patch: scales the whole window's content, as a browser's zoom does. Clamped to 0.5 to 3.
++    pub fn set_content_zoom(&mut self, zoom: f32, cx: &mut App) {
++        self.content_zoom = zoom.clamp(0.5, 3.0);
++        self.bounds_changed(cx);
++    }
++
++    // onlymuse patch: platform positions are in points, and layout runs in points divided by the zoom.
++    fn unzoom_input(&self, event: PlatformInput) -> PlatformInput {
++        let zoom = self.content_zoom;
++        if zoom == 1.0 {
++            return event;
++        }
++        let scale = |position: Point<Pixels>| position / zoom;
++        match event {
++            PlatformInput::MouseDown(mut event) => {
++                event.position = scale(event.position);
++                PlatformInput::MouseDown(event)
++            }
++            PlatformInput::MouseUp(mut event) => {
++                event.position = scale(event.position);
++                PlatformInput::MouseUp(event)
++            }
++            PlatformInput::MousePressure(mut event) => {
++                event.position = scale(event.position);
++                PlatformInput::MousePressure(event)
++            }
++            PlatformInput::MouseMove(mut event) => {
++                event.position = scale(event.position);
++                PlatformInput::MouseMove(event)
++            }
++            PlatformInput::MouseExited(mut event) => {
++                event.position = scale(event.position);
++                PlatformInput::MouseExited(event)
++            }
++            PlatformInput::ScrollWheel(mut event) => {
++                event.position = scale(event.position);
++                // The content moves as far on screen as the fingers do, at any zoom.
++                if let crate::ScrollDelta::Pixels(delta) = event.delta {
++                    event.delta = crate::ScrollDelta::Pixels(delta / zoom);
++                }
++                PlatformInput::ScrollWheel(event)
++            }
++            PlatformInput::Pinch(mut event) => {
++                event.position = scale(event.position);
++                PlatformInput::Pinch(event)
++            }
++            PlatformInput::Touch(mut event) => {
++                event.position = scale(event.position);
++                PlatformInput::Touch(event)
++            }
++            PlatformInput::FileDrop(FileDropEvent::Entered { position, paths }) => {
++                PlatformInput::FileDrop(FileDropEvent::Entered { position: scale(position), paths })
++            }
++            PlatformInput::FileDrop(FileDropEvent::Pending { position }) => {
++                PlatformInput::FileDrop(FileDropEvent::Pending { position: scale(position) })
++            }
++            PlatformInput::FileDrop(FileDropEvent::Submit { position }) => {
++                PlatformInput::FileDrop(FileDropEvent::Submit { position: scale(position) })
++            }
++            event => event,
++        }
++    }
++
+     /// Returns the bounds of the current window in the global coordinate space, which could span across multiple displays.
+     pub fn bounds(&self) -> Bounds<Pixels> {
+         self.platform_window.bounds()
+@@ -2908,6 +2983,13 @@ impl Window {
          self.last_input_modality == InputModality::Keyboard
      }
  
@@ -137,7 +268,7 @@ index 3e55040..d6bff07 100644
      /// The current state of the keyboard's capslock
      pub fn capslock(&self) -> Capslock {
          self.capslock
-@@ -3233,6 +3243,9 @@ impl Window {
+@@ -3233,6 +3315,9 @@ impl Window {
          }
  
          self.mouse_hit_test = self.next_frame.hit_test(self.mouse_position);
@@ -147,7 +278,15 @@ index 3e55040..d6bff07 100644
  
          // Now actually paint the elements.
          self.invalidator.set_phase(DrawPhase::Paint);
-@@ -5278,6 +5291,7 @@ impl Window {
+@@ -5225,6 +5310,7 @@ impl Window {
+     /// Dispatch a mouse or keyboard event on the window.
+     #[profiling::function]
+     pub fn dispatch_event(&mut self, event: PlatformInput, cx: &mut App) -> DispatchEventResult {
++        let event = self.unzoom_input(event);
+         #[cfg(feature = "profiler")]
+         self.window_profiler.begin_input(event.kind_name());
+         let update_count_before = self.invalidator.update_count();
+@@ -5278,6 +5364,7 @@ impl Window {
                  PlatformInput::ModifiersChanged(modifiers_changed)
              }
              PlatformInput::ScrollWheel(scroll_wheel) => {

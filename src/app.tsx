@@ -1,5 +1,5 @@
-import { useWindowSize } from "@gpuix/react";
-import { memo, useState } from "react";
+import { useGpuixRequired, useWindowSize } from "@gpuix/react";
+import { memo, useEffect, useState } from "react";
 import {
   fetchNewShelves,
   fetchHomeShelves,
@@ -29,6 +29,7 @@ import { PlayerBar } from "./window/PlayerBar.tsx";
 import { Sidebar } from "./window/Sidebar.tsx";
 import { SidePanel, isPanel, panelWidthPx, type Panel } from "./window/SidePanel.tsx";
 import { readState, saveState } from "./store.ts";
+import { applySavedZoom } from "./zoom.ts";
 import { SignInCard } from "./window/SignInCard.tsx";
 
 // The key makes each visit a new page, so a page never shows what the one before it loaded.
@@ -123,6 +124,7 @@ function NavigationButton({
 }
 
 export function App() {
+  const renderer = useGpuixRequired();
   const navigation = useNavigation();
   const isSignInNeeded = useHelperValue((helper) => helper.isSignInNeeded);
   const [panel, setShownPanel] = useState(readState("panel", isPanel, null));
@@ -139,6 +141,8 @@ export function App() {
   const canGoBack = navigation.index > 0;
   const canGoForward = navigation.index < navigation.pages.length - 1;
   const isListPage = listPageIds.has(page.id);
+
+  useEffect(() => applySavedZoom(renderer), [renderer]);
 
   return (
     <div

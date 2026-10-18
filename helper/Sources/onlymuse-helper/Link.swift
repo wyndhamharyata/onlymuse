@@ -29,8 +29,11 @@ func sendError(_ text: String) {
   send(["type": "error", "text": text])
 }
 
-// Reads the app's lines on a thread of their own and hands each command to the main actor.
-func startReadingCommands(onCommand: @escaping @MainActor @Sendable (Command) -> Void) {
+// Reads the app's lines on a thread of their own. The pipe closes however the app ends, even on kill -9, so onAppGone runs.
+func startReadingCommands(
+  onCommand: @escaping @MainActor @Sendable (Command) -> Void,
+  onAppGone: @escaping @MainActor @Sendable () -> Void
+) {
   Thread.detachNewThread {
     let decoder = JSONDecoder()
 
@@ -44,6 +47,7 @@ func startReadingCommands(onCommand: @escaping @MainActor @Sendable (Command) ->
     }
 
     // The app closed its end of the pipe, so it has quit.
+    DispatchQueue.main.sync { MainActor.assumeIsolated { onAppGone() } }
     exit(0)
   }
 }

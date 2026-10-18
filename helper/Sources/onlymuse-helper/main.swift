@@ -13,6 +13,13 @@ func toAccentMessage() -> [String: Any] {
 let application = NSApplication.shared
 let music = MusicApp()
 let handoff = Handoff(music: music)
+// A window behind the others is a bench or test run, which must leave the music as it is when it ends.
+let pausesWhenAppEnds = ProcessInfo.processInfo.environment["GPUIX_BACKGROUND"] != "1"
+
+@MainActor
+func pauseWhenAppEnds() {
+  if pausesWhenAppEnds { music.pauseIfRunning() }
+}
 
 application.setActivationPolicy(.accessory)
 
@@ -48,9 +55,13 @@ Timer.scheduledTimer(withTimeInterval: volumeCheckSeconds, repeats: true) { _ in
 
 let webPlayer = WebPlayer()
 
-startReadingCommands { command in
+startReadingCommands(onCommand: { command in
   switch command.type {
   case "refreshTokens": webPlayer.refreshTokens()
+  // The app reloaded its code and keeps this helper, so it asks for what the helper sent at start.
+  case "sendState":
+    send(toAccentMessage())
+    send(music.readNowPlaying())
   case "signIn": webPlayer.signIn()
   case "playSong":
     guard let requestId = command.requestId, let song = command.song else { return }
@@ -65,6 +76,22 @@ startReadingCommands { command in
     // A seek moves the end, and Music.app posts nothing for it.
     if command.type == "seek" { handoff.arm() }
   }
+}, onAppGone: { pauseWhenAppEnds() })
+
+// Ctrl-C and a closed terminal signal the helper with the app, so the helper pauses before the pipe closes.
+var signalSources: [DispatchSourceSignal] = []
+
+for signalNumber in [SIGINT, SIGTERM, SIGHUP] {
+  signal(signalNumber, SIG_IGN)
+
+  let source = DispatchSource.makeSignalSource(signal: signalNumber, queue: .main)
+
+  source.setEventHandler {
+    MainActor.assumeIsolated { pauseWhenAppEnds() }
+    exit(0)
+  }
+  source.resume()
+  signalSources.append(source)
 }
 
 send(toAccentMessage())

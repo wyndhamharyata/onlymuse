@@ -41,7 +41,7 @@ export type Outgoing =
   | { type: "playPause" | "next" | "previous" }
   | { type: "seek"; positionSeconds: number }
   | { type: "setVolume"; volumePercent: number }
-  | { type: "refreshTokens" | "signIn" }
+  | { type: "refreshTokens" | "signIn" | "sendState" }
   | { type: "playSong"; requestId: number; song: SongMatch }
   | {
       type: "setNext";
@@ -59,7 +59,16 @@ export type HelperState = {
 
 const helperPath = join(import.meta.dir, "..", "helper", ".build", "release", "onlymuse-helper");
 
-const helper = Bun.spawn([helperPath], { stdin: "pipe", stdout: "pipe", stderr: "inherit" });
+type HelperProcess = Bun.Subprocess<"pipe", "pipe", "inherit">;
+type SharedHelper = { process: HelperProcess; onMessage: (message: Incoming) => void };
+
+// bun --hot runs every module again on a save. One helper outlives it, so a save starts no second one and pauses nothing.
+const shared = globalThis as typeof globalThis & { onlymuseHelper?: SharedHelper };
+const isReload = shared.onlymuseHelper !== undefined;
+
+shared.onlymuseHelper ??= startHelper();
+
+const helper = shared.onlymuseHelper.process;
 const listeners = new Set<() => void>();
 
 let state: HelperState = {
@@ -108,22 +117,41 @@ function applyMessage(message: Incoming): void {
   for (const listener of listeners) listener();
 }
 
-async function startReadingMessages(): Promise<void> {
+// The reader hands each message to the onMessage of the code loaded last.
+async function readMessages(helperProcess: HelperProcess): Promise<void> {
   const decoder = new TextDecoder();
   let buffer = "";
 
-  for await (const chunk of helper.stdout) {
+  for await (const chunk of helperProcess.stdout) {
     buffer += decoder.decode(chunk, { stream: true });
 
     const lines = buffer.split("\n");
 
     buffer = lines.pop() ?? "";
-    for (const line of lines) applyMessage(JSON.parse(line) as Incoming);
+    for (const line of lines) shared.onlymuseHelper?.onMessage(JSON.parse(line) as Incoming);
   }
 }
 
-startReadingMessages();
-process.on("exit", () => helper.kill());
+function startHelper(): SharedHelper {
+  const helperProcess = Bun.spawn([helperPath], {
+    stdin: "pipe",
+    stdout: "pipe",
+    stderr: "inherit",
+  });
+
+  readMessages(helperProcess);
+  process.on("exit", () => helperProcess.kill());
+
+  return { process: helperProcess, onMessage: () => {} };
+}
+
+shared.onlymuseHelper.onMessage = applyMessage;
+
+// Reloaded code starts with empty state, so the helper sends again what it sent at its start.
+if (isReload) {
+  sendToHelper({ type: "sendState" });
+  sendToHelper({ type: "refreshTokens" });
+}
 
 export function sendToHelper(command: Outgoing): void {
   helper.stdin.write(JSON.stringify(command) + "\n");

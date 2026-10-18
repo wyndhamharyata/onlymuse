@@ -99,6 +99,14 @@ the layout and the rules.
 - **Playing a song.** The helper looks for the song in Music.app's library by name, artist and
   album, and plays the one closest in length. When the library has none, the app puts the song in
   the library through the API, then asks again every 1.5 seconds until Music.app shows it.
+- **The music pauses when the app ends,** however it ends. The helper reads the app's commands
+  from a pipe, which closes on a quit, a crash or `kill -9`, and then sends `pause` to Music.app,
+  only when it runs. Ctrl-C and a closed terminal signal both processes, so the helper pauses on
+  SIGINT, SIGTERM and SIGHUP too. A run with `GPUIX_BACKGROUND=1`, a bench or a test, keeps the
+  music playing. `kill -9` on the helper itself is the one case not covered.
+- **One helper across hot reloads.** `bun --hot` runs every module again on each save, which
+  started one more helper per save. The helper process lives on `globalThis`, and a reload only
+  swaps the function that reads its messages, then asks it to send its state again.
 - **Shuffle and repeat** belong to the app's queue. Repeat one plays the song again when Music.app
   stops at its end.
 - **Next and previous** move through the queue while Music.app plays the song the queue started.

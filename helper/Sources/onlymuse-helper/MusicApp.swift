@@ -101,6 +101,13 @@ final class MusicApp {
     return persistentID
   }
 
+  // Pause, not play/pause, and only when Music.app runs, so it never starts music or opens Music.app.
+  func pauseIfRunning() {
+    guard isRunning else { return }
+
+    _ = run(NSAppleScript(source: "tell application \"Music\" to pause")!)
+  }
+
   func play(persistentID: String) {
     _ = run(NSAppleScript(source: "tell application \"Music\" to play (first track of library playlist 1 whose persistent ID is \"\(persistentID)\")")!)
   }

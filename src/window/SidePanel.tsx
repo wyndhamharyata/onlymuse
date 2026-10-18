@@ -27,6 +27,8 @@ const historyCount = 2;
 // Up Next mounts this many rows around the ones in view, whatever the length of the queue.
 const queueWindowCount = 32;
 const queueRowHeightPx = 48;
+// One object for every row, so a render of Up Next sends no style that did not change.
+const queueRowStyle = { display: "flex", flexDirection: "column", width: "100%" } as const;
 const linesBeforeCurrent = 3;
 const shownLineCount = 14;
 
@@ -150,7 +152,9 @@ function UpNext() {
     .map((song, offset) => ({ song, index: firstIndex + offset }));
 
   const moveWindow = (event: { startIndex?: number; endIndex?: number }): void => {
-    setWindowStart((current) => toWindowStart(current, event, queueWindowCount));
+    const nextStart = toWindowStart(windowStart, event, queueWindowCount);
+
+    if (nextStart !== windowStart) setWindowStart(nextStart);
   };
 
   return (
@@ -162,10 +166,7 @@ function UpNext() {
       style={{ flexGrow: 1, minHeight: 0 }}
     >
       {rows.map(({ song, index }) => (
-        <div
-          key={`${index}-${song.id}`}
-          style={{ display: "flex", flexDirection: "column", width: "100%" }}
-        >
+        <div key={`${index}-${song.id}`} style={queueRowStyle}>
           {index === queue.index && <Heading text="Now Playing" />}
           {index === queue.index + 1 && <Heading text="Up Next" />}
           <QueueRow

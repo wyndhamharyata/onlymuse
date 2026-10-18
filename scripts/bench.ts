@@ -174,8 +174,13 @@ for (const mode of modes) {
     );
     rows.push(toRow(mode, "scroll New", await measure(reportPath, () => scroll(app))));
     rows.push(toRow(mode, "idle on New", await measure(reportPath, () => sleep(idleMs))));
-    await clickSidebar(app, "Songs");
-    await sleep(4000);
+    rows.push(
+      toRow(
+        mode,
+        "open Songs",
+        await measure(reportPath, () => clickSidebar(app, "Songs").then(() => sleep(3000)))
+      )
+    );
     rows.push(toRow(mode, "scroll Songs", await measure(reportPath, () => scroll(app))));
     rows.push(toRow(mode, "idle on Songs", await measure(reportPath, () => sleep(idleMs))));
     rows.push(

@@ -7,6 +7,7 @@ struct Command: Decodable {
   let positionSeconds: Double?
   let volumePercent: Int?
   let song: SongMatch?
+  let afterPersistentID: String?
 }
 
 // What the app knows of a catalog song, to find it in Music.app's library.

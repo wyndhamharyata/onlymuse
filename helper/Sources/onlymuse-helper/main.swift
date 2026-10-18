@@ -12,11 +12,16 @@ func toAccentMessage() -> [String: Any] {
 // The helper is an app with no Dock icon, so AppKit tells it when the accent colour changes.
 let application = NSApplication.shared
 let music = MusicApp()
+let handoff = Handoff(music: music)
 
 application.setActivationPolicy(.accessory)
 
+// The handoff reacts first, so the queue's next song replaces a pick of Music.app's before more of it plays.
 DistributedNotificationCenter.default().addObserver(forName: .init("com.apple.Music.playerInfo"), object: nil, queue: .main) { _ in
-  MainActor.assumeIsolated { send(music.readNowPlaying()) }
+  MainActor.assumeIsolated {
+    handoff.onPlayerChange()
+    send(music.readNowPlaying())
+  }
 }
 
 NotificationCenter.default.addObserver(forName: NSColor.systemColorsDidChangeNotification, object: nil, queue: .main) { _ in
@@ -51,7 +56,14 @@ startReadingCommands { command in
     guard let requestId = command.requestId, let song = command.song else { return }
     let persistentID: Any = music.playSong(song) ?? NSNull()
     send(["type": "playSongResult", "requestId": requestId, "persistentID": persistentID])
-  default: music.apply(command)
+  case "setNext":
+    guard let requestId = command.requestId else { return }
+    let persistentID: Any = handoff.set(afterID: command.afterPersistentID, next: command.song) ?? NSNull()
+    send(["type": "setNextResult", "requestId": requestId, "persistentID": persistentID])
+  default:
+    music.apply(command)
+    // A seek moves the end, and Music.app posts nothing for it.
+    if command.type == "seek" { handoff.arm() }
   }
 }
 

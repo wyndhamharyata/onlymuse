@@ -25,7 +25,7 @@ type Incoming =
   | { type: "accent"; color: string }
   | ({ type: "tokens" } & Tokens)
   | { type: "signInNeeded" }
-  | { type: "playSongResult"; requestId: number; persistentID: string | null }
+  | { type: "playSongResult" | "setNextResult"; requestId: number; persistentID: string | null }
   | { type: "error"; text: string };
 
 // What the helper needs to find a catalog song in Music.app's library.
@@ -42,7 +42,13 @@ export type Outgoing =
   | { type: "seek"; positionSeconds: number }
   | { type: "setVolume"; volumePercent: number }
   | { type: "refreshTokens" | "signIn" }
-  | { type: "playSong"; requestId: number; song: SongMatch };
+  | { type: "playSong"; requestId: number; song: SongMatch }
+  | {
+      type: "setNext";
+      requestId: number;
+      afterPersistentID: string | null;
+      song: SongMatch | null;
+    };
 
 export type HelperState = {
   nowPlaying: NowPlaying;
@@ -76,7 +82,7 @@ function applyMessage(message: Incoming): void {
     return;
   }
 
-  if (message.type === "playSongResult") {
+  if (message.type === "playSongResult" || message.type === "setNextResult") {
     playSongWaiters.get(message.requestId)?.(message.persistentID);
     playSongWaiters.delete(message.requestId);
     return;
@@ -145,6 +151,20 @@ export function playSongInMusic(song: SongMatch): Promise<string | null> {
   const requestId = lastRequestId;
 
   sendToHelper({ type: "playSong", requestId, song });
+
+  return new Promise((resolve) => playSongWaiters.set(requestId, resolve));
+}
+
+// The helper starts this song just before afterPersistentID ends, so Autoplay never plays. null: not in the library.
+export function setNextInMusic(
+  afterPersistentID: string | null,
+  song: SongMatch | null
+): Promise<string | null> {
+  lastRequestId += 1;
+
+  const requestId = lastRequestId;
+
+  sendToHelper({ type: "setNext", requestId, afterPersistentID, song });
 
   return new Promise((resolve) => playSongWaiters.set(requestId, resolve));
 }

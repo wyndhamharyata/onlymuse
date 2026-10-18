@@ -2,11 +2,13 @@ import { useSyncExternalStore } from "react";
 import { addToLibrary, type CatalogSong } from "./apple-music.ts";
 import { hasNumber, hasText, isFields, isWholeNumberIn } from "./checks.ts";
 import {
+  setNextInMusic,
   playSongInMusic,
   readHelperState,
   sendToHelper,
   subscribeToHelper,
   type Song,
+  type NowPlaying,
   type SongMatch,
 } from "./helper.ts";
 import { readState, saveState } from "./store.ts";
@@ -105,6 +107,35 @@ function setState(changes: Partial<QueueState>): void {
   state = { ...state, ...changes };
   saveState(stateKey, state);
   for (const listener of listeners) listener();
+  syncHandoff();
+}
+
+// The song the helper starts when the one playing ends, and its place in the queue.
+type Handoff = { afterPersistentID: string; index: number; persistentID: string };
+
+let handoff: Handoff | null = null;
+let handoffKey = "";
+
+// Tells the helper the queue's next song whenever the song playing or the next one changes.
+function syncHandoff(): void {
+  const afterPersistentID = state.playingPersistentID;
+  const repeatIndex = state.repeat === "one" ? state.index : findNextIndex();
+  const nextIndex = afterPersistentID === null ? null : repeatIndex;
+  const nextSong = nextIndex === null ? null : state.songs[nextIndex];
+  const key = `${afterPersistentID}|${nextIndex}|${nextSong?.id}`;
+
+  if (key === handoffKey) return;
+
+  handoffKey = key;
+  handoff = null;
+
+  const match = nextSong ? toSongMatch(nextSong) : null;
+
+  setNextInMusic(nextSong ? afterPersistentID : null, match).then((persistentID) => {
+    if (key !== handoffKey || !afterPersistentID || nextIndex === null || !persistentID) return;
+
+    handoff = { afterPersistentID, index: nextIndex, persistentID };
+  });
 }
 
 function toSongMatch(song: CatalogSong): SongMatch {
@@ -268,35 +299,64 @@ function toEstimateSeconds(current: Tracking, nowMs: number): number {
   return current.positionSeconds + (nowMs - current.receivedAtMs) / 1000;
 }
 
+type PlayingSong = Extract<NowPlaying, { state: "playing" | "paused" }>;
+
+// The helper's handoff, when this post shows its song starting. With repeat one it starts the same song from 0.
+function findHandoff(nowPlaying: PlayingSong, wasAtEnd: boolean): Handoff | null {
+  const persistentID = nowPlaying.song.persistentID;
+  const isSameSong = tracking?.persistentID === persistentID;
+  const isRestart = isSameSong && wasAtEnd && nowPlaying.positionSeconds < endToleranceSeconds;
+
+  if (!handoff || persistentID !== handoff.persistentID) return null;
+  if (state.playingPersistentID !== handoff.afterPersistentID) return null;
+  if (tracking?.persistentID !== handoff.afterPersistentID) return null;
+
+  return !isSameSong || isRestart ? handoff : null;
+}
+
+function applyPlayingSong(nowPlaying: PlayingSong, nowMs: number): void {
+  const isSameSong = tracking?.persistentID === nowPlaying.song.persistentID;
+  const wasAtEnd =
+    tracking !== null &&
+    toEstimateSeconds(tracking, nowMs) >= tracking.durationSeconds - endToleranceSeconds;
+  const handedOff = findHandoff(nowPlaying, wasAtEnd);
+  const isQueueSong = tracking?.persistentID === state.playingPersistentID;
+  const hasQueueSongEnded = !handedOff && !isSameSong && isQueueSong && wasAtEnd;
+  const estimateSeconds = tracking && isSameSong ? toEstimateSeconds(tracking, nowMs) : 0;
+  const isPaused = nowPlaying.state === "paused";
+  const pausedSeconds = Math.max(nowPlaying.positionSeconds, estimateSeconds);
+
+  tracking = {
+    persistentID: nowPlaying.song.persistentID,
+    durationSeconds: nowPlaying.song.durationSeconds,
+    positionSeconds: isPaused ? pausedSeconds : nowPlaying.positionSeconds,
+    receivedAtMs: nowMs,
+    isPlaying: !isPaused,
+  };
+
+  // The helper started the queue's next song itself, so the queue only moves on.
+  if (handedOff) {
+    playCount += 1;
+    handoff = null;
+    handoffKey = "";
+    setState({
+      index: handedOff.index,
+      isAdding: false,
+      playingPersistentID: handedOff.persistentID,
+    });
+  }
+
+  // Music.app's Autoplay can go on to a song of its own with no Stopped, so a switch at the end is the end.
+  if (hasQueueSongEnded) playNextAfterEnd();
+}
+
 // At a song's end Music.app posts Paused, then Stopped. The paused position it posts may be 0.
 function applyNowPlaying(): void {
   const nowPlaying = readHelperState().nowPlaying;
   const nowMs = Date.now();
 
   if (nowPlaying.state === "playing" || nowPlaying.state === "paused") {
-    const isSameSong = tracking?.persistentID === nowPlaying.song.persistentID;
-    const hasQueueSongEnded =
-      tracking !== null &&
-      !isSameSong &&
-      tracking.persistentID === state.playingPersistentID &&
-      toEstimateSeconds(tracking, nowMs) >= tracking.durationSeconds - endToleranceSeconds;
-
-    const estimateSeconds = tracking && isSameSong ? toEstimateSeconds(tracking, nowMs) : 0;
-    const isPaused = nowPlaying.state === "paused";
-    const pausedSeconds = Math.max(nowPlaying.positionSeconds, estimateSeconds);
-
-    tracking = {
-      persistentID: nowPlaying.song.persistentID,
-      durationSeconds: nowPlaying.song.durationSeconds,
-      positionSeconds: isPaused ? pausedSeconds : nowPlaying.positionSeconds,
-      receivedAtMs: nowMs,
-      isPlaying: !isPaused,
-    };
-
-    // Music.app's Autoplay can go on to a song of its own with no Stopped, so a switch at the end is the end.
-    if (hasQueueSongEnded) playNextAfterEnd();
-
-    return;
+    return applyPlayingSong(nowPlaying, nowMs);
   }
 
   const finished = tracking;

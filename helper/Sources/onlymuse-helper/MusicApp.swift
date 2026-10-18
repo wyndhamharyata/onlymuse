@@ -94,6 +94,19 @@ final class MusicApp {
   func playSong(_ match: SongMatch) -> String? {
     if !isRunning { launch() }
 
+    guard let persistentID = findSong(match) else { return nil }
+
+    play(persistentID: persistentID)
+
+    return persistentID
+  }
+
+  func play(persistentID: String) {
+    _ = run(NSAppleScript(source: "tell application \"Music\" to play (first track of library playlist 1 whose persistent ID is \"\(persistentID)\")")!)
+  }
+
+  // The persistent ID of the library song closest in length to the match, without playing it.
+  func findSong(_ match: SongMatch) -> String? {
     let name = Self.toAppleScriptText(match.name)
     let artist = Self.toAppleScriptText(match.artistName)
     let album = Self.toAppleScriptText(match.albumName)
@@ -118,11 +131,26 @@ final class MusicApp {
       return (persistentID: String(fields[0]), durationSeconds: Self.readSeconds(String(fields[1])))
     }
 
-    guard let closest = candidates.min(by: { abs($0.durationSeconds - match.durationSeconds) < abs($1.durationSeconds - match.durationSeconds) }) else { return nil }
+    return candidates.min(by: { abs($0.durationSeconds - match.durationSeconds) < abs($1.durationSeconds - match.durationSeconds) })?.persistentID
+  }
 
-    _ = run(NSAppleScript(source: "tell application \"Music\" to play (first track of library playlist 1 whose persistent ID is \"\(closest.persistentID)\")")!)
+  private let playbackScript = NSAppleScript(source: """
+    tell application "Music"
+      if player state is not playing then return ""
+      set t to current track
+      return (persistent ID of t) & (character id 31) & (player position as text) & (character id 31) & (duration of t as text)
+    end tell
+    """)!
 
-    return closest.persistentID
+  // The song Music.app plays and how far it is, read with no artwork, so it is quick. nil unless it plays.
+  func readPlayback() -> (persistentID: String, positionSeconds: Double, durationSeconds: Double)? {
+    guard isRunning, let text = run(playbackScript)?.stringValue, !text.isEmpty else { return nil }
+
+    let fields = text.components(separatedBy: "\u{1F}")
+
+    guard fields.count == 3 else { return nil }
+
+    return (fields[0], Self.readSeconds(fields[1]), Self.readSeconds(fields[2]))
   }
 
   // A quoted AppleScript string, so a song name with a quote or a backslash stays text.

@@ -176,10 +176,9 @@ const dayMs = 24 * 60 * minuteMs;
 const freshRules: [string, number][] = [
   ["/v1/me/storefront", 30 * dayMs],
   ["lyrics", 30 * dayMs],
-  // Home and New. Apple orders Home anew on every request, so a shorter time reshuffled it on most visits.
-  ["/v1/me/recommendations", 30 * minuteMs],
+  ["/v1/me/recommendations", 10 * minuteMs],
   ["/v1/me/", 0],
-  ["/v1/editorial/", 30 * minuteMs],
+  ["/v1/editorial/", 60 * minuteMs],
   ["/search?", 10 * minuteMs],
   ["/v1/catalog/", dayMs],
 ];

@@ -1,5 +1,5 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
-index b1710c3..e44431c 100644
+index b1710c3..f131a1f 100644
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
 @@ -8,10 +8,7 @@
@@ -67,16 +67,26 @@ index b1710c3..e44431c 100644
      /// Whether JavaScript must call tick() until it returns false.
      ///
      /// macOS: tick() pumps AppKit. Windows/Linux: tick() only reports whether
-@@ -1705,6 +1748,28 @@ impl GpuixRenderer {
+@@ -1705,6 +1748,38 @@ impl GpuixRenderer {
          ))
      }
  
-+    /// onlymuse patch: the frames over 8 ms since the last call, flat as [whenMs, drawMs, presentMs, ...].
++    /// onlymuse patch: the frames and scroll wheel events since the last call, flat as
++    /// [whenMs, kind, value1, value2, value3, value4, ...]. gpui's `take_probe_events` names the values.
 +    #[napi]
-+    pub fn take_slow_frames(&self) -> Vec<f64> {
-+        gpui::take_slow_frames()
++    pub fn take_probe_events(&self) -> Vec<f64> {
++        gpui::take_probe_events()
 +            .into_iter()
-+            .flat_map(|(at_ms, draw_ms, present_ms)| [at_ms, draw_ms as f64, present_ms as f64])
++            .flat_map(|(at_ms, kind, values)| {
++                [
++                    at_ms,
++                    kind as f64,
++                    values[0] as f64,
++                    values[1] as f64,
++                    values[2] as f64,
++                    values[3] as f64,
++                ]
++            })
 +            .collect()
 +    }
 +
@@ -96,7 +106,7 @@ index b1710c3..e44431c 100644
      #[napi]
      pub fn set_window_title(&self, title: String) -> Result<()> {
          #[cfg(target_os = "macos")]
-@@ -3375,9 +3440,14 @@ impl WebGpuixRenderer {
+@@ -3375,9 +3450,14 @@ impl WebGpuixRenderer {
      }
  }
  

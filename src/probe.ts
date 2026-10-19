@@ -24,31 +24,36 @@ export function probe(kind: string, fields: Record<string, unknown> = {}): void 
   pending.push(JSON.stringify({ atMs: Date.now(), kind, ...fields }));
 }
 
-type FrameRenderer = { takeSlowFrames?: () => number[] };
+type ProbeRenderer = { takeProbeEvents?: () => number[] };
 
-let frameRenderer: FrameRenderer | null = null;
+let probeRenderer: ProbeRenderer | null = null;
+const round = (value: number): number => Math.round(value * 10) / 10;
+const phases = ["started", "moved", "ended"];
 
-// A slow frame in two halves: draw builds and paints it, present waits for macOS, which the blur can slow.
-function readSlowFrames(): void {
-  const flat = frameRenderer?.takeSlowFrames?.() ?? [];
+// Every frame GPUI draws, and every scroll event with how long macOS held it before GPUI got it.
+function readNativeEvents(): void {
+  const flat = probeRenderer?.takeProbeEvents?.() ?? [];
 
-  for (let index = 0; index + 2 < flat.length; index += 3) {
-    const round = (ms: number): number => Math.round(ms * 10) / 10;
+  for (let index = 0; index + 5 < flat.length; index += 6) {
+    const [atMs, kind, first, second, third, fourth] = flat.slice(index, index + 6);
+    const fields =
+      kind === 0
+        ? { kind: "frame", draw: round(first), present: round(second), drawableWait: round(third) }
+        : {
+            kind: "scroll",
+            heldMs: round(first),
+            dy: round(second),
+            dx: round(third),
+            phase: phases[fourth],
+          };
 
-    pending.push(
-      JSON.stringify({
-        atMs: Math.round(flat[index]),
-        kind: "frame",
-        draw: round(flat[index + 1]),
-        present: round(flat[index + 2]),
-      })
-    );
+    pending.push(JSON.stringify({ atMs: Math.round(atMs), ...fields }));
   }
 }
 
 // Lines are written in a batch every second, so the log itself costs no stall.
 function writePending(): void {
-  readSlowFrames();
+  readNativeEvents();
 
   if (pending.length === 0) return;
 
@@ -109,7 +114,7 @@ function probeNativeCalls(): void {
     const call = prototype[name];
 
     prototype[name] = function (this: unknown, ...args: unknown[]): unknown {
-      frameRenderer ??= this as FrameRenderer;
+      probeRenderer ??= this as ProbeRenderer;
 
       const startMs = performance.now();
       const result = call.apply(this, args);

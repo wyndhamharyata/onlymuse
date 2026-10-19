@@ -134,7 +134,7 @@ index e7362f7..b889319 100644
              let text = SharedString::from(text);
              let mut layout = self
 diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
-index 3e55040..9002d3f 100644
+index 3e55040..9c1cdb0 100644
 --- a/crates/gpui/src/window.rs
 +++ b/crates/gpui/src/window.rs
 @@ -1181,6 +1181,8 @@ pub struct Window {
@@ -155,39 +155,57 @@ index 3e55040..9002d3f 100644
      #[cfg(feature = "profiler")]
      window_profiler: profiler::WindowProfiler,
      last_input_modality: InputModality,
-@@ -1236,6 +1240,31 @@ pub(crate) struct InputRateTracker {
+@@ -1236,6 +1240,49 @@ pub(crate) struct InputRateTracker {
      sustain_duration: Duration,
  }
  
-+// onlymuse patch: frames over 8 ms, as (when in ms since 1970, draw ms, present ms), for the app's probe.
-+// The present half holds the wait for a drawable, which the compositor sets.
-+static SLOW_FRAMES: std::sync::Mutex<Vec<(f64, f32, f32)>> = std::sync::Mutex::new(Vec::new());
++// onlymuse patch: what the app's probe reads, as (when in ms since 1970, kind, four values). Kind 0 is a
++// frame: draw ms, present ms, the wait for a drawable inside present, 0. Kind 1 is a scroll wheel event: how
++// long macOS held it before GPUI got it in ms, delta y, delta x, phase (0 started, 1 moved, 2 ended).
++static PROBE_EVENTS: std::sync::Mutex<Vec<(f64, u8, [f32; 4])>> = std::sync::Mutex::new(Vec::new());
++// The wait for a drawable in the last present, in ms.
++static DRAWABLE_WAIT_MS: std::sync::Mutex<f32> = std::sync::Mutex::new(0.0);
 +
-+fn record_slow_frame(draw_started: std::time::Instant, present_started: std::time::Instant) {
-+    let draw_ms = (present_started - draw_started).as_secs_f32() * 1000.0;
-+    let present_ms = present_started.elapsed().as_secs_f32() * 1000.0;
-+    if draw_ms + present_ms < 8.0 {
-+        return;
-+    }
-+    let at_ms = std::time::SystemTime::now()
++fn now_ms_since_1970() -> f64 {
++    std::time::SystemTime::now()
 +        .duration_since(std::time::UNIX_EPOCH)
 +        .map(|since| since.as_secs_f64() * 1000.0)
-+        .unwrap_or(0.0);
-+    let mut frames = SLOW_FRAMES.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-+    if frames.len() < 10_000 {
-+        frames.push((at_ms, draw_ms, present_ms));
++        .unwrap_or(0.0)
++}
++
++fn record_probe_event(kind: u8, values: [f32; 4]) {
++    let mut events = PROBE_EVENTS.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    if events.len() < 20_000 {
++        events.push((now_ms_since_1970(), kind, values));
 +    }
 +}
 +
-+/// onlymuse patch: the slow frames since the last call.
-+pub fn take_slow_frames() -> Vec<(f64, f32, f32)> {
-+    std::mem::take(&mut *SLOW_FRAMES.lock().unwrap_or_else(std::sync::PoisonError::into_inner))
++fn record_frame(draw_started: std::time::Instant, present_started: std::time::Instant) {
++    let draw_ms = (present_started - draw_started).as_secs_f32() * 1000.0;
++    let present_ms = present_started.elapsed().as_secs_f32() * 1000.0;
++    let wait_ms = *DRAWABLE_WAIT_MS.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    record_probe_event(0, [draw_ms, present_ms, wait_ms, 0.0]);
++}
++
++/// onlymuse patch: the renderer reports its wait for a drawable, for the probe.
++pub fn note_drawable_wait(wait_ms: f32) {
++    *DRAWABLE_WAIT_MS.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = wait_ms;
++}
++
++/// onlymuse patch: the platform reports each scroll wheel event, for the probe.
++pub fn note_scroll_event(held_ms: f32, delta_y: f32, delta_x: f32, phase: f32) {
++    record_probe_event(1, [held_ms, delta_y, delta_x, phase]);
++}
++
++/// onlymuse patch: the frames and scroll events since the last call.
++pub fn take_probe_events() -> Vec<(f64, u8, [f32; 4])> {
++    std::mem::take(&mut *PROBE_EVENTS.lock().unwrap_or_else(std::sync::PoisonError::into_inner))
 +}
 +
  impl Default for InputRateTracker {
      fn default() -> Self {
          Self {
-@@ -1648,8 +1677,11 @@ impl Window {
+@@ -1648,8 +1695,11 @@ impl Window {
                                      // atlas tile references after a GPU device recovery.
                                      window.refresh();
                                  }
@@ -195,11 +213,11 @@ index 3e55040..9002d3f 100644
                                  let arena_clear_needed = window.draw(cx);
 +                                let present_started = std::time::Instant::now();
                                  window.present();
-+                                record_slow_frame(draw_started, present_started);
++                                record_frame(draw_started, present_started);
                                  arena_clear_needed.clear(cx);
                              })
                              .log_err();
-@@ -1883,6 +1915,8 @@ impl Window {
+@@ -1883,6 +1933,8 @@ impl Window {
              hovered,
              needs_present,
              input_rate_tracker,
@@ -208,7 +226,7 @@ index 3e55040..9002d3f 100644
              #[cfg(feature = "profiler")]
              window_profiler: profiler::WindowProfiler::new(handle.window_id())?,
              last_input_modality: InputModality::Mouse,
-@@ -2481,10 +2515,11 @@ impl Window {
+@@ -2481,10 +2533,11 @@ impl Window {
      /// the platform window, then notifies observers. Normally called automatically
      /// by the platform's resize callback, but exposed publicly for test infrastructure.
      pub fn bounds_changed(&mut self, cx: &mut App) {
@@ -223,7 +241,7 @@ index 3e55040..9002d3f 100644
  
          self.refresh();
  
-@@ -2493,6 +2528,74 @@ impl Window {
+@@ -2493,6 +2546,74 @@ impl Window {
              .retain(&(), |callback| callback(self, cx));
      }
  
@@ -298,7 +316,7 @@ index 3e55040..9002d3f 100644
      /// Returns the bounds of the current window in the global coordinate space, which could span across multiple displays.
      pub fn bounds(&self) -> Bounds<Pixels> {
          self.platform_window.bounds()
-@@ -2908,6 +3011,13 @@ impl Window {
+@@ -2908,6 +3029,13 @@ impl Window {
          self.last_input_modality == InputModality::Keyboard
      }
  
@@ -312,7 +330,7 @@ index 3e55040..9002d3f 100644
      /// The current state of the keyboard's capslock
      pub fn capslock(&self) -> Capslock {
          self.capslock
-@@ -3233,6 +3343,9 @@ impl Window {
+@@ -3233,6 +3361,9 @@ impl Window {
          }
  
          self.mouse_hit_test = self.next_frame.hit_test(self.mouse_position);
@@ -322,7 +340,7 @@ index 3e55040..9002d3f 100644
  
          // Now actually paint the elements.
          self.invalidator.set_phase(DrawPhase::Paint);
-@@ -5225,6 +5338,7 @@ impl Window {
+@@ -5225,6 +5356,7 @@ impl Window {
      /// Dispatch a mouse or keyboard event on the window.
      #[profiling::function]
      pub fn dispatch_event(&mut self, event: PlatformInput, cx: &mut App) -> DispatchEventResult {
@@ -330,7 +348,7 @@ index 3e55040..9002d3f 100644
          #[cfg(feature = "profiler")]
          self.window_profiler.begin_input(event.kind_name());
          let update_count_before = self.invalidator.update_count();
-@@ -5278,6 +5392,7 @@ impl Window {
+@@ -5278,6 +5410,7 @@ impl Window {
                  PlatformInput::ModifiersChanged(modifiers_changed)
              }
              PlatformInput::ScrollWheel(scroll_wheel) => {
@@ -338,6 +356,23 @@ index 3e55040..9002d3f 100644
                  self.mouse_position = scroll_wheel.position;
                  self.modifiers = scroll_wheel.modifiers;
                  PlatformInput::ScrollWheel(scroll_wheel)
+diff --git a/crates/gpui_apple/src/metal_renderer.rs b/crates/gpui_apple/src/metal_renderer.rs
+index e4411d2..2bbe53f 100644
+--- a/crates/gpui_apple/src/metal_renderer.rs
++++ b/crates/gpui_apple/src/metal_renderer.rs
+@@ -459,7 +459,11 @@ impl MetalRenderer {
+             (viewport_size.width.ceil() as i32).into(),
+             (viewport_size.height.ceil() as i32).into(),
+         );
+-        let drawable = if let Some(drawable) = layer.next_drawable() {
++        let wait_started = std::time::Instant::now();
++        let next_drawable = layer.next_drawable();
++        // onlymuse patch: the wait for a drawable, for the app's probe.
++        gpui::note_drawable_wait(wait_started.elapsed().as_secs_f32() * 1000.0);
++        let drawable = if let Some(drawable) = next_drawable {
+             drawable
+         } else {
+             log::error!(
 diff --git a/crates/gpui_macos/src/display_link.rs b/crates/gpui_macos/src/display_link.rs
 index 5387cb6..0d92c08 100644
 --- a/crates/gpui_macos/src/display_link.rs
@@ -431,6 +466,41 @@ index 5387cb6..0d92c08 100644
          let subscriber_id = subscribe(display_id, self.frame_requests.clone())?;
          self.registration = Some((display_id, subscriber_id));
          Ok(())
+diff --git a/crates/gpui_macos/src/events.rs b/crates/gpui_macos/src/events.rs
+index 71bcb10..3b9128b 100644
+--- a/crates/gpui_macos/src/events.rs
++++ b/crates/gpui_macos/src/events.rs
+@@ -15,7 +15,7 @@ use cocoa::{
+ };
+ use core_foundation::data::{CFDataGetBytePtr, CFDataRef};
+ use core_graphics::event::CGKeyCode;
+-use objc::{msg_send, sel, sel_impl};
++use objc::{class, msg_send, sel, sel_impl};
+ use std::{borrow::Cow, ffi::c_void};
+ 
+ const BACKSPACE_KEY: u16 = 0x7f;
+@@ -269,6 +269,21 @@ pub(crate) unsafe fn platform_input_from_native(
+                     native_event.scrollingDeltaY() as f32,
+                 );
+ 
++                // onlymuse patch: how long macOS held the event, and its delta, for the app's probe.
++                let event_uptime: f64 = msg_send![native_event, timestamp];
++                let process_info: id = msg_send![class!(NSProcessInfo), processInfo];
++                let now_uptime: f64 = msg_send![process_info, systemUptime];
++                gpui::note_scroll_event(
++                    ((now_uptime - event_uptime) * 1000.0) as f32,
++                    raw_data.y,
++                    raw_data.x,
++                    match phase {
++                        TouchPhase::Started => 0.0,
++                        TouchPhase::Moved => 1.0,
++                        TouchPhase::Ended | TouchPhase::Cancelled => 2.0,
++                    },
++                );
++
+                 let delta = if native_event.hasPreciseScrollingDeltas() == YES {
+                     ScrollDelta::Pixels(raw_data.map(px))
+                 } else {
 diff --git a/crates/gpui_macos/src/gpui_macos.rs b/crates/gpui_macos/src/gpui_macos.rs
 index 1ee1872..9088246 100644
 --- a/crates/gpui_macos/src/gpui_macos.rs

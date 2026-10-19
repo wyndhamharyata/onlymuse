@@ -234,7 +234,18 @@ export function Lyrics() {
   const shown = shownRef.current;
 
   return (
-    <div style={{ position: "relative", display: "flex", flexDirection: "column", paddingTop: 10 }}>
+    // It takes the panel's height under the tabs and clips there, so no line draws over the player bar.
+    <div
+      style={{
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        flexGrow: 1,
+        minHeight: 0,
+        overflow: "hidden",
+        paddingTop: 10,
+      }}
+    >
       <div style={{ overflow: "hidden", flexGrow: 1, minHeight: 0 }}>
         <motion.div
           key={firstShownIndex}

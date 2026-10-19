@@ -112,6 +112,12 @@ the layout and the rules.
   hold a report back. While a song plays the helper also sends the position every 2 seconds, read
   with no artwork, so drift and a seek made in Music.app are corrected. The lyrics change line on a
   timer set for the next word's start, not on a 250 ms tick.
+- **Lyrics run 0.5 s ahead of Music.app's position**, and Cmd [ and Cmd ] move that by 50 ms, saved.
+  Measured on 19 Oct while a song played: Music.app's position moves every 8 ms, onlymuse's
+  estimate of it is 13 to 47 ms behind, a word's timer fires 3 to 5 ms late and its frame follows
+  within 43 ms. So onlymuse made under 90 ms of the half second the lyrics sounded late. The rest
+  lies between Music.app's position and the sound, or in reading a word after it lights.
+  `leadingSilence` in the TTML is not the cause: it differs per song, from 0.04 to 0.96 s.
 - **Lyrics come from `syllable-lyrics`** with `l[script]=en-Latn&extend=ttmlLocalizations`. About
   half the songs are timed by word there, so the words light up as they are sung. The rest are timed
   by line. The same answer carries a pronunciation in Latin letters for songs in other scripts,

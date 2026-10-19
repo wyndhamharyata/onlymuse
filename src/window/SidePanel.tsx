@@ -10,6 +10,7 @@ import {
 } from "../apple-music.ts";
 import { useAccent, useHelper } from "../helper.ts";
 import { readCurrentPositionSeconds } from "../position.ts";
+import { readLyricLeadSeconds, useLyricLead } from "../lyric-lead.ts";
 import { probe } from "../probe.ts";
 import { findQueueSong, playQueueAt, removeFromQueue, useQueue } from "../queue.ts";
 import { colors, toAccentTint } from "../theme.ts";
@@ -223,22 +224,30 @@ function toChangeTimes(lines: LyricLine[]): number[] {
   return [...new Set(times)].sort((first, second) => first - second);
 }
 
+// The lyrics run this far ahead of Music.app's position.
+function readLyricsSeconds(): number {
+  return readCurrentPositionSeconds() + readLyricLeadSeconds();
+}
+
 // The position, drawn again at each word's own start time: a timer waits for the next one, so the lyrics run on time.
 function useLyricsPosition(lines: LyricLine[] | null, isPlaying: boolean): number {
   const [, setTickCount] = useState(0);
+
+  useLyricLead();
+
   const changeTimes = useMemo(() => toChangeTimes(lines ?? []), [lines]);
-  const positionSeconds = readCurrentPositionSeconds();
+  const positionSeconds = readLyricsSeconds();
   const nextChangeSeconds = changeTimes.find((seconds) => seconds > positionSeconds);
 
   useEffect(() => {
     if (!isPlaying || nextChangeSeconds === undefined) return;
 
-    const waitMs = (nextChangeSeconds - readCurrentPositionSeconds()) * 1000 + lineSlackMs;
+    const waitMs = (nextChangeSeconds - readLyricsSeconds()) * 1000 + lineSlackMs;
     const timer = setTimeout(
       () => {
         // How late the timer fired, past the word's start. A held-up main thread shows here.
         probe("lyricWord", {
-          lateMs: Math.round((readCurrentPositionSeconds() - nextChangeSeconds) * 1000),
+          lateMs: Math.round((readLyricsSeconds() - nextChangeSeconds) * 1000),
         });
         setTickCount((count) => count + 1);
       },
@@ -249,6 +258,31 @@ function useLyricsPosition(lines: LyricLine[] | null, isPlaying: boolean): numbe
   });
 
   return positionSeconds;
+}
+
+const leadShownMs = 2000;
+
+// After Cmd [ or Cmd ], the new lead for a moment, so the change can be heard against a number.
+function LeadNote() {
+  const { leadMs, changedAtMs } = useLyricLead();
+  const [, setTickCount] = useState(0);
+  const leftMs = changedAtMs + leadShownMs - Date.now();
+
+  useEffect(() => {
+    if (leftMs <= 0) return;
+
+    const timer = setTimeout(() => setTickCount((count) => count + 1), leftMs);
+
+    return () => clearTimeout(timer);
+  });
+
+  if (leftMs <= 0) return null;
+
+  return (
+    <text style={{ color: colors.dim, fontSize: 12 }}>
+      {`Lyrics ${(leadMs / 1000).toFixed(2)} s ahead of Music.app. Cmd [ and Cmd ] change it.`}
+    </text>
+  );
 }
 
 type LineLook = { color: string; sungColor: string; fontSize: number; lineHeight: number };
@@ -269,6 +303,9 @@ function LyricWords({
         <text
           key={index}
           style={{
+            // A line timed only by line is one word, which must shrink to wrap in the panel.
+            flexShrink: 1,
+            minWidth: 0,
             color: word.beginSeconds <= positionSeconds ? look.sungColor : look.color,
             fontSize: look.fontSize,
             fontWeight: 700,
@@ -310,6 +347,7 @@ function Lyrics() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: 10 }}>
+      <LeadNote />
       {shownLines.map((line, offset) => {
         const isCurrent = firstShownIndex + offset === currentIndex;
         const look = isCurrent ? currentLook : otherLook;

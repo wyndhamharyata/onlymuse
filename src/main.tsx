@@ -1,6 +1,7 @@
 import { render } from "@gpuix/react";
 import { App } from "./app.tsx";
 import { isMeasuring, Measured } from "./perf.tsx";
+import { leadOnKey } from "./lyric-lead.ts";
 import { markOnKey } from "./probe.ts";
 import { isOpaque } from "./theme.ts";
 import { zoomOnKey } from "./zoom.ts";
@@ -23,6 +24,8 @@ render(
     focus: process.env.GPUIX_BACKGROUND !== "1",
     onKeyDown: (event, renderer) => {
       zoomOnKey(event, renderer);
+
+      leadOnKey(event);
 
       markOnKey(event);
     },

@@ -2,6 +2,7 @@ import { render } from "@gpuix/react";
 import { App } from "./app.tsx";
 import { isMeasuring, Measured } from "./perf.tsx";
 import { markOnKey } from "./probe.ts";
+import { isOpaque } from "./theme.ts";
 import { zoomOnKey } from "./zoom.ts";
 
 render(
@@ -16,7 +17,7 @@ render(
     minWidth: 900,
     minHeight: 560,
     titlebarTransparent: true,
-    windowBackground: "blurred",
+    windowBackground: isOpaque ? "opaque" : "blurred",
     trafficLightX: 16,
     trafficLightY: 17,
     focus: process.env.GPUIX_BACKGROUND !== "1",

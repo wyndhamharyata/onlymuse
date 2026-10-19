@@ -258,7 +258,7 @@ Prettier with a print width of 100, double quotes, semicolons and ES5 trailing c
 ## Accepted exceptions
 
 - `src/store.ts` reads `ONLYMUSE_DATA`, `src/perf.tsx` reads `ONLYMUSE_PERF` and `src/probe.ts` reads
-  `ONLYMUSE_PROBE`, against rule 9.3. They exist for
+  `ONLYMUSE_PROBE` and `src/theme.ts` reads `ONLYMUSE_OPAQUE`, against rule 9.3. They exist for
   `scripts/bench.ts`, which measures and does not test. A measurement must not change the saved state, and the
   stall probe must run inside the app's own thread.
 

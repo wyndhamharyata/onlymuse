@@ -1,5 +1,5 @@
 diff --git a/packages/native/src/renderer.rs b/packages/native/src/renderer.rs
-index b1710c3..31d25a8 100644
+index b1710c3..e44431c 100644
 --- a/packages/native/src/renderer.rs
 +++ b/packages/native/src/renderer.rs
 @@ -8,10 +8,7 @@
@@ -67,10 +67,19 @@ index b1710c3..31d25a8 100644
      /// Whether JavaScript must call tick() until it returns false.
      ///
      /// macOS: tick() pumps AppKit. Windows/Linux: tick() only reports whether
-@@ -1705,6 +1748,19 @@ impl GpuixRenderer {
+@@ -1705,6 +1748,28 @@ impl GpuixRenderer {
          ))
      }
  
++    /// onlymuse patch: the frames over 8 ms since the last call, flat as [whenMs, drawMs, presentMs, ...].
++    #[napi]
++    pub fn take_slow_frames(&self) -> Vec<f64> {
++        gpui::take_slow_frames()
++            .into_iter()
++            .flat_map(|(at_ms, draw_ms, present_ms)| [at_ms, draw_ms as f64, present_ms as f64])
++            .collect()
++    }
++
 +    /// onlymuse patch: scales the window's content, as a browser's zoom does. 1 is the normal size.
 +    #[napi]
 +    pub fn set_content_zoom(&self, zoom: f64) -> Result<()> {
@@ -87,7 +96,7 @@ index b1710c3..31d25a8 100644
      #[napi]
      pub fn set_window_title(&self, title: String) -> Result<()> {
          #[cfg(target_os = "macos")]
-@@ -3375,9 +3431,14 @@ impl WebGpuixRenderer {
+@@ -3375,9 +3440,14 @@ impl WebGpuixRenderer {
      }
  }
  

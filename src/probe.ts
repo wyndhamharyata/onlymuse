@@ -24,8 +24,32 @@ export function probe(kind: string, fields: Record<string, unknown> = {}): void 
   pending.push(JSON.stringify({ atMs: Date.now(), kind, ...fields }));
 }
 
+type FrameRenderer = { takeSlowFrames?: () => number[] };
+
+let frameRenderer: FrameRenderer | null = null;
+
+// A slow frame in two halves: draw builds and paints it, present waits for macOS, which the blur can slow.
+function readSlowFrames(): void {
+  const flat = frameRenderer?.takeSlowFrames?.() ?? [];
+
+  for (let index = 0; index + 2 < flat.length; index += 3) {
+    const round = (ms: number): number => Math.round(ms * 10) / 10;
+
+    pending.push(
+      JSON.stringify({
+        atMs: Math.round(flat[index]),
+        kind: "frame",
+        draw: round(flat[index + 1]),
+        present: round(flat[index + 2]),
+      })
+    );
+  }
+}
+
 // Lines are written in a batch every second, so the log itself costs no stall.
 function writePending(): void {
+  readSlowFrames();
+
   if (pending.length === 0) return;
 
   appendFileSync(probeLogPath, `${pending.join("\n")}\n`);
@@ -85,6 +109,8 @@ function probeNativeCalls(): void {
     const call = prototype[name];
 
     prototype[name] = function (this: unknown, ...args: unknown[]): unknown {
+      frameRenderer ??= this as FrameRenderer;
+
       const startMs = performance.now();
       const result = call.apply(this, args);
       const durationMs = performance.now() - startMs;

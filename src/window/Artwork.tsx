@@ -1,7 +1,8 @@
-import { readArtworkSource } from "../artwork.ts";
+import { useCallback, useSyncExternalStore } from "react";
+import { readArtworkPath, subscribeToArtwork } from "../artwork.ts";
 import { colors } from "../theme.ts";
 
-// An image with a grey square in its place when there is none. Apple's artwork comes from disk once saved.
+// An image with a grey square in its place until it is on disk, or when there is none.
 export function Artwork({
   source,
   widthPx,
@@ -15,8 +16,13 @@ export function Artwork({
 }) {
   // A long title next to it must not squeeze it narrower.
   const style = { width: widthPx, height: heightPx, borderRadius: radiusPx, flexShrink: 0 };
+  const subscribe = useCallback(
+    (onSaved: () => void) => (source ? subscribeToArtwork(source, onSaved) : () => {}),
+    [source]
+  );
+  const path = useSyncExternalStore(subscribe, () => (source ? readArtworkPath(source) : null));
 
-  if (!source) return <div style={{ ...style, backgroundColor: colors.card }} />;
+  if (!path) return <div style={{ ...style, backgroundColor: colors.card }} />;
 
-  return <img src={readArtworkSource(source)} objectFit="cover" style={style} />;
+  return <img src={path} objectFit="cover" style={style} />;
 }

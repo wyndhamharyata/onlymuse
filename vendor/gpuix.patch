@@ -134,7 +134,7 @@ index e7362f7..b889319 100644
              let text = SharedString::from(text);
              let mut layout = self
 diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
-index 3e55040..19309c2 100644
+index 3e55040..9002d3f 100644
 --- a/crates/gpui/src/window.rs
 +++ b/crates/gpui/src/window.rs
 @@ -1181,6 +1181,8 @@ pub struct Window {
@@ -155,7 +155,51 @@ index 3e55040..19309c2 100644
      #[cfg(feature = "profiler")]
      window_profiler: profiler::WindowProfiler,
      last_input_modality: InputModality,
-@@ -1883,6 +1887,8 @@ impl Window {
+@@ -1236,6 +1240,31 @@ pub(crate) struct InputRateTracker {
+     sustain_duration: Duration,
+ }
+ 
++// onlymuse patch: frames over 8 ms, as (when in ms since 1970, draw ms, present ms), for the app's probe.
++// The present half holds the wait for a drawable, which the compositor sets.
++static SLOW_FRAMES: std::sync::Mutex<Vec<(f64, f32, f32)>> = std::sync::Mutex::new(Vec::new());
++
++fn record_slow_frame(draw_started: std::time::Instant, present_started: std::time::Instant) {
++    let draw_ms = (present_started - draw_started).as_secs_f32() * 1000.0;
++    let present_ms = present_started.elapsed().as_secs_f32() * 1000.0;
++    if draw_ms + present_ms < 8.0 {
++        return;
++    }
++    let at_ms = std::time::SystemTime::now()
++        .duration_since(std::time::UNIX_EPOCH)
++        .map(|since| since.as_secs_f64() * 1000.0)
++        .unwrap_or(0.0);
++    let mut frames = SLOW_FRAMES.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    if frames.len() < 10_000 {
++        frames.push((at_ms, draw_ms, present_ms));
++    }
++}
++
++/// onlymuse patch: the slow frames since the last call.
++pub fn take_slow_frames() -> Vec<(f64, f32, f32)> {
++    std::mem::take(&mut *SLOW_FRAMES.lock().unwrap_or_else(std::sync::PoisonError::into_inner))
++}
++
+ impl Default for InputRateTracker {
+     fn default() -> Self {
+         Self {
+@@ -1648,8 +1677,11 @@ impl Window {
+                                     // atlas tile references after a GPU device recovery.
+                                     window.refresh();
+                                 }
++                                let draw_started = std::time::Instant::now();
+                                 let arena_clear_needed = window.draw(cx);
++                                let present_started = std::time::Instant::now();
+                                 window.present();
++                                record_slow_frame(draw_started, present_started);
+                                 arena_clear_needed.clear(cx);
+                             })
+                             .log_err();
+@@ -1883,6 +1915,8 @@ impl Window {
              hovered,
              needs_present,
              input_rate_tracker,
@@ -164,7 +208,7 @@ index 3e55040..19309c2 100644
              #[cfg(feature = "profiler")]
              window_profiler: profiler::WindowProfiler::new(handle.window_id())?,
              last_input_modality: InputModality::Mouse,
-@@ -2481,10 +2487,11 @@ impl Window {
+@@ -2481,10 +2515,11 @@ impl Window {
      /// the platform window, then notifies observers. Normally called automatically
      /// by the platform's resize callback, but exposed publicly for test infrastructure.
      pub fn bounds_changed(&mut self, cx: &mut App) {
@@ -179,7 +223,7 @@ index 3e55040..19309c2 100644
  
          self.refresh();
  
-@@ -2493,6 +2500,74 @@ impl Window {
+@@ -2493,6 +2528,74 @@ impl Window {
              .retain(&(), |callback| callback(self, cx));
      }
  
@@ -254,7 +298,7 @@ index 3e55040..19309c2 100644
      /// Returns the bounds of the current window in the global coordinate space, which could span across multiple displays.
      pub fn bounds(&self) -> Bounds<Pixels> {
          self.platform_window.bounds()
-@@ -2908,6 +2983,13 @@ impl Window {
+@@ -2908,6 +3011,13 @@ impl Window {
          self.last_input_modality == InputModality::Keyboard
      }
  
@@ -268,7 +312,7 @@ index 3e55040..19309c2 100644
      /// The current state of the keyboard's capslock
      pub fn capslock(&self) -> Capslock {
          self.capslock
-@@ -3233,6 +3315,9 @@ impl Window {
+@@ -3233,6 +3343,9 @@ impl Window {
          }
  
          self.mouse_hit_test = self.next_frame.hit_test(self.mouse_position);
@@ -278,7 +322,7 @@ index 3e55040..19309c2 100644
  
          // Now actually paint the elements.
          self.invalidator.set_phase(DrawPhase::Paint);
-@@ -5225,6 +5310,7 @@ impl Window {
+@@ -5225,6 +5338,7 @@ impl Window {
      /// Dispatch a mouse or keyboard event on the window.
      #[profiling::function]
      pub fn dispatch_event(&mut self, event: PlatformInput, cx: &mut App) -> DispatchEventResult {
@@ -286,7 +330,7 @@ index 3e55040..19309c2 100644
          #[cfg(feature = "profiler")]
          self.window_profiler.begin_input(event.kind_name());
          let update_count_before = self.invalidator.update_count();
-@@ -5278,6 +5364,7 @@ impl Window {
+@@ -5278,6 +5392,7 @@ impl Window {
                  PlatformInput::ModifiersChanged(modifiers_changed)
              }
              PlatformInput::ScrollWheel(scroll_wheel) => {

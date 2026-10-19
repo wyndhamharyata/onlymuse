@@ -26,6 +26,8 @@ mkdirSync(folder, { recursive: true });
 
 // A file is touched when the app first draws it, so its date says when it was last used.
 const knownPaths = new Map<string, string | null>();
+// The tiles that wait for an image, told when it is saved.
+const waiters = new Map<string, Set<() => void>>();
 const waitingUrls: string[] = [];
 let downloadCount = 0;
 
@@ -62,6 +64,7 @@ async function download(url: string): Promise<void> {
   await Bun.write(partPath, response);
   renameSync(partPath, path);
   knownPaths.set(url, path);
+  for (const waiter of waiters.get(url) ?? []) waiter();
 }
 
 function startDownloads(): void {
@@ -78,14 +81,25 @@ function startDownloads(): void {
   }
 }
 
-// The file when it is on disk. Otherwise the URL, and the image is saved for the next draw.
-export function readArtworkSource(url: string): string {
+export function subscribeToArtwork(url: string, onSaved: () => void): () => void {
+  const urlWaiters = waiters.get(url) ?? new Set();
+
+  urlWaiters.add(onSaved);
+  waiters.set(url, urlWaiters);
+
+  return () => {
+    urlWaiters.delete(onSaved);
+    if (urlWaiters.size === 0) waiters.delete(url);
+  };
+}
+
+// The file once on disk, else null. A URL would make GPUI download it again, and Apple resets the extra connections.
+export function readArtworkPath(url: string): string | null {
   if (!url.startsWith("https://")) return url;
 
   const knownPath = knownPaths.get(url);
 
-  if (knownPath) return knownPath;
-  if (knownPath === null) return url;
+  if (knownPath !== undefined) return knownPath;
 
   const savedPath = findSavedPath(url);
 
@@ -102,7 +116,7 @@ export function readArtworkSource(url: string): string {
   waitingUrls.push(url);
   startDownloads();
 
-  return url;
+  return null;
 }
 
 function removeUnusedFiles(): void {

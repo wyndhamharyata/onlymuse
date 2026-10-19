@@ -1,6 +1,9 @@
+// ONLYMUSE_OPAQUE=1 opens a solid window with no blur, to compare frame times with and without it.
+export const isOpaque = process.env.ONLYMUSE_OPAQUE === "1";
+
 // The window blurs what is behind it and tints it at 85%. Sidebar, player and panel add a faint light layer.
 export const colors = {
-  window: "#1b1b1ed9",
+  window: isOpaque ? "#1b1b1e" : "#1b1b1ed9",
   sidebar: "#ffffff08",
   player: "#ffffff06",
   // Solid, for marks drawn on white, such as the play icon.

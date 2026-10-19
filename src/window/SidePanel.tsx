@@ -1,20 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { flushSync } from "@gpuix/react";
-import {
-  fetchLyrics,
-  findCatalogSong,
-  toArtworkUrl,
-  type CatalogSong,
-  type LyricLine,
-  type LyricWord,
-} from "../apple-music.ts";
-import { useAccent, useHelper } from "../helper.ts";
-import { readCurrentPositionSeconds } from "../position.ts";
-import { readLyricLeadSeconds, useLyricLead } from "../lyric-lead.ts";
-import { probe } from "../probe.ts";
-import { findQueueSong, playQueueAt, removeFromQueue, useQueue } from "../queue.ts";
+import { toArtworkUrl, type CatalogSong } from "../apple-music.ts";
+import { useAccent } from "../helper.ts";
+import { playQueueAt, removeFromQueue, useQueue } from "../queue.ts";
 import { colors, toAccentTint } from "../theme.ts";
-import { PageStatus, useFetched } from "./Fetched.tsx";
+import { PageStatus } from "./Fetched.tsx";
+import { Lyrics } from "./Lyrics.tsx";
 import { Artwork } from "./Artwork.tsx";
 import { ScrollingText } from "./ScrollingText.tsx";
 import { toWindowStart } from "./PageList.tsx";
@@ -33,10 +24,6 @@ const queueWindowCount = 64;
 const queueRowHeightPx = 48;
 // One object for every row, so a render of Up Next sends no style that did not change.
 const queueRowStyle = { display: "flex", flexDirection: "column", width: "100%" } as const;
-const linesBeforeCurrent = 3;
-// The timer for the next word fires this much after its start, so a word is never a hair early.
-const lineSlackMs = 5;
-const shownLineCount = 14;
 
 const panelTitles: Record<Panel, string> = { queue: "Up Next", lyrics: "Lyrics" };
 
@@ -187,193 +174,6 @@ function UpNext() {
         </div>
       ))}
     </virtual-list>
-  );
-}
-
-// The line being sung is the last one that has begun.
-function findCurrentLineIndex(lines: LyricLine[], positionSeconds: number): number {
-  let currentIndex = -1;
-
-  for (const [index, line] of lines.entries()) {
-    if (line.beginSeconds <= positionSeconds) currentIndex = index;
-  }
-
-  return currentIndex;
-}
-
-// A song started outside onlymuse has no catalog ID yet, so it is looked up by its name.
-async function fetchPlayingLyrics(
-  name: string,
-  artist: string,
-  album: string,
-  persistentID: string
-): Promise<LyricLine[]> {
-  const song = findQueueSong(persistentID) ?? (await findCatalogSong(name, artist, album));
-
-  return song ? fetchLyrics(song.id) : [];
-}
-
-// Every start of a line or a word, in order: the moments the lyrics change.
-function toChangeTimes(lines: LyricLine[]): number[] {
-  const times = lines.flatMap((line) => [
-    line.beginSeconds,
-    ...line.words.map((word) => word.beginSeconds),
-    ...line.pronunciation.map((word) => word.beginSeconds),
-  ]);
-
-  return [...new Set(times)].sort((first, second) => first - second);
-}
-
-// The lyrics run this far ahead of Music.app's position.
-function readLyricsSeconds(): number {
-  return readCurrentPositionSeconds() + readLyricLeadSeconds();
-}
-
-// The position, drawn again at each word's own start time: a timer waits for the next one, so the lyrics run on time.
-function useLyricsPosition(lines: LyricLine[] | null, isPlaying: boolean): number {
-  const [, setTickCount] = useState(0);
-
-  useLyricLead();
-
-  const changeTimes = useMemo(() => toChangeTimes(lines ?? []), [lines]);
-  const positionSeconds = readLyricsSeconds();
-  const nextChangeSeconds = changeTimes.find((seconds) => seconds > positionSeconds);
-
-  useEffect(() => {
-    if (!isPlaying || nextChangeSeconds === undefined) return;
-
-    const waitMs = (nextChangeSeconds - readLyricsSeconds()) * 1000 + lineSlackMs;
-    const timer = setTimeout(
-      () => {
-        // How late the timer fired, past the word's start. A held-up main thread shows here.
-        probe("lyricWord", {
-          lateMs: Math.round((readLyricsSeconds() - nextChangeSeconds) * 1000),
-        });
-        setTickCount((count) => count + 1);
-      },
-      Math.max(0, waitMs)
-    );
-
-    return () => clearTimeout(timer);
-  });
-
-  return positionSeconds;
-}
-
-const leadShownMs = 2000;
-
-// After Cmd [ or Cmd ], the new lead for a moment, so the change can be heard against a number.
-function LeadNote() {
-  const { leadMs, changedAtMs } = useLyricLead();
-  const [, setTickCount] = useState(0);
-  const leftMs = changedAtMs + leadShownMs - Date.now();
-
-  useEffect(() => {
-    if (leftMs <= 0) return;
-
-    const timer = setTimeout(() => setTickCount((count) => count + 1), leftMs);
-
-    return () => clearTimeout(timer);
-  });
-
-  if (leftMs <= 0) return null;
-
-  return (
-    <text style={{ color: colors.dim, fontSize: 12 }}>
-      {`Lyrics ${(leadMs / 1000).toFixed(2)} s ahead of Music.app. Cmd [ and Cmd ] change it.`}
-    </text>
-  );
-}
-
-type LineLook = { color: string; sungColor: string; fontSize: number; lineHeight: number };
-
-// The words of a line in a wrapping row. The words already sung take sungColor.
-function LyricWords({
-  words,
-  positionSeconds,
-  look,
-}: {
-  words: LyricWord[];
-  positionSeconds: number;
-  look: LineLook;
-}) {
-  return (
-    <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap" }}>
-      {words.map((word, index) => (
-        <text
-          key={index}
-          style={{
-            // A line timed only by line is one word, which must shrink to wrap in the panel.
-            flexShrink: 1,
-            minWidth: 0,
-            color: word.beginSeconds <= positionSeconds ? look.sungColor : look.color,
-            fontSize: look.fontSize,
-            fontWeight: 700,
-            lineHeight: look.lineHeight,
-          }}
-        >
-          {word.text}
-        </text>
-      ))}
-    </div>
-  );
-}
-
-function Lyrics() {
-  const { accent, nowPlaying } = useHelper();
-  const song =
-    nowPlaying.state === "playing" || nowPlaying.state === "paused" ? nowPlaying.song : null;
-  const persistentID = song?.persistentID ?? "";
-
-  const { value: lines, statusText } = useFetched(
-    () =>
-      song
-        ? fetchPlayingLyrics(song.name, song.artist, song.album, persistentID)
-        : Promise.resolve([]),
-    [persistentID]
-  );
-
-  const positionSeconds = useLyricsPosition(lines, nowPlaying.state === "playing");
-
-  if (!song) return <PageStatus text="Nothing is playing." />;
-  if (!lines) return <PageStatus text={statusText} />;
-  if (lines.length === 0) return <PageStatus text="Apple Music has no lyrics for this song." />;
-
-  const currentIndex = findCurrentLineIndex(lines, positionSeconds);
-  const firstShownIndex = Math.max(0, currentIndex - linesBeforeCurrent);
-  const shownLines = lines.slice(firstShownIndex, firstShownIndex + shownLineCount);
-  const currentLook = { color: colors.dim, sungColor: accent, fontSize: 19, lineHeight: 24 };
-  const otherLook = { color: colors.faint, sungColor: colors.faint, fontSize: 16, lineHeight: 22 };
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: 10 }}>
-      <LeadNote />
-      {shownLines.map((line, offset) => {
-        const isCurrent = firstShownIndex + offset === currentIndex;
-        const look = isCurrent ? currentLook : otherLook;
-        const pronunciationLook = {
-          ...look,
-          fontSize: look.fontSize - 4,
-          lineHeight: look.lineHeight - 6,
-        };
-
-        return (
-          <div
-            key={firstShownIndex + offset}
-            style={{ display: "flex", flexDirection: "column", gap: 2 }}
-          >
-            <LyricWords words={line.words} positionSeconds={positionSeconds} look={look} />
-            {line.pronunciation.length > 0 && (
-              <LyricWords
-                words={line.pronunciation}
-                positionSeconds={positionSeconds}
-                look={pronunciationLook}
-              />
-            )}
-          </div>
-        );
-      })}
-    </div>
   );
 }
 

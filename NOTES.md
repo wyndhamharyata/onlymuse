@@ -118,6 +118,11 @@ the layout and the rules.
   within 43 ms. So onlymuse made under 90 ms of the half second the lyrics sounded late. The rest
   lies between Music.app's position and the sound, or in reading a word after it lights.
   `leadingSilence` in the TTML is not the cause: it differs per song, from 0.04 to 0.96 s.
+- **Lyrics move smoothly** with gpuix's `motion.div`, which animates opacity and position but not
+  colour or font size. Each word has a lit copy over it that fades in over 0.15 s as it is sung.
+  Every line has one size, and the current line shows by brightness, fading over 0.3 s. When the
+  line changes, the rows slide up by the measured height of the top line, which fades out as it
+  goes. The rows mount again on that change, starting from what the last render showed.
 - **Lyrics come from `syllable-lyrics`** with `l[script]=en-Latn&extend=ttmlLocalizations`. About
   half the songs are timed by word there, so the words light up as they are sung. The rest are timed
   by line. The same answer carries a pronunciation in Latin letters for songs in other scripts,

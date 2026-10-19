@@ -36,7 +36,7 @@ const bucketMs = 50;
 
 // Frames and scroll events in one line per 50 ms: a stretch of scroll events with no frames, or held long, shows a hold-up.
 function toBucketText(bucket: Line[], startMs: number, markAtMs: number): string {
-  const frames = bucket.filter((line) => line.kind === "frame");
+  const frames = bucket.filter((line) => line.kind === "frame" || line.kind === "presentOnly");
   const scrolls = bucket.filter((line) => line.kind === "scroll");
   const sum = (items: Line[], key: string): number =>
     items.reduce((total, line) => total + Number(line[key]), 0);
@@ -57,7 +57,8 @@ for (const [index, mark] of marks.entries()) {
   const around = lines.filter(
     (line) => line.atMs >= mark.atMs - beforeMs && line.atMs <= mark.atMs + afterMs
   );
-  const isTimeline = (line: Line): boolean => line.kind === "frame" || line.kind === "scroll";
+  const isTimeline = (line: Line): boolean =>
+    ["frame", "presentOnly", "scroll"].includes(line.kind);
 
   console.log(`\nMark ${index + 1} at ${new Date(mark.atMs).toLocaleTimeString()}`);
   for (const line of around.filter((line) => !isTimeline(line)))

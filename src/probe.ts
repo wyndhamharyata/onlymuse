@@ -38,7 +38,12 @@ function readNativeEvents(): void {
     const [atMs, kind, first, second, third, fourth] = flat.slice(index, index + 6);
     const fields =
       kind === 0
-        ? { kind: "frame", draw: round(first), present: round(second), drawableWait: round(third) }
+        ? {
+            kind: fourth === 1 ? "presentOnly" : "frame",
+            draw: round(first),
+            present: round(second),
+            drawableWait: round(third),
+          }
         : {
             kind: "scroll",
             heldMs: round(first),

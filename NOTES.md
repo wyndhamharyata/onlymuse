@@ -213,6 +213,12 @@ the layout and the rules.
   and `vendor/gpuix-runtime.js`, which `scripts/gpuix-native.ts` installs. A back-and-forth scroll
   of New then missed 2 to 3 frames in place of 1 to 48, and its longest stall fell from up to 51 ms
   to 16 ms.
+- **No present of an unchanged frame.** After fast input GPUI presented the last frame again on every
+  display frame for 1 second, so the display would not slow down. On the ProMotion screen it slows
+  to 40 Hz anyway once the content stops changing, and each of those presents waited 25 ms for a
+  drawable on the main thread. A scroll begun in that second, as in scrolling back and forth, ran at
+  40 fps and JavaScript barely ran, then all of it caught up at once. The probe of 19 Oct showed it
+  as one second of 25 ms ticks with no frame drawn. The patch drops those presents.
 - **Zoom.** Cmd = and Cmd + zoom in, Cmd - zooms out and Cmd 0 resets, in steps from 67% to
   200%, saved as `zoom` in the state table. The patched GPUI multiplies the display's scale by the
   zoom and divides the window size, mouse positions and wheel deltas by it, so layout reflows and

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "@gpuix/react";
 import {
   fetchLyrics,
@@ -6,9 +6,11 @@ import {
   toArtworkUrl,
   type CatalogSong,
   type LyricLine,
+  type LyricWord,
 } from "../apple-music.ts";
 import { useAccent, useHelper } from "../helper.ts";
 import { readCurrentPositionSeconds } from "../position.ts";
+import { probe } from "../probe.ts";
 import { findQueueSong, playQueueAt, removeFromQueue, useQueue } from "../queue.ts";
 import { colors, toAccentTint } from "../theme.ts";
 import { PageStatus, useFetched } from "./Fetched.tsx";
@@ -31,7 +33,7 @@ const queueRowHeightPx = 48;
 // One object for every row, so a render of Up Next sends no style that did not change.
 const queueRowStyle = { display: "flex", flexDirection: "column", width: "100%" } as const;
 const linesBeforeCurrent = 3;
-// The timer for the next line fires this much after its start, so a line is never a hair early.
+// The timer for the next word fires this much after its start, so a word is never a hair early.
 const lineSlackMs = 5;
 const shownLineCount = 14;
 
@@ -210,22 +212,74 @@ async function fetchPlayingLyrics(
   return song ? fetchLyrics(song.id) : [];
 }
 
-// The line changes at its own start time: a timer waits for the next line, so the lyrics run on time.
-function useCurrentLineIndex(lines: LyricLine[] | null, isPlaying: boolean): number {
+// Every start of a line or a word, in order: the moments the lyrics change.
+function toChangeTimes(lines: LyricLine[]): number[] {
+  const times = lines.flatMap((line) => [
+    line.beginSeconds,
+    ...line.words.map((word) => word.beginSeconds),
+    ...line.pronunciation.map((word) => word.beginSeconds),
+  ]);
+
+  return [...new Set(times)].sort((first, second) => first - second);
+}
+
+// The position, drawn again at each word's own start time: a timer waits for the next one, so the lyrics run on time.
+function useLyricsPosition(lines: LyricLine[] | null, isPlaying: boolean): number {
   const [, setTickCount] = useState(0);
-  const index = lines ? findCurrentLineIndex(lines, readCurrentPositionSeconds()) : -1;
-  const nextBeginSeconds = lines?.[index + 1]?.beginSeconds;
+  const changeTimes = useMemo(() => toChangeTimes(lines ?? []), [lines]);
+  const positionSeconds = readCurrentPositionSeconds();
+  const nextChangeSeconds = changeTimes.find((seconds) => seconds > positionSeconds);
 
   useEffect(() => {
-    if (!isPlaying || nextBeginSeconds === undefined) return;
+    if (!isPlaying || nextChangeSeconds === undefined) return;
 
-    const waitMs = (nextBeginSeconds - readCurrentPositionSeconds()) * 1000 + lineSlackMs;
-    const timer = setTimeout(() => setTickCount((count) => count + 1), Math.max(0, waitMs));
+    const waitMs = (nextChangeSeconds - readCurrentPositionSeconds()) * 1000 + lineSlackMs;
+    const timer = setTimeout(
+      () => {
+        // How late the timer fired, past the word's start. A held-up main thread shows here.
+        probe("lyricWord", {
+          lateMs: Math.round((readCurrentPositionSeconds() - nextChangeSeconds) * 1000),
+        });
+        setTickCount((count) => count + 1);
+      },
+      Math.max(0, waitMs)
+    );
 
     return () => clearTimeout(timer);
   });
 
-  return index;
+  return positionSeconds;
+}
+
+type LineLook = { color: string; sungColor: string; fontSize: number; lineHeight: number };
+
+// The words of a line in a wrapping row. The words already sung take sungColor.
+function LyricWords({
+  words,
+  positionSeconds,
+  look,
+}: {
+  words: LyricWord[];
+  positionSeconds: number;
+  look: LineLook;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap" }}>
+      {words.map((word, index) => (
+        <text
+          key={index}
+          style={{
+            color: word.beginSeconds <= positionSeconds ? look.sungColor : look.color,
+            fontSize: look.fontSize,
+            fontWeight: 700,
+            lineHeight: look.lineHeight,
+          }}
+        >
+          {word.text}
+        </text>
+      ))}
+    </div>
+  );
 }
 
 function Lyrics() {
@@ -242,33 +296,43 @@ function Lyrics() {
     [persistentID]
   );
 
-  const currentLineIndex = useCurrentLineIndex(lines, nowPlaying.state === "playing");
+  const positionSeconds = useLyricsPosition(lines, nowPlaying.state === "playing");
 
   if (!song) return <PageStatus text="Nothing is playing." />;
   if (!lines) return <PageStatus text={statusText} />;
   if (lines.length === 0) return <PageStatus text="Apple Music has no lyrics for this song." />;
 
-  const currentIndex = currentLineIndex;
+  const currentIndex = findCurrentLineIndex(lines, positionSeconds);
   const firstShownIndex = Math.max(0, currentIndex - linesBeforeCurrent);
   const shownLines = lines.slice(firstShownIndex, firstShownIndex + shownLineCount);
+  const currentLook = { color: colors.dim, sungColor: accent, fontSize: 19, lineHeight: 24 };
+  const otherLook = { color: colors.faint, sungColor: colors.faint, fontSize: 16, lineHeight: 22 };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: 10 }}>
       {shownLines.map((line, offset) => {
         const isCurrent = firstShownIndex + offset === currentIndex;
+        const look = isCurrent ? currentLook : otherLook;
+        const pronunciationLook = {
+          ...look,
+          fontSize: look.fontSize - 4,
+          lineHeight: look.lineHeight - 6,
+        };
 
         return (
-          <text
+          <div
             key={firstShownIndex + offset}
-            style={{
-              color: isCurrent ? accent : colors.faint,
-              fontSize: isCurrent ? 19 : 16,
-              fontWeight: 700,
-              lineHeight: 24,
-            }}
+            style={{ display: "flex", flexDirection: "column", gap: 2 }}
           >
-            {line.text}
-          </text>
+            <LyricWords words={line.words} positionSeconds={positionSeconds} look={look} />
+            {line.pronunciation.length > 0 && (
+              <LyricWords
+                words={line.pronunciation}
+                positionSeconds={positionSeconds}
+                look={pronunciationLook}
+              />
+            )}
+          </div>
         );
       })}
     </div>

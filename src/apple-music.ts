@@ -39,6 +39,7 @@ type Attributes = {
   audioTraits?: string[];
   playParams?: { catalogId?: string };
   ttml?: string;
+  ttmlLocalizations?: string;
   description?: { standard?: string; short?: string };
 };
 
@@ -105,7 +106,14 @@ export type Album = {
   songs: CatalogSong[];
 };
 
-export type LyricLine = { beginSeconds: number; text: string };
+export type LyricWord = { beginSeconds: number; text: string };
+// A song timed by line has one word for each line. pronunciation is empty when the line reads as written.
+export type LyricLine = {
+  beginSeconds: number;
+  text: string;
+  words: LyricWord[];
+  pronunciation: LyricWord[];
+};
 
 export type SearchResults = { songs: CatalogSong[]; albums: Card[]; artists: Card[] };
 
@@ -167,7 +175,7 @@ const dayMs = 24 * 60 * minuteMs;
 // How long an answer counts as fresh. The first rule whose text the path holds applies.
 const freshRules: [string, number][] = [
   ["/v1/me/storefront", 30 * dayMs],
-  ["/lyrics", 30 * dayMs],
+  ["lyrics", 30 * dayMs],
   ["/v1/me/recommendations", 10 * minuteMs],
   ["/v1/me/", 0],
   ["/v1/editorial/", 60 * minuteMs],
@@ -532,24 +540,76 @@ function toSeconds(time: string): number {
   return time.split(":").reduce((total, part) => total * 60 + Number(part), 0);
 }
 
+function toPlainText(markup: string): string {
+  return markup
+    .replace(/<[^>]+>/g, "")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&apos;", "'")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&amp;", "&");
+}
+
+// A word is a span with its own start. The space after it, if any, stays with it, so the words join back into the line.
+function toWords(markup: string, lineBeginSeconds: number): LyricWord[] {
+  const words = [...markup.matchAll(/<span begin="([^"]+)"[^>]*>([^<]*)<\/span>(\s*)/g)].map(
+    (match) => ({
+      beginSeconds: toSeconds(match[1]),
+      text: toPlainText(match[2]) + (match[3] ? " " : ""),
+    })
+  );
+
+  return words.length > 0 ? words : [{ beginSeconds: lineBeginSeconds, text: toPlainText(markup) }];
+}
+
+// Letters only, so "You are KING" and its pronunciation "You are KING" count as the same.
+function toLetters(text: string): string {
+  return text.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+}
+
+// The pronunciation of each line in Latin letters, by the line's key, as "L1".
+function toPronunciations(ttml: string): Map<string, string> {
+  const block = ttml.match(/<transliteration [^>]*>(.*?)<\/transliteration>/)?.[1] ?? "";
+
+  return new Map(
+    [...block.matchAll(/<text for="([^"]+)">(.*?)<\/text>/g)].map((match) => [match[1], match[2]])
+  );
+}
+
 function toLyricLines(ttml: string): LyricLine[] {
+  const pronunciations = toPronunciations(ttml);
   const lines: LyricLine[] = [];
 
-  for (const match of ttml.matchAll(/<p begin="([^"]+)"[^>]*>(.*?)<\/p>/g)) {
-    const text = match[2]
-      .replace(/<[^>]+>/g, "")
-      .replaceAll("&amp;", "&")
-      .replaceAll("&apos;", "'")
-      .replaceAll("&quot;", '"');
+  for (const match of ttml.matchAll(/<p ([^>]*)>(.*?)<\/p>/g)) {
+    const beginSeconds = toSeconds(match[1].match(/begin="([^"]+)"/)?.[1] ?? "0");
+    const words = toWords(match[2], beginSeconds);
+    const text = words.map((word) => word.text).join("");
+    const key = match[1].match(/itunes:key="([^"]+)"/)?.[1] ?? "";
+    const pronunciationMarkup = pronunciations.get(key);
+    const pronunciation = pronunciationMarkup ? toWords(pronunciationMarkup, beginSeconds) : [];
+    const pronunciationText = pronunciation.map((word) => word.text).join("");
+    const isAsWritten = toLetters(pronunciationText) === toLetters(text);
 
-    lines.push({ beginSeconds: toSeconds(match[1]), text });
+    lines.push({ beginSeconds, text, words, pronunciation: isAsWritten ? [] : pronunciation });
   }
 
   return lines;
 }
 
-// Apple answers 404 for a song with no lyrics.
+const lyricsQuery = "?l%5Blyrics%5D=en-GB&l%5Bscript%5D=en-Latn&extend=ttmlLocalizations";
+
+// Syllable lyrics carry word timing, where Apple has it, and the pronunciation. On a 404 the plain lyrics are asked for.
 export async function fetchLyrics(songId: string): Promise<LyricLine[]> {
+  try {
+    const [lyrics] = await fetchData(
+      await toCatalogPath(`/songs/${songId}/syllable-lyrics${lyricsQuery}`)
+    );
+
+    return toLyricLines(lyrics?.attributes?.ttmlLocalizations ?? lyrics?.attributes?.ttml ?? "");
+  } catch (error) {
+    if (!(error instanceof AppleMusicError && error.status === 404)) throw error;
+  }
+
   try {
     const [lyrics] = await fetchData(await toCatalogPath(`/songs/${songId}/lyrics`));
 

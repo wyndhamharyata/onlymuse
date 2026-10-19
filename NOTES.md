@@ -111,7 +111,12 @@ the layout and the rules.
   which `positionReadAtMs` carries. The helper reads the artwork after the position, which could
   hold a report back. While a song plays the helper also sends the position every 2 seconds, read
   with no artwork, so drift and a seek made in Music.app are corrected. The lyrics change line on a
-  timer set for the next line's start, not on a 250 ms tick.
+  timer set for the next word's start, not on a 250 ms tick.
+- **Lyrics come from `syllable-lyrics`** with `l[script]=en-Latn&extend=ttmlLocalizations`. About
+  half the songs are timed by word there, so the words light up as they are sung. The rest are timed
+  by line. The same answer carries a pronunciation in Latin letters for songs in other scripts,
+  shown under each line and lit by word too. A 404 falls back to the plain `lyrics`. The probe logs
+  `lyricWord` with how late each word's timer fired.
 - **Shuffle and repeat** belong to the app's queue. Repeat one plays the song again when Music.app
   stops at its end.
 - **Next and previous** move through the queue while Music.app plays the song the queue started.
@@ -132,7 +137,7 @@ the layout and the rules.
 | Favourite Songs, playlists | `/v1/me/library/playlists/{id}/tracks` |
 | Recently Added, Artists, Albums, Songs | `/v1/me/library/…`. Artists come with `include=catalog`, for the photo and the full artist page. |
 | Downloaded | The download packages of Music.app, then `/v1/catalog/{storefront}/songs?ids=…` |
-| Lyrics | `/v1/catalog/{storefront}/songs/{id}/lyrics`. A 404 means the song has none. |
+| Lyrics | `/v1/catalog/{storefront}/songs/{id}/syllable-lyrics`, then `/lyrics` on a 404. A 404 from both means the song has none. |
 
 ### Found while building
 

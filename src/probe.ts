@@ -28,11 +28,11 @@ type FrameRenderer = { takeSlowFrames?: () => number[] };
 
 let frameRenderer: FrameRenderer | null = null;
 
-// A slow frame in two halves: draw builds and paints it, present waits for macOS, which the blur can slow.
+// A slow frame: draw builds and paints it, present waits for a drawable, then encodes the frame for the GPU.
 function readSlowFrames(): void {
   const flat = frameRenderer?.takeSlowFrames?.() ?? [];
 
-  for (let index = 0; index + 2 < flat.length; index += 3) {
+  for (let index = 0; index + 4 < flat.length; index += 5) {
     const round = (ms: number): number => Math.round(ms * 10) / 10;
 
     pending.push(
@@ -41,6 +41,8 @@ function readSlowFrames(): void {
         kind: "frame",
         draw: round(flat[index + 1]),
         present: round(flat[index + 2]),
+        drawableWait: round(flat[index + 3]),
+        encode: round(flat[index + 4]),
       })
     );
   }

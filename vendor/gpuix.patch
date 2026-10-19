@@ -134,7 +134,7 @@ index e7362f7..b889319 100644
              let text = SharedString::from(text);
              let mut layout = self
 diff --git a/crates/gpui/src/window.rs b/crates/gpui/src/window.rs
-index 3e55040..9002d3f 100644
+index 3e55040..484d41a 100644
 --- a/crates/gpui/src/window.rs
 +++ b/crates/gpui/src/window.rs
 @@ -1181,6 +1181,8 @@ pub struct Window {
@@ -155,13 +155,20 @@ index 3e55040..9002d3f 100644
      #[cfg(feature = "profiler")]
      window_profiler: profiler::WindowProfiler,
      last_input_modality: InputModality,
-@@ -1236,6 +1240,31 @@ pub(crate) struct InputRateTracker {
+@@ -1236,6 +1240,40 @@ pub(crate) struct InputRateTracker {
      sustain_duration: Duration,
  }
  
 +// onlymuse patch: frames over 8 ms, as (when in ms since 1970, draw ms, present ms), for the app's probe.
 +// The present half holds the wait for a drawable, which the compositor sets.
-+static SLOW_FRAMES: std::sync::Mutex<Vec<(f64, f32, f32)>> = std::sync::Mutex::new(Vec::new());
++static SLOW_FRAMES: std::sync::Mutex<Vec<(f64, f32, f32, f32, f32)>> = std::sync::Mutex::new(Vec::new());
++// The parts of the last present: the wait for a drawable and the encoding, in ms.
++static PRESENT_PARTS: std::sync::Mutex<(f32, f32)> = std::sync::Mutex::new((0.0, 0.0));
++
++/// onlymuse patch: the renderer reports how its present split, for the probe.
++pub fn note_present_parts(wait_ms: f32, encode_ms: f32) {
++    *PRESENT_PARTS.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = (wait_ms, encode_ms);
++}
 +
 +fn record_slow_frame(draw_started: std::time::Instant, present_started: std::time::Instant) {
 +    let draw_ms = (present_started - draw_started).as_secs_f32() * 1000.0;
@@ -173,21 +180,23 @@ index 3e55040..9002d3f 100644
 +        .duration_since(std::time::UNIX_EPOCH)
 +        .map(|since| since.as_secs_f64() * 1000.0)
 +        .unwrap_or(0.0);
++    let (wait_ms, encode_ms) =
++        *PRESENT_PARTS.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
 +    let mut frames = SLOW_FRAMES.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
 +    if frames.len() < 10_000 {
-+        frames.push((at_ms, draw_ms, present_ms));
++        frames.push((at_ms, draw_ms, present_ms, wait_ms, encode_ms));
 +    }
 +}
 +
 +/// onlymuse patch: the slow frames since the last call.
-+pub fn take_slow_frames() -> Vec<(f64, f32, f32)> {
++pub fn take_slow_frames() -> Vec<(f64, f32, f32, f32, f32)> {
 +    std::mem::take(&mut *SLOW_FRAMES.lock().unwrap_or_else(std::sync::PoisonError::into_inner))
 +}
 +
  impl Default for InputRateTracker {
      fn default() -> Self {
          Self {
-@@ -1648,8 +1677,11 @@ impl Window {
+@@ -1648,8 +1686,11 @@ impl Window {
                                      // atlas tile references after a GPU device recovery.
                                      window.refresh();
                                  }
@@ -199,7 +208,7 @@ index 3e55040..9002d3f 100644
                                  arena_clear_needed.clear(cx);
                              })
                              .log_err();
-@@ -1883,6 +1915,8 @@ impl Window {
+@@ -1883,6 +1924,8 @@ impl Window {
              hovered,
              needs_present,
              input_rate_tracker,
@@ -208,7 +217,7 @@ index 3e55040..9002d3f 100644
              #[cfg(feature = "profiler")]
              window_profiler: profiler::WindowProfiler::new(handle.window_id())?,
              last_input_modality: InputModality::Mouse,
-@@ -2481,10 +2515,11 @@ impl Window {
+@@ -2481,10 +2524,11 @@ impl Window {
      /// the platform window, then notifies observers. Normally called automatically
      /// by the platform's resize callback, but exposed publicly for test infrastructure.
      pub fn bounds_changed(&mut self, cx: &mut App) {
@@ -223,7 +232,7 @@ index 3e55040..9002d3f 100644
  
          self.refresh();
  
-@@ -2493,6 +2528,74 @@ impl Window {
+@@ -2493,6 +2537,74 @@ impl Window {
              .retain(&(), |callback| callback(self, cx));
      }
  
@@ -298,7 +307,7 @@ index 3e55040..9002d3f 100644
      /// Returns the bounds of the current window in the global coordinate space, which could span across multiple displays.
      pub fn bounds(&self) -> Bounds<Pixels> {
          self.platform_window.bounds()
-@@ -2908,6 +3011,13 @@ impl Window {
+@@ -2908,6 +3020,13 @@ impl Window {
          self.last_input_modality == InputModality::Keyboard
      }
  
@@ -312,7 +321,7 @@ index 3e55040..9002d3f 100644
      /// The current state of the keyboard's capslock
      pub fn capslock(&self) -> Capslock {
          self.capslock
-@@ -3233,6 +3343,9 @@ impl Window {
+@@ -3233,6 +3352,9 @@ impl Window {
          }
  
          self.mouse_hit_test = self.next_frame.hit_test(self.mouse_position);
@@ -322,7 +331,7 @@ index 3e55040..9002d3f 100644
  
          // Now actually paint the elements.
          self.invalidator.set_phase(DrawPhase::Paint);
-@@ -5225,6 +5338,7 @@ impl Window {
+@@ -5225,6 +5347,7 @@ impl Window {
      /// Dispatch a mouse or keyboard event on the window.
      #[profiling::function]
      pub fn dispatch_event(&mut self, event: PlatformInput, cx: &mut App) -> DispatchEventResult {
@@ -330,7 +339,7 @@ index 3e55040..9002d3f 100644
          #[cfg(feature = "profiler")]
          self.window_profiler.begin_input(event.kind_name());
          let update_count_before = self.invalidator.update_count();
-@@ -5278,6 +5392,7 @@ impl Window {
+@@ -5278,6 +5401,7 @@ impl Window {
                  PlatformInput::ModifiersChanged(modifiers_changed)
              }
              PlatformInput::ScrollWheel(scroll_wheel) => {
@@ -338,6 +347,38 @@ index 3e55040..9002d3f 100644
                  self.mouse_position = scroll_wheel.position;
                  self.modifiers = scroll_wheel.modifiers;
                  PlatformInput::ScrollWheel(scroll_wheel)
+diff --git a/crates/gpui_apple/src/metal_renderer.rs b/crates/gpui_apple/src/metal_renderer.rs
+index e4411d2..b60ee90 100644
+--- a/crates/gpui_apple/src/metal_renderer.rs
++++ b/crates/gpui_apple/src/metal_renderer.rs
+@@ -459,6 +459,7 @@ impl MetalRenderer {
+             (viewport_size.width.ceil() as i32).into(),
+             (viewport_size.height.ceil() as i32).into(),
+         );
++        let wait_started = std::time::Instant::now();
+         let drawable = if let Some(drawable) = layer.next_drawable() {
+             drawable
+         } else {
+@@ -469,6 +470,7 @@ impl MetalRenderer {
+             return;
+         };
+ 
++        let encode_started = std::time::Instant::now();
+         let command_buffer = match self.render_frame(scene, drawable.texture(), viewport_size) {
+             Ok(command_buffer) => command_buffer,
+             Err(error) => {
+@@ -476,6 +478,11 @@ impl MetalRenderer {
+                 return;
+             }
+         };
++        // onlymuse patch: the wait for a drawable and the encoding, for the app's probe.
++        gpui::note_present_parts(
++            (encode_started - wait_started).as_secs_f32() * 1000.0,
++            encode_started.elapsed().as_secs_f32() * 1000.0,
++        );
+ 
+         if self.presents_with_transaction {
+             command_buffer.commit();
 diff --git a/crates/gpui_macos/src/display_link.rs b/crates/gpui_macos/src/display_link.rs
 index 5387cb6..0d92c08 100644
 --- a/crates/gpui_macos/src/display_link.rs
@@ -444,7 +485,7 @@ index 1ee1872..9088246 100644
  
  trait BoolExt {
 diff --git a/crates/gpui_macos/src/platform.rs b/crates/gpui_macos/src/platform.rs
-index 91dba60..ee8f365 100644
+index 91dba60..5ea5ea4 100644
 --- a/crates/gpui_macos/src/platform.rs
 +++ b/crates/gpui_macos/src/platform.rs
 @@ -629,7 +629,14 @@ unsafe fn pump_app_nonblocking() {
@@ -462,6 +503,18 @@ index 91dba60..ee8f365 100644
              let event: id = msg_send![app,
                  nextEventMatchingMask: NSUInteger::MAX
                  untilDate: distant_past
+@@ -642,7 +649,10 @@ unsafe fn pump_app_nonblocking() {
+             let _: () = msg_send![app, sendEvent: event];
+         }
+         let _: () = msg_send![app, updateWindows];
+-        CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.0, 1);
++        // onlymuse patch: with the 4 ms spent, this pass would draw a second frame, and the next pump does it.
++        if started.elapsed() <= std::time::Duration::from_millis(4) {
++            CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.0, 1);
++        }
+     }
+ }
+ 
 diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
 index faf27e0..46edad6 100644
 --- a/crates/gpui_macos/src/window.rs

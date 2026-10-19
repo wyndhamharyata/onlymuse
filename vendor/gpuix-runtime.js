@@ -68,8 +68,21 @@ export function startFrameLoop(renderer, options = {}) {
             : Math.max(0, (options.frameMs ?? DEFAULT_FRAME_MS) - (performance.now() - started));
         timer = setTimeout(loop, delay);
     };
+    // onlymuse patch: a wake runs the tick behind the timers already due. A tick longer than a display
+    // frame always found the next wake queued, and Bun runs those before timers, so React and every
+    // timer waited for seconds.
+    let wakeQueued = false;
+    const onWake = () => {
+        if (wakeQueued)
+            return;
+        wakeQueued = true;
+        setTimeout(() => {
+            wakeQueued = false;
+            loop();
+        }, 0);
+    };
     const frameWake = options.frameMs === undefined &&
-        renderer.setFrameWakeCallback?.(loop) === true;
+        renderer.setFrameWakeCallback?.(onWake) === true;
     loop();
     return { stop };
 }

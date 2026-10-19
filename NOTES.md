@@ -219,6 +219,11 @@ the layout and the rules.
   than they drain, so one pump held the main thread for seconds, and JavaScript, which mounts rows,
   moves the row window and answers clicks, waited. The patch ends a pump after 4 ms, and the next
   frame wake pumps the rest.
+- With that alone it was worse. The pump's last run-loop pass drew a second frame, so each tick took
+  16.6 ms, longer than a display frame. The next wake was then always queued, and Bun runs those
+  before timers, so React and the timers waited up to 9 seconds. The pass is now skipped once the
+  4 ms is spent, and a wake runs the tick behind the timers already due (`vendor/gpuix-runtime.js`).
+  The probe splits present into the wait for a drawable and the encoding.
 - **Zoom.** Cmd = and Cmd + zoom in, Cmd - zooms out and Cmd 0 resets, in steps from 67% to
   200%, saved as `zoom` in the state table. The patched GPUI multiplies the display's scale by the
   zoom and divides the window size, mouse positions and wheel deltas by it, so layout reflows and

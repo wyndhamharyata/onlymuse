@@ -213,12 +213,6 @@ the layout and the rules.
   and `vendor/gpuix-runtime.js`, which `scripts/gpuix-native.ts` installs. A back-and-forth scroll
   of New then missed 2 to 3 frames in place of 1 to 48, and its longest stall fell from up to 51 ms
   to 16 ms.
-- **The pump returns after 4 ms.** The probe of 19 Oct showed ticks of 25 ms to 3 s on Home and New
-  while every frame inside them drew in 4 to 8 ms. gpuix's pump took up to 256 macOS events, and
-  each call to `nextEventMatchingMask` could draw a frame too. A trackpad scroll brings events faster
-  than they drain, so one pump held the main thread for seconds, and JavaScript, which mounts rows,
-  moves the row window and answers clicks, waited. The patch ends a pump after 4 ms, and the next
-  frame wake pumps the rest.
 - **Zoom.** Cmd = and Cmd + zoom in, Cmd - zooms out and Cmd 0 resets, in steps from 67% to
   200%, saved as `zoom` in the state table. The patched GPUI multiplies the display's scale by the
   zoom and divides the window size, mouse positions and wheel deltas by it, so layout reflows and

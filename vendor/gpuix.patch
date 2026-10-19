@@ -443,25 +443,6 @@ index 1ee1872..9088246 100644
  pub use platform::MacPlatform;
  
  trait BoolExt {
-diff --git a/crates/gpui_macos/src/platform.rs b/crates/gpui_macos/src/platform.rs
-index 91dba60..ee8f365 100644
---- a/crates/gpui_macos/src/platform.rs
-+++ b/crates/gpui_macos/src/platform.rs
-@@ -629,7 +629,14 @@ unsafe fn pump_app_nonblocking() {
-         let distant_past: id = msg_send![class!(NSDate), distantPast];
-         let mode = kCFRunLoopDefaultMode as id;
- 
-+        // onlymuse patch: a pump ends after 4 ms, with events left for the next one. A trackpad scroll
-+        // brings events faster than they drain, and each call can draw a frame, so a pump of 256 events
-+        // held the main thread for a second or more, and JavaScript, the embedding host, could not run.
-+        let started = std::time::Instant::now();
-         for _ in 0..256 {
-+            if started.elapsed() > std::time::Duration::from_millis(4) {
-+                break;
-+            }
-             let event: id = msg_send![app,
-                 nextEventMatchingMask: NSUInteger::MAX
-                 untilDate: distant_past
 diff --git a/crates/gpui_macos/src/window.rs b/crates/gpui_macos/src/window.rs
 index faf27e0..46edad6 100644
 --- a/crates/gpui_macos/src/window.rs

@@ -2,6 +2,7 @@ import { useEffect, useState, type DependencyList } from "react";
 import { watchFetch } from "../apple-music.ts";
 import { readScrolledAtMs } from "../scrolling.ts";
 import { colors } from "../theme.ts";
+import { probe } from "../probe.ts";
 
 type Fetched<Value> = { value: Value | null; statusText: string };
 
@@ -35,12 +36,14 @@ export function useFetched<Value>(
       const hasScrolled = scrolledAtMs > openedAtMs;
       const restLeftMs = scrolledAtMs + scrollRestMs - Date.now();
 
-      if (hasValue && newerAnswer === "untilScrolled" && hasScrolled) return;
+      if (hasValue && newerAnswer === "untilScrolled" && hasScrolled) return probe("newerHeld");
       if (hasValue && restLeftMs > 0) {
+        probe("newerWaits", { ms: Math.round(restLeftMs) });
         restTimer = setTimeout(() => isCurrent && showValue(value), restLeftMs);
         return;
       }
 
+      probe(hasValue ? "newerShown" : "firstShown");
       hasValue = true;
       setFetched({ value, statusText: "" });
     }

@@ -98,6 +98,8 @@ A React component is a noun, such as `PlayerBar`.
 | `bun run start` | Builds the helper and opens the app as the production build, with no hot reload. |
 | `bun run bench` | Measures JavaScript stalls, draw times and memory in both builds, behind the other windows. |
 | `bun scripts/gpuix-native.ts [stock\|patched]` | Installs gpuix's binary, patched by default. `bun install` runs it. |
+| `ONLYMUSE_PROBE=1 bun run dev` | Logs stalls, slow ticks and commits, fetches, refreshes, artwork and saves to `~/Library/Logs/onlymuse/probe.log`. Cmd Shift L marks a lag. |
+| `bun scripts/probe-report.ts [seconds]` | Prints the probe's log around each mark. |
 | `ONLYMUSE_FRAMES=1 bun run dev` | Shows GPUI's frame-time overlay in the window. |
 | `bun scripts/screenshot.ts <file>` | Opens the app behind the other windows and saves a picture of it. |
 | `bun run lint` | ESLint, then `scripts/check-words.mjs` and `scripts/check-structure.mjs`. |
@@ -255,7 +257,8 @@ Prettier with a print width of 100, double quotes, semicolons and ES5 trailing c
 
 ## Accepted exceptions
 
-- `src/store.ts` reads `ONLYMUSE_DATA` and `src/perf.tsx` reads `ONLYMUSE_PERF`, against rule 9.3. They exist for
+- `src/store.ts` reads `ONLYMUSE_DATA`, `src/perf.tsx` reads `ONLYMUSE_PERF` and `src/probe.ts` reads
+  `ONLYMUSE_PROBE`, against rule 9.3. They exist for
   `scripts/bench.ts`, which measures and does not test. A measurement must not change the saved state, and the
   stall probe must run inside the app's own thread.
 

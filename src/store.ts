@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { probeTimed, slowSaveThresholdMs } from "./probe.ts";
 
 // Apple's answers and the window's state, in one file that outlives a quit. scripts/bench.ts points ONLYMUSE_DATA at a copy.
 const folder =
@@ -133,7 +134,9 @@ export function saveState(key: string, value: unknown): void {
     key,
     setTimeout(() => {
       pendingSaves.delete(key);
-      saveStateQuery.run(key, JSON.stringify(value), Date.now());
+      probeTimed("save", slowSaveThresholdMs, { key }, () =>
+        saveStateQuery.run(key, JSON.stringify(value), Date.now())
+      );
     }, saveDelayMs)
   );
 }

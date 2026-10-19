@@ -7,6 +7,7 @@ import {
   saveResponse,
   type StoredResponse,
 } from "./store.ts";
+import { probe } from "./probe.ts";
 
 const baseUrl = "https://amp-api.music.apple.com";
 const language = "en-GB";
@@ -142,6 +143,9 @@ async function fetchResponse(
 ): Promise<Response> {
   const separator = path.includes("?") ? "&" : "?";
   const url = `${baseUrl}${path}${separator}l=${language}`;
+  const startMs = performance.now();
+
+  probe("fetchStart", { path });
 
   const firstResponse = await fetchWithTokens(url, method, await readTokens(), etag);
   const isRefused = firstResponse.status === 401 || firstResponse.status === 403;
@@ -149,6 +153,8 @@ async function fetchResponse(
     ? await fetchWithTokens(url, method, await refreshTokens(), etag)
     : firstResponse;
   const isCurrent = response.status === 304;
+
+  probe("fetchEnd", { path, status: response.status, ms: Math.round(performance.now() - startMs) });
 
   if (!response.ok && !isCurrent) throw new AppleMusicError(response.status, path);
 
@@ -188,6 +194,7 @@ async function checkResponse(path: string, stored: StoredResponse): Promise<void
   const body = await response.text();
 
   saveResponse(path, body, response.headers.get("etag"));
+  probe("answerChecked", { path, isChanged: body !== stored.body });
   // A listener starts a new watch, which joins the set. The loop walks a copy, so it ends.
   if (body !== stored.body) for (const listener of [...changeListeners]) listener(path);
 }

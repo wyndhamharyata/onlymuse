@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { probe } from "./probe.ts";
 
 // Apple's artwork on disk, so the next open draws it at once and with no network.
 const folder = join(homedir(), "Library", "Caches", "onlymuse", "images");
@@ -45,7 +46,11 @@ function findSavedPath(url: string): string | null {
 }
 
 async function download(url: string): Promise<void> {
+  const startMs = performance.now();
   const response = await fetch(url);
+
+  probe("artwork", { ms: Math.round(performance.now() - startMs), status: response.status });
+
   const fileExtension = fileExtensions[response.headers.get("content-type") ?? ""];
 
   if (!response.ok || !fileExtension) return;

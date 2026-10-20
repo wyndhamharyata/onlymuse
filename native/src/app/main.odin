@@ -74,6 +74,8 @@ main :: proc() {
 	start_search_field()
 	start_play_log()
 	start_song_menu()
+	start_palette()
+	if term := os.get_env("OM_PALETTE", context.temp_allocator); term != "" do open_palette_for_test(term)
 
 	// A test or bench run opens behind the other windows and leaves Music.app as it is when it quits.
 	is_background := app.capture_path != "" || app.is_bench || os.get_env("OM_BACKGROUND", context.temp_allocator) == "1"
@@ -132,6 +134,8 @@ apply_keys :: proc() {
 			set_zoom(1)
 		case "q":
 			platform.quit()
+		case "k":
+			toggle_palette()
 		case "l":
 			if song, persistent_id, is_song := find_playing_song(); is_song do toggle_favourite(song, persistent_id)
 		}
@@ -223,6 +227,7 @@ draw_frame :: proc() -> bool {
 	build_player_bar()
 	build_song_menu()
 	build_drag_ghost()
+	build_palette()
 	build_toast()
 	if app.is_sign_in_needed do build_sign_in_card()
 	build_frame_time()

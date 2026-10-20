@@ -27,14 +27,20 @@ offset_in_page :: proc(page, box: ^ui.Box) -> f32 {
 	return box.rect.y - page.rect.y - page.style.padding.y + page.scroll
 }
 
-// The library's songs, every page of them.
-build_songs_page :: proc() {
+// The library's songs, every page of them, read once per answer version. The command palette shares them.
+list_library_songs :: proc() -> (songs: []Catalog_Song, signature: int, phase: apple.Phase) {
 	path := "/v1/me/library/songs?sort=name"
-	bodies, signature, phase := watch_all_pages(path)
+	bodies: []string
+	bodies, signature, phase = watch_all_pages(path)
 	data, is_stale := find_page_data(path, signature, phase)
 	if is_stale && phase == .Ready do read_library_songs(data, bodies)
 
-	build_song_list_page("Songs", "", data.songs, phase)
+	return data.songs, signature, phase
+}
+
+build_songs_page :: proc() {
+	songs, _, phase := list_library_songs()
+	build_song_list_page("Songs", "", songs, phase)
 }
 
 // Favourite Songs, Songs, Downloaded and every playlist.
@@ -130,19 +136,31 @@ build_row_heart :: proc(row: ^ui.Box, song: Catalog_Song, is_current: bool) {
 	if favourite_button("heart", is_on, 13, alpha) && alpha > 0 do toggle_favourite(song, persistent_id)
 }
 
-build_albums_page :: proc() {
+list_library_albums :: proc() -> (cards: []apple.Card, signature: int, phase: apple.Phase) {
 	path := "/v1/me/library/albums?sort=name"
-	bodies, signature, phase := watch_all_pages(path)
+	bodies: []string
+	bodies, signature, phase = watch_all_pages(path)
 	data, is_stale := find_page_data(path, signature, phase)
 	if is_stale && phase == .Ready do read_cards(data, bodies)
 
-	build_card_grid_page("Albums", data.cards, phase, false)
+	return data.cards, signature, phase
+}
+
+build_albums_page :: proc() {
+	cards, _, phase := list_library_albums()
+	build_card_grid_page("Albums", cards, phase, false)
+}
+
+build_artists_page :: proc() {
+	cards, _, phase := list_library_artists()
+	build_card_grid_page("Artists", cards, phase, true)
 }
 
 // Two library artists can share one catalog artist, such as a name spelled two ways. It shows once.
-build_artists_page :: proc() {
+list_library_artists :: proc() -> (cards: []apple.Card, signature: int, phase: apple.Phase) {
 	path := "/v1/me/library/artists?sort=name&include=catalog"
-	bodies, signature, phase := watch_all_pages(path)
+	bodies: []string
+	bodies, signature, phase = watch_all_pages(path)
 	data, is_stale := find_page_data(path, signature, phase)
 
 	if is_stale && phase == .Ready {
@@ -162,7 +180,7 @@ build_artists_page :: proc() {
 		data.cards = cards[:]
 	}
 
-	build_card_grid_page("Artists", data.cards, phase, true)
+	return data.cards, signature, phase
 }
 
 build_recently_added_page :: proc() {

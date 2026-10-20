@@ -245,6 +245,14 @@ Rebuild the helper first: `cd .. && bun run helper`.
 - Drag a song onto a playlist of yours in the sidebar to add it there. The playlist lights up under it.
 - A note says when Apple took the change, or why not.
 
+### 6f. Command palette
+
+- Press Cmd K anywhere. Type to find pages, your playlists, library artists, albums and songs, and
+  actions: Go to Now Playing, Play or Pause, Next and Previous Song, Shuffle All Songs, Favourite
+  the Song Playing, Show Lyrics, Show Up Next. Names that start with what you type come first.
+- When you pause typing, Apple Music is searched too.
+- Up and Down choose, Return runs it, Escape or Cmd K again closes. Japanese input works here too.
+
 ## Development settings
 
 | Variable | Does |
@@ -257,6 +265,7 @@ Rebuild the helper first: `cd .. && bun run helper`.
 | `OM_HELPER=<file>` | Runs this instead of the Swift helper. `tools/fake-helper.sh` says a song plays. |
 | `OM_FAKE_POSITION=<seconds>` | Where the fake helper's song starts. |
 | `OM_FAKE_NAME`, `OM_FAKE_ARTIST`, `OM_FAKE_ALBUM`, `OM_FAKE_DURATION` | The fake helper's song, soldier game by default. |
+| `OM_PALETTE=<term>` | Opens the command palette with this term at start, as a test cannot type into a window behind the others. |
 | `OM_BACKGROUND=1` | For the tests. Opens the window behind the others, never focused and with no Dock icon, so AeroSpace leaves it floating. macOS stops a covered window's display link, so a timer runs its frames, which are captured but not shown. The helper leaves Music.app as it is when the app quits. Captures set it. The bench keeps its window in front, as it measures the screen. |
 | `OM_DATA=<folder>` | Keeps `onlymuse.sqlite` in this folder instead. |
 | `OM_BENCH_FRAMES=<count>` | Frames the bench runs. 1,200 by default. |

@@ -218,7 +218,10 @@ to_artwork_url :: proc(artwork: Artwork, width_pixels: int, height_pixels := 0, 
 	height := height_pixels if height_pixels > 0 else width_pixels
 	with_width, _ := strings.replace_all(artwork.url, "{w}", fmt.tprintf("%d", width_pixels), context.temp_allocator)
 	with_height, _ := strings.replace_all(with_width, "{h}", fmt.tprintf("%d", height), context.temp_allocator)
-	url, _ := strings.replace_all(with_height, "{f}", "jpg", allocator)
+	// "ac" puts an artist's album cover on a square of its colour. "cc" crops it to fill.
+	size := fmt.tprintf("%dx%d", width_pixels, height)
+	cropped, _ := strings.replace_all(with_height, fmt.tprintf("%sac.", size), fmt.tprintf("%scc.", size), context.temp_allocator)
+	url, _ := strings.replace_all(cropped, "{f}", "jpg", allocator)
 
 	return url
 }

@@ -163,6 +163,8 @@ build_player_end :: proc() {
 	if ui.scope(end) {
 		spacer()
 
+		if icon_button("panel", "sidebar.right", 16, app.accent if app.panel != .None else colors.faint) do toggle_side_panel()
+
 		icon_box("", "speaker.wave.2.fill", 15, colors.dim)
 
 		volume_percent := app.now_playing.volume_percent

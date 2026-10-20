@@ -35,6 +35,8 @@ app: struct {
 	accent:            [4]f32,
 	now_playing:       helper.Now_Playing,
 	panel:             Panel,
+	// The tab the panel opens on.
+	last_panel:        Panel,
 	is_sign_in_needed: bool,
 	is_sign_in_open:   bool,
 	last_frame:        time.Tick,
@@ -128,22 +130,27 @@ apply_keys :: proc() {
 	}
 }
 
-toggle_panel :: proc(panel: Panel) {
-	set_panel(.None if app.panel == panel else panel)
+// Opens the panel on the tab it last showed, or closes it.
+toggle_side_panel :: proc() {
+	set_panel(.None if app.panel != .None else app.last_panel)
 }
 
 set_panel :: proc(panel: Panel) {
 	app.panel = panel
+	if panel != .None do app.last_panel = panel
 	saved := [Panel]string{.None = "null", .Lyrics = `"lyrics"`, .Up_Next = `"queue"`}
 	store.save_state("panel", saved[panel])
 }
 
 // The panel and the zoom of the last run, saved as the gpuix app saved them.
 start_saved_window_state :: proc() {
+	app.last_panel = .Up_Next
+
 	if panel, ok := store.find_state("panel", context.temp_allocator); ok {
 		switch panel {
 		case `"lyrics"`:
 			app.panel = .Lyrics
+			app.last_panel = .Lyrics
 		case `"queue"`:
 			app.panel = .Up_Next
 		case "null":

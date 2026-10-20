@@ -186,9 +186,10 @@ the page updates if Apple has something newer.
 
 From here the app goes its own way rather than copying Apple Music.
 
-- The Up Next / Lyrics tabs sit at the bottom of the sidebar, above the player bar. They are the only
-  panel control. The tabs at the top of the panel and the two buttons by the volume are gone. Click
-  the open tab to close the panel.
+- The Up Next / Lyrics tabs sit at the bottom of the side panel, and are the only way to switch it.
+  The tabs at its top and the two buttons by the volume are gone. One button by the volume shows and
+  hides the panel, opening it on the tab it last showed.
+- An artist with no photo shows their album cover filling the circle, not inset on a square of colour.
 - While a cover loads, its tile shows a gradient with a symbol of what it is (album, playlist,
   artist, song). Apple Music items use the cover's own colours, so the cover fades in over its own
   palette. Library items have no colours from Apple, so the name picks two hues, and an album keeps

@@ -34,11 +34,18 @@ lyrics_state: struct {
 	position_seconds:    f64,
 	current_index:       int,
 	lines:               []lyrics.Line,
+	// What shows under each line, when the song has it. Saved.
+	shows_romaji:        bool,
+	shows_translation:   bool,
 }
+
+TRANSLATION_FONT_SIZE :: 13
 
 // The saved lead. The first run takes the gpuix app's, so both run the lyrics the same.
 start_lyrics :: proc() {
 	lyrics_state.lead_ms = DEFAULT_LEAD_MS
+	lyrics_state.shows_romaji = (store.find_state("lyricsRomaji", context.temp_allocator) or_else "true") == "true"
+	lyrics_state.shows_translation = (store.find_state("lyricsTranslation", context.temp_allocator) or_else "false") == "true"
 
 	if text, ok := store.find_state("lyricLeadMs", context.temp_allocator); ok {
 		lead_ms, is_number := strconv.parse_int(text)
@@ -170,6 +177,8 @@ build_lyrics :: proc() -> bool {
 	case .Ready:
 	}
 
+	build_lyric_toggles(lines)
+
 	lead_seconds := f64(lyrics_state.lead_ms) / 1000
 	lyrics_state.position_seconds = helper.position_seconds(now_playing) + lead_seconds
 	lyrics_state.current_index = find_current_line(lines, lyrics_state.position_seconds)
@@ -213,13 +222,17 @@ build_lyric_line :: proc(line: ^lyrics.Line, index: int) {
 		text.color_of = color_lyric_glyph
 		text.data = paint
 
-		if line.pronunciation == "" do return
+		if line.pronunciation != "" && lyrics_state.shows_romaji {
+			pronunciation_paint := new(Line_Paint, context.temp_allocator)
+			pronunciation_paint^ = {index, line.pronunciation_words}
+			pronunciation := ui.box("", {width = ui.fill(), height = ui.fit_text(), font_size = PRONUNCIATION_FONT_SIZE, font_weight = .Bold, text_color = colors.dim, flags = {.Wrap_Text}}, line.pronunciation)
+			pronunciation.color_of = color_lyric_glyph
+			pronunciation.data = pronunciation_paint
+		}
 
-		pronunciation_paint := new(Line_Paint, context.temp_allocator)
-		pronunciation_paint^ = {index, line.pronunciation_words}
-		pronunciation := ui.box("", {width = ui.fill(), height = ui.fit_text(), font_size = PRONUNCIATION_FONT_SIZE, font_weight = .Bold, text_color = colors.dim, flags = {.Wrap_Text}}, line.pronunciation)
-		pronunciation.color_of = color_lyric_glyph
-		pronunciation.data = pronunciation_paint
+		if line.translation != "" && lyrics_state.shows_translation {
+			ui.box("translation", {width = ui.fill(), height = ui.fit_text(), font_size = TRANSLATION_FONT_SIZE, text_color = colors.dim, flags = {.Wrap_Text}}, line.translation)
+		}
 	}
 }
 
@@ -237,4 +250,28 @@ build_lead_note :: proc() {
 
 build_panel_note :: proc(text: string) {
 	ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.dim, padding = {8, 16, 8, 0}, flags = {.Wrap_Text}}, text)
+}
+
+// Romaji and Translation, each shown only when a line of the song has it.
+@(private = "file")
+build_lyric_toggles :: proc(lines: []lyrics.Line) {
+	has_romaji, has_translation := false, false
+	for line in lines {
+		has_romaji ||= line.pronunciation != ""
+		has_translation ||= line.translation != ""
+	}
+	if !has_romaji && !has_translation do return
+
+	toggles := ui.box("toggles", {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 6, padding = {8, 0, 8, 10}})
+
+	if ui.scope(toggles) {
+		if has_romaji && toggle_chip("Romaji", lyrics_state.shows_romaji) {
+			lyrics_state.shows_romaji = !lyrics_state.shows_romaji
+			store.save_state("lyricsRomaji", "true" if lyrics_state.shows_romaji else "false")
+		}
+		if has_translation && toggle_chip("Translation", lyrics_state.shows_translation) {
+			lyrics_state.shows_translation = !lyrics_state.shows_translation
+			store.save_state("lyricsTranslation", "true" if lyrics_state.shows_translation else "false")
+		}
+	}
 }

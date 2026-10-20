@@ -259,3 +259,24 @@ is_mouse_in :: proc(box: ^ui.Box) -> bool {
 
 	return mouse.x >= box.rect.x && mouse.x < box.rect.z && mouse.y >= box.rect.y && mouse.y < box.rect.w
 }
+
+// A rounded pill that is on or off. Returns true when clicked.
+toggle_chip :: proc(label: string, is_on: bool) -> bool {
+	tint := to_accent_tint(app.accent)
+	chip := ui.box(label, {
+		width            = ui.fit_text(),
+		height           = ui.points(24),
+		padding          = {10, 0, 10, 0},
+		corner_radius    = 12,
+		background       = tint if is_on else colors.field,
+		hover_background = tint if is_on else colors.hover,
+		border_width     = 1 if is_on else 0,
+		border_color     = {app.accent.r, app.accent.g, app.accent.b, 0.35},
+		text_color       = app.accent if is_on else colors.dim,
+		font_size        = 12,
+		font_weight      = .Semibold,
+		flags            = {.Clickable},
+	}, label)
+
+	return ui.signal(chip).is_clicked
+}

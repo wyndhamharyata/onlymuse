@@ -25,6 +25,8 @@ Line :: struct {
 	// Empty when the line reads as written.
 	pronunciation:       string,
 	pronunciation_words: []Word,
+	// The line in English, when Apple has a translation. Empty otherwise.
+	translation:         string,
 }
 
 Phase :: enum {
@@ -48,6 +50,8 @@ state: struct {
 	persistent_id: string,
 	phase:         Phase,
 	lines:         []Line,
+	// Who wrote the words, as the lyrics name them.
+	songwriters:   []string,
 }
 
 // The lyrics of the song, loading them the first time it is asked for. Lines live until another song is asked for.
@@ -60,6 +64,7 @@ find :: proc(persistent_id, name, artist: string) -> (Phase, []Line) {
 	state.persistent_id = strings.clone(persistent_id)
 	state.phase = .Loading
 	state.lines = nil
+	state.songwriters = nil
 
 	request := new(Request)
 	request^ = {strings.clone(persistent_id), strings.clone(name), strings.clone(artist)}
@@ -72,7 +77,7 @@ find :: proc(persistent_id, name, artist: string) -> (Phase, []Line) {
 @(private)
 load :: proc(data: rawptr) {
 	request := cast(^Request)data
-	lines, ok := fetch_lines(request.name, request.artist)
+	lines, songwriters, ok := fetch_lines(request.name, request.artist)
 	defer free_all(context.temp_allocator)
 
 	sync.guard(&state.mutex)
@@ -82,6 +87,7 @@ load :: proc(data: rawptr) {
 
 	state.phase = .Ready if ok && len(lines) > 0 else .Missing
 	state.lines = lines
+	state.songwriters = songwriters
 	platform.wake()
 }
 
@@ -89,16 +95,16 @@ load :: proc(data: rawptr) {
 LYRICS_QUERY :: "?l%5Blyrics%5D=en-GB&l%5Bscript%5D=en-Latn&extend=ttmlLocalizations"
 
 @(private)
-fetch_lines :: proc(name, artist: string) -> ([]Line, bool) {
+fetch_lines :: proc(name, artist: string) -> ([]Line, []string, bool) {
 	song_id, ok := find_song_id(name, artist)
-	if !ok do return nil, false
+	if !ok do return nil, nil, false
 
 	answer := apple.fetch(fmt.tprintf("/v1/catalog/%s/songs/%s/syllable-lyrics%s", apple.STOREFRONT, song_id, LYRICS_QUERY), context.temp_allocator)
 	is_syllable := answer.status == 200
 
 	// A song with no word timing has only lyrics by line.
 	if !is_syllable do answer = apple.fetch(fmt.tprintf("/v1/catalog/%s/songs/%s/lyrics", apple.STOREFRONT, song_id), context.temp_allocator)
-	if answer.status != 200 do return nil, false
+	if answer.status != 200 do return nil, nil, false
 
 	Lyrics_Answer :: struct {
 		data: []struct {
@@ -110,12 +116,39 @@ fetch_lines :: proc(name, artist: string) -> ([]Line, bool) {
 	}
 
 	parsed: Lyrics_Answer
-	if json.unmarshal_string(answer.body, &parsed, allocator = context.temp_allocator) != nil || len(parsed.data) == 0 do return nil, false
+	if json.unmarshal_string(answer.body, &parsed, allocator = context.temp_allocator) != nil || len(parsed.data) == 0 do return nil, nil, false
 
 	attributes := parsed.data[0].attributes
 	ttml := attributes.ttml_localizations if attributes.ttml_localizations != "" else attributes.ttml
 
-	return to_lines(ttml), true
+	return to_lines(ttml), to_songwriters(ttml), true
+}
+
+// The songwriters of the playing song's lyrics, once they have loaded.
+find_songwriters :: proc(persistent_id: string) -> []string {
+	sync.guard(&state.mutex)
+
+	return state.songwriters if persistent_id == state.persistent_id else nil
+}
+
+@(private)
+to_songwriters :: proc(ttml: string) -> []string {
+	names := make([dynamic]string)
+	rest := ttml
+
+	for {
+		start := strings.index(rest, "<songwriter>")
+		if start < 0 do break
+
+		rest = rest[start + len("<songwriter>"):]
+		end := strings.index(rest, "</songwriter>")
+		if end < 0 do break
+
+		append(&names, strings.clone(to_plain_text(rest[:end])))
+		rest = rest[end:]
+	}
+
+	return names[:]
 }
 
 // A song started outside onlymuse has no catalog ID yet. The gpuix app's queue knows some, the search the rest.
@@ -287,15 +320,16 @@ to_letters :: proc(text: string) -> string {
 	return strings.to_string(builder)
 }
 
-// The pronunciation of each line in Latin letters, by the line's key, as "L1".
+// The text of each line in a block of the lyrics' metadata, by the line's key, as "L1": the pronunciation
+// in Latin letters for "transliteration", the English for "translation".
 @(private)
-to_pronunciations :: proc(ttml: string) -> map[string]string {
+to_line_texts :: proc(ttml: string, block_name: string) -> map[string]string {
 	pronunciations := make(map[string]string, context.temp_allocator)
-	start := strings.index(ttml, "<transliteration ")
+	start := strings.index(ttml, fmt.tprintf("<%s ", block_name))
 	if start < 0 do return pronunciations
 
 	block := ttml[start:]
-	if end := strings.index(block, "</transliteration>"); end >= 0 do block = block[:end]
+	if end := strings.index(block, fmt.tprintf("</%s>", block_name)); end >= 0 do block = block[:end]
 
 	for {
 		text_start := strings.index(block, "<text for=\"")
@@ -315,7 +349,8 @@ to_pronunciations :: proc(ttml: string) -> map[string]string {
 
 @(private)
 to_lines :: proc(ttml: string) -> []Line {
-	pronunciations := to_pronunciations(ttml)
+	pronunciations := to_line_texts(ttml, "transliteration")
+	translations := to_line_texts(ttml, "translation")
 	lines := make([dynamic]Line)
 	body := ttml[max(0, strings.index(ttml, "<body")):]
 
@@ -333,7 +368,14 @@ to_lines :: proc(ttml: string) -> []Line {
 		text, words := to_words(body[tag_end + 1:end], begin_seconds)
 		line := Line{begin_seconds = begin_seconds, text = text, words = words}
 
-		if markup, ok := pronunciations[find_attribute(attributes, "itunes:key")]; ok {
+		key := find_attribute(attributes, "itunes:key")
+		if markup, ok := translations[key]; ok {
+			translation, translation_words := to_words(markup, begin_seconds)
+			delete(translation_words)
+			line.translation = translation
+		}
+
+		if markup, ok := pronunciations[key]; ok {
 			pronunciation, pronunciation_words := to_words(markup, begin_seconds)
 
 			if to_letters(pronunciation) != to_letters(text) {

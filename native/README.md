@@ -228,6 +228,13 @@ Rebuild the helper first: `cd .. && bun run helper`.
 - A song that is not in your library cannot be a favourite in Music.app; the note says so.
 - The app now keeps its own play log: a song heard to its middle is a play, one left sooner a skip.
 
+### 6d. Lyrics translation
+
+- Lyrics with romaji or an English translation show Romaji and Translation switches at the top of
+  the Lyrics panel. The translation shows under the romaji. Both choices are kept for the next run.
+  Kenshi Yonezu's Kanden has both.
+- The lyrics' songwriters are read too; Now Playing credits them.
+
 ## Development settings
 
 | Variable | Does |
@@ -239,6 +246,7 @@ Rebuild the helper first: `cd .. && bun run helper`.
 | `OM_FAKE_MISSING=<name>` | `tools/fake-music.py` finds this song only on the 4th ask, as if Apple were adding it. |
 | `OM_HELPER=<file>` | Runs this instead of the Swift helper. `tools/fake-helper.sh` says a song plays. |
 | `OM_FAKE_POSITION=<seconds>` | Where the fake helper's song starts. |
+| `OM_FAKE_NAME`, `OM_FAKE_ARTIST`, `OM_FAKE_ALBUM`, `OM_FAKE_DURATION` | The fake helper's song, soldier game by default. |
 | `OM_BACKGROUND=1` | For the tests. Opens the window behind the others, never focused and with no Dock icon, so AeroSpace leaves it floating. macOS stops a covered window's display link, so a timer runs its frames, which are captured but not shown. The helper leaves Music.app as it is when the app quits. Captures set it. The bench keeps its window in front, as it measures the screen. |
 | `OM_DATA=<folder>` | Keeps `onlymuse.sqlite` in this folder instead. |
 | `OM_BENCH_FRAMES=<count>` | Frames the bench runs. 1,200 by default. |

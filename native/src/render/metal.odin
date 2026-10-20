@@ -3,6 +3,7 @@ package render
 import "base:intrinsics"
 import "core:fmt"
 import "core:os"
+import "core:time"
 import NS "core:sys/darwin/Foundation"
 import MTL "vendor:darwin/Metal"
 import CA "vendor:darwin/QuartzCore"
@@ -57,6 +58,8 @@ state: struct {
 	batches:         [dynamic]Batch,
 	size_pixels:     [2]f32,
 	capture_path:    string,
+	// How long the last frame waited for the GPU to finish with its buffer.
+	buffer_wait:     time.Duration,
 }
 
 @(private)
@@ -112,6 +115,10 @@ make_texture :: proc(size_pixels: [2]int, format: MTL.PixelFormat) -> ^MTL.Textu
 upload_texture :: proc(texture: ^MTL.Texture, rect: [4]int, pixels: rawptr, bytes_per_row: int) {
 	region := MTL.Region{{NS.Integer(rect.x), NS.Integer(rect.y), 0}, {NS.Integer(rect.z), NS.Integer(rect.w), 1}}
 	texture->replaceRegion(region, 0, pixels, NS.UInteger(bytes_per_row))
+}
+
+last_buffer_wait :: proc() -> time.Duration {
+	return state.buffer_wait
 }
 
 begin_frame :: proc(size_pixels: [2]f32) {
@@ -192,18 +199,20 @@ capture :: proc(buffer: ^MTL.Buffer) {
 	state.capture_path = ""
 }
 
-end_frame :: proc() {
+// drawable comes from the display link.
+end_frame :: proc(drawable: ^CA.MetalDrawable) {
 	slot := state.frame_index % FRAMES_IN_FLIGHT
 	state.frame_index += 1
 
 	// The buffer is written again only once the GPU has drawn the frame that used it.
+	wait_start := time.tick_now()
 	if previous := state.command_buffers[slot]; previous != nil {
 		previous->waitUntilCompleted()
 		previous->release()
 		state.command_buffers[slot] = nil
 	}
 
-	drawable := state.layer->nextDrawable()
+	state.buffer_wait = time.tick_since(wait_start)
 	if drawable == nil do return
 
 	buffer := state.buffers[slot]

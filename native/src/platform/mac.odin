@@ -70,6 +70,8 @@ Event :: union {
 Frame_Proc :: proc() -> bool
 
 Window :: struct {
+	// The drawable for this frame, from the display link.
+	drawable:      ^CA.MetalDrawable,
 	device:        ^MTL.Device,
 	layer:         ^CA.MetalLayer,
 	size_points:   [2]f32,
@@ -97,7 +99,7 @@ Visual_Effect_View :: struct {
 	using _: NS.View,
 }
 
-@(objc_class = "CADisplayLink")
+@(objc_class = "CAMetalDisplayLink")
 Display_Link :: struct {
 	using _: NS.Object,
 }
@@ -114,16 +116,18 @@ Target :: struct {
 	using _: NS.Object,
 }
 
-@(objc_type = Target, objc_implement, objc_name = "tick", objc_selector = "tick:")
-Target_tick :: proc "c" (self: ^Target, link: NS.id) {
+// CAMetalDisplayLinkDelegate. The update holds a drawable timed for the next refresh, so drawing never waits for one.
+@(objc_type = Target, objc_implement, objc_name = "metalDisplayLink", objc_selector = "metalDisplayLink:needsUpdate:")
+Target_metalDisplayLink :: proc "c" (self: ^Target, link: NS.id, update: ^NS.Object) {
 	context = state.odin_context
+	state.window.drawable = msg_send(^CA.MetalDrawable, update, "drawable")
 	draw_frame()
+	state.window.drawable = nil
 }
 
 @(objc_type = Target, objc_implement, objc_name = "windowDidResize", objc_selector = "windowDidResize:")
 Target_windowDidResize :: proc "c" (self: ^Target, notification: NS.id) {
-	context = state.odin_context
-	draw_frame()
+	request_frame()
 }
 
 @(objc_type = Target, objc_implement, objc_name = "windowShouldClose", objc_selector = "windowShouldClose:")
@@ -232,7 +236,10 @@ open_window :: proc(title: string, size_points: [2]f32, on_frame: Frame_Proc) ->
 	target := msg_send(^Target, msg_send(^Target, Target, "alloc"), "init")
 	ns_window->setDelegate(cast(^NS.WindowDelegate)target)
 
-	link := msg_send(^Display_Link, view, "displayLinkWithTarget:selector:", target, intrinsics.objc_find_selector("tick:"))
+	link := msg_send(^Display_Link, msg_send(^Display_Link, Display_Link, "alloc"), "initWithMetalLayer:", layer)
+	msg_send(nil, link, "setDelegate:", target)
+	// Frames queued ahead of the screen. 1 is the shortest wait from input to screen.
+	msg_send(nil, link, "setPreferredFrameLatency:", f32(1))
 	msg_send(nil, link, "addToRunLoop:forMode:", NS.RunLoop.mainRunLoop(), NS.RunLoopCommonModes)
 	msg_send(nil, link, "setPaused:", NS.BOOL(true))
 	state.display_link = link

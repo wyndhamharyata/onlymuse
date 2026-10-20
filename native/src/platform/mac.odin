@@ -87,6 +87,9 @@ state: struct {
 	display_link:    ^Display_Link,
 	target:          ^Target,
 	timer:           ^NS.Timer,
+	// A background window is covered, and macOS stops its display link, so a timer runs its frames.
+	is_background:   bool,
+	frame_timer:     ^NS.Timer,
 	is_link_running: bool,
 	is_closed:       bool,
 	on_frame:        Frame_Proc,
@@ -126,6 +129,12 @@ Target_metalDisplayLink :: proc "c" (self: ^Target, link: NS.id, update: ^NS.Obj
 	state.window.drawable = msg_send(^CA.MetalDrawable, update, "drawable")
 	draw_frame()
 	state.window.drawable = nil
+}
+
+@(objc_type = Target, objc_implement, objc_name = "frameTimerFired", objc_selector = "frameTimerFired:")
+Target_frameTimerFired :: proc "c" (self: ^Target, timer: NS.id) {
+	context = state.odin_context
+	draw_frame()
 }
 
 @(objc_type = Target, objc_implement, objc_name = "timerFired", objc_selector = "timerFired:")
@@ -204,6 +213,7 @@ remove_layer_background :: proc "c" (layer: ^Layer) {
 open_window :: proc(title: string, size_points: [2]f32, on_frame: Frame_Proc, is_background := false) -> ^Window {
 	state.odin_context = context
 	state.on_frame = on_frame
+	state.is_background = is_background
 
 	app := NS.Application.sharedApplication()
 	app->setActivationPolicy(.Accessory if is_background else .Regular)
@@ -312,7 +322,15 @@ request_frame :: proc "contextless" () {
 	if state.is_link_running do return
 
 	state.is_link_running = true
-	msg_send(nil, state.display_link, "setPaused:", NS.BOOL(false))
+
+	if !state.is_background {
+		msg_send(nil, state.display_link, "setPaused:", NS.BOOL(false))
+		return
+	}
+
+	FRAME_SECONDS :: 1.0 / 60
+	state.frame_timer = msg_send(^NS.Timer, NS.Timer, "scheduledTimerWithTimeInterval:target:selector:userInfo:repeats:", NS.TimeInterval(FRAME_SECONDS), state.target, intrinsics.objc_find_selector("frameTimerFired:"), rawptr(nil), NS.BOOL(true))
+	msg_send(nil, msg_send(^NS.RunLoop, NS.RunLoop, "mainRunLoop"), "addTimer:forMode:", state.frame_timer, NS.RunLoopCommonModes)
 }
 
 @(private)
@@ -330,7 +348,13 @@ draw_frame :: proc() {
 
 	if !wants_more && state.is_link_running {
 		state.is_link_running = false
-		msg_send(nil, state.display_link, "setPaused:", NS.BOOL(true))
+
+		if state.is_background {
+			msg_send(nil, state.frame_timer, "invalidate")
+			state.frame_timer = nil
+		} else {
+			msg_send(nil, state.display_link, "setPaused:", NS.BOOL(true))
+		}
 	}
 }
 

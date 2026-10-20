@@ -69,6 +69,9 @@ Style :: struct {
 	align:            Align,
 	text_align:       Align,
 	background:       [4]f32,
+	// The background fades to this colour between the two shares of the height in gradient.
+	end_background:   [4]f32,
+	gradient:         [2]f32,
 	hover_background: [4]f32,
 	press_background: [4]f32,
 	border_color:     [4]f32,
@@ -597,8 +600,12 @@ draw :: proc(box: ^Box, clip: [4]f32, parent_opacity: f32) {
 
 	background := mix(mix(style.background, style.hover_background, box.hot_t), style.press_background, box.active_t)
 
-	if background.a > 0 || style.border_width > 0 {
+	has_gradient := style.gradient.y > style.gradient.x
+
+	if background.a > 0 || style.border_width > 0 || has_gradient {
 		render.push({
+			end_color     = {style.end_background.r, style.end_background.g, style.end_background.b, style.end_background.a * opacity},
+			gradient      = style.gradient,
 			rect          = rect_pixels,
 			color         = {background.r, background.g, background.b, background.a * opacity},
 			border_color  = {style.border_color.r, style.border_color.g, style.border_color.b, style.border_color.a * opacity},

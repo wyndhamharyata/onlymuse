@@ -12,6 +12,8 @@ struct Instance {
     float border_width;
     float softness;
     uint kind;
+    float4 end_color;
+    float2 gradient;
 };
 
 constant uint kind_solid = 0;
@@ -81,6 +83,11 @@ fragment float4 fragment_main(
     }
 
     float4 color = instance.color;
+
+    if (instance.gradient.y > instance.gradient.x) {
+        float along = (point.y - instance.rect.y) / (instance.rect.w - instance.rect.y);
+        color = mix(color, instance.end_color, smoothstep(instance.gradient.x, instance.gradient.y, along));
+    }
 
     if (instance.border_width > 0.0) {
         float border = smoothstep(-0.5, 0.5, distance + instance.border_width);

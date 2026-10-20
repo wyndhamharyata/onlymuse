@@ -288,121 +288,24 @@ build_playlist_page :: proc(page: Page) {
 
 	if is_stale && phase == .Ready {
 		read_library_songs(data, bodies)
-		if is_catalog && header.phase == .Ready {
-			resources := apple.to_resources(header.body, page_allocator(data))
-			if len(resources) > 0 {
-				data.subtitle = resources[0].attributes.curator_name
-				data.detail = resources[0].attributes.description.short if resources[0].attributes.description.short != "" else resources[0].attributes.description.standard
-			}
+		resources := apple.to_resources(header.body, page_allocator(data)) if is_catalog && header.phase == .Ready else nil
+		if len(resources) > 0 {
+			data.title = resources[0].attributes.name
+			data.subtitle = resources[0].attributes.curator_name
 		}
 	}
 
-	build_song_page(page.title, data, phase)
+	title := data.title if data.title != "" else page.title
+	build_song_list_page(title, data.subtitle, data.songs, phase)
 }
 
-// Favourite Songs is the one library playlist a person can neither edit nor delete.
 build_favourite_songs_page :: proc() {
-	watched := apple.watch("/v1/me/library/playlists?limit=100")
-	playlist_id := ""
-
-	if watched.phase == .Ready {
-		for resource in apple.to_resources(watched.body, context.temp_allocator) {
-			can_edit, has_edit := resource.attributes.can_edit.?
-			can_delete, has_delete := resource.attributes.can_delete.?
-			if has_edit && has_delete && !can_edit && !can_delete do playlist_id = resource.id
-		}
-	}
+	_, playlist_id, phase := list_playlists()
 
 	if playlist_id == "" {
-		page := page_scroll("favourites")
-		if ui.scope(page) {
-			page_heading("Favourite Songs")
-			note(phase_note(watched.phase) if watched.phase != .Ready else "There is no Favourite Songs playlist yet.")
-		}
+		build_song_list_page("Favourite Songs", "", nil, phase if phase != .Ready else .Ready)
 		return
 	}
 
 	build_playlist_page({kind = .Playlist, id = playlist_id, title = "Favourite Songs"})
-}
-
-build_song_page :: proc(title: string, data: ^Page_Data, phase: apple.Phase) {
-	page := page_scroll("song page")
-	run_bench_scroll(page)
-
-	if ui.scope(page) {
-		heading := ui.box("heading", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 4})
-
-		if ui.scope(heading) {
-			page_heading(title)
-			if data.subtitle != "" do text_box(data.subtitle, app.accent, 15, .Semibold)
-			if data.detail != "" do ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.dim, flags = {.Wrap_Text}}, data.detail)
-		}
-
-		if phase != .Ready {
-			note(phase_note(phase))
-			return
-		}
-
-		buttons := ui.box("buttons", {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 8})
-
-		if ui.scope(buttons) {
-			if action_button("Play", "play.fill", true) do play_songs(data.songs, 0)
-			if action_button("Shuffle", "shuffle", false) do shuffle_songs(data.songs)
-		}
-
-		build_numbered_songs(data.songs)
-	}
-}
-
-build_recently_added_page :: proc() {
-	path := "/v1/me/library/recently-added?limit=25"
-	watched := apple.watch(path)
-	data, is_stale := find_page_data(path, watched.version, watched.phase)
-	if is_stale && watched.phase == .Ready do read_cards(data, {watched.body})
-
-	page := page_scroll("recently added")
-	run_bench_scroll(page)
-
-	if ui.scope(page) {
-		page_heading("Recently Added")
-
-		if watched.phase != .Ready {
-			note(phase_note(watched.phase))
-			return
-		}
-
-		build_card_grid(page, data.cards, false)
-	}
-}
-
-// Rows of whole tiles that fill the page's width. Only the rows on screen are built.
-build_card_grid :: proc(page: ^ui.Box, cards: []apple.Card, is_round: bool) {
-	width := page.size.x - page.style.padding.x - page.style.padding.z
-	if width <= 0 do return
-
-	tile := fit_tile_size(width, TARGET_TILE_POINTS, TILE_GAP_POINTS)
-	columns := max(1, int((width + TILE_GAP_POINTS) / (tile + TILE_GAP_POINTS)))
-	row_points := tile + TILE_TEXT_POINTS + TILE_GAP_POINTS
-	row_count := (len(cards) + columns - 1) / columns
-	first := max(0, int((page.scroll - 60) / row_points) - 1)
-	last := min(row_count - 1, int((page.scroll + page.size.y) / row_points) + 1)
-	grid := ui.box("grid", {width = ui.fill(), height = ui.fit_children(), axis = .Y})
-
-	if ui.scope(grid) {
-		ui.box("", {width = ui.fill(), height = ui.points(f32(first) * row_points)})
-
-		for row in first ..= last {
-			row_box := ui.box(fmt.tprintf("row %d", row), {width = ui.fill(), height = ui.points(row_points), axis = .X, gap = TILE_GAP_POINTS})
-
-			if ui.scope(row_box) {
-				for column in 0 ..< columns {
-					index := row * columns + column
-					if index >= len(cards) do break
-					if build_card_tile(fmt.tprintf("%d %s", index, cards[index].id), cards[index], tile, is_round) do open_card(cards, index)
-				}
-			}
-		}
-
-		ui.box("", {width = ui.fill(), height = ui.points(f32(max(0, row_count - 1 - last)) * row_points)})
-	}
 }

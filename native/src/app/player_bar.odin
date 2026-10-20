@@ -3,7 +3,7 @@ package app
 import "core:fmt"
 import "core:math"
 import "om:helper"
-import "om:library"
+import "om:apple"
 import "om:platform"
 import "om:ui"
 
@@ -56,8 +56,8 @@ build_song_info :: proc() {
 
 	if ui.scope(info) {
 		artwork_source := song.artwork_path if is_song else ""
-		if is_queue_song && queue_song.artwork.url != "" do artwork_source = library.to_artwork_url(queue_song.artwork.url, to_artwork_pixels(PLAYER_ARTWORK_POINTS))
-		if queue.is_adding do artwork_source = library.to_artwork_url(adding_song.artwork.url, to_artwork_pixels(PLAYER_ARTWORK_POINTS))
+		if is_queue_song && queue_song.artwork.url != "" do artwork_source = apple.to_artwork_url(queue_song.artwork, to_artwork_pixels(PLAYER_ARTWORK_POINTS))
+		if queue.is_adding do artwork_source = apple.to_artwork_url(adding_song.artwork, to_artwork_pixels(PLAYER_ARTWORK_POINTS))
 		artwork_box(artwork_source, PLAYER_ARTWORK_POINTS, 6)
 
 		text := ui.box("", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 2})

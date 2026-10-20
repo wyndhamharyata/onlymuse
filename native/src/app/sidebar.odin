@@ -45,7 +45,8 @@ build_sidebar :: proc() {
 			for item in library_items do build_sidebar_item(item.label, item.symbol, app.accent, {kind = item.kind})
 
 			build_group_title("Playlists")
-			for playlist in app.playlists do build_sidebar_item(playlist.name, "music.note.list", colors.dim, {kind = .Playlist, id = playlist.id, title = playlist.name})
+			playlists, _, _ := list_playlists()
+			for playlist in playlists do build_sidebar_item(playlist.name, "music.note.list", colors.dim, {kind = .Playlist, id = playlist.id, title = playlist.name})
 		}
 	}
 }

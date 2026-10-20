@@ -12,7 +12,6 @@ import "om:font"
 import "om:helper"
 import "om:icon"
 import "om:image"
-import "om:library"
 import "om:platform"
 import "om:render"
 import "om:store"
@@ -34,11 +33,6 @@ Panel :: enum {
 app: struct {
 	window:            ^platform.Window,
 	zoom:              f32,
-	albums:            []library.Album,
-	songs:             []library.Song,
-	// The library songs as the queue takes them.
-	queue_songs:       []Catalog_Song,
-	playlists:         []library.Playlist,
 	accent:            [4]f32,
 	now_playing:       helper.Now_Playing,
 	panel:             Panel,
@@ -70,10 +64,6 @@ main :: proc() {
 
 	store.start()
 	apple.start()
-	app.albums = library.list_albums()
-	app.songs = library.list_songs()
-	app.playlists = library.list_playlists()
-	app.queue_songs = to_catalog_songs(app.songs)
 	start_queue()
 	navigate({kind = .Albums})
 	start_lyrics()
@@ -82,7 +72,8 @@ main :: proc() {
 	is_background := app.capture_path != "" || app.is_bench || os.get_env("OM_BACKGROUND", context.temp_allocator) == "1"
 	helper.start(is_background)
 
-	app.window = platform.open_window("onlymuse", {1200, 800}, draw_frame, is_background)
+	// The bench measures the screen's own frames, so its window shows in front.
+	app.window = platform.open_window("onlymuse", {1200, 800}, draw_frame, is_background && !app.is_bench)
 	render.start(app.window.device, app.window.layer)
 	font.start()
 	icon.start()
@@ -129,19 +120,6 @@ apply_keys :: proc() {
 			platform.quit()
 		}
 	}
-}
-
-// A library song plays by its catalog ID, which Music.app's library songs also carry.
-to_catalog_songs :: proc(songs: []library.Song) -> []Catalog_Song {
-	catalog_songs := make([]Catalog_Song, len(songs))
-
-	for song, index in songs {
-		id := song.catalog_id if song.catalog_id != "" else song.id
-		catalog_songs[index] = {id = id, name = song.name, artist_name = song.artist_name, album_name = song.album_name, duration_seconds = song.duration_seconds}
-		catalog_songs[index].artwork.url = song.artwork_url
-	}
-
-	return catalog_songs
 }
 
 toggle_panel :: proc(panel: Panel) {

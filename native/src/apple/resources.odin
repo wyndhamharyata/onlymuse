@@ -7,7 +7,9 @@ import "core:strings"
 
 Artwork :: struct {
 	// Has {w}, {h} and {f} in place of the size and format.
-	url: string,
+	url:      string,
+	// Hex, as "2a2a2f", the colour behind the picture.
+	bg_color: string `json:"bgColor"`,
 }
 
 Catalog_Song :: struct {
@@ -207,12 +209,13 @@ to_new_shelves :: proc(body: string, allocator := context.allocator) -> []Shelf 
 	return shelves[:]
 }
 
-to_artwork_url :: proc(artwork: Artwork, size_pixels: int, allocator := context.temp_allocator) -> string {
+// A height of 0 asks for a square.
+to_artwork_url :: proc(artwork: Artwork, width_pixels: int, height_pixels := 0, allocator := context.temp_allocator) -> string {
 	if artwork.url == "" do return ""
 
-	size := fmt.tprintf("%d", size_pixels)
-	with_width, _ := strings.replace_all(artwork.url, "{w}", size, context.temp_allocator)
-	with_height, _ := strings.replace_all(with_width, "{h}", size, context.temp_allocator)
+	height := height_pixels if height_pixels > 0 else width_pixels
+	with_width, _ := strings.replace_all(artwork.url, "{w}", fmt.tprintf("%d", width_pixels), context.temp_allocator)
+	with_height, _ := strings.replace_all(with_width, "{h}", fmt.tprintf("%d", height), context.temp_allocator)
 	url, _ := strings.replace_all(with_height, "{f}", "jpg", allocator)
 
 	return url

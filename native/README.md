@@ -155,6 +155,17 @@ the page updates if Apple has something newer.
 - Click a song on a shelf to play the shelf's songs from it.
 - Click a playlist in the sidebar or on a shelf to open it. Favourite Songs and Recently Added work too.
 
+### 5d. Every library page, artists and Downloaded
+
+- Songs, Favourite Songs, Downloaded and every playlist share one list: title, song count, Play,
+  Shuffle and rows with artwork, artist and album. Long lists build only the rows on screen.
+- Albums, Artists and Recently Added share one grid with an item count. Artists are round.
+- Every page now reads Apple's API, as Home does, so a song added on another device shows up.
+- Click an artist to open their page: the photo fades into the window, Play and Shuffle play their
+  top songs, then Top Songs, In Your Library, Albums and Similar Artists.
+- Downloaded lists the songs Music.app has downloaded, from its download folder, with how many are
+  lossless.
+
 ## Development settings
 
 | Variable | Does |
@@ -166,7 +177,7 @@ the page updates if Apple has something newer.
 | `OM_FAKE_MISSING=<name>` | `tools/fake-music.py` finds this song only on the 4th ask, as if Apple were adding it. |
 | `OM_HELPER=<file>` | Runs this instead of the Swift helper. `tools/fake-helper.sh` says a song plays. |
 | `OM_FAKE_POSITION=<seconds>` | Where the fake helper's song starts. |
-| `OM_BACKGROUND=1` | Opens the window behind the others, never focused and with no Dock icon, so AeroSpace leaves it floating. The helper leaves Music.app as it is when the app quits. The bench and captures set it. |
+| `OM_BACKGROUND=1` | For the tests. Opens the window behind the others, never focused and with no Dock icon, so AeroSpace leaves it floating. macOS stops a covered window's display link, so a timer runs its frames, which are captured but not shown. The helper leaves Music.app as it is when the app quits. Captures set it. The bench keeps its window in front, as it measures the screen. |
 | `OM_DATA=<folder>` | Keeps `onlymuse.sqlite` in this folder instead. |
 | `OM_BENCH_FRAMES=<count>` | Frames the bench runs. 1,200 by default. |
 | `OM_CAPTURE=<file>` | Saves a frame to the file as raw BGRA pixels and quits. It prints the size. Convert it with `magick -size <width>x<height> -depth 8 bgra:<file> out.png`. |

@@ -67,12 +67,16 @@ draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 
 // A square of artwork with a grey card behind it until it loads. An empty source shows the card only.
 artwork_box :: proc(source: string, size_points: f32, radius_points: f32) -> ^ui.Box {
-	box := ui.box("", {width = ui.points(size_points), height = ui.points(size_points), corner_radius = radius_points, background = colors.card})
+	return artwork_rect_box(source, {size_points, size_points}, radius_points, colors.card)
+}
+
+artwork_rect_box :: proc(source: string, size_points: [2]f32, radius_points: f32, card: [4]f32) -> ^ui.Box {
+	box := ui.box("", {width = ui.points(size_points.x), height = ui.points(size_points.y), corner_radius = radius_points, background = card})
 
 	if source == "" do return box
 
 	paint := new(Artwork_Paint, context.temp_allocator)
-	paint^ = {source, int(ui.to_pixels(size_points))}
+	paint^ = {source, int(ui.to_pixels(max(size_points.x, size_points.y)))}
 	box.draw = draw_artwork
 	box.data = paint
 

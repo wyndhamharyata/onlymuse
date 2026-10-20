@@ -1,7 +1,7 @@
 package app
 
 import "core:fmt"
-import "om:library"
+import "om:apple"
 import "om:ui"
 
 // Returns true while the lyrics move.
@@ -104,7 +104,7 @@ build_queue_row :: proc(index: int, row_points: f32) {
 	is_removed := false
 
 	if ui.scope(row) {
-		artwork_box(library.to_artwork_url(song.artwork.url, to_artwork_pixels(36)), 36, 4)
+		artwork_box(apple.to_artwork_url(song.artwork, to_artwork_pixels(36)), 36, 4)
 
 		text := ui.box("", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 2})
 

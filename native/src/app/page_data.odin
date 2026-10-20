@@ -23,6 +23,10 @@ Page_Data :: struct {
 	badges:    []string,
 	link_id:   string,
 	is_in_library: bool,
+	// The artist page's other shelves.
+	latest:        []apple.Card,
+	library_cards: []apple.Card,
+	similar:       []apple.Card,
 }
 
 page_data: map[string]^Page_Data

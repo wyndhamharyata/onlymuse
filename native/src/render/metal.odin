@@ -27,7 +27,14 @@ Instance :: struct {
 	border_width:  f32,
 	softness:      f32,
 	kind:          Kind,
+	// A solid fill fades from color to end_color between these shares of its height, when the second is larger.
+	end_color:     [4]f32,
+	gradient:      [2]f32,
+	// Metal pads the struct to a multiple of 16 bytes.
+	_:             [2]f32,
 }
+
+#assert(size_of(Instance) == 128)
 
 // The instances drawn with one texture, in order.
 @(private)
@@ -213,12 +220,14 @@ end_frame :: proc(drawable: ^CA.MetalDrawable) {
 	}
 
 	state.buffer_wait = time.tick_since(wait_start)
-	if drawable == nil do return
 
 	buffer := state.buffers[slot]
 	intrinsics.mem_copy_non_overlapping(buffer->contentsPointer(), raw_data(state.instances), len(state.instances) * size_of(Instance))
 
 	if state.capture_path != "" do capture(buffer)
+
+	// A frame of a background window, timed by a timer, has no drawable and is only captured.
+	if drawable == nil do return
 
 	command_buffer := state.queue->commandBuffer()
 	encode_pass(command_buffer, drawable->texture(), buffer)

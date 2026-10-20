@@ -32,7 +32,10 @@ Panel :: enum {
 app: struct {
 	window:            ^platform.Window,
 	zoom:              f32,
+	// The playing song's cover's colour, or system_accent when it has none to give.
 	accent:            [4]f32,
+	// The accent chosen in System Settings, as the helper reports it.
+	system_accent:     [4]f32,
 	now_playing:       helper.Now_Playing,
 	panel:             Panel,
 	// The tab the panel opens on.
@@ -59,6 +62,7 @@ app: struct {
 main :: proc() {
 	app.zoom = 1
 	app.accent = DEFAULT_ACCENT
+	app.system_accent = DEFAULT_ACCENT
 	app.panel = .Lyrics
 	app.capture_path = os.get_env("OM_CAPTURE", context.allocator)
 	app.is_bench = os.get_env("OM_BENCH", context.temp_allocator) == "1"
@@ -113,7 +117,7 @@ apply_helper_messages :: proc() {
 
 		switch message.type {
 		case "accent":
-			app.accent = to_color_from_hex(message.color)
+			app.system_accent = to_color_from_hex(message.color)
 		case "tokens":
 			apple.set_tokens(message.developer_token, message.user_token)
 			app.is_sign_in_needed = false
@@ -253,6 +257,7 @@ draw_frame :: proc() -> bool {
 	image.begin_frame()
 	icon.begin_frame()
 	ui.begin_frame(window.size_points, window.pixels_per_point, app.zoom, dt_seconds)
+	update_accent(dt_seconds)
 
 	root := ui.current_parent()
 	root.style.axis = .Y

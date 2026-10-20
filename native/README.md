@@ -264,6 +264,14 @@ Rebuild the helper first: `cd .. && bun run helper`.
 - Up Next says what the rules did, such as "2 recent songs play last."
 - onlymuse counts plays and skips itself, so the rules learn as you listen.
 
+### 6h. Accent from the cover
+
+- Play a song. The accent turns to a colour from its cover over about half a second: the artist on
+  Stage, the selected sidebar item, the shuffle button, the hearts and the sung words.
+- The colour leans to the cover's vivid parts, and is lightened when it would be too dark to read on
+  the window.
+- A black and white cover, or no cover, keeps the accent chosen in System Settings.
+
 ## Development settings
 
 | Variable | Does |

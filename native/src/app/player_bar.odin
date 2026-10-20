@@ -46,6 +46,17 @@ is_resume_shown :: proc() -> bool {
 	return !has_song && queue.resume_point.song.persistent_id != ""
 }
 
+// The cover the player bar shows: Music.app's, or Apple's for a song of the queue.
+find_player_artwork_source :: proc() -> string {
+	if queue.is_adding do return apple.to_artwork_url(queue.songs[queue.index].artwork, to_artwork_pixels(PLAYER_ARTWORK_POINTS))
+
+	song, is_song := find_shown_song()
+	queue_song, is_queue_song := find_queue_song(song.persistent_id)
+	if is_queue_song && queue_song.artwork.url != "" do return apple.to_artwork_url(queue_song.artwork, to_artwork_pixels(PLAYER_ARTWORK_POINTS))
+
+	return song.artwork_path if is_song else ""
+}
+
 build_song_info :: proc() {
 	now_playing := app.now_playing
 	song, is_song := find_shown_song()
@@ -54,9 +65,7 @@ build_song_info :: proc() {
 	info := ui.box("info", {width = ui.fill(1), height = ui.fit_children(), axis = .X, align = .Center, gap = 12})
 
 	if ui.scope(info) {
-		artwork_source := song.artwork_path if is_song else ""
-		if is_queue_song && queue_song.artwork.url != "" do artwork_source = apple.to_artwork_url(queue_song.artwork, to_artwork_pixels(PLAYER_ARTWORK_POINTS))
-		if queue.is_adding do artwork_source = apple.to_artwork_url(adding_song.artwork, to_artwork_pixels(PLAYER_ARTWORK_POINTS))
+		artwork_source := find_player_artwork_source()
 		placeholder := to_placeholder({}, song.album if is_song else "")
 		if is_queue_song do placeholder = to_placeholder(queue_song.artwork, queue_song.album_name)
 		if queue.is_adding do placeholder = to_placeholder(adding_song.artwork, adding_song.album_name)

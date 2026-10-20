@@ -2,6 +2,8 @@ package app
 
 import "core:math"
 import "core:strconv"
+import "om:image"
+import "om:platform"
 
 to_color :: proc "contextless" (hex: u32) -> [4]f32 {
 	return {f32((hex >> 24) & 0xff) / 255, f32((hex >> 16) & 0xff) / 255, f32((hex >> 8) & 0xff) / 255, f32(hex & 0xff) / 255}
@@ -90,4 +92,105 @@ to_color_from_hsl :: proc(hue, saturation, lightness: f32) -> [4]f32 {
 	base := lightness - chroma / 2
 
 	return {rgb.r + base, rgb.g + base, rgb.b + base, 1}
+}
+
+// ---- The accent from the cover ----
+
+// A cover less colourful than this, such as a black and white photo, keeps the system accent.
+MIN_COVER_VIVIDNESS :: 0.04
+// The accent is text on the dark window and the fill of a button under white text, so the cover's hue
+// keeps to these.
+COVER_ACCENT_SATURATION :: [2]f32{0.55, 0.9}
+COVER_ACCENT_LIGHTNESS :: [2]f32{0.5, 0.65}
+// Blue and purple look darker than orange at the same lightness, so the accent is lightened, up to
+// MAX_COVER_ACCENT_LIGHTNESS, until it is at least as bright as the system blue, #0A84FF.
+MIN_ACCENT_LUMINANCE :: 0.24
+MAX_COVER_ACCENT_LIGHTNESS :: 0.8
+// How fast the accent turns to a new cover's, per second.
+ACCENT_RATE :: 8
+
+// Turns app.accent toward the playing cover's colour, or the system accent without one.
+update_accent :: proc(dt_seconds: f32) {
+	target := app.system_accent
+	if source := find_player_artwork_source(); source != "" {
+		if color, ok := image.find_color(source); ok && color.vividness >= MIN_COVER_VIVIDNESS do target = to_cover_accent(color.rgb)
+	}
+
+	t := 1 - math.exp(-ACCENT_RATE * min(dt_seconds, 0.1))
+	app.accent += (target - app.accent) * t
+	if abs(target.r - app.accent.r) + abs(target.g - app.accent.g) + abs(target.b - app.accent.b) > 0.003 {
+		platform.request_frame()
+	} else {
+		app.accent = target
+	}
+}
+
+to_cover_accent :: proc(rgb: [3]f32) -> [4]f32 {
+	hue, saturation, lightness := to_hsl(rgb)
+	saturation = clamp(saturation, COVER_ACCENT_SATURATION[0], COVER_ACCENT_SATURATION[1])
+	lightness = clamp(lightness, COVER_ACCENT_LIGHTNESS[0], COVER_ACCENT_LIGHTNESS[1])
+	color := from_hsl(hue, saturation, lightness)
+	for to_luminance(color) < MIN_ACCENT_LUMINANCE && lightness < MAX_COVER_ACCENT_LIGHTNESS {
+		lightness += 0.02
+		color = from_hsl(hue, saturation, lightness)
+	}
+
+	return {color.r, color.g, color.b, 1}
+}
+
+// How bright a colour looks, from 0 to 1, as WCAG measures it.
+@(private = "file")
+to_luminance :: proc(rgb: [3]f32) -> f32 {
+	to_linear :: proc(value: f32) -> f32 {return value / 12.92 if value <= 0.04045 else math.pow((value + 0.055) / 1.055, 2.4)}
+
+	return 0.2126 * to_linear(rgb.r) + 0.7152 * to_linear(rgb.g) + 0.0722 * to_linear(rgb.b)
+}
+
+// Hue in turns, from 0 to 1.
+@(private = "file")
+to_hsl :: proc(rgb: [3]f32) -> (hue, saturation, lightness: f32) {
+	brightest := max(rgb.r, rgb.g, rgb.b)
+	darkest := min(rgb.r, rgb.g, rgb.b)
+	lightness = (brightest + darkest) / 2
+	spread := brightest - darkest
+	if spread <= 0 do return 0, 0, lightness
+
+	saturation = spread / (1 - abs(2 * lightness - 1))
+	switch brightest {
+	case rgb.r:
+		hue = math.mod((rgb.g - rgb.b) / spread, 6)
+	case rgb.g:
+		hue = (rgb.b - rgb.r) / spread + 2
+	case:
+		hue = (rgb.r - rgb.g) / spread + 4
+	}
+	hue /= 6
+	if hue < 0 do hue += 1
+
+	return
+}
+
+@(private = "file")
+from_hsl :: proc(hue, saturation, lightness: f32) -> [3]f32 {
+	chroma := (1 - abs(2 * lightness - 1)) * saturation
+	sector := hue * 6
+	second := chroma * (1 - abs(math.mod(sector, 2) - 1))
+	rgb: [3]f32
+
+	switch {
+	case sector < 1:
+		rgb = {chroma, second, 0}
+	case sector < 2:
+		rgb = {second, chroma, 0}
+	case sector < 3:
+		rgb = {0, chroma, second}
+	case sector < 4:
+		rgb = {0, second, chroma}
+	case sector < 5:
+		rgb = {second, 0, chroma}
+	case:
+		rgb = {chroma, 0, second}
+	}
+
+	return rgb + (lightness - chroma / 2)
 }

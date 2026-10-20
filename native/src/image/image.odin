@@ -46,6 +46,14 @@ Entry :: struct {
 	family:           u64,
 	// Another size stood in until this one loaded, so it shows at once, with no fade.
 	had_stand_in:     bool,
+	color:            Color,
+}
+
+// A guess at a picture's colour: the average of its pixels, the vivid and bright ones counting most.
+// vividness, from 0 to 1, is how colourful the picture is overall. A black and white one is near 0.
+Color :: struct {
+	rgb:       [3]f32,
+	vividness: f32,
 }
 
 @(private)
@@ -54,6 +62,7 @@ Job :: struct {
 	url:         string,
 	size_pixels: int,
 	texture:     ^MTL.Texture,
+	color:      Color,
 }
 
 @(private)
@@ -195,6 +204,7 @@ take_finished :: proc() {
 		} else {
 			entry.phase = .Ready
 			entry.texture = job.texture
+			entry.color = job.color
 			entry.ready_time = time.tick_now()
 			state.families[entry.family] = job.key
 		}
@@ -261,7 +271,7 @@ load :: proc(task: thread.Task) {
 		if !os.exists(path) && !download(job.url, path) do return
 	}
 
-	job.texture = decode(path, job.size_pixels)
+	job.texture, job.color = decode(path, job.size_pixels)
 }
 
 @(private)
@@ -278,11 +288,11 @@ download :: proc(url, path: string) -> bool {
 }
 
 @(private)
-decode :: proc(path: string, size_pixels: int) -> ^MTL.Texture {
+decode :: proc(path: string, size_pixels: int) -> (^MTL.Texture, Color) {
 	url := mac.CFURLCreateFromFileSystemRepresentation(nil, raw_data(path), len(path), false)
 	defer mac.CFRelease(url)
 	source := mac.CGImageSourceCreateWithURL(url, nil)
-	if source == nil do return nil
+	if source == nil do return nil, {}
 	defer mac.CFRelease(source)
 
 	max_size := i32(size_pixels)
@@ -295,7 +305,7 @@ decode :: proc(path: string, size_pixels: int) -> ^MTL.Texture {
 
 	// ImageIO decodes straight to this size, so a large file never sits in memory whole.
 	image := mac.CGImageSourceCreateThumbnailAtIndex(source, 0, options)
-	if image == nil do return nil
+	if image == nil do return nil, {}
 	defer mac.CGImageRelease(image)
 
 	width := int(mac.CGImageGetWidth(image))
@@ -311,5 +321,44 @@ decode :: proc(path: string, size_pixels: int) -> ^MTL.Texture {
 	texture := render.make_texture({width, height}, .BGRA8Unorm)
 	render.upload_texture(texture, {0, 0, width, height}, raw_data(pixels), width * 4)
 
-	return texture
+	return texture, guess_color(pixels)
+}
+
+// From premultiplied BGRA. A pixel counts by its saturation squared times its brightness, so a grey
+// background or a black border counts little against a red coat.
+@(private)
+guess_color :: proc(pixels: []u8) -> Color {
+	sum: [3]f32
+	weight_sum: f32
+	count: int
+
+	for index := 0; index + 3 < len(pixels); index += 4 {
+		alpha := f32(pixels[index + 3]) / 255
+		if alpha < 0.5 do continue
+
+		rgb := [3]f32{f32(pixels[index + 2]), f32(pixels[index + 1]), f32(pixels[index])} / (255 * alpha)
+		brightest := max(rgb.r, rgb.g, rgb.b)
+		darkest := min(rgb.r, rgb.g, rgb.b)
+		saturation := (brightest - darkest) / brightest if brightest > 0 else 0
+		weight := saturation * saturation * brightest
+
+		sum += rgb * weight
+		weight_sum += weight
+		count += 1
+	}
+
+	if count == 0 || weight_sum <= 0 do return {}
+
+	return {sum / weight_sum, weight_sum / f32(count)}
+}
+
+// The colour of the picture at url at whichever size loaded, false until one has.
+find_color :: proc(url: string) -> (Color, bool) {
+	key, ok := state.families[to_family(url)]
+	if !ok do return {}, false
+
+	entry := state.entries[key] or_else nil
+	if entry == nil || entry.phase != .Ready do return {}, false
+
+	return entry.color, true
 }

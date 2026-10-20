@@ -73,6 +73,8 @@ Style :: struct {
 	// Moves the text left by this many points, inside its clip.
 	text_offset:      f32,
 	background:       [4]f32,
+	// How far the edge blurs, in points, for a shadow.
+	softness:         f32,
 	// The background fades to this colour between the two shares of the height in gradient.
 	end_background:   [4]f32,
 	gradient:         [2]f32,
@@ -121,10 +123,12 @@ Box :: struct {
 }
 
 Signal :: struct {
-	box:            ^Box,
-	is_hovered:     bool,
-	is_held:        bool,
-	is_clicked:     bool,
+	box:              ^Box,
+	is_hovered:       bool,
+	is_held:          bool,
+	is_clicked:       bool,
+	// The right button, or a Control click, which never presses or clicks.
+	is_right_clicked: bool,
 	click_count:    int,
 }
 
@@ -161,6 +165,11 @@ state: struct {
 	// The swipe's points before its axis is known.
 	swipe_pending:   [2]f32,
 	clicked_key:     u64,
+	right_clicked_key: u64,
+	// The button down is a right click's, so its release clicks nothing.
+	is_right_press:  bool,
+	// Where the left button went down, for a drag.
+	press_position:  [2]f32,
 	pressed_key:     u64,
 	click_count:     int,
 	is_animating:    bool,
@@ -178,6 +187,7 @@ begin_frame :: proc(window_size_points: [2]f32, pixels_per_point, zoom, dt_secon
 	state.scale = pixels_per_point * zoom
 	state.dt_seconds = min(dt_seconds, 1.0 / 30)
 	state.clicked_key = 0
+	state.right_clicked_key = 0
 	state.pressed_key = 0
 	state.is_animating = false
 
@@ -196,10 +206,20 @@ apply_events :: proc() {
 			state.mouse = e.position / state.zoom
 		case platform.Mouse_Press:
 			state.mouse = e.position / state.zoom
+			if e.button == .Right || .Control in e.modifiers {
+				state.right_clicked_key = state.hot_key
+				state.is_right_press = true
+				continue
+			}
+			state.press_position = state.mouse
 			state.active_key = state.hot_key
 			state.pressed_key = state.hot_key
 			state.click_count = e.click_count
 		case platform.Mouse_Release:
+			if state.is_right_press {
+				state.is_right_press = false
+				continue
+			}
 			if state.active_key != 0 && state.active_key == state.hot_key do state.clicked_key = state.active_key
 			state.active_key = 0
 		case platform.Mouse_Exit:
@@ -239,6 +259,11 @@ apply_events :: proc() {
 		case platform.Key_Press, platform.Text_Insert, platform.Text_Marked, platform.Text_Command:
 		}
 	}
+}
+
+// Where the left button went down, and whether it is down now.
+press_position :: proc() -> ([2]f32, bool) {
+	return state.press_position, state.active_key != 0
 }
 
 mouse_position :: proc() -> [2]f32 {
@@ -324,6 +349,7 @@ signal :: proc(box: ^Box) -> Signal {
 		is_hovered  = is_hovered,
 		is_held     = box.key != 0 && box.key == state.active_key,
 		is_clicked  = box.key != 0 && box.key == state.clicked_key,
+		is_right_clicked = box.key != 0 && box.key == state.right_clicked_key,
 		click_count = state.click_count,
 	}
 }
@@ -645,6 +671,7 @@ draw :: proc(box: ^Box, clip: [4]f32, parent_opacity: f32) {
 			border_color  = {style.border_color.r, style.border_color.g, style.border_color.b, style.border_color.a * opacity},
 			border_width  = style.border_width * scale,
 			corner_radius = style.corner_radius * scale,
+			softness      = style.softness * scale,
 			clip          = clip_pixels,
 		})
 	}

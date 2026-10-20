@@ -208,14 +208,16 @@ From here the app goes its own way rather than copying Apple Music.
 
 ### 6b. Now Playing
 
-- Click the cover in the player bar. The page shows the song playing, with its cover large: title,
-  artist and album, which open their pages, the quality badges (Hi-Res Lossless, Lossless, Dolby
-  Atmos, Spatial Audio, Apple Digital Master, Explicit), then composer, genre, release date, track,
-  length, language, lyrics, record label, ISRC and copyright, and the album's notes when Apple has
-  them.
-- It follows the song: skip, and the page shows the next one. Back returns to where you were.
-- A song started outside the app is found in Apple Music by its name and artist.
-- In a narrow window, the details go under the cover.
+- Click the cover in the player bar. The page is the song's stage: its cover large with a shadow, on
+  its own colours blurred behind the page and toolbar, the title, artist and album as links, quality
+  pills (Lossless with Music.app's sample rate, Hi-Res, Dolby Atmos, language, lyrics), Favourite,
+  Add to Playlist and Copy Link, and the lyric line being sung with its romaji.
+- For a song in your library: plays with a chart of the last 8 weeks and its rank this month, last
+  played, in library since, and skips, from Music.app and the app's play log.
+- Credits (performer, composer, lyricists from the lyrics, label, release, genre) and Sound (format,
+  sample and bit rate, length and BPM, size, ISRC with a copy button).
+- More by the artist, newest first; a release from the last month says NEW.
+- It follows the song. A song started outside the app is found in Apple Music by name and artist.
 
 ### 6c. Favourites
 
@@ -234,6 +236,14 @@ Rebuild the helper first: `cd .. && bun run helper`.
   the Lyrics panel. The translation shows under the romaji. Both choices are kept for the next run.
   Kenshi Yonezu's Kanden has both.
 - The lyrics' songwriters are read too; Now Playing credits them.
+
+### 6e. The song menu and Add to Playlist
+
+- Right-click (or Control-click) a song in any list or Up Next: Play Next, Add to Playlist, Favourite,
+  Go to Artist, Copy Link. Add to Playlist lists the playlists you made, and New Playlist… names one
+  with the song in it. Escape or a click outside closes it.
+- Drag a song onto a playlist of yours in the sidebar to add it there. The playlist lights up under it.
+- A note says when Apple took the change, or why not.
 
 ## Development settings
 

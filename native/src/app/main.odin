@@ -73,6 +73,7 @@ main :: proc() {
 	start_lyrics()
 	start_search_field()
 	start_play_log()
+	start_song_menu()
 
 	// A test or bench run opens behind the other windows and leaves Music.app as it is when it quits.
 	is_background := app.capture_path != "" || app.is_bench || os.get_env("OM_BACKGROUND", context.temp_allocator) == "1"
@@ -193,7 +194,8 @@ draw_frame :: proc() -> bool {
 	apply_helper_messages()
 	update_queue()
 	update_play_log()
-	apply_search_events()
+	apply_write_results()
+	apply_text_events()
 	apply_keys()
 
 	window := app.window
@@ -219,10 +221,13 @@ draw_frame :: proc() -> bool {
 	}
 
 	build_player_bar()
+	build_song_menu()
+	build_drag_ghost()
 	build_toast()
 	if app.is_sign_in_needed do build_sign_in_card()
 	build_frame_time()
 	ui.end_frame()
+	finish_text_fields()
 
 	// A scroll that has come to rest is saved, once.
 	if is_scroll_changed && !ui.is_animating() {

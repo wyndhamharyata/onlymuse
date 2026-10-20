@@ -43,6 +43,8 @@ Card :: struct {
 	artwork:  Artwork,
 	// Set on a song card, so the shelf can play its songs in order.
 	song:     Catalog_Song,
+	// A library playlist the person made, which takes new songs.
+	can_edit: bool,
 }
 
 Shelf :: struct {
@@ -85,6 +87,8 @@ Attributes :: struct {
 	},
 	track_number:           int `json:"trackNumber"`,
 	disc_number:            int `json:"discNumber"`,
+	// The item's page on music.apple.com.
+	url:                    string,
 	// A song's and its album's details, for the Now Playing page.
 	composer_name:          string `json:"composerName"`,
 	album_artist_name:      string `json:"albumArtistName"`,
@@ -168,6 +172,7 @@ to_card :: proc(resource: Resource) -> Card {
 		artwork  = attributes.artwork,
 	}
 	if card.kind == .Song do card.song = to_catalog_song(resource)
+	card.can_edit = attributes.can_edit.? or_else false
 
 	return card
 }

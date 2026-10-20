@@ -349,6 +349,28 @@ shuffle_songs :: proc(songs: []Catalog_Song) {
 	play_at(0)
 }
 
+// Puts the song right after the one playing. With nothing queued, it plays now.
+play_next :: proc(song: Catalog_Song) {
+	if queue.index < 0 || len(queue.songs) == 0 {
+		play_songs([]Catalog_Song{song}, 0)
+		return
+	}
+
+	after := queue.index + 1
+	songs := make([]Catalog_Song, len(queue.songs) + 1)
+	copy(songs[:after], queue.songs[:after])
+	songs[after] = song
+	copy(songs[after + 1:], queue.songs[after:])
+
+	original := make([]Catalog_Song, len(queue.original_songs) + 1)
+	copy(original, queue.original_songs)
+	original[len(original) - 1] = song
+
+	replace_songs(songs, original)
+	sync_handoff()
+	save_queue()
+}
+
 play_queue_at :: proc(index: int) {
 	play_at(index)
 }

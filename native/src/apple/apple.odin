@@ -61,8 +61,9 @@ fetch :: proc(path: string, allocator := context.allocator) -> Answer {
 }
 
 // Such as /v1/me/library?ids[songs]=1440857781, which puts a song in the library. Apple answers 202.
-post :: proc(path: string) -> int {
-	return send_request(path, .Post, context.temp_allocator).status
+// A JSON body goes with a playlist's new songs. Blocks, so it runs on a worker.
+post :: proc(path: string, body := "") -> int {
+	return send_request(path, .Post, context.temp_allocator, body).status
 }
 
 // The language of the answers. The saved path leaves it out, as the gpuix app did.
@@ -71,8 +72,8 @@ LANGUAGE :: "en-GB"
 
 // Apple answers 401 or 403 once a token expires. The helper reads new ones and the request goes again, once.
 @(private)
-send_request :: proc(path: string, method: net.Method, allocator := context.allocator) -> Answer {
-	answer := send_once(path, method, allocator)
+send_request :: proc(path: string, method: net.Method, allocator := context.allocator, body := "") -> Answer {
+	answer := send_once(path, method, allocator, body)
 	if answer.status != 401 && answer.status != 403 do return answer
 
 	{
@@ -84,15 +85,16 @@ send_request :: proc(path: string, method: net.Method, allocator := context.allo
 	helper.send(`{"type":"refreshTokens"}`)
 	delete(answer.body, allocator)
 
-	return send_once(path, method, allocator)
+	return send_once(path, method, allocator, body)
 }
 
 @(private)
-send_once :: proc(path: string, method: net.Method, allocator := context.allocator) -> Answer {
+send_once :: proc(path: string, method: net.Method, allocator := context.allocator, body := "") -> Answer {
 	// The helper reads the tokens from a web page a moment after it starts.
 	for !has_tokens() && time.tick_since(state.started) < TOKEN_WAIT do time.sleep(100 * time.Millisecond)
 
-	headers: [4]string
+	headers: [5]string
+	header_count := 4
 	{
 		sync.guard(&state.mutex)
 		if state.developer_token == "" do return {}
@@ -103,12 +105,14 @@ send_once :: proc(path: string, method: net.Method, allocator := context.allocat
 			// The developer token only works for apple.com origins.
 			"Origin: https://music.apple.com",
 			"Accept: application/json",
+			"Content-Type: application/json",
 		}
 	}
+	if body != "" do header_count = 5
 
 	separator := "&" if strings.contains(path, "?") else "?"
 	url := fmt.tprintf("%s%s%sl=%s", BASE_URL, path, separator, LANGUAGE)
-	response := net.fetch(url, headers[:], context.temp_allocator, method)
+	response := net.fetch(url, headers[:header_count], context.temp_allocator, method, body)
 
 	return {response.status, strings.clone(string(response.body), allocator)}
 }

@@ -8,6 +8,7 @@ build_page_area :: proc() {
 	area := ui.box("page area", {width = ui.fill(), height = ui.fill(), axis = .Y})
 
 	if ui.scope(area) {
+		build_page_backdrop()
 		toolbar := ui.box("toolbar", {width = ui.fill(), height = ui.points(TOOLBAR_HEIGHT_POINTS), axis = .X, align = .Center, gap = 2, padding = {PAGE_PADDING_POINTS - 4, 0, 0, 0}})
 
 		if ui.scope(toolbar) {

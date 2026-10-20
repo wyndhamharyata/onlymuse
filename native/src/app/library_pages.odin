@@ -118,7 +118,7 @@ build_song_row :: proc(id: string, song: Catalog_Song, subtitle: string, is_curr
 		ui.box("", {width = ui.points(44), height = ui.fit_text(), text_align = .End, text_color = colors.faint, font_size = 12}, to_clock_text(song.duration_seconds))
 	}
 
-	return ui.signal(row).is_clicked
+	return track_song_row(ui.signal(row), song)
 }
 
 // A favourite's heart always shows. Another's shows while the row is under the pointer, to click.

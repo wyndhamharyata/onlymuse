@@ -79,7 +79,13 @@ fragment float4 fragment_main(
 
     if (instance.kind == kind_image) {
         float4 pixel = image.sample(texture_sampler, input.uv);
-        return pixel * instance.color.a * coverage;
+        // The colour tints the picture, as a backdrop darkened behind a page. A gradient fades it out downwards.
+        float fade = 1.0;
+        if (instance.gradient.y > instance.gradient.x) {
+            float along = (point.y - instance.rect.y) / (instance.rect.w - instance.rect.y);
+            fade = 1.0 - smoothstep(instance.gradient.x, instance.gradient.y, along);
+        }
+        return pixel * float4(instance.color.rgb, 1.0) * instance.color.a * coverage * fade;
     }
 
     float4 color = instance.color;

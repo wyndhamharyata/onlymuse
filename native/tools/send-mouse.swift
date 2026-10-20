@@ -1,6 +1,6 @@
 // Sends mouse events to one process, so a test never moves the real pointer.
-// swift tools/send-mouse.swift <pid> <x> <y> [move | click | scroll <pixels> | type <text>], x and y in window points.
-// type sends the text as key presses, then Return.
+// swift tools/send-mouse.swift <pid> <x> <y> [move | click | rightclick | drag <x2> <y2> | scroll <pixels> | type <text>],
+// x and y in window points. type sends the text as key presses, then Return. drag holds the left button from x y to x2 y2.
 import CoreGraphics
 import Foundation
 let pid = pid_t(CommandLine.arguments[1])!
@@ -14,6 +14,21 @@ post(CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition:
 if action == "click" {
   post(CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: p, mouseButton: .left))
   post(CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: p, mouseButton: .left))
+} else if action == "rightclick" {
+  post(CGEvent(mouseEventSource: nil, mouseType: .rightMouseDown, mouseCursorPosition: p, mouseButton: .right))
+  post(CGEvent(mouseEventSource: nil, mouseType: .rightMouseUp, mouseCursorPosition: p, mouseButton: .right))
+} else if action == "drag" {
+  let end = CGPoint(x: b["X"]! + Double(CommandLine.arguments[5])!, y: b["Y"]! + Double(CommandLine.arguments[6])!)
+  post(CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: p, mouseButton: .left))
+  // In steps, with a pause, so the app sees the drag start and the target under the pointer.
+  for step in 1...20 {
+    let t = Double(step) / 20
+    let q = CGPoint(x: p.x + (end.x - p.x) * t, y: p.y + (end.y - p.y) * t)
+    post(CGEvent(mouseEventSource: nil, mouseType: .leftMouseDragged, mouseCursorPosition: q, mouseButton: .left))
+    usleep(30_000)
+  }
+  usleep(300_000)
+  post(CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: end, mouseButton: .left))
 } else if action == "scroll" {
   let dy = Int32(CommandLine.arguments[5])!
   let e = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1, wheel1: dy, wheel2: 0, wheel3: 0)

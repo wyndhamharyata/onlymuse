@@ -253,7 +253,7 @@ build_badge :: proc(label: string, color: [4]f32) {
 }
 
 // Returns true when clicked. The primary button is filled with the accent.
-action_button :: proc(label, symbol: string, is_primary: bool) -> bool {
+action_button :: proc(label, symbol: string, is_primary: bool, symbol_color: [4]f32 = {}) -> bool {
 	background := app.accent if is_primary else colors.field
 	hover := background
 	hover.a = 0.85 if is_primary else 0.14
@@ -261,7 +261,7 @@ action_button :: proc(label, symbol: string, is_primary: bool) -> bool {
 	button := ui.box(label, {width = ui.fit_children(), height = ui.points(32), axis = .X, align = .Center, gap = 6, padding = {14, 0, 16, 0}, corner_radius = 8, background = background, hover_background = hover, flags = {.Clickable}})
 
 	if ui.scope(button) {
-		icon_box("", symbol, 12, color)
+		icon_box("", symbol, 12, symbol_color if symbol_color.a > 0 else color)
 		ui.box("", {width = ui.fit_text(), height = ui.fit_text(), text_color = color, font_weight = .Semibold}, label)
 	}
 
@@ -286,7 +286,7 @@ build_numbered_songs :: proc(songs: []Catalog_Song) {
 				ui.box("", {width = ui.points(44), height = ui.fit_text(), text_align = .End, text_color = colors.faint, font_size = 12}, to_clock_text(song.duration_seconds))
 			}
 
-			if ui.signal(row).is_clicked do play_songs(songs, index)
+			if track_song_row(ui.signal(row), song) do play_songs(songs, index)
 		}
 	}
 }

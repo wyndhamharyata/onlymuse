@@ -46,8 +46,46 @@ build_sidebar :: proc() {
 
 			build_group_title("Playlists")
 			playlists, _, _ := list_playlists()
-			for playlist in playlists do build_sidebar_item(playlist.name, "music.note.list", colors.dim, {kind = .Playlist, id = playlist.id, title = playlist.name})
+			for playlist in playlists do build_sidebar_item(playlist.name, "music.note.list", colors.dim, {kind = .Playlist, id = playlist.id, title = playlist.name}, playlist.can_edit)
 		}
 
 	}
 }
+
+build_group_title :: proc(title: string) {
+	ui.box("", {width = ui.fill(), height = ui.fit_text(), padding = {10, 14, 10, 4}, text_color = colors.faint, font_size = 11, font_weight = .Semibold}, title)
+}
+
+// A playlist the person made takes a song dragged onto it.
+build_sidebar_item :: proc(label, symbol: string, symbol_color: [4]f32, page: Page, takes_songs := false) {
+	is_selected := current_page() == page
+	// The selected row takes the accent, as the playing song does.
+	background := to_accent_tint(app.accent) if is_selected else {}
+	row := ui.box(label if page.id == "" else page.id, {
+		width            = ui.fill(),
+		height           = ui.points(30),
+		axis             = .X,
+		align            = .Center,
+		gap              = 9,
+		padding          = {10, 0, 10, 0},
+		corner_radius    = 7,
+		background       = background,
+		hover_background = background if is_selected else colors.hover,
+		press_background = colors.selected,
+		flags            = {.Clickable},
+	})
+
+	if ui.signal(row).is_clicked do navigate(page)
+
+	if take_song_drop(ui.signal(row).is_hovered, page.id, page.title, takes_songs) {
+		row.style.background = to_accent_tint(app.accent)
+		row.style.border_width = 1.5
+		row.style.border_color = app.accent
+	}
+
+	if ui.scope(row) {
+		icon_box("", symbol, 15, app.accent if is_selected else symbol_color, {width = ui.points(18), height = ui.points(18)})
+		text_box(label, colors.text)
+	}
+}
+

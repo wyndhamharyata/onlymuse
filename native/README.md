@@ -49,9 +49,25 @@ OM_BENCH=1 ./build/onlymuse
 
 The window scrolls by itself for 10 seconds, then prints frame times and quits.
 
+### 2. The UI core
+
+The window is now built from boxes, the way the real pages will be. It shows a sidebar, the page
+title, a list of 2,000 songs and an Up Next panel.
+
+- Click a sidebar item. It takes the accent colour and the title changes. Hover and press fade in and out.
+- Click a song row to select it.
+- Click Up Next at the top right. The panel slides in and fades in. Click again and it slides away.
+- Scroll the list. Only the rows on screen are built, so 2,000 rows cost as little as 20.
+- Resize the window, or zoom with `⌘+`. Everything lays out again.
+
+`OM_BENCH=1 ./build/onlymuse` prints frame times as before, now through the whole UI.
+
 ## Development settings
 
 | Variable | Does |
 | --- | --- |
 | `OM_BENCH=1` | Scrolls by itself for 1,200 frames, prints frame times and quits. |
-| `OM_CAPTURE=<file>` | Saves the third frame to the file as raw BGRA pixels and quits. Convert it with `magick -size <width>x<height> -depth 8 bgra:<file> out.png`. |
+| `OM_CAPTURE=<file>` | Saves a frame to the file as raw BGRA pixels and quits. It prints the size. Convert it with `magick -size <width>x<height> -depth 8 bgra:<file> out.png`. |
+| `OM_CAPTURE_SECONDS=<seconds>` | Waits this long before the capture, so a test can click first. |
+
+`tools/send-mouse.swift` moves, clicks and scrolls in the app without moving the real pointer.

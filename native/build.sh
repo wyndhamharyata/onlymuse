@@ -7,7 +7,8 @@ mode=${1:-debug}
 flags="-collection:om=src -vet-unused -vet-shadowing -strict-style"
 
 if [ "$mode" = release ]; then
-	flags="$flags -o:speed"
+	# A single-module build drops the input view's Objective-C methods, so no key ever reaches a text field.
+	flags="$flags -o:speed -use-separate-modules"
 else
 	flags="$flags -debug"
 fi

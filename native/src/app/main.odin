@@ -5,6 +5,7 @@ import "core:math"
 import "core:os"
 import "core:slice"
 import "core:strconv"
+import "core:strings"
 import "core:time"
 import "om:apple"
 import "om:font"
@@ -77,11 +78,11 @@ main :: proc() {
 	navigate({kind = .Albums})
 	start_lyrics()
 
-	// A test or bench run leaves Music.app as it is when it quits.
+	// A test or bench run opens behind the other windows and leaves Music.app as it is when it quits.
 	is_background := app.capture_path != "" || app.is_bench || os.get_env("OM_BACKGROUND", context.temp_allocator) == "1"
 	helper.start(is_background)
 
-	app.window = platform.open_window("onlymuse", {1200, 800}, draw_frame)
+	app.window = platform.open_window("onlymuse", {1200, 800}, draw_frame, is_background)
 	render.start(app.window.device, app.window.layer)
 	font.start()
 	icon.start()
@@ -100,7 +101,8 @@ apply_helper_messages :: proc() {
 		case "tokens":
 			apple.set_tokens(message.developer_token, message.user_token)
 		case "error":
-			fmt.eprintfln("helper: %s", message.text)
+			// Music.app has no current track while stopped, and the helper's next post says so.
+			if !strings.contains(message.text, "get current track") do fmt.eprintfln("helper: %s", message.text)
 		case "playSongResult", "setNextResult":
 			apply_queue_answer(message.request_id, message.persistent_id)
 		case "nowPlaying":

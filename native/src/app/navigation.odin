@@ -10,6 +10,7 @@ Page_Kind :: enum {
 	Songs,
 	Downloaded,
 	Playlist,
+	Catalog_Playlist,
 	Album,
 	Artist,
 	Search,

@@ -45,7 +45,7 @@ Align :: enum {
 Flag :: enum {
 	// Takes hover, press and click.
 	Clickable,
-	// Scrolls its children on the Y axis.
+	// Scrolls its children along its axis.
 	Scroll,
 	// Hides children outside its rect.
 	Clip,
@@ -147,7 +147,8 @@ state: struct {
 	mouse:           [2]f32,
 	hot_key:         u64,
 	active_key:      u64,
-	scroll_key:      u64,
+	// The box under the mouse that scrolls along each axis.
+	scroll_keys:     [Axis]u64,
 	clicked_key:     u64,
 	pressed_key:     u64,
 	click_count:     int,
@@ -188,13 +189,16 @@ apply_events :: proc() {
 		case platform.Mouse_Exit:
 			state.mouse = {-1, -1}
 		case platform.Scroll:
-			box, ok := state.boxes[state.scroll_key]
-			if !ok do continue
+			delta := e.delta / state.zoom if e.is_precise else e.delta * POINTS_PER_LINE
 
-			delta := e.delta.y / state.zoom if e.is_precise else e.delta.y * POINTS_PER_LINE
-			box.scroll_target -= delta
-			// A trackpad already moves smoothly, and macOS adds the glide after a flick.
-			if e.is_precise do box.scroll = box.scroll_target
+			for axis in Axis {
+				box, ok := state.boxes[state.scroll_keys[axis]]
+				if !ok || delta[int(axis)] == 0 do continue
+
+				box.scroll_target -= delta[int(axis)]
+				// A trackpad already moves smoothly, and macOS adds the glide after a flick.
+				if e.is_precise do box.scroll = box.scroll_target
+			}
 		case platform.Key_Press:
 		}
 	}
@@ -418,13 +422,13 @@ place :: proc(box: ^Box, origin: [2]f32, clip: [4]f32) {
 	box.content_size[main] = extent + style.padding[main] + style.padding[main + 2]
 
 	if .Scroll in style.flags {
-		max_scroll := max(0, box.content_size.y - box.size.y)
+		max_scroll := max(0, box.content_size[main] - box.size[main])
 		box.scroll_target = clamp(box.scroll_target, 0, max_scroll)
 		box.scroll = clamp(approach(box.scroll, box.scroll_target, HOT_RATE), 0, max_scroll)
 	}
 
 	pen := [2]f32{box.rect.x + style.padding.x, box.rect.y + style.padding.y}
-	if .Scroll in style.flags do pen.y -= box.scroll
+	if .Scroll in style.flags do pen[main] -= box.scroll
 
 	for child := box.first; child != nil; child = child.next {
 		if .Floating in child.style.flags {
@@ -544,7 +548,7 @@ is_inside :: proc(point: [2]f32, rect: [4]f32) -> bool {
 @(private)
 find_hot :: proc() {
 	state.hot_key = 0
-	state.scroll_key = 0
+	state.scroll_keys = {}
 	visit_hot(state.root)
 
 	for _, box in state.boxes {
@@ -562,7 +566,7 @@ visit_hot :: proc(box: ^Box) {
 
 	if is_under_mouse && box.key != 0 {
 		if .Clickable in box.style.flags do state.hot_key = box.key
-		if .Scroll in box.style.flags do state.scroll_key = box.key
+		if .Scroll in box.style.flags do state.scroll_keys[box.style.axis] = box.key
 	}
 
 	for child := box.first; child != nil; child = child.next do visit_hot(child)

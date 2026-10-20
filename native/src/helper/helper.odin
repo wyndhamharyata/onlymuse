@@ -59,6 +59,7 @@ state: struct {
 	from_helper: ^os.File,
 	reader:      ^thread.Thread,
 	mutex:       sync.Mutex,
+	write_mutex: sync.Mutex,
 	// Lines read and not yet taken by the main thread.
 	lines:       [dynamic]string,
 	is_started:  bool,
@@ -195,6 +196,8 @@ send_value :: proc(value: $T) {
 send :: proc(command: string) {
 	if !state.is_started do return
 
+	// Workers send too, and one line must never break into another.
+	sync.guard(&state.write_mutex)
 	line := fmt.tprintf("%s\n", command)
 	os.write(state.to_helper, transmute([]u8)line)
 }

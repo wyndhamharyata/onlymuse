@@ -199,12 +199,14 @@ remove_layer_background :: proc "c" (layer: ^Layer) {
 	}
 }
 
-open_window :: proc(title: string, size_points: [2]f32, on_frame: Frame_Proc) -> ^Window {
+// A background window, for the tests and the bench, opens behind the others and never takes focus.
+// Its app is an accessory, so a tiling window manager such as AeroSpace leaves it alone.
+open_window :: proc(title: string, size_points: [2]f32, on_frame: Frame_Proc, is_background := false) -> ^Window {
 	state.odin_context = context
 	state.on_frame = on_frame
 
 	app := NS.Application.sharedApplication()
-	app->setActivationPolicy(.Regular)
+	app->setActivationPolicy(.Accessory if is_background else .Regular)
 	msg_send(nil, app, "finishLaunching")
 	state.app = app
 
@@ -261,8 +263,15 @@ open_window :: proc(title: string, size_points: [2]f32, on_frame: Frame_Proc) ->
 	update_window_size()
 
 	ns_window->center()
-	ns_window->makeKeyAndOrderFront(nil)
-	app->activate()
+
+	if is_background {
+		// NSWindowCollectionBehaviorTransient | IgnoresCycle: no Spaces, Mission Control or Cmd ` for it.
+		msg_send(nil, ns_window, "setCollectionBehavior:", NS.UInteger(1 << 3 | 1 << 6))
+		msg_send(nil, ns_window, "orderBack:", rawptr(nil))
+	} else {
+		ns_window->makeKeyAndOrderFront(nil)
+		app->activate()
+	}
 	request_frame()
 
 	return &state.window

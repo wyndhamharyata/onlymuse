@@ -2,6 +2,7 @@ package app
 
 import "core:fmt"
 import "core:math"
+import "om:apple"
 import "om:library"
 import "om:ui"
 
@@ -26,6 +27,7 @@ page_titles := [Page_Kind]string {
 	.Songs           = "Songs",
 	.Downloaded      = "Downloaded",
 	.Playlist        = "Playlist",
+	.Catalog_Playlist = "Playlist",
 	.Album           = "Album",
 	.Artist          = "Artist",
 	.Search          = "Search",
@@ -48,10 +50,22 @@ build_page_area :: proc() {
 
 		if ui.scope(page_box) {
 			#partial switch page.kind {
+			case .Home:
+				build_shelves_page("Home", apple.HOME_PATH, false)
+			case .New:
+				build_shelves_page("New", apple.NEW_PATH, true)
 			case .Albums:
 				build_albums()
 			case .Songs:
 				build_song_list(app.songs, app.queue_songs)
+			case .Album:
+				build_album_page(page.id)
+			case .Playlist, .Catalog_Playlist:
+				build_playlist_page(page)
+			case .Favourite_Songs:
+				build_favourite_songs_page()
+			case .Recently_Added:
+				build_recently_added_page()
 			case:
 				build_page_title(page.title if page.title != "" else page_titles[page.kind])
 				build_page_note("This page comes in a later step.")
@@ -113,6 +127,7 @@ to_artwork_pixels :: proc(size_points: f32) -> int {
 
 build_album_tile :: proc(album: library.Album, tile_points: f32) {
 	tile := ui.box(album.id, {width = ui.points(tile_points), height = ui.fit_children(), axis = .Y, gap = 2, flags = {.Clickable}})
+	if ui.signal(tile).is_clicked do navigate({kind = .Album, id = album.id, title = album.name})
 
 	if ui.scope(tile) {
 		cover := ui.box("", {width = ui.points(tile_points), height = ui.points(tile_points + 6), padding = {0, 0, 0, 6}})

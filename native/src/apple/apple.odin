@@ -6,6 +6,7 @@ import "core:strings"
 import "core:sync"
 import "core:time"
 import "om:store"
+import "om:helper"
 import "om:net"
 
 BASE_URL :: "https://amp-api.music.apple.com"
@@ -64,8 +65,30 @@ post :: proc(path: string) -> int {
 	return send_request(path, .Post, context.temp_allocator).status
 }
 
+// The language of the answers. The saved path leaves it out, as the gpuix app did.
+@(private)
+LANGUAGE :: "en-GB"
+
+// Apple answers 401 or 403 once a token expires. The helper reads new ones and the request goes again, once.
 @(private)
 send_request :: proc(path: string, method: net.Method, allocator := context.allocator) -> Answer {
+	answer := send_once(path, method, allocator)
+	if answer.status != 401 && answer.status != 403 do return answer
+
+	{
+		sync.guard(&state.mutex)
+		delete(state.developer_token)
+		state.developer_token = ""
+		state.started = time.tick_now()
+	}
+	helper.send(`{"type":"refreshTokens"}`)
+	delete(answer.body, allocator)
+
+	return send_once(path, method, allocator)
+}
+
+@(private)
+send_once :: proc(path: string, method: net.Method, allocator := context.allocator) -> Answer {
 	// The helper reads the tokens from a web page a moment after it starts.
 	for !has_tokens() && time.tick_since(state.started) < TOKEN_WAIT do time.sleep(100 * time.Millisecond)
 
@@ -83,7 +106,9 @@ send_request :: proc(path: string, method: net.Method, allocator := context.allo
 		}
 	}
 
-	response := net.fetch(fmt.tprintf("%s%s", BASE_URL, path), headers[:], context.temp_allocator, method)
+	separator := "&" if strings.contains(path, "?") else "?"
+	url := fmt.tprintf("%s%s%sl=%s", BASE_URL, path, separator, LANGUAGE)
+	response := net.fetch(url, headers[:], context.temp_allocator, method)
 
 	return {response.status, strings.clone(string(response.body), allocator)}
 }

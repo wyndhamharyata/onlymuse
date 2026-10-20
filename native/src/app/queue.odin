@@ -14,17 +14,7 @@ import "om:store"
 // The queue, as the gpuix app's src/queue.ts keeps it. Music.app keeps no queue of its own after a song
 // started by AppleScript, so the app plays each next song itself, and the helper hands off at each end.
 
-Catalog_Song :: struct {
-	id:               string,
-	name:             string,
-	artist_name:      string `json:"artistName"`,
-	album_name:       string `json:"albumName"`,
-	duration_seconds: f64 `json:"durationSeconds"`,
-	is_lossless:      bool `json:"isLossless"`,
-	artwork:          struct {
-		url: string,
-	},
-}
+Catalog_Song :: apple.Catalog_Song
 
 Resume_Point :: struct {
 	song:             helper.Song,
@@ -348,6 +338,14 @@ play_songs :: proc(songs: []Catalog_Song, index: int) {
 	}
 
 	replace_songs(to_play_order(songs, index), clone_songs(songs))
+	play_at(0)
+}
+
+shuffle_songs :: proc(songs: []Catalog_Song) {
+	if len(songs) == 0 do return
+
+	replace_songs(to_shuffled(songs), clone_songs(songs))
+	queue.is_shuffled = true
 	play_at(0)
 }
 

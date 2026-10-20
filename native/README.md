@@ -141,6 +141,20 @@ To try the queue without Music.app, with a stand-in that plays at 60 times the s
 OM_HELPER=$PWD/tools/fake-music.py OM_FAKE_SPEED=60 OM_BACKGROUND=1 ./build/onlymuse
 ```
 
+### 5c. Home, New, albums and playlists
+
+Pages now read Apple's API the way the gpuix app does. A saved answer shows at once. One older than
+its rule is checked with Apple meanwhile (Home 10 minutes, New 60 minutes, catalog pages a day), and
+the page updates if Apple has something newer.
+
+- Home and New show their shelves. The first shelf has bigger tiles. Swipe sideways on a shelf to
+  scroll it. Swipe up and down anywhere to scroll the page.
+- Click an album on a shelf, or in Albums, to open it: cover, artist, genre and year, badges such as
+  LOSSLESS and In Library, Play, Shuffle and the songs. Click the artist's name to go to the artist,
+  which comes in the next step.
+- Click a song on a shelf to play the shelf's songs from it.
+- Click a playlist in the sidebar or on a shelf to open it. Favourite Songs and Recently Added work too.
+
 ## Development settings
 
 | Variable | Does |
@@ -152,7 +166,7 @@ OM_HELPER=$PWD/tools/fake-music.py OM_FAKE_SPEED=60 OM_BACKGROUND=1 ./build/only
 | `OM_FAKE_MISSING=<name>` | `tools/fake-music.py` finds this song only on the 4th ask, as if Apple were adding it. |
 | `OM_HELPER=<file>` | Runs this instead of the Swift helper. `tools/fake-helper.sh` says a song plays. |
 | `OM_FAKE_POSITION=<seconds>` | Where the fake helper's song starts. |
-| `OM_BACKGROUND=1` | The helper leaves Music.app as it is when the app quits. The bench and captures set it. |
+| `OM_BACKGROUND=1` | Opens the window behind the others, never focused and with no Dock icon, so AeroSpace leaves it floating. The helper leaves Music.app as it is when the app quits. The bench and captures set it. |
 | `OM_DATA=<folder>` | Keeps `onlymuse.sqlite` in this folder instead. |
 | `OM_BENCH_FRAMES=<count>` | Frames the bench runs. 1,200 by default. |
 | `OM_CAPTURE=<file>` | Saves a frame to the file as raw BGRA pixels and quits. It prints the size. Convert it with `magick -size <width>x<height> -depth 8 bgra:<file> out.png`. |

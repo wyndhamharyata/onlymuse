@@ -50,6 +50,8 @@ Scroll :: struct {
 	delta:       [2]f32,
 	is_precise:  bool,
 	is_momentum: bool,
+	// A finger touched the trackpad, starting a new swipe.
+	is_start:    bool,
 }
 Key_Press :: struct {
 	key_code:   u16,
@@ -562,7 +564,10 @@ take_event :: proc(event: ^NS.Event) -> bool {
 		append(&state.events, Mouse_Exit{})
 	case .ScrollWheel:
 		momentum_phase := msg_send(NS.UInteger, event, "momentumPhase")
+		// NSEventPhaseBegan and NSEventPhaseMayBegin.
+		phase := msg_send(NS.UInteger, event, "phase")
 		append(&state.events, Scroll {
+			is_start    = phase == 1 || phase == 32,
 			position    = to_position(event),
 			delta       = {f32(event->scrollingDeltaX()), f32(event->scrollingDeltaY())},
 			is_precise  = bool(event->hasPreciseScrollingDeltas()),

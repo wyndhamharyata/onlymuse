@@ -194,6 +194,7 @@ draw_frame :: proc() -> bool {
 	render.begin_frame(size_pixels)
 	font.begin_frame()
 	image.begin_frame()
+	icon.begin_frame()
 	ui.begin_frame(window.size_points, window.pixels_per_point, app.zoom, dt_seconds)
 
 	root := ui.current_parent()
@@ -228,7 +229,7 @@ draw_frame :: proc() -> bool {
 	if is_capture_frame do platform.quit()
 	if app.is_bench && app.frame_count == app.bench_frame_count do finish_bench()
 
-	return app.capture_path != "" || app.is_bench || ui.is_animating() || font.is_redraw_needed() || image.is_animating() || is_lyrics_moving
+	return app.capture_path != "" || app.is_bench || ui.is_animating() || font.is_redraw_needed() || icon.is_redraw_needed() || image.is_animating() || is_lyrics_moving
 }
 
 SIGN_IN_CARD_POINTS :: 380

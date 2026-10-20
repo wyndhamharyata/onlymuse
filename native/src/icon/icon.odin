@@ -41,6 +41,28 @@ state: struct {
 	entries:    map[[2]u64]Entry,
 	pen:        [2]int,
 	row_height: int,
+	// Set when a symbol found no room. The atlas starts over on the next frame.
+	is_full:    bool,
+	// The atlas started over this frame. Full again, it holds less than one frame needs, and asking
+	// for more frames would only repeat that.
+	is_fresh:   bool,
+}
+
+// True when a symbol went undrawn for want of room, so another frame draws it.
+is_redraw_needed :: proc() -> bool {
+	return state.is_full && !state.is_fresh
+}
+
+// Called once a frame before any symbol is drawn. A full atlas is emptied, and the symbols in use are
+// drawn into it again as they are asked for. Emptying it mid-frame would change what is already queued.
+begin_frame :: proc() {
+	state.is_fresh = state.is_full
+	if !state.is_full do return
+
+	clear(&state.entries)
+	state.pen = {}
+	state.row_height = 0
+	state.is_full = false
 }
 
 start :: proc() {
@@ -67,7 +89,8 @@ find :: proc(name: string, size_pixels: f32) -> Entry {
 	if entry, ok := state.entries[key]; ok do return entry
 
 	entry := rasterize(name, size_pixels)
-	state.entries[key] = entry
+	// A symbol with no room is tried again once the atlas starts over.
+	if !state.is_full do state.entries[key] = entry
 
 	return entry
 }
@@ -94,7 +117,10 @@ rasterize :: proc(name: string, size_pixels: f32) -> Entry {
 	width := int(math.ceil(f64(size.width))) + 2
 	height := int(math.ceil(f64(size.height))) + 2
 	rect, ok := allocate(width, height)
-	if !ok do return {}
+	if !ok {
+		state.is_full = true
+		return {}
+	}
 
 	pixels := make([]u8, width * height * 4, context.temp_allocator)
 	space := mac.CGColorSpaceCreateDeviceRGB()
@@ -119,7 +145,7 @@ rasterize :: proc(name: string, size_pixels: f32) -> Entry {
 	return Entry{rect}
 }
 
-// Shelf packing, as in the glyph atlas. A full atlas draws no new symbol, as a window uses a few dozen.
+// Shelf packing, as in the glyph atlas.
 @(private)
 allocate :: proc(width, height: int) -> ([4]int, bool) {
 	if state.pen.x + width > ATLAS_SIZE {

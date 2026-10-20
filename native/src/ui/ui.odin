@@ -156,11 +156,20 @@ state: struct {
 	active_key:      u64,
 	// The box under the mouse that scrolls along each axis.
 	scroll_keys:     [Axis]u64,
+	// A trackpad swipe and its glide move along one axis, the one its first points went most along.
+	swipe_axis:      Maybe(Axis),
+	// The swipe's points before its axis is known.
+	swipe_pending:   [2]f32,
 	clicked_key:     u64,
 	pressed_key:     u64,
 	click_count:     int,
 	is_animating:    bool,
 }
+
+// A swipe's axis is picked once it has moved this far.
+SWIPE_DECIDE_POINTS :: 4
+// A swipe goes sideways only when it goes this much more sideways than up or down.
+SWIPE_SIDEWAYS_RATIO :: 1.5
 
 // Points are window points divided by zoom. scale turns points into pixels.
 begin_frame :: proc(window_size_points: [2]f32, pixels_per_point, zoom, dt_seconds: f32) {
@@ -197,6 +206,27 @@ apply_events :: proc() {
 			state.mouse = {-1, -1}
 		case platform.Scroll:
 			delta := e.delta / state.zoom if e.is_precise else e.delta * POINTS_PER_LINE
+
+			if e.is_start {
+				state.swipe_axis = nil
+				state.swipe_pending = {}
+			}
+
+			if e.is_precise {
+				axis, is_known := state.swipe_axis.?
+
+				if !is_known {
+					state.swipe_pending += delta
+					pending := state.swipe_pending
+					if abs(pending.x) + abs(pending.y) < SWIPE_DECIDE_POINTS do continue
+
+					axis = .X if abs(pending.x) > abs(pending.y) * SWIPE_SIDEWAYS_RATIO else .Y
+					state.swipe_axis = axis
+					delta = pending
+				}
+
+				delta[1 - int(axis)] = 0
+			}
 
 			for axis in Axis {
 				box, ok := state.boxes[state.scroll_keys[axis]]

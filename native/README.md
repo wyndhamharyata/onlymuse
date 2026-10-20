@@ -196,6 +196,9 @@ From here the app goes its own way rather than copying Apple Music.
 - Rest the pointer on an Up Next row with a long title. The title and the artist slide.
 - A lossless song's LOSSLESS badge sits right after its name.
 - The window cannot be made smaller than 1000 by 600 points.
+- Swipe up and down Home on the trackpad, a little crooked. The shelves stay put. Each swipe moves
+  along one axis, picked from its first few points, and a swipe has to go clearly sideways to move a
+  shelf.
 - While a cover loads, its tile shows a gradient with a symbol of what it is (album, playlist,
   artist, song). Apple Music items use the cover's own colours, so the cover fades in over its own
   palette. Library items have no colours from Apple, so the name picks two hues, and an album keeps

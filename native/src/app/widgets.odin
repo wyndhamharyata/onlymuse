@@ -1,6 +1,7 @@
 package app
 
 import "core:fmt"
+import "core:math"
 import "core:strings"
 import "core:time"
 import MTL "vendor:darwin/Metal"
@@ -131,7 +132,8 @@ artwork_rect_box :: proc(source: string, size_points: [2]f32, radius_points: f32
 		source        = source,
 		size_pixels   = int(ui.to_pixels(max(size_points.x, size_points.y))),
 		symbol        = placeholder.symbol,
-		symbol_points = min(size_points.x, size_points.y) * 0.3,
+		// In steps of 4, so a tile resizing with the panel reuses a few sizes of its symbol.
+		symbol_points = max(8, math.round(min(size_points.x, size_points.y) * 0.3 / 4) * 4),
 		symbol_color  = placeholder.mark,
 	}
 	box.draw = draw_artwork

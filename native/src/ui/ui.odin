@@ -391,6 +391,7 @@ approach :: proc(value, target, rate: f32) -> f32 {
 end_frame :: proc() {
 	remove_unbuilt()
 	measure(state.root)
+	resolve(state.root)
 	place(state.root, {0, 0}, {0, 0, state.root.size.x, state.root.size.y})
 	find_hot()
 	draw(state.root, {0, 0, 1e9, 1e9}, 1)
@@ -466,7 +467,21 @@ children_extent :: proc(box: ^Box, axis: Axis) -> f32 {
 	return total
 }
 
-// Sizes that need the parent, then positions, from the root down. clip is in points.
+// Sizes that need the parent, from the root down. A box sized by its children grows to fit text that
+// wrapped below it, before anything is placed, so a box aligned to the end or the centre is placed by
+// its final size.
+@(private)
+resolve :: proc(box: ^Box) {
+	style := box.style
+	resolve_children(box, {box.size.x - style.padding.x - style.padding.z, box.size.y - style.padding.y - style.padding.w})
+
+	for child := box.first; child != nil; child = child.next do resolve(child)
+
+	if style.width.kind == .Children && style.axis == .Y do box.size.x = children_extent(box, .X) + style.padding.x + style.padding.z
+	if style.height.kind == .Children do box.size.y = children_extent(box, .Y) + style.padding.y + style.padding.w
+}
+
+// Positions, from the root down. clip is in points.
 @(private)
 place :: proc(box: ^Box, origin: [2]f32, clip: [4]f32) {
 	box.rect = {origin.x, origin.y, origin.x + box.size.x, origin.y + box.size.y}
@@ -476,8 +491,6 @@ place :: proc(box: ^Box, origin: [2]f32, clip: [4]f32) {
 	inner := [2]f32{box.size.x - style.padding.x - style.padding.z, box.size.y - style.padding.y - style.padding.w}
 	main := int(style.axis)
 	cross := 1 - main
-
-	resolve_children(box, inner)
 
 	child_clip := intersect(clip, box.rect) if .Clip in style.flags else clip
 	extent := children_extent(box, style.axis)
@@ -512,11 +525,6 @@ place :: proc(box: ^Box, origin: [2]f32, clip: [4]f32) {
 		place(child, child_origin, child_clip)
 		pen[main] += child.size[main] + style.gap
 	}
-
-	// Wrapped text below may have grown, so a box sized by its children measures them again.
-	if style.width.kind == .Children && style.axis == .Y do box.size.x = children_extent(box, .X) + style.padding.x + style.padding.z
-	if style.height.kind == .Children do box.size.y = children_extent(box, .Y) + style.padding.y + style.padding.w
-	box.rect.zw = box.rect.xy + box.size
 
 	if .Animate_Position in style.flags do animate_rect(box)
 }

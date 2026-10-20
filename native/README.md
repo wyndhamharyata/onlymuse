@@ -259,10 +259,10 @@ Rebuild the helper first: `cd .. && bun run helper`.
 ### 6g. Smarter shuffle
 
 - Shuffle now follows rules. Right-click the shuffle button, or click Rules at the top of Up Next:
-  songs played in the last 6 hours go last (or 2 h, 24 h, off), songs you often skip go last, one
-  album's songs are kept apart, and, if you like, favourites come earlier.
-- Up Next says what the rules did, such as "2 played in the last 6 h go last."
-- Plays and skips come from the app's own log, so the rules learn as you listen.
+  Play recent songs last (past 6 hours, or 2 h, 24 h, off), Play often-skipped songs last, Spread out
+  songs from one album, and Play favourites earlier.
+- Up Next says what the rules did, such as "2 recent songs play last."
+- onlymuse counts plays and skips itself, so the rules learn as you listen.
 
 ## Development settings
 

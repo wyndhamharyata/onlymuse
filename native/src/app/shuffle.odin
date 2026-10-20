@@ -149,13 +149,14 @@ keep_albums_apart :: proc(songs: []Catalog_Song) -> int {
 
 @(private = "file")
 set_shuffle_note :: proc(recent_count, skipped_count, apart_count: int) {
+	// "4 recent songs and 1 often-skipped song play last."
 	parts := make([dynamic]string, context.temp_allocator)
-	if recent_count > 0 do append(&parts, fmt.tprintf("%d played in the last %d h", recent_count, shuffle_rules.recent_hours))
-	if skipped_count > 0 do append(&parts, fmt.tprintf("%d often skipped", skipped_count))
+	if recent_count > 0 do append(&parts, fmt.tprintf("%d recent %s", recent_count, "song" if recent_count == 1 else "songs"))
+	if skipped_count > 0 do append(&parts, fmt.tprintf("%d often-skipped %s", skipped_count, "song" if skipped_count == 1 else "songs"))
 
 	note := ""
-	if len(parts) > 0 do note = fmt.tprintf("%s go last.", strings.join(parts[:], ", ", context.temp_allocator))
-	if apart_count > 0 do note = fmt.tprintf("%s%sSongs of one album kept apart.", note, " " if note != "" else "")
+	if len(parts) > 0 do note = fmt.tprintf("%s %s last.", strings.join(parts[:], " and ", context.temp_allocator), "plays" if recent_count + skipped_count == 1 else "play")
+	if apart_count > 0 do note = fmt.tprintf("%s%sSongs from one album don't play back to back.", note, " " if note != "" else "")
 
 	delete(shuffle_note)
 	shuffle_note = strings.clone(note)
@@ -189,29 +190,29 @@ build_shuffle_rules :: proc() {
 			ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.text, font_size = 13, font_weight = .Bold, padding = {9, 4, 9, 6}}, "Shuffle")
 
 			hours := shuffle_rules.recent_hours
-			hours_text := "off" if hours == 0 else fmt.tprintf("%d h", hours)
-			if menu_item("recent", "Songs played in the last… go last", hours_text) {
+			hours_text := "Off" if hours == 0 else fmt.tprintf("Past %d h", hours)
+			if menu_item("recent", "Play recent songs last", hours_text) {
 				choices := RECENT_HOUR_CHOICES
 				next := 0
 				for choice, index in choices do if choice == hours do next = (index + 1) % len(choices)
 				shuffle_rules.recent_hours = choices[next]
 				save_shuffle_rules()
 			}
-			if menu_item("skipped", "Songs I often skip go last", "●" if shuffle_rules.skipped_go_last else "○") {
+			if menu_item("skipped", "Play often-skipped songs last", "●" if shuffle_rules.skipped_go_last else "○") {
 				shuffle_rules.skipped_go_last = !shuffle_rules.skipped_go_last
 				save_shuffle_rules()
 			}
-			if menu_item("albums", "Keep one album's songs apart", "●" if shuffle_rules.albums_apart else "○") {
+			if menu_item("albums", "Spread out songs from one album", "●" if shuffle_rules.albums_apart else "○") {
 				shuffle_rules.albums_apart = !shuffle_rules.albums_apart
 				save_shuffle_rules()
 			}
-			if menu_item("favourites", "Favourites come earlier", "●" if shuffle_rules.favourites_first else "○") {
+			if menu_item("favourites", "Play favourites earlier", "●" if shuffle_rules.favourites_first else "○") {
 				shuffle_rules.favourites_first = !shuffle_rules.favourites_first
 				save_shuffle_rules()
 			}
 
 			menu_separator()
-			ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.faint, font_size = 11.5, padding = {9, 4, 9, 4}, flags = {.Wrap_Text}}, "Plays and skips come from the app's own log. The rules apply to the next shuffle.")
+			ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.faint, font_size = 11.5, padding = {9, 4, 9, 4}, flags = {.Wrap_Text}}, "onlymuse counts plays and skips itself. Changes apply the next time you shuffle.")
 		}
 	}
 

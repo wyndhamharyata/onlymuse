@@ -170,7 +170,6 @@ build_hero :: proc(details: Song_Details, info: Track_Info, shown: helper.Song, 
 		info_box := ui.box("info", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 4})
 
 		if ui.scope(info_box) {
-			ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = to_color(0xffffffb0), font_size = 11.5, font_weight = .Bold}, to_eyebrow(details))
 			ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.text, font_size = to_title_size(info_width), font_weight = .Bold, padding = {0, 2, 0, 2}, flags = {.Wrap_Text}}, details.song.name)
 
 			artist_flags := ui.Flags{.Truncate_Text}
@@ -199,17 +198,6 @@ to_title_size :: proc(info_width: f32) -> f32 {
 	if info_width >= 260 do return 30
 
 	return 24
-}
-
-// "NOW PLAYING · SINGLE · 2026".
-@(private = "file")
-to_eyebrow :: proc(details: Song_Details) -> string {
-	kind := "ALBUM"
-	if strings.has_suffix(details.album, " - Single") do kind = "SINGLE"
-	if strings.has_suffix(details.album, " - EP") do kind = "EP"
-	if details.released == "" do return fmt.tprintf("NOW PLAYING · %s", kind)
-
-	return fmt.tprintf("NOW PLAYING · %s · %s", kind, details.released[max(0, len(details.released) - 4):])
 }
 
 @(private = "file")

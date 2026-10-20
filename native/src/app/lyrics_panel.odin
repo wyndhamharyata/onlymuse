@@ -3,7 +3,7 @@ package app
 import "core:fmt"
 import "core:strconv"
 import "om:helper"
-import "om:library"
+import "om:store"
 import "om:lyrics"
 import "om:platform"
 import "om:ui"
@@ -36,11 +36,11 @@ lyrics_state: struct {
 	lines:               []lyrics.Line,
 }
 
-// The lead saved by the gpuix app, so both run the lyrics the same.
+// The saved lead. The first run takes the gpuix app's, so both run the lyrics the same.
 start_lyrics :: proc() {
 	lyrics_state.lead_ms = DEFAULT_LEAD_MS
 
-	if text, ok := library.find_saved_state("lyricLeadMs", context.temp_allocator); ok {
+	if text, ok := store.find_state("lyricLeadMs", context.temp_allocator); ok {
 		lead_ms, is_number := strconv.parse_int(text)
 		if is_number && abs(lead_ms) <= MAX_LEAD_MS do lyrics_state.lead_ms = lead_ms
 	}
@@ -62,6 +62,7 @@ apply_lead_key :: proc(key: platform.Key_Press) {
 
 	lyrics_state.lead_ms = next
 	lyrics_state.lead_changed_tick = helper.now_ms()
+	store.save_state("lyricLeadMs", fmt.tprintf("%d", next))
 }
 
 // The line being sung is the last one that has begun.

@@ -14,6 +14,7 @@ import "om:image"
 import "om:library"
 import "om:platform"
 import "om:render"
+import "om:store"
 import "om:ui"
 
 MIN_ZOOM :: 0.5
@@ -64,6 +65,7 @@ main :: proc() {
 	capture_seconds := strconv.parse_f64(os.get_env("OM_CAPTURE_SECONDS", context.temp_allocator)) or_else 0
 	app.capture_time = time.tick_add(time.tick_now(), time.Duration(capture_seconds * f64(time.Second)))
 
+	store.start()
 	app.albums = library.list_albums()
 	app.songs = library.list_songs()
 	app.playlists = library.list_playlists()

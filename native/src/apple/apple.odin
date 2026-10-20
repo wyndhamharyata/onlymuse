@@ -5,7 +5,7 @@ import "core:fmt"
 import "core:strings"
 import "core:sync"
 import "core:time"
-import "om:library"
+import "om:store"
 import "om:net"
 
 BASE_URL :: "https://amp-api.music.apple.com"
@@ -44,9 +44,9 @@ has_tokens :: proc() -> bool {
 	return state.developer_token != ""
 }
 
-// The gpuix app's saved answer when it has one, else Apple's. Safe on any thread, and it blocks. The body uses allocator.
+// The saved answer when there is one, else Apple's, which is then saved. Safe on any thread, and it blocks. The body uses allocator.
 fetch :: proc(path: string, allocator := context.allocator) -> Answer {
-	if saved, ok := library.find_saved_answer(path, allocator); ok do return {200, saved}
+	if saved, ok := store.find_answer(path, allocator); ok do return {200, saved.body}
 
 	// The helper reads the tokens from a web page a moment after it starts.
 	for wait_count := 0; !has_tokens() && wait_count < TOKEN_WAIT_COUNT; wait_count += 1 do time.sleep(100 * time.Millisecond)
@@ -66,6 +66,8 @@ fetch :: proc(path: string, allocator := context.allocator) -> Answer {
 	}
 
 	response := net.fetch(fmt.tprintf("%s%s", BASE_URL, path), headers[:], context.temp_allocator)
+	body := string(response.body)
+	if response.status == 200 do store.save_answer(path, body)
 
-	return {response.status, strings.clone(string(response.body), allocator)}
+	return {response.status, strings.clone(body, allocator)}
 }

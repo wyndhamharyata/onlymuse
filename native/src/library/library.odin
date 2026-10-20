@@ -1,11 +1,10 @@
-// The library, read from the answers of Apple's API that the gpuix app saved in its SQLite file.
+// The library, read from Apple's saved answers.
 package library
 
 import "core:encoding/json"
 import "core:fmt"
-import "core:os"
 import "core:strings"
-import "om:mac"
+import "om:store"
 
 Album :: struct {
 	id:          string,
@@ -13,15 +12,6 @@ Album :: struct {
 	artist_name: string,
 	// Has {w} and {h} in place of the size.
 	artwork_url: string,
-}
-
-// OM_DATA names the folder of the SQLite file, for the tests. It is only read.
-data_path :: proc() -> string {
-	folder := os.get_env("OM_DATA", context.temp_allocator)
-
-	if folder == "" do folder = fmt.tprintf("%s/Library/Application Support/onlymuse", os.get_env("HOME", context.temp_allocator))
-
-	return fmt.tprintf("%s/onlymuse.sqlite", folder)
 }
 
 Song :: struct {
@@ -66,29 +56,11 @@ Page_Answer :: struct {
 // Every saved page of a library list, such as "/v1/me/library/albums?", in the order of its offsets.
 @(private)
 list_saved_items :: proc(path_prefix: string, allocator := context.allocator) -> []Item {
-	db: mac.Sqlite
-	path := strings.clone_to_cstring(data_path(), context.temp_allocator)
-
-	if mac.sqlite3_open_v2(path, &db, mac.SQLITE_OPEN_READONLY, nil) != mac.SQLITE_OK {
-		fmt.eprintfln("library: cannot open %s", path)
-		return nil
-	}
-	defer mac.sqlite3_close(db)
-
-	sql: cstring = "select body from responses where substr(path, 1, length(?1)) = ?1 order by cast(substr(path, instr(path, 'offset=') + 7) as integer)"
-	statement: mac.Sqlite_Statement
-	if mac.sqlite3_prepare_v2(db, sql, -1, &statement, nil) != mac.SQLITE_OK do return nil
-	defer mac.sqlite3_finalize(statement)
-
-	// SQLITE_TRANSIENT: SQLite copies the text.
-	mac.sqlite3_bind_text(statement, 1, raw_data(path_prefix), i32(len(path_prefix)), rawptr(~uintptr(0)))
 	items: [dynamic]Item
 
-	for mac.sqlite3_step(statement) == mac.SQLITE_ROW {
-		body := mac.sqlite3_column_text(statement, 0)[:mac.sqlite3_column_bytes(statement, 0)]
+	for body in store.list_answers(path_prefix, context.temp_allocator) {
 		answer: Page_Answer
-
-		if json.unmarshal(body, &answer, allocator = allocator) != nil do continue
+		if json.unmarshal_string(body, &answer, allocator = allocator) != nil do continue
 
 		append(&items, ..answer.data)
 	}
@@ -140,40 +112,7 @@ to_artwork_url :: proc(template: string, size_pixels: int, allocator := context.
 	return url
 }
 
-// Runs sql with one text parameter and returns the first column of the first row.
-@(private)
-read_one_text :: proc(sql: cstring, parameter: string, allocator := context.allocator) -> (string, bool) {
-	db: mac.Sqlite
-	path := strings.clone_to_cstring(data_path(), context.temp_allocator)
-
-	if mac.sqlite3_open_v2(path, &db, mac.SQLITE_OPEN_READONLY, nil) != mac.SQLITE_OK do return "", false
-	defer mac.sqlite3_close(db)
-
-	statement: mac.Sqlite_Statement
-	if mac.sqlite3_prepare_v2(db, sql, -1, &statement, nil) != mac.SQLITE_OK do return "", false
-	defer mac.sqlite3_finalize(statement)
-
-	// SQLITE_TRANSIENT: SQLite copies the text.
-	mac.sqlite3_bind_text(statement, 1, raw_data(parameter), i32(len(parameter)), rawptr(~uintptr(0)))
-
-	if mac.sqlite3_step(statement) != mac.SQLITE_ROW do return "", false
-
-	text := mac.sqlite3_column_text(statement, 0)[:mac.sqlite3_column_bytes(statement, 0)]
-
-	return strings.clone(string(text), allocator), true
-}
-
-// The answer the gpuix app saved for an API path, such as a song's lyrics.
-find_saved_answer :: proc(path: string, allocator := context.allocator) -> (string, bool) {
-	return read_one_text("select body from responses where path = ?", path, allocator)
-}
-
-// A saved value of the gpuix app's window, as JSON, such as "lyricLeadMs".
-find_saved_state :: proc(key: string, allocator := context.allocator) -> (string, bool) {
-	return read_one_text("select value from state where key = ?", key, allocator)
-}
-
-// The catalog ID of a song in the gpuix app's saved queue, found by its name and artist.
+// The catalog ID of a song in the saved queue, found by its name and artist.
 find_queue_song_id :: proc(name, artist: string, allocator := context.allocator) -> (string, bool) {
 	Queue :: struct {
 		songs: []struct {
@@ -183,7 +122,7 @@ find_queue_song_id :: proc(name, artist: string, allocator := context.allocator)
 		},
 	}
 
-	text, ok := find_saved_state("queue", context.temp_allocator)
+	text, ok := store.find_state("queue", context.temp_allocator)
 	if !ok do return "", false
 
 	queue: Queue

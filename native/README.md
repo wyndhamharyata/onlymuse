@@ -253,6 +253,14 @@ Rebuild the helper first: `cd .. && bun run helper`.
 - When you pause typing, Apple Music is searched too.
 - Up and Down choose, Return runs it, Escape or Cmd K again closes. Japanese input works here too.
 
+### 6g. Smarter shuffle
+
+- Shuffle now follows rules. Right-click the shuffle button, or click Rules at the top of Up Next:
+  songs played in the last 6 hours go last (or 2 h, 24 h, off), songs you often skip go last, one
+  album's songs are kept apart, and, if you like, favourites come earlier.
+- Up Next says what the rules did, such as "2 played in the last 6 h go last."
+- Plays and skips come from the app's own log, so the rules learn as you listen.
+
 ## Development settings
 
 | Variable | Does |

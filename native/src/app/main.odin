@@ -75,6 +75,7 @@ main :: proc() {
 	start_play_log()
 	start_song_menu()
 	start_palette()
+	start_shuffle_rules()
 	if term := os.get_env("OM_PALETTE", context.temp_allocator); term != "" do open_palette_for_test(term)
 
 	// A test or bench run opens behind the other windows and leaves Music.app as it is when it quits.
@@ -228,6 +229,7 @@ draw_frame :: proc() -> bool {
 	build_song_menu()
 	build_drag_ghost()
 	build_palette()
+	build_shuffle_rules()
 	build_toast()
 	if app.is_sign_in_needed do build_sign_in_card()
 	build_frame_time()

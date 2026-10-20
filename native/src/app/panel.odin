@@ -49,6 +49,17 @@ build_up_next :: proc() {
 		return
 	}
 
+	if queue.is_shuffled {
+		note_row := ui.box("shuffle note", {width = ui.fill(), height = ui.fit_children(), axis = .X, align = .Center, gap = 8, padding = {6, 2, 2, 6}})
+
+		if ui.scope(note_row) {
+			icon_box("", "shuffle", 11, app.accent)
+			ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.dim, font_size = 11.5, flags = {.Wrap_Text}}, shuffle_note if shuffle_note != "" else "Shuffled.")
+			rules := ui.box("rules", {width = ui.fit_text(), height = ui.points(22), padding = {8, 0, 8, 0}, corner_radius = 6, background = colors.field, hover_background = colors.hover, text_color = colors.text, font_size = 11.5, font_weight = .Semibold, flags = {.Clickable}}, "Rules")
+			if ui.signal(rules).is_clicked do open_shuffle_rules({rules.rect.x - 240, rules.rect.w + 4})
+		}
+	}
+
 	list := ui.box("up next", {width = ui.fill(), height = ui.fill(), axis = .Y, gap = 2, flags = {.Scroll, .Clip}})
 	row_points: f32 = 52
 	first_row := max(queue.index, queue.index + int(list.scroll / row_points) - EXTRA_ROW_COUNT)

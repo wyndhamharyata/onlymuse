@@ -2,7 +2,6 @@ package app
 
 import "core:encoding/json"
 import "core:fmt"
-import "core:math/rand"
 import "core:strings"
 import "core:sync"
 import "core:thread"
@@ -283,18 +282,10 @@ update_queue :: proc() {
 	}
 }
 
-// Fisher-Yates shuffle: https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle
+// The shuffle rules in shuffle.odin order it.
 @(private = "file")
 to_shuffled :: proc(songs: []Catalog_Song) -> []Catalog_Song {
-	shuffled := make([]Catalog_Song, len(songs))
-	copy(shuffled, songs)
-
-	for last := len(shuffled) - 1; last > 0; last -= 1 {
-		pick := rand.int_max(last + 1)
-		shuffled[last], shuffled[pick] = shuffled[pick], shuffled[last]
-	}
-
-	return shuffled
+	return shuffle_by_rules(songs)
 }
 
 // With shuffle on, the chosen song plays first and the others follow in a random order.

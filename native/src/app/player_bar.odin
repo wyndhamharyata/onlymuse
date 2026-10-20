@@ -119,7 +119,11 @@ build_controls :: proc() {
 		buttons := ui.box("buttons", {width = ui.fit_children(), height = ui.fit_children(), axis = .X, align = .Center, gap = 16})
 
 		if ui.scope(buttons) {
-			if icon_button("shuffle", "shuffle", 14, app.accent if queue.is_shuffled else colors.faint) do toggle_shuffle()
+			// A right-click opens the shuffle's rules.
+			shuffle := icon_box("shuffle", "shuffle", 14, app.accent if queue.is_shuffled else colors.faint, {padding = {4, 4, 4, 4}, corner_radius = 6, hover_background = colors.hover, press_background = colors.selected, flags = {.Clickable}})
+			shuffle_signal := ui.signal(shuffle)
+			if shuffle_signal.is_clicked do toggle_shuffle()
+			if shuffle_signal.is_right_clicked do open_shuffle_rules({shuffle.rect.x - 130, shuffle.rect.y - 190})
 
 			resume_seconds := queue.resume_point.position_seconds if is_resume_shown() else helper.position_seconds(now_playing)
 			if icon_button("previous", "backward.fill", 17, colors.text) do skip_to_previous(resume_seconds)

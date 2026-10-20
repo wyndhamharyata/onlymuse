@@ -203,7 +203,6 @@ is_playing_song :: proc(song: Catalog_Song) -> bool {
 }
 
 // A menu's panel, kept inside the window.
-@(private = "file")
 menu_box :: proc(id: string, position: [2]f32, width: f32, window_size: [2]f32) -> ^ui.Box {
 	existing := ui.find_box(id, ui.current_parent())
 	height: f32 = existing.size.y if existing != nil else 200
@@ -228,7 +227,6 @@ menu_box :: proc(id: string, position: [2]f32, width: f32, window_size: [2]f32) 
 }
 
 // A selected item, such as the open submenu's, takes the accent.
-@(private = "file")
 menu_item_signal :: proc(id, label: string, hint := "", is_selected := false, color := [4]f32{}) -> ui.Signal {
 	item := ui.box(id, {
 		width            = ui.fill(),
@@ -252,12 +250,10 @@ menu_item_signal :: proc(id, label: string, hint := "", is_selected := false, co
 	return ui.signal(item)
 }
 
-@(private = "file")
 menu_item :: proc(id, label: string, hint := "", is_selected := false, color := [4]f32{}) -> bool {
 	return menu_item_signal(id, label, hint, is_selected, color).is_clicked
 }
 
-@(private = "file")
 menu_separator :: proc() {
 	ui.box("", {width = ui.fill(), height = ui.points(1), background = to_color(0xffffff14)})
 }

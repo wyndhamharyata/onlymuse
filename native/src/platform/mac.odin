@@ -104,6 +104,7 @@ state: struct {
 	app:             ^NS.Application,
 	ns_window:       ^NS.Window,
 	view:            ^NS.View,
+	input_view:      ^NS.View,
 	display_link:    ^Display_Link,
 	target:          ^Target,
 	timer:           ^NS.Timer,
@@ -195,16 +196,18 @@ Target_windowShouldClose :: proc "c" (self: ^Target, sender: NS.id) -> NS.BOOL {
 	return true
 }
 
-// The view that draws the app. It takes the keyboard while a text field is focused, so an input method
-// such as Japanese can compose text in it (NSTextInputClient).
-@(objc_class = "OMView", objc_superclass = NS.View, objc_implement)
+// A 1-point view of its own, apart from the one that draws, that takes the keyboard while a text field is
+// focused, so an input method such as Japanese can compose text in it (NSTextInputClient). Made the
+// drawing view itself, it left the Metal layer with a 0 by 0 drawable once the window came in front.
+@(objc_class = "OMInputView", objc_superclass = NS.View, objc_implement)
 Text_View :: struct {
 	using _: NS.View,
 }
 
 @(objc_type = Text_View, objc_implement, objc_name = "acceptsFirstResponder")
+// Only while a field is focused, so AppKit never makes it first responder on its own when the window opens.
 Text_View_acceptsFirstResponder :: proc "c" (self: ^Text_View) -> NS.BOOL {
-	return true
+	return NS.BOOL(state.is_text_input)
 }
 
 @(objc_type = Text_View, objc_implement, objc_name = "keyDown", objc_selector = "keyDown:")
@@ -405,16 +408,21 @@ open_window :: proc(title: string, size_points, min_size_points: [2]f32, on_fram
 	layer->setFramebufferOnly(true)
 	msg_send(nil, layer, "setColorspace:", srgb_color_space())
 
-	// AppKit gives a view an input context only when its class says it is an NSTextInputClient. Without
-	// one, keys go to NSResponder's insertText: and an input method never starts.
-	class_addProtocol(rawptr(intrinsics.objc_find_class("OMView")), objc_getProtocol("NSTextInputClient"))
-	view := msg_send(^NS.View, msg_send(^Text_View, Text_View, "alloc"), "initWithFrame:", content_rect)
+	view := msg_send(^NS.View, msg_send(^NS.View, NS.View, "alloc"), "initWithFrame:", content_rect)
 	view->setLayer(layer)
 	view->setWantsLayer(true)
 	// NSViewWidthSizable | NSViewHeightSizable
 	msg_send(nil, view, "setAutoresizingMask:", NS.UInteger(2 | 16))
 	blur->addSubview(view)
 	state.view = view
+
+	// AppKit gives a view an input context only when its class says it is an NSTextInputClient. Without
+	// one, keys go to NSResponder's insertText: and an input method never starts.
+	input_class := intrinsics.objc_find_class("OMInputView")
+	class_addProtocol(rawptr(input_class), objc_getProtocol("NSTextInputClient"))
+	input_view := msg_send(^NS.View, msg_send(^Text_View, Text_View, "alloc"), "initWithFrame:", NS.Rect{{0, 0}, {1, 1}})
+	blur->addSubview(input_view)
+	state.input_view = input_view
 
 	target := msg_send(^Target, msg_send(^Target, Target, "alloc"), "init")
 	ns_window->setDelegate(cast(^NS.WindowDelegate)target)
@@ -667,17 +675,18 @@ set_text_input :: proc(is_on: bool, caret_rect: [4]f32 = {}) {
 
 	state.is_text_input = is_on
 	if is_on {
-		msg_send(NS.BOOL, state.ns_window, "makeFirstResponder:", state.view)
+		msg_send(NS.BOOL, state.ns_window, "makeFirstResponder:", state.input_view)
 	} else {
 		state.marked_length = 0
-		msg_send(nil, msg_send(^NS.Object, state.view, "inputContext"), "discardMarkedText")
+		msg_send(nil, msg_send(^NS.Object, state.input_view, "inputContext"), "discardMarkedText")
+		msg_send(NS.BOOL, state.ns_window, "makeFirstResponder:", rawptr(nil))
 	}
 }
 
 // For the tests, which cannot type into a window behind the others: sends each character to the view as
 // a key press, as the keyboard would, through its input context. Reports whether it has one.
 type_for_test :: proc(text: string) -> bool {
-	input_context := msg_send(^NS.Object, state.view, "inputContext")
+	input_context := msg_send(^NS.Object, state.input_view, "inputContext")
 	has_context := input_context != nil
 	// AppKit activates the context of the key window's first responder. A test window is never key.
 	if has_context do msg_send(nil, input_context, "activate")
@@ -690,7 +699,7 @@ type_for_test :: proc(text: string) -> bool {
 
 		// NSEventTypeKeyDown is 10.
 		event := msg_send(^NS.Event, NS.Event, "keyEventWithType:location:modifierFlags:timestamp:windowNumber:context:characters:charactersIgnoringModifiers:isARepeat:keyCode:", NS.UInteger(10), NS.Point{}, NS.UInteger(0), NS.TimeInterval(0), window_number, rawptr(nil), ns_character, ns_character, NS.BOOL(false), u16(0))
-		msg_send(nil, state.view, "keyDown:", event)
+		msg_send(nil, state.input_view, "keyDown:", event)
 	}
 
 	return has_context

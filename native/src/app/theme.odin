@@ -1,5 +1,6 @@
 package app
 
+import "core:math"
 import "core:strconv"
 
 to_color :: proc "contextless" (hex: u32) -> [4]f32 {
@@ -50,3 +51,38 @@ PLAYER_HEIGHT_POINTS :: 80
 TOOLBAR_HEIGHT_POINTS :: 52
 PAGE_PADDING_POINTS :: 30
 PANEL_WIDTH_POINTS :: 320
+
+// "2a2a2f", as Apple sends artwork colours.
+parse_hex_color :: proc(hex: string) -> ([4]f32, bool) {
+	if len(hex) != 6 do return {}, false
+
+	value, ok := strconv.parse_u64_of_base(hex, 16)
+	if !ok do return {}, false
+
+	return to_color(u32(value << 8) | 0xff), true
+}
+
+mix_color :: proc(from, to: [4]f32, amount: f32) -> [4]f32 {
+	return from + (to - from) * amount
+}
+
+// Hue in degrees, saturation and lightness from 0 to 1.
+to_color_from_hsl :: proc(hue, saturation, lightness: f32) -> [4]f32 {
+	chroma := (1 - abs(2 * lightness - 1)) * saturation
+	sector := math.mod(hue, 360) / 60
+	second := chroma * (1 - abs(math.mod(sector, 2) - 1))
+	rgb: [3]f32
+
+	switch int(sector) {
+	case 0: rgb = {chroma, second, 0}
+	case 1: rgb = {second, chroma, 0}
+	case 2: rgb = {0, chroma, second}
+	case 3: rgb = {0, second, chroma}
+	case 4: rgb = {second, 0, chroma}
+	case: rgb = {chroma, 0, second}
+	}
+
+	base := lightness - chroma / 2
+
+	return {rgb.r + base, rgb.g + base, rgb.b + base, 1}
+}

@@ -58,7 +58,11 @@ build_song_info :: proc() {
 		artwork_source := song.artwork_path if is_song else ""
 		if is_queue_song && queue_song.artwork.url != "" do artwork_source = apple.to_artwork_url(queue_song.artwork, to_artwork_pixels(PLAYER_ARTWORK_POINTS))
 		if queue.is_adding do artwork_source = apple.to_artwork_url(adding_song.artwork, to_artwork_pixels(PLAYER_ARTWORK_POINTS))
-		artwork_box(artwork_source, PLAYER_ARTWORK_POINTS, 6)
+		placeholder := to_placeholder({}, song.album if is_song else "")
+		if is_queue_song do placeholder = to_placeholder(queue_song.artwork, queue_song.album_name)
+		if queue.is_adding do placeholder = to_placeholder(adding_song.artwork, adding_song.album_name)
+		if !is_song && !queue.is_adding do placeholder = {top = colors.card, bottom = colors.card}
+		artwork_box(artwork_source, PLAYER_ARTWORK_POINTS, 6, placeholder)
 
 		text := ui.box("", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 2})
 
@@ -158,9 +162,6 @@ build_player_end :: proc() {
 
 	if ui.scope(end) {
 		spacer()
-
-		if icon_button("lyrics", "quote.bubble", 16, app.accent if app.panel == .Lyrics else colors.faint) do toggle_panel(.Lyrics)
-		if icon_button("queue", "list.bullet", 16, app.accent if app.panel == .Up_Next else colors.faint) do toggle_panel(.Up_Next)
 
 		icon_box("", "speaker.wave.2.fill", 15, colors.dim)
 

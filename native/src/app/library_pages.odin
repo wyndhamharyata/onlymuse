@@ -105,7 +105,7 @@ build_song_row :: proc(id: string, song: Catalog_Song, subtitle: string, is_curr
 	})
 
 	if ui.scope(row) {
-		artwork_box(apple.to_artwork_url(song.artwork, to_artwork_pixels(SONG_ARTWORK_POINTS)), SONG_ARTWORK_POINTS, 5)
+		artwork_box(apple.to_artwork_url(song.artwork, to_artwork_pixels(SONG_ARTWORK_POINTS)), SONG_ARTWORK_POINTS, 5, to_placeholder(song.artwork, song.album_name))
 
 		text := ui.box("", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 2})
 

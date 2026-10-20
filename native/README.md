@@ -182,6 +182,18 @@ the page updates if Apple has something newer.
 - Zoom goes through the gpuix app's steps, from 67% to 200%.
 - When the helper finds no music.apple.com sign-in, a card asks you to sign in and opens Apple's page.
 
+### 6a. One panel control and artwork placeholders
+
+From here the app goes its own way rather than copying Apple Music.
+
+- The Up Next / Lyrics tabs sit at the bottom of the sidebar, above the player bar. They are the only
+  panel control. The tabs at the top of the panel and the two buttons by the volume are gone. Click
+  the open tab to close the panel.
+- While a cover loads, its tile shows a gradient with a symbol of what it is (album, playlist,
+  artist, song). Apple Music items use the cover's own colours, so the cover fades in over its own
+  palette. Library items have no colours from Apple, so the name picks two hues, and an album keeps
+  the same colours everywhere.
+
 ## Development settings
 
 | Variable | Does |

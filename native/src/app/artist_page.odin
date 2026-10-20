@@ -162,7 +162,7 @@ build_artist_header :: proc(data: ^Page_Data, width: f32) {
 			photo_width := int(math.ceil(ui.to_pixels(width) / PHOTO_WIDTH_STEP_PIXELS)) * PHOTO_WIDTH_STEP_PIXELS
 			photo_height := int(ui.to_pixels(ARTIST_HEADER_POINTS))
 			photo := apple.to_artwork_url(data.artwork, photo_width, photo_height)
-			box := artwork_rect_box(photo, {width, ARTIST_HEADER_POINTS}, 12, fallback)
+			box := artwork_rect_box(photo, {width, ARTIST_HEADER_POINTS}, 12, {top = fallback, bottom = fallback})
 			box.style.flags += {.Floating}
 		}
 

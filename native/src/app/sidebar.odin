@@ -48,6 +48,57 @@ build_sidebar :: proc() {
 			playlists, _, _ := list_playlists()
 			for playlist in playlists do build_sidebar_item(playlist.name, "music.note.list", colors.dim, {kind = .Playlist, id = playlist.id, title = playlist.name})
 		}
+
+		build_panel_tabs()
+	}
+}
+
+// The one control for the side panel. A click on the open tab closes the panel.
+build_panel_tabs :: proc() {
+	tabs := ui.box("panel tabs", {
+		width         = ui.fill(),
+		height        = ui.points(32),
+		axis          = .X,
+		gap           = 2,
+		padding       = {2, 2, 2, 2},
+		corner_radius = 9,
+		background    = colors.field,
+	})
+
+	if ui.scope(tabs) {
+		build_panel_tab("Up Next", "list.bullet", .Up_Next)
+		build_panel_tab("Lyrics", "quote.bubble", .Lyrics)
+	}
+
+	ui.box("", {width = ui.fill(), height = ui.points(10)})
+}
+
+@(private = "file")
+build_panel_tab :: proc(label, symbol: string, panel: Panel) {
+	is_open := app.panel == panel
+	tint := to_accent_tint(app.accent)
+	tab := ui.box(label, {
+		width            = ui.fill(),
+		height           = ui.fill(),
+		axis             = .X,
+		align            = .Center,
+		gap              = 6,
+		padding          = {10, 0, 10, 0},
+		corner_radius    = 7,
+		background       = tint if is_open else {},
+		hover_background = tint if is_open else colors.hover,
+		press_background = colors.selected,
+		flags            = {.Clickable},
+	})
+
+	if ui.signal(tab).is_clicked do toggle_panel(panel)
+
+	if ui.scope(tab) {
+		spacer()
+		color := app.accent if is_open else colors.dim
+		icon_box("", symbol, 13, color)
+		ui.box("", {width = ui.fit_text(), height = ui.fit_text(), text_color = app.accent if is_open else colors.text, font_size = 12.5, font_weight = .Semibold}, label)
+		spacer()
 	}
 }
 

@@ -8,8 +8,10 @@ import "core:strings"
 Artwork :: struct {
 	// Has {w}, {h} and {f} in place of the size and format.
 	url:      string,
-	// Hex, as "2a2a2f", the colour behind the picture.
-	bg_color: string `json:"bgColor"`,
+	// Hex, as "2a2a2f", the colour behind the picture. Catalog artwork has it, library artwork does not.
+	bg_color:    string `json:"bgColor"`,
+	// The colour of text that would sit on the picture, its strongest other colour.
+	text_color1: string `json:"textColor1"`,
 }
 
 Catalog_Song :: struct {

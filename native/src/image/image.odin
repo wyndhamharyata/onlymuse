@@ -23,7 +23,7 @@ MAX_IMAGE_COUNT :: 160
 WORKER_COUNT :: 6
 // A failed image is asked for again this much later.
 RETRY_LATER :: 30 * time.Second
-FADE_IN_SECONDS :: 0.15
+FADE_IN_SECONDS :: 0.25
 
 @(private)
 Phase :: enum {

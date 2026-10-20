@@ -25,13 +25,6 @@ build_panel :: proc() -> bool {
 	inner_width: f32 = PANEL_WIDTH_POINTS - 32
 
 	if ui.scope(panel) {
-		tabs := ui.box("tabs", {width = ui.points(inner_width), height = ui.points(36), axis = .X, gap = 4, padding = {0, 0, 0, 10}})
-
-		if ui.scope(tabs) {
-			if build_tab("Up Next", app.panel == .Up_Next) do set_panel(.Up_Next)
-			if build_tab("Lyrics", app.panel == .Lyrics) do set_panel(.Lyrics)
-		}
-
 		inner := ui.box("inner", {width = ui.points(inner_width), height = ui.fill(), axis = .Y, gap = 4})
 
 		if ui.scope(inner) {
@@ -45,24 +38,6 @@ build_panel :: proc() -> bool {
 	}
 
 	return is_moving
-}
-
-// Returns true when clicked.
-build_tab :: proc(label: string, is_selected: bool) -> bool {
-	tint := to_accent_tint(app.accent)
-	tab := ui.box(label, {
-		width            = ui.fit_text(),
-		height           = ui.fill(),
-		padding          = {12, 0, 12, 0},
-		corner_radius    = 13,
-		background       = tint if is_selected else {},
-		hover_background = tint if is_selected else colors.hover,
-		text_color       = app.accent if is_selected else colors.text,
-		font_weight      = .Semibold,
-		flags            = {.Clickable},
-	}, label)
-
-	return ui.signal(tab).is_clicked
 }
 
 build_up_next :: proc() {
@@ -104,7 +79,7 @@ build_queue_row :: proc(index: int, row_points: f32) {
 	is_removed := false
 
 	if ui.scope(row) {
-		artwork_box(apple.to_artwork_url(song.artwork, to_artwork_pixels(36)), 36, 4)
+		artwork_box(apple.to_artwork_url(song.artwork, to_artwork_pixels(36)), 36, 4, to_placeholder(song.artwork, song.album_name))
 
 		text := ui.box("", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 2})
 

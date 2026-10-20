@@ -91,6 +91,16 @@ build_card_row :: proc(id, title: string, cards: []apple.Card, tile_points: f32,
 	}
 }
 
+card_symbols := [apple.Card_Kind]string {
+	.Other            = "music.note",
+	.Album            = "square.stack",
+	.Library_Album    = "square.stack",
+	.Artist           = "music.mic",
+	.Playlist         = "music.note.list",
+	.Library_Playlist = "music.note.list",
+	.Song             = "music.note",
+}
+
 // Returns true when clicked.
 build_card_tile :: proc(id: string, card: apple.Card, tile_points: f32, is_round := false) -> bool {
 	can_open := card.kind != .Other
@@ -98,7 +108,7 @@ build_card_tile :: proc(id: string, card: apple.Card, tile_points: f32, is_round
 
 	if ui.scope(tile) {
 		radius: f32 = tile_points / 2 if is_round else 8
-		art := artwork_box(apple.to_artwork_url(card.artwork, to_artwork_pixels(tile_points)), tile_points, radius)
+		art := artwork_box(apple.to_artwork_url(card.artwork, to_artwork_pixels(tile_points)), tile_points, radius, to_placeholder(card.artwork, card.name, card_symbols[card.kind]))
 
 		if ui.scope(art) {
 			ui.box("", {width = ui.points(tile_points), height = ui.points(tile_points), corner_radius = radius, background = {1, 1, 1, 0.08 * tile.hot_t}, flags = {.Floating}})
@@ -209,7 +219,7 @@ build_album_header :: proc(data: ^Page_Data) {
 	header := ui.box("header", {width = ui.fill(), height = ui.fit_children(), axis = .X, align = .End, gap = 28, padding = {0, 0, 0, 0}})
 
 	if ui.scope(header) {
-		artwork_box(apple.to_artwork_url(data.artwork, to_artwork_pixels(ALBUM_COVER_POINTS)), ALBUM_COVER_POINTS, 10)
+		artwork_box(apple.to_artwork_url(data.artwork, to_artwork_pixels(ALBUM_COVER_POINTS)), ALBUM_COVER_POINTS, 10, to_placeholder(data.artwork, data.title, "square.stack"))
 
 		info := ui.box("info", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 6})
 

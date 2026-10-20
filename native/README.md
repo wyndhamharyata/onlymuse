@@ -20,6 +20,7 @@ cd ~/side_project/onlymuse/native
 | Key | Does |
 | --- | --- |
 | `⌘+` / `⌘-` / `⌘0` | Zoom in, out, and back to 100% |
+| `⌘]` / `⌘[` | Lyrics 50 ms earlier or later |
 | `⌘Q` | Quit |
 
 ## Try it, milestone by milestone
@@ -176,8 +177,9 @@ the page updates if Apple has something newer.
 - Click the artist and album line in the player bar to open the Apple Music artist.
 - A long song name ends in "…". Rest the pointer on it and it slides to show the rest.
 - A lossless song from the queue shows LOSSLESS next to its name.
-- Quit and open again. The app opens on the page you left, with Back and Forward, the panel and the
-  zoom as they were.
+- Quit and open again. The app opens on the page you left, scrolled where you left it, with Back and
+  Forward, the panel and the zoom as they were. Back and Forward also return each page to its place.
+- Zoom goes through the gpuix app's steps, from 67% to 200%.
 - When the helper finds no music.apple.com sign-in, a card asks you to sign in and opens Apple's page.
 
 ## Development settings

@@ -26,6 +26,9 @@ downloads: struct {
 	// Counts up with each finished scan.
 	version:     int,
 	is_scanning: bool,
+	// The visit that started the last scan.
+	scanned_index: int,
+	scanned_visit: int,
 }
 
 // Music.app keeps each downloaded Apple Music song as a package of its own, two folders down.
@@ -95,7 +98,11 @@ build_downloaded_page :: proc() {
 	scan_version: int
 	{
 		sync.guard(&downloads.mutex)
-		if !downloads.is_scanning && downloads.version == 0 {
+		// Each visit scans again, so a song downloaded since shows.
+		is_new_visit := downloads.scanned_index != navigation.index || downloads.scanned_visit != navigation_visit
+		if !downloads.is_scanning && (downloads.version == 0 || is_new_visit) {
+			downloads.scanned_index = navigation.index
+			downloads.scanned_visit = navigation_visit
 			downloads.is_scanning = true
 			thread.create_and_start(scan_downloads, self_cleanup = true)
 		}

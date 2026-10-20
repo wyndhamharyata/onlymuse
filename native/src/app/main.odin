@@ -17,9 +17,8 @@ import "om:render"
 import "om:store"
 import "om:ui"
 
-MIN_ZOOM :: 0.5
-MAX_ZOOM :: 3.0
-ZOOM_STEP :: 0.1
+// The zoom of the whole window, as in a browser and as in the gpuix app.
+zoom_steps := [?]f32{0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2}
 BENCH_POINTS_PER_FRAME :: 30
 // The first frames open the window and load fonts, so the bench leaves them out.
 BENCH_SKIPPED_FRAME_COUNT :: 10
@@ -118,9 +117,9 @@ apply_keys :: proc() {
 
 		switch key.characters {
 		case "=", "+":
-			set_zoom(app.zoom + ZOOM_STEP)
+			set_zoom(zoom_steps[min(find_zoom_step() + 1, len(zoom_steps) - 1)])
 		case "-":
-			set_zoom(app.zoom - ZOOM_STEP)
+			set_zoom(zoom_steps[max(find_zoom_step() - 1, 0)])
 		case "0":
 			set_zoom(1)
 		case "q":
@@ -154,14 +153,21 @@ start_saved_window_state :: proc() {
 
 	if zoom, ok := store.find_state("zoom", context.temp_allocator); ok {
 		value, is_number := strconv.parse_f32(zoom)
-		if is_number do app.zoom = clamp(value, MIN_ZOOM, MAX_ZOOM)
+		for step in zoom_steps do if is_number && abs(step - value) < 0.001 do app.zoom = step
 	}
 }
 
+// The step nearest the zoom.
+find_zoom_step :: proc() -> int {
+	nearest := 0
+	for step, index in zoom_steps do if abs(step - app.zoom) < abs(zoom_steps[nearest] - app.zoom) do nearest = index
+
+	return nearest
+}
+
 set_zoom :: proc(zoom: f32) {
-	// Steps of 0.1 add up to 1.2000001, so the zoom is kept to two places.
-	app.zoom = math.round(clamp(zoom, MIN_ZOOM, MAX_ZOOM) * 100) / 100
-	store.save_state("zoom", fmt.tprintf("%.2f", app.zoom))
+	app.zoom = zoom
+	store.save_state("zoom", fmt.tprintf("%g", zoom))
 }
 
 draw_frame :: proc() -> bool {
@@ -200,6 +206,12 @@ draw_frame :: proc() -> bool {
 	if app.is_sign_in_needed do build_sign_in_card()
 	build_frame_time()
 	ui.end_frame()
+
+	// A scroll that has come to rest is saved, once.
+	if is_scroll_changed && !ui.is_animating() {
+		is_scroll_changed = false
+		save_navigation()
+	}
 
 	app.frame_count += 1
 	is_capture_frame := app.capture_path != "" && app.frame_count >= 3 && time.tick_diff(app.capture_time, start) >= 0

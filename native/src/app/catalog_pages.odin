@@ -22,7 +22,10 @@ fit_tile_size :: proc(width, target, gap: f32) -> f32 {
 
 // A scrolling page with its title. Children go inside the returned box.
 page_scroll :: proc(id: string) -> ^ui.Box {
-	return ui.box(id, {width = ui.fill(), height = ui.fill(), axis = .Y, gap = 24, padding = {PAGE_PADDING_POINTS, 0, PAGE_PADDING_POINTS, PAGE_PADDING_POINTS}, flags = {.Scroll, .Clip}})
+	box := ui.box(id, {width = ui.fill(), height = ui.fill(), axis = .Y, gap = 24, padding = {PAGE_PADDING_POINTS, 0, PAGE_PADDING_POINTS, PAGE_PADDING_POINTS}, flags = {.Scroll, .Clip}})
+	keep_scroll(box)
+
+	return box
 }
 
 page_heading :: proc(title: string) {

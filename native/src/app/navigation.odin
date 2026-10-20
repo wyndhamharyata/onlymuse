@@ -2,6 +2,7 @@ package app
 
 import "core:encoding/json"
 import "om:store"
+import "om:ui"
 
 Page_Kind :: enum {
 	Home,
@@ -29,24 +30,36 @@ Page :: struct {
 MAX_PAGE_COUNT :: 50
 
 navigation: struct {
-	pages: [dynamic]Page,
-	index: int,
+	pages:   [dynamic]Page,
+	// Where each page in the history was scrolled to, in points, so Back, Forward and the next run return there.
+	scrolls: [dynamic]f32,
+	index:   int,
 }
 
 current_page :: proc() -> Page {
 	return navigation.pages[navigation.index]
 }
 
+// Counts up each time a page is shown anew, by opening, Back or Forward.
+navigation_visit: int
+
 // Opens a page after the current one. Pages after the current one, from Back, are dropped.
 navigate :: proc(page: Page) {
 	if len(navigation.pages) > 0 && current_page() == page do return
 
-	resize(&navigation.pages, navigation.index + 1 if len(navigation.pages) > 0 else 0)
+	kept := navigation.index + 1 if len(navigation.pages) > 0 else 0
+	resize(&navigation.pages, kept)
+	resize(&navigation.scrolls, kept)
 	append(&navigation.pages, page)
+	append(&navigation.scrolls, 0)
 
-	if len(navigation.pages) > MAX_PAGE_COUNT do ordered_remove(&navigation.pages, 0)
+	if len(navigation.pages) > MAX_PAGE_COUNT {
+		ordered_remove(&navigation.pages, 0)
+		ordered_remove(&navigation.scrolls, 0)
+	}
 
 	navigation.index = len(navigation.pages) - 1
+	navigation_visit += 1
 	save_navigation()
 }
 
@@ -60,11 +73,13 @@ can_go_forward :: proc() -> bool {
 
 go_back :: proc() {
 	if can_go_back() do navigation.index -= 1
+	navigation_visit += 1
 	save_navigation()
 }
 
 go_forward :: proc() {
 	if can_go_forward() do navigation.index += 1
+	navigation_visit += 1
 	save_navigation()
 }
 
@@ -86,8 +101,9 @@ Saved_Page :: struct {
 
 @(private = "file")
 Saved_Navigation :: struct {
-	pages: []Saved_Page,
-	index: int,
+	pages:   []Saved_Page,
+	index:   int,
+	scrolls: []f32,
 }
 
 @(private = "file")
@@ -159,7 +175,7 @@ save_navigation :: proc() {
 	pages := make([]Saved_Page, len(navigation.pages), context.temp_allocator)
 	for page, index in navigation.pages do pages[index] = to_saved_page(page)
 
-	bytes, error := json.marshal(Saved_Navigation{pages, navigation.index}, allocator = context.temp_allocator)
+	bytes, error := json.marshal(Saved_Navigation{pages, navigation.index, navigation.scrolls[:]}, allocator = context.temp_allocator)
 	if error == nil do store.save_state("navigation", string(bytes))
 }
 
@@ -168,12 +184,66 @@ start_navigation :: proc() {
 	if text, ok := store.find_state("navigation"); ok {
 		saved: Saved_Navigation
 		if json.unmarshal_string(text, &saved) == nil {
-			for saved_page in saved.pages {
-				if page, is_page := to_page(saved_page); is_page do append(&navigation.pages, page)
+			for saved_page, index in saved.pages {
+				page, is_page := to_page(saved_page)
+				if !is_page do continue
+
+				append(&navigation.pages, page)
+				append(&navigation.scrolls, saved.scrolls[index] if index < len(saved.scrolls) else 0)
 			}
 			navigation.index = clamp(saved.index, 0, len(navigation.pages) - 1)
 		}
 	}
 
-	if len(navigation.pages) == 0 do append(&navigation.pages, Page{kind = .Albums})
+	if len(navigation.pages) == 0 {
+		append(&navigation.pages, Page{kind = .Home})
+		append(&navigation.scrolls, 0)
+	}
+
+	// The first page shown is a visit too, so its saved place comes back.
+	navigation_visit = 1
 }
+
+// A page's scroll box takes back its saved place each time it is shown anew. Its content may still be
+// loading, so the place is applied again until the content is tall enough or 2 s have passed.
+keep_scroll :: proc(page_box: ^ui.Box) {
+	index := navigation.index
+	if index >= len(navigation.scrolls) do return
+
+	saved := navigation.scrolls[index]
+
+	if restore.visit != navigation_visit {
+		restore = {visit = navigation_visit, frames_left = RESTORE_FRAME_COUNT if saved > 0 else 0}
+	}
+
+	if restore.frames_left > 0 {
+		max_scroll := max(0, page_box.content_size.y - page_box.size.y)
+		// A scroll of the person's own ends the restore. A clamp to the content does not.
+		is_scrolled_away := page_box.size.y > 0 && page_box.scroll_target != saved && page_box.scroll_target != max_scroll
+
+		if !is_scrolled_away {
+			restore.frames_left -= 1
+			if page_box.size.y > 0 && max_scroll >= saved do restore.frames_left = 0
+			ui.set_scroll(page_box, saved)
+			return
+		}
+		restore.frames_left = 0
+	}
+
+	if page_box.scroll != saved {
+		navigation.scrolls[index] = page_box.scroll
+		is_scroll_changed = true
+	}
+}
+
+// 2 s at 120 Hz.
+RESTORE_FRAME_COUNT :: 240
+
+@(private = "file")
+restore: struct {
+	visit:       int,
+	frames_left: int,
+}
+
+// The scroll is saved once it rests, not on every frame of a scroll.
+is_scroll_changed: bool

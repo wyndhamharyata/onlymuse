@@ -12,9 +12,9 @@ BASE_URL :: "https://amp-api.music.apple.com"
 // The storefront of the account, from /v1/me/storefront.
 STOREFRONT :: "id"
 
-// 30 seconds in steps of 100 ms.
+// Requests wait for the helper's tokens until this long after the app starts, then go without.
 @(private)
-TOKEN_WAIT_COUNT :: 300
+TOKEN_WAIT :: 30 * time.Second
 
 Answer :: struct {
 	// 0 when there was no answer.
@@ -27,6 +27,11 @@ state: struct {
 	mutex:           sync.Mutex,
 	developer_token: string,
 	user_token:      string,
+	started:         time.Tick,
+}
+
+start :: proc() {
+	state.started = time.tick_now()
 }
 
 // The helper reads the tokens from a hidden music.apple.com page.
@@ -48,8 +53,21 @@ has_tokens :: proc() -> bool {
 fetch :: proc(path: string, allocator := context.allocator) -> Answer {
 	if saved, ok := store.find_answer(path, allocator); ok do return {200, saved.body}
 
+	answer := send_request(path, .Get, allocator)
+	if answer.status == 200 do store.save_answer(path, answer.body)
+
+	return answer
+}
+
+// Such as /v1/me/library?ids[songs]=1440857781, which puts a song in the library. Apple answers 202.
+post :: proc(path: string) -> int {
+	return send_request(path, .Post, context.temp_allocator).status
+}
+
+@(private)
+send_request :: proc(path: string, method: net.Method, allocator := context.allocator) -> Answer {
 	// The helper reads the tokens from a web page a moment after it starts.
-	for wait_count := 0; !has_tokens() && wait_count < TOKEN_WAIT_COUNT; wait_count += 1 do time.sleep(100 * time.Millisecond)
+	for !has_tokens() && time.tick_since(state.started) < TOKEN_WAIT do time.sleep(100 * time.Millisecond)
 
 	headers: [4]string
 	{
@@ -65,9 +83,7 @@ fetch :: proc(path: string, allocator := context.allocator) -> Answer {
 		}
 	}
 
-	response := net.fetch(fmt.tprintf("%s%s", BASE_URL, path), headers[:], context.temp_allocator)
-	body := string(response.body)
-	if response.status == 200 do store.save_answer(path, body)
+	response := net.fetch(fmt.tprintf("%s%s", BASE_URL, path), headers[:], context.temp_allocator, method)
 
-	return {response.status, strings.clone(body, allocator)}
+	return {response.status, strings.clone(string(response.body), allocator)}
 }

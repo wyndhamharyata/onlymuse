@@ -51,7 +51,7 @@ build_page_area :: proc() {
 			case .Albums:
 				build_albums()
 			case .Songs:
-				build_song_list(app.songs)
+				build_song_list(app.songs, app.queue_songs)
 			case:
 				build_page_title(page.title if page.title != "" else page_titles[page.kind])
 				build_page_note("This page comes in a later step.")
@@ -128,7 +128,8 @@ build_album_tile :: proc(album: library.Album, tile_points: f32) {
 	}
 }
 
-build_song_list :: proc(songs: []library.Song) {
+// Clicking a song plays the list from it.
+build_song_list :: proc(songs: []library.Song, queue_songs: []Catalog_Song) {
 	list := ui.box("songs", {width = ui.fill(), height = ui.fill(), axis = .Y, padding = {PAGE_PADDING_POINTS - 10, 0, PAGE_PADDING_POINTS - 10, PAGE_PADDING_POINTS}, flags = {.Scroll, .Clip}})
 
 	run_bench_scroll(list)
@@ -141,13 +142,19 @@ build_song_list :: proc(songs: []library.Song) {
 		ui.box("", {width = ui.fill(), height = ui.points(title_points), padding = {10, 0, 10, 0}, text_color = colors.text, font_size = 26, font_weight = .Bold}, "Songs")
 		ui.box("", {width = ui.fill(), height = ui.points(f32(first_row) * SONG_ROW_POINTS)})
 
-		for row in first_row ..= last_row do build_song_row(songs[row], row)
+		for row in first_row ..= last_row {
+			if build_song_row(songs[row], row) do play_songs(queue_songs, row)
+		}
 
 		ui.box("", {width = ui.fill(), height = ui.points(f32(len(songs) - 1 - last_row) * SONG_ROW_POINTS)})
 	}
 }
 
-build_song_row :: proc(song: library.Song, row: int) {
+// Returns true when clicked.
+build_song_row :: proc(song: library.Song, row: int) -> bool {
+	current, is_playing := find_queue_song(app.now_playing.song.persistent_id)
+	is_current := is_playing && current.name == song.name && current.album_name == song.album_name
+	tint := to_accent_tint(app.accent)
 	row_box := ui.box(fmt.tprintf("song %d", row), {
 		width            = ui.fill(),
 		height           = ui.points(SONG_ROW_POINTS),
@@ -156,7 +163,8 @@ build_song_row :: proc(song: library.Song, row: int) {
 		gap              = 12,
 		padding          = {10, 0, 10, 0},
 		corner_radius    = 6,
-		hover_background = colors.hover,
+		background       = tint if is_current else {},
+		hover_background = tint if is_current else colors.hover,
 		press_background = colors.selected,
 		flags            = {.Clickable},
 	})
@@ -167,11 +175,13 @@ build_song_row :: proc(song: library.Song, row: int) {
 		text := ui.box("", {width = ui.fill(2), height = ui.fit_children(), axis = .Y, gap = 2})
 
 		if ui.scope(text) {
-			text_box(song.name, colors.text, weight = .Medium)
+			text_box(song.name, app.accent if is_current else colors.text, weight = .Medium)
 			text_box(song.artist_name, colors.dim, 12)
 		}
 
 		text_box(song.album_name, colors.dim, 12, width = ui.fill(1))
 		ui.box("", {width = ui.points(44), height = ui.fit_text(), text_align = .End, text_color = colors.faint, font_size = 12}, to_clock_text(song.duration_seconds))
 	}
+
+	return ui.signal(row_box).is_clicked
 }

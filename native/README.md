@@ -120,17 +120,40 @@ The window now has the gpuix app's layout: sidebar, toolbar, page, side panel an
 - The two buttons left of the volume open Lyrics and Up Next in the panel. Click the lit one to close
   it. Up Next comes with the queue in the next step. Shuffle and repeat too.
 
+### 5b. The queue, and the app's own saved state
+
+The app now keeps its own SQLite file in `~/Library/Application Support/onlymuse-native`. The first run
+copies the gpuix app's file, so your queue, shuffle, repeat and lyrics lead carry over. The gpuix
+app's file is only read.
+
+- Open Songs and click a song. It plays in Music.app, and the songs after it make the queue.
+- Click the list button left of the volume to see Up Next. The playing song is lit. Click another to
+  play it. Hover one to show its × and remove it.
+- Let a song end. The next one starts right away, with no Autoplay song between, as in the gpuix app.
+- Shuffle and repeat work in the player bar. Repeat goes off, all, one.
+- Previous goes back a song, or starts this one again once 3 seconds have played.
+- A catalog song not yet in your library shows "Adding to library…" while Apple adds it, then plays.
+- Quit Music.app. The player keeps the last song and where it was. Press play to resume it.
+
+To try the queue without Music.app, with a stand-in that plays at 60 times the speed:
+
+```
+OM_HELPER=$PWD/tools/fake-music.py OM_FAKE_SPEED=60 OM_BACKGROUND=1 ./build/onlymuse
+```
+
 ## Development settings
 
 | Variable | Does |
 | --- | --- |
 | `OM_BENCH=1` | Scrolls by itself for 1,200 frames, prints frame times and quits. |
 | `OM_FRAMES=1` | Shows how long each frame took to build, at the top right. |
-| `OM_FAKE_LOG=<file>` | The fake helper writes the commands it gets to this file. |
+| `OM_FAKE_LOG=<file>` | The fake helpers write the commands they get to this file. |
+| `OM_FAKE_SPEED=<n>` | `tools/fake-music.py` plays songs n times faster, so they end in seconds. |
+| `OM_FAKE_MISSING=<name>` | `tools/fake-music.py` finds this song only on the 4th ask, as if Apple were adding it. |
 | `OM_HELPER=<file>` | Runs this instead of the Swift helper. `tools/fake-helper.sh` says a song plays. |
 | `OM_FAKE_POSITION=<seconds>` | Where the fake helper's song starts. |
 | `OM_BACKGROUND=1` | The helper leaves Music.app as it is when the app quits. The bench and captures set it. |
-| `OM_DATA=<folder>` | Reads `onlymuse.sqlite` from this folder instead. |
+| `OM_DATA=<folder>` | Keeps `onlymuse.sqlite` in this folder instead. |
 | `OM_BENCH_FRAMES=<count>` | Frames the bench runs. 1,200 by default. |
 | `OM_CAPTURE=<file>` | Saves a frame to the file as raw BGRA pixels and quits. It prints the size. Convert it with `magick -size <width>x<height> -depth 8 bgra:<file> out.png`. |
 | `OM_CAPTURE_SECONDS=<seconds>` | Waits this long before the capture, so a test can click first. |

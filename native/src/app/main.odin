@@ -35,6 +35,8 @@ app: struct {
 	zoom:              f32,
 	albums:            []library.Album,
 	songs:             []library.Song,
+	// The library songs as the queue takes them.
+	queue_songs:       []Catalog_Song,
 	playlists:         []library.Playlist,
 	accent:            [4]f32,
 	now_playing:       helper.Now_Playing,
@@ -66,9 +68,12 @@ main :: proc() {
 	app.capture_time = time.tick_add(time.tick_now(), time.Duration(capture_seconds * f64(time.Second)))
 
 	store.start()
+	apple.start()
 	app.albums = library.list_albums()
 	app.songs = library.list_songs()
 	app.playlists = library.list_playlists()
+	app.queue_songs = to_catalog_songs(app.songs)
+	start_queue()
 	navigate({kind = .Albums})
 	start_lyrics()
 
@@ -96,6 +101,10 @@ apply_helper_messages :: proc() {
 			apple.set_tokens(message.developer_token, message.user_token)
 		case "error":
 			fmt.eprintfln("helper: %s", message.text)
+		case "playSongResult", "setNextResult":
+			apply_queue_answer(message.request_id, message.persistent_id)
+		case "nowPlaying":
+			apply_queue_now_playing()
 		}
 	}
 }
@@ -120,6 +129,19 @@ apply_keys :: proc() {
 	}
 }
 
+// A library song plays by its catalog ID, which Music.app's library songs also carry.
+to_catalog_songs :: proc(songs: []library.Song) -> []Catalog_Song {
+	catalog_songs := make([]Catalog_Song, len(songs))
+
+	for song, index in songs {
+		id := song.catalog_id if song.catalog_id != "" else song.id
+		catalog_songs[index] = {id = id, name = song.name, artist_name = song.artist_name, album_name = song.album_name, duration_seconds = song.duration_seconds}
+		catalog_songs[index].artwork.url = song.artwork_url
+	}
+
+	return catalog_songs
+}
+
 toggle_panel :: proc(panel: Panel) {
 	app.panel = .None if app.panel == panel else panel
 }
@@ -131,6 +153,7 @@ draw_frame :: proc() -> bool {
 	app.last_frame = start
 	append(&app.frame_starts, start)
 	apply_helper_messages()
+	update_queue()
 	apply_keys()
 
 	window := app.window

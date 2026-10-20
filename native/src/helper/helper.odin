@@ -33,6 +33,7 @@ Message :: struct {
 	developer_token:     string `json:"developerToken"`,
 	user_token:          string `json:"userToken"`,
 	text:                string,
+	request_id:          int `json:"requestId"`,
 }
 
 Playback :: enum {
@@ -142,6 +143,52 @@ take_messages :: proc() -> []Message {
 	}
 
 	return messages[:]
+}
+
+// What the helper needs to find a catalog song in Music.app's library.
+Song_Match :: struct {
+	name:             string,
+	artist_name:      string `json:"artistName"`,
+	album_name:       string `json:"albumName"`,
+	duration_seconds: f64 `json:"durationSeconds"`,
+}
+
+@(private)
+last_request_id: int
+
+// Asks the helper to play the song. Its answer, playSongResult, carries the returned ID and the song's
+// persistent ID, empty when the song is not in Music.app's library.
+request_play :: proc(song: Song_Match) -> int {
+	last_request_id += 1
+	Command :: struct {
+		type:       string,
+		request_id: int `json:"requestId"`,
+		song:       Song_Match,
+	}
+	send_value(Command{"playSong", last_request_id, song})
+
+	return last_request_id
+}
+
+// The helper starts song just before after_persistent_id ends, so Music.app's Autoplay never plays.
+// An empty after_persistent_id clears it. Its answer is setNextResult.
+request_set_next :: proc(after_persistent_id: string, song: Maybe(Song_Match)) -> int {
+	last_request_id += 1
+	after := after_persistent_id if after_persistent_id != "" else "null"
+	song_json := "null"
+	if match, ok := song.?; ok {
+		bytes, _ := json.marshal(match, allocator = context.temp_allocator)
+		song_json = string(bytes)
+	}
+	after_json := fmt.tprintf("\"%s\"", after_persistent_id) if after_persistent_id != "" else after
+	send(fmt.tprintf(`{{"type":"setNext","requestId":%d,"afterPersistentID":%s,"song":%s}}`, last_request_id, after_json, song_json))
+
+	return last_request_id
+}
+
+send_value :: proc(value: $T) {
+	bytes, error := json.marshal(value, allocator = context.temp_allocator)
+	if error == nil do send(string(bytes))
 }
 
 // Each command the helper reads, as Command in helper/Sources/onlymuse-helper/Link.swift names it.

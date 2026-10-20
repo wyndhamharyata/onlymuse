@@ -37,10 +37,16 @@ append_body :: proc "c" (data: [^]u8, size, count: c.size_t, user: rawptr) -> c.
 	return size * count
 }
 
+Method :: enum {
+	Get,
+	// With an empty body, as Apple's library additions take.
+	Post,
+}
+
 // Blocks the thread until the answer comes. The body and content type use allocator.
-fetch :: proc(url: string, headers: []string = nil, allocator := context.allocator) -> Response {
+fetch :: proc(url: string, headers: []string = nil, allocator := context.allocator, method := Method.Get) -> Response {
 	for attempt := 0; ; attempt += 1 {
-		response := fetch_once(url, headers, allocator)
+		response := fetch_once(url, headers, method, allocator)
 		is_passing := response.status == 0 || response.status == 429 || response.status >= 500
 
 		if !is_passing || attempt >= len(retry_delays) do return response
@@ -51,7 +57,7 @@ fetch :: proc(url: string, headers: []string = nil, allocator := context.allocat
 }
 
 @(private)
-fetch_once :: proc(url: string, headers: []string, allocator := context.allocator) -> Response {
+fetch_once :: proc(url: string, headers: []string, method: Method, allocator := context.allocator) -> Response {
 	if thread_handle == nil do thread_handle = mac.curl_easy_init()
 
 	handle := thread_handle
@@ -73,6 +79,10 @@ fetch_once :: proc(url: string, headers: []string, allocator := context.allocato
 	mac.curl_easy_setopt(handle, mac.CURLOPT_WRITEFUNCTION, mac.Curl_Write_Proc(append_body))
 	mac.curl_easy_setopt(handle, mac.CURLOPT_WRITEDATA, rawptr(&body))
 	if header_list != nil do mac.curl_easy_setopt(handle, mac.CURLOPT_HTTPHEADER, rawptr(header_list))
+	if method == .Post {
+		mac.curl_easy_setopt(handle, mac.CURLOPT_POST, c.long(1))
+		mac.curl_easy_setopt(handle, mac.CURLOPT_POSTFIELDSIZE, c.long(0))
+	}
 
 	if mac.curl_easy_perform(handle) != 0 {
 		delete(body)

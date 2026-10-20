@@ -683,6 +683,42 @@ set_text_input :: proc(is_on: bool, caret_rect: [4]f32 = {}) {
 	}
 }
 
+// The most the window can be on its screen, in points: the screen less the menu bar and the Dock.
+screen_size_points :: proc() -> [2]f32 {
+	visible := find_visible_frame()
+
+	return {f32(visible.size.width), f32(visible.size.height)}
+}
+
+// Sets the smallest the window can be. A window smaller than that grows, keeping its top left where it
+// is, and moves only as far as it must to stay on its screen.
+set_min_size :: proc(min_size_points: [2]f32) {
+	min_size := NS.Size{NS.Float(min_size_points.x), NS.Float(min_size_points.y)}
+	msg_send(nil, state.ns_window, "setContentMinSize:", min_size)
+
+	// The content fills the window, title bar included.
+	frame := state.ns_window->frame()
+	if frame.size.width >= min_size.width && frame.size.height >= min_size.height do return
+
+	visible := find_visible_frame()
+	size := NS.Size{max(frame.size.width, min_size.width), max(frame.size.height, min_size.height)}
+	// AppKit's y goes up, so the top is the origin plus the height.
+	top := frame.origin.y + frame.size.height
+	origin := NS.Point{frame.origin.x, top - size.height}
+	origin.x = max(visible.origin.x, min(origin.x, visible.origin.x + visible.size.width - size.width))
+	origin.y = max(visible.origin.y, min(origin.y, visible.origin.y + visible.size.height - size.height))
+
+	msg_send(nil, state.ns_window, "setFrame:display:animate:", NS.Rect{origin, size}, NS.BOOL(true), NS.BOOL(!state.is_background))
+}
+
+@(private)
+find_visible_frame :: proc() -> NS.Rect {
+	screen := msg_send(^NS.Screen, state.ns_window, "screen")
+	if screen == nil do screen = NS.Screen.mainScreen()
+
+	return screen->visibleFrame()
+}
+
 // For the tests, which cannot type into a window behind the others: sends each character to the view as
 // a key press, as the keyboard would, through its input context. Reports whether it has one.
 type_for_test :: proc(text: string) -> bool {

@@ -52,7 +52,8 @@ PLAYER_HEIGHT_POINTS :: 70
 TOOLBAR_HEIGHT_POINTS :: 44
 PAGE_PADDING_POINTS :: 20
 PANEL_WIDTH_POINTS :: 320
-// The sidebar, the panel and a page two tiles wide, with the player bar's three parts unsqueezed.
+// The sidebar, the panel and a page two tiles wide, with the player bar's three parts unsqueezed, at
+// zoom 1. The smallest window is these times the zoom.
 MIN_WINDOW_WIDTH_POINTS :: 1000
 MIN_WINDOW_HEIGHT_POINTS :: 600
 

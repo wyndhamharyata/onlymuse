@@ -96,6 +96,9 @@ main :: proc() {
 		}
 	}
 	app.window = platform.open_window("onlymuse", window_size, {MIN_WINDOW_WIDTH_POINTS, MIN_WINDOW_HEIGHT_POINTS}, draw_frame, is_background && !app.is_bench)
+	// A zoom saved on a larger screen steps down until its smallest window fits on this one.
+	for app.zoom > zoom_steps[0] && !does_zoom_fit(app.zoom) do app.zoom = zoom_steps[max(find_zoom_step() - 1, 0)]
+	apply_min_window_size()
 	render.start(app.window.device, app.window.layer)
 	font.start()
 	icon.start()
@@ -197,9 +200,30 @@ find_zoom_step :: proc() -> int {
 	return nearest
 }
 
+// Zooming in stops at the step whose smallest window no longer fits on the screen.
 set_zoom :: proc(zoom: f32) {
+	if zoom > app.zoom && !does_zoom_fit(zoom) do return
+
 	app.zoom = zoom
 	store.save_state("zoom", fmt.tprintf("%g", zoom))
+	apply_min_window_size()
+}
+
+// The sidebar, a page and the side panel fit side by side in the smallest window at any zoom, because the
+// smallest window grows with the zoom.
+apply_min_window_size :: proc() {
+	platform.set_min_size(to_min_window_size(app.zoom))
+}
+
+does_zoom_fit :: proc(zoom: f32) -> bool {
+	min_size := to_min_window_size(zoom)
+	screen := platform.screen_size_points()
+
+	return min_size.x <= screen.x && min_size.y <= screen.y
+}
+
+to_min_window_size :: proc(zoom: f32) -> [2]f32 {
+	return {MIN_WINDOW_WIDTH_POINTS, MIN_WINDOW_HEIGHT_POINTS} * zoom
 }
 
 draw_frame :: proc() -> bool {

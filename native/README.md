@@ -180,6 +180,9 @@ the page updates if Apple has something newer.
 - Quit and open again. The app opens on the page you left, scrolled where you left it, with Back and
   Forward, the panel and the zoom as they were. Back and Forward also return each page to its place.
 - Zoom goes through the gpuix app's steps, from 67% to 200%.
+- The smallest window grows with the zoom, 1000 by 600 points at 100%, so the sidebar, a page and the
+  panel always fit. Zooming in grows a smaller window and stops at the step that no longer fits on the
+  screen. A zoom saved on a larger screen shows a step smaller until it fits.
 - When the helper finds no music.apple.com sign-in, a card asks you to sign in and opens Apple's page.
 
 ### 6a. One panel control and artwork placeholders

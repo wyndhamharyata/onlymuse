@@ -268,7 +268,8 @@ open_window :: proc(title: string, size_points: [2]f32, on_frame: Frame_Proc) ->
 	return &state.window
 }
 
-foreign import objc_runtime "system:objc"
+// Odin links libobjc for every Objective-C program, so the symbol comes through Foundation.
+foreign import objc_runtime "system:Foundation.framework"
 
 @(private)
 Objc_Super :: struct {

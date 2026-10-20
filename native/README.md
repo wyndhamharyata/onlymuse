@@ -39,7 +39,7 @@ The window shows 2,000 song rows, in English and Japanese.
 - Scroll with the trackpad, fast and slow. A flick keeps gliding and slows down as macOS decides.
 - Hover the rows. Each one lights up under the pointer.
 - Press `⌘+` a few times. Text stays sharp at every size, Japanese included.
-- The top right corner shows how long the last frame took to build. It stays well under 1 ms.
+- With `OM_FRAMES=1`, the top right corner shows how long the last frame took to build. It stays well under 1 ms.
 
 To measure the scrolling yourself:
 
@@ -105,11 +105,28 @@ To try it without Music.app, with a stand-in that says "soldier game" by ADO pla
 OM_HELPER=$PWD/tools/fake-helper.sh OM_BACKGROUND=1 ./build/onlymuse
 ```
 
+### 5a. The whole window, and the player bar
+
+The window now has the gpuix app's layout: sidebar, toolbar, page, side panel and player bar.
+
+- The sidebar shows Apple Music, Library and your playlists, with SF Symbols. Click an item to open
+  it. Albums and Songs work. The other pages say they come later.
+- Back and Forward at the top left step through the pages you opened.
+- Songs shows your library's songs, with artwork, album and length.
+- The player bar shows the playing song with Music.app's artwork. Play, Pause, Previous and Next
+  control Music.app. Click or drag along the bar to seek. The clock ticks once a second, and nothing
+  else draws in between.
+- Drag the volume bar to set Music.app's volume.
+- The two buttons left of the volume open Lyrics and Up Next in the panel. Click the lit one to close
+  it. Up Next comes with the queue in the next step. Shuffle and repeat too.
+
 ## Development settings
 
 | Variable | Does |
 | --- | --- |
 | `OM_BENCH=1` | Scrolls by itself for 1,200 frames, prints frame times and quits. |
+| `OM_FRAMES=1` | Shows how long each frame took to build, at the top right. |
+| `OM_FAKE_LOG=<file>` | The fake helper writes the commands it gets to this file. |
 | `OM_HELPER=<file>` | Runs this instead of the Swift helper. `tools/fake-helper.sh` says a song plays. |
 | `OM_FAKE_POSITION=<seconds>` | Where the fake helper's song starts. |
 | `OM_BACKGROUND=1` | The helper leaves Music.app as it is when the app quits. The bench and captures set it. |

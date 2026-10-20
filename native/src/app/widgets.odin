@@ -1,0 +1,131 @@
+package app
+
+import "core:fmt"
+import "om:font"
+import "om:icon"
+import "om:image"
+import "om:render"
+import "om:ui"
+
+Icon_Paint :: struct {
+	name:        string,
+	size_points: f32,
+	color:       [4]f32,
+}
+
+draw_icon :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
+	paint := cast(^Icon_Paint)box.data
+	color := paint.color
+	color.a *= opacity
+	icon.draw(paint.name, ui.to_pixels(paint.size_points), rect, clip, color)
+}
+
+// An SF Symbol in a box of its own size plus padding.
+icon_box :: proc(id: string, name: string, size_points: f32, color: [4]f32, style: ui.Style = {}) -> ^ui.Box {
+	style := style
+	box_size := size_points + style.padding.x + style.padding.z
+	if style.width.kind == .Points && style.width.value == 0 do style.width = ui.points(box_size)
+	if style.height.kind == .Points && style.height.value == 0 do style.height = ui.points(box_size)
+
+	box := ui.box(id, style)
+	paint := new(Icon_Paint, context.temp_allocator)
+	paint^ = {name, size_points, color}
+	box.draw = draw_icon
+	box.data = paint
+
+	return box
+}
+
+// Returns true when clicked. A disabled button draws faint and takes no click.
+icon_button :: proc(id: string, name: string, size_points: f32, color: [4]f32, is_enabled := true) -> bool {
+	style := ui.Style{padding = {4, 4, 4, 4}, corner_radius = 6}
+	if is_enabled {
+		style.hover_background = colors.hover
+		style.press_background = colors.selected
+		style.flags = {.Clickable}
+	}
+
+	box := icon_box(id, name, size_points, color if is_enabled else colors.faint, style)
+
+	return ui.signal(box).is_clicked
+}
+
+Artwork_Paint :: struct {
+	// A URL of Apple's or a file path.
+	source:      string,
+	size_pixels: int,
+}
+
+draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
+	paint := cast(^Artwork_Paint)box.data
+	texture, image_opacity := image.find(paint.source, paint.size_pixels)
+
+	if texture == nil do return
+
+	render.push({rect = rect, uv = {0, 0, 1, 1}, color = {1, 1, 1, opacity * image_opacity}, corner_radius = ui.to_pixels(box.style.corner_radius), clip = clip, kind = .Image}, texture)
+}
+
+// A square of artwork with a grey card behind it until it loads. An empty source shows the card only.
+artwork_box :: proc(source: string, size_points: f32, radius_points: f32) -> ^ui.Box {
+	box := ui.box("", {width = ui.points(size_points), height = ui.points(size_points), corner_radius = radius_points, background = colors.card})
+
+	if source == "" do return box
+
+	paint := new(Artwork_Paint, context.temp_allocator)
+	paint^ = {source, int(ui.to_pixels(size_points))}
+	box.draw = draw_artwork
+	box.data = paint
+
+	return box
+}
+
+text_box :: proc(text: string, color: [4]f32, font_size: f32 = 13, weight := font.Weight.Regular, flags: ui.Flags = {.Truncate_Text}, width := ui.Size{.Fill, 1}) -> ^ui.Box {
+	return ui.box("", {width = width, height = ui.fit_text(), text_color = color, font_size = font_size, font_weight = weight, flags = flags}, text)
+}
+
+Bar_Paint :: struct {
+	ratio: f32,
+}
+
+draw_bar :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
+	paint := cast(^Bar_Paint)box.data
+	track_height := ui.to_pixels(4)
+	top := (rect.y + rect.w - track_height) / 2
+	track := [4]f32{rect.x, top, rect.z, top + track_height}
+	filled := track
+	filled.z = track.x + (track.z - track.x) * clamp(paint.ratio, 0, 1)
+	radius := track_height / 2
+	render.push({rect = track, color = {colors.track.r, colors.track.g, colors.track.b, colors.track.a * opacity}, corner_radius = radius, clip = clip})
+	render.push({rect = filled, color = {colors.text.r, colors.text.g, colors.text.b, colors.text.a * opacity}, corner_radius = radius, clip = clip})
+}
+
+// A thin track to click or drag along. Returns the ratio shown, which follows the mouse while held, and
+// is_set once the mouse is let go.
+bar :: proc(id: string, ratio: f32, width: ui.Size) -> (shown_ratio: f32, is_set: bool) {
+	box := ui.box(id, {width = width, height = ui.points(16), flags = {.Clickable}})
+	signal := ui.signal(box)
+	shown_ratio = ratio
+	box_width := box.rect.z - box.rect.x
+
+	if (signal.is_held || signal.is_clicked) && box_width > 0 {
+		shown_ratio = clamp((ui.mouse_position().x - box.rect.x) / box_width, 0, 1)
+	}
+
+	paint := new(Bar_Paint, context.temp_allocator)
+	paint.ratio = shown_ratio
+	box.draw = draw_bar
+	box.data = paint
+
+	return shown_ratio, signal.is_clicked
+}
+
+to_clock_text :: proc(total_seconds: f64) -> string {
+	whole_seconds := int(max(0, total_seconds))
+
+	return fmt.tprintf("%d:%02d", whole_seconds / 60, whole_seconds % 60)
+}
+
+// Takes the space left in a row, pushing what follows to the end.
+spacer :: proc() {
+	ui.box("", {width = ui.fill(), height = ui.points(1)})
+}

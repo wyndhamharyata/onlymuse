@@ -90,7 +90,7 @@ is_animating :: proc() -> bool {
 	return state.is_fading
 }
 
-// The texture for url at size_pixels, or nil until it is loaded. opacity fades a new image in.
+// The texture for url, or a file path, at size_pixels, or nil until it is loaded. opacity fades a new image in.
 find :: proc(url: string, size_pixels: int) -> (texture: ^MTL.Texture, opacity: f32) {
 	key := hash.fnv64a(transmute([]u8)url) ~ u64(size_pixels)
 	entry, ok := state.entries[key]
@@ -212,9 +212,12 @@ load :: proc(task: thread.Task) {
 	}
 	defer free_all(context.temp_allocator)
 
-	path := fmt.tprintf("%s/%x.jpg", state.folder, hash.fnv64a(transmute([]u8)job.url))
-
-	if !os.exists(path) && !download(job.url, path) do return
+	// A file path, such as the artwork the helper saves from Music.app, needs no download.
+	path := job.url
+	if !strings.has_prefix(path, "/") {
+		path = fmt.tprintf("%s/%x.jpg", state.folder, hash.fnv64a(transmute([]u8)job.url))
+		if !os.exists(path) && !download(job.url, path) do return
+	}
 
 	job.texture = decode(path, job.size_pixels)
 }

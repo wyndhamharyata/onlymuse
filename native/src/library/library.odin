@@ -15,20 +15,6 @@ Album :: struct {
 	artwork_url: string,
 }
 
-@(private)
-Albums_Answer :: struct {
-	data: []struct {
-		id:         string,
-		attributes: struct {
-			name:        string,
-			artist_name: string `json:"artistName"`,
-			artwork:     struct {
-				url: string,
-			},
-		},
-	},
-}
-
 // OM_DATA names the folder of the SQLite file, for the tests. It is only read.
 data_path :: proc() -> string {
 	folder := os.get_env("OM_DATA", context.temp_allocator)
@@ -38,8 +24,48 @@ data_path :: proc() -> string {
 	return fmt.tprintf("%s/onlymuse.sqlite", folder)
 }
 
-// Every saved page of /v1/me/library/albums, in order.
-list_albums :: proc() -> []Album {
+Song :: struct {
+	id:               string,
+	// The catalog ID, which Music.app's library songs also carry. Empty for a song only on the Mac.
+	catalog_id:       string,
+	name:             string,
+	artist_name:      string,
+	album_name:       string,
+	duration_seconds: f64,
+	artwork_url:      string,
+}
+
+Playlist :: struct {
+	id:          string,
+	name:        string,
+	artwork_url: string,
+}
+
+@(private)
+Item :: struct {
+	id:         string,
+	attributes: struct {
+		name:          string,
+		artist_name:   string `json:"artistName"`,
+		album_name:    string `json:"albumName"`,
+		duration_ms:   f64 `json:"durationInMillis"`,
+		artwork:       struct {
+			url: string,
+		},
+		play_params:   struct {
+			catalog_id: string `json:"catalogId"`,
+		} `json:"playParams"`,
+	},
+}
+
+@(private)
+Page_Answer :: struct {
+	data: []Item,
+}
+
+// Every saved page of a library list, such as "/v1/me/library/albums?", in the order of its offsets.
+@(private)
+list_saved_items :: proc(path_prefix: string, allocator := context.allocator) -> []Item {
 	db: mac.Sqlite
 	path := strings.clone_to_cstring(data_path(), context.temp_allocator)
 
@@ -49,31 +75,59 @@ list_albums :: proc() -> []Album {
 	}
 	defer mac.sqlite3_close(db)
 
-	sql: cstring = "select body from responses where path like '/v1/me/library/albums?%' order by cast(substr(path, instr(path, 'offset=') + 7) as integer)"
+	sql: cstring = "select body from responses where substr(path, 1, length(?1)) = ?1 order by cast(substr(path, instr(path, 'offset=') + 7) as integer)"
 	statement: mac.Sqlite_Statement
 	if mac.sqlite3_prepare_v2(db, sql, -1, &statement, nil) != mac.SQLITE_OK do return nil
 	defer mac.sqlite3_finalize(statement)
 
-	albums: [dynamic]Album
+	// SQLITE_TRANSIENT: SQLite copies the text.
+	mac.sqlite3_bind_text(statement, 1, raw_data(path_prefix), i32(len(path_prefix)), rawptr(~uintptr(0)))
+	items: [dynamic]Item
 
 	for mac.sqlite3_step(statement) == mac.SQLITE_ROW {
 		body := mac.sqlite3_column_text(statement, 0)[:mac.sqlite3_column_bytes(statement, 0)]
-		answer: Albums_Answer
+		answer: Page_Answer
 
-		if json.unmarshal(body, &answer, allocator = context.temp_allocator) != nil do continue
+		if json.unmarshal(body, &answer, allocator = allocator) != nil do continue
 
-		for item in answer.data {
-			album := Album {
-				id          = strings.clone(item.id),
-				name        = strings.clone(item.attributes.name),
-				artist_name = strings.clone(item.attributes.artist_name),
-				artwork_url = strings.clone(item.attributes.artwork.url),
-			}
-			append(&albums, album)
-		}
+		append(&items, ..answer.data)
 	}
 
-	return albums[:]
+	return items[:]
+}
+
+list_albums :: proc() -> []Album {
+	items := list_saved_items("/v1/me/library/albums?")
+	albums := make([]Album, len(items))
+
+	for item, index in items {
+		albums[index] = {item.id, item.attributes.name, item.attributes.artist_name, item.attributes.artwork.url}
+	}
+
+	return albums
+}
+
+list_songs :: proc() -> []Song {
+	items := list_saved_items("/v1/me/library/songs?")
+	songs := make([]Song, len(items))
+
+	for item, index in items {
+		attributes := item.attributes
+		songs[index] = {item.id, attributes.play_params.catalog_id, attributes.name, attributes.artist_name, attributes.album_name, attributes.duration_ms / 1000, attributes.artwork.url}
+	}
+
+	return songs
+}
+
+list_playlists :: proc() -> []Playlist {
+	items := list_saved_items("/v1/me/library/playlists?")
+	playlists := make([]Playlist, len(items))
+
+	for item, index in items {
+		playlists[index] = {item.id, item.attributes.name, item.attributes.artwork.url}
+	}
+
+	return playlists
 }
 
 // Apple's artwork URL at a size in pixels.

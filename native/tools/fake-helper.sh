@@ -4,5 +4,5 @@
 now_ms=$(python3 -c 'import time; print(int(time.time() * 1000))')
 echo '{"type":"accent","color":"#F7821B"}'
 echo "{\"type\":\"nowPlaying\",\"state\":\"playing\",\"volumePercent\":50,\"positionSeconds\":${OM_FAKE_POSITION:-30},\"positionReadAtMs\":$now_ms,\"song\":{\"name\":\"soldier game\",\"artist\":\"ADO\",\"album\":\"soldier game - Single\",\"persistentID\":\"F00D\",\"durationSeconds\":221}}"
-# The app closes the pipe when it quits.
-cat > /dev/null
+# The app closes the pipe when it quits. OM_FAKE_LOG keeps the commands it sent.
+cat > "${OM_FAKE_LOG:-/dev/null}"

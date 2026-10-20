@@ -16,6 +16,8 @@ Song :: struct {
 	album:            string,
 	persistent_id:    string `json:"persistentID"`,
 	duration_seconds: f64 `json:"durationSeconds"`,
+	// Music.app's artwork, saved by the helper.
+	artwork_path:     string `json:"artworkPath"`,
 }
 
 // Each message the helper sends, as send() in helper/Sources/onlymuse-helper names it. Fields a type lacks stay empty.
@@ -42,6 +44,7 @@ Playback :: enum {
 
 Now_Playing :: struct {
 	playback:            Playback,
+	volume_percent:      f64,
 	song:                Song,
 	position_seconds:    f64,
 	// Unix time in ms when the helper read the position.
@@ -152,7 +155,10 @@ send :: proc(command: string) {
 // Takes in one message from the helper.
 apply :: proc(now_playing: ^Now_Playing, message: Message) {
 	switch message.type {
+	case "volume":
+		now_playing.volume_percent = message.volume_percent
 	case "nowPlaying":
+		now_playing.volume_percent = message.volume_percent
 		switch message.state {
 		case "playing":
 			now_playing.playback = .Playing
@@ -182,6 +188,7 @@ delete_song :: proc(song: Song) {
 	delete(song.artist)
 	delete(song.album)
 	delete(song.persistent_id)
+	delete(song.artwork_path)
 }
 
 @(private)
@@ -191,6 +198,7 @@ clone_song :: proc(song: Song) -> Song {
 		artist           = strings.clone(song.artist),
 		album            = strings.clone(song.album),
 		persistent_id    = strings.clone(song.persistent_id),
+		artwork_path     = strings.clone(song.artwork_path),
 		duration_seconds = song.duration_seconds,
 	}
 }

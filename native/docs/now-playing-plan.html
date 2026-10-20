@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>onlymuse — Now Playing redesign plan</title>
+<style>
+  :root {
+    --window: #1b1b1e; --panel: #222226; --card: #2a2a2f; --line: #2e2e33;
+    --text: #f2f2f4; --dim: #acacb4; --faint: #8a8a93; --accent: #f7821b;
+    /* The cover's own colours, from Apple's artwork bgColor and textColor1. */
+    --cover-bg: #fbc8d1; --cover-ink: #291721;
+    --cover: url("now-playing-cover.jpg");
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #121214; color: var(--text); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 48px 32px 96px; }
+  h1 { font-size: 34px; margin: 0 0 6px; letter-spacing: -0.02em; }
+  h2 { font-size: 22px; margin: 64px 0 14px; letter-spacing: -0.01em; }
+  h3 { font-size: 15px; margin: 0 0 8px; }
+  p, li { color: var(--dim); }
+  .lead { font-size: 16px; max-width: 760px; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .06em; padding: 2px 8px; border-radius: 5px; background: #f7821b26; color: var(--accent); }
+  .grid { display: grid; gap: 14px; }
+  .cols-2 { grid-template-columns: 1fr 1fr; }
+  .cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .box p { margin: 4px 0 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--faint); font-weight: 600; font-size: 12px; }
+  td:first-child { color: var(--text); white-space: nowrap; }
+  .have { color: #7ee2a8; } .helper { color: #f7c46b; } .new { color: #9db8ff; }
+  code { font: 12px "SF Mono", ui-monospace, monospace; color: var(--text); background: #ffffff10; padding: 1px 5px; border-radius: 4px; }
+  .note { font-size: 12px; color: var(--faint); }
+
+  /* ---------- The mockups share a frame, as the page area of the app. ---------- */
+  .frame { border-radius: 14px; overflow: hidden; border: 1px solid var(--line); background: var(--window); position: relative; }
+  .frame-label { position: absolute; top: 10px; right: 12px; z-index: 5; font-size: 11px; color: #ffffffa0; background: #0006; padding: 2px 8px; border-radius: 6px; }
+
+  /* Option A: Stage */
+  .stage { position: relative; padding: 28px 28px 32px; overflow: hidden; }
+  .stage::before { /* The cover, drawn tiny and stretched: a blur for free. It fades into the window. */
+    content: ""; position: absolute; inset: -60px -60px auto -60px; height: 560px;
+    background: var(--cover) center / cover; filter: blur(60px) saturate(1.3) brightness(.7); opacity: .6;
+    -webkit-mask-image: linear-gradient(180deg, #000 30%, transparent 85%); mask-image: linear-gradient(180deg, #000 30%, transparent 85%);
+  }
+  .stage > * { position: relative; z-index: 1; }
+  .hero { display: flex; gap: 28px; align-items: flex-end; }
+  .hero .cover { width: 300px; height: 300px; border-radius: 12px; flex: none; background: var(--cover) center / cover, var(--cover-bg);
+    box-shadow: 0 24px 60px -12px #000c, 0 0 0 1px #ffffff14; }
+  .eyebrow { font-size: 11.5px; font-weight: 700; letter-spacing: .08em; color: #ffffffb0; text-transform: uppercase; }
+  .title { font-size: 46px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; margin: 6px 0 6px; }
+  .artist { font-size: 20px; font-weight: 600; color: var(--text); }
+  .artist a, .album a { color: inherit; text-decoration: none; border-bottom: 1px solid #ffffff30; }
+  .album { font-size: 14px; color: #ffffffb0; margin-top: 2px; }
+  .pills { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 999px; background: #ffffff14; border: 1px solid #ffffff1c; color: var(--text); }
+  .pill b { color: var(--cover-bg); font-weight: 700; }
+  .actions { display: flex; gap: 8px; margin-top: 16px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; border-radius: 8px; font-weight: 600; font-size: 13px; background: #ffffff14; color: var(--text); }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .lyric-line { margin-top: 18px; font-size: 18px; font-weight: 600; color: #ffffffd0; }
+  .lyric-line span { color: #ffffff60; font-weight: 500; font-size: 14px; display: block; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 28px; }
+  .stat { background: #ffffff0a; border: 1px solid #ffffff10; border-radius: 10px; padding: 12px 14px; }
+  .stat .n { font-size: 24px; font-weight: 750; letter-spacing: -0.02em; }
+  .stat .l { font-size: 11.5px; color: var(--faint); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+  .stat .s { font-size: 12px; color: var(--dim); }
+  .two { display: grid; grid-template-columns: 1.1fr 1fr; gap: 10px; margin-top: 10px; }
+  .card { background: #ffffff0a; border: 1px solid #ffffff10; border-radius: 10px; padding: 14px 16px; }
+  .card h4 { margin: 0 0 10px; font-size: 11.5px; color: var(--faint); text-transform: uppercase; letter-spacing: .06em; }
+  .role { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: 13.5px; }
+  .role span:first-child { color: var(--dim); }
+  .role span:last-child { text-align: right; }
+  .mono { font: 12.5px "SF Mono", ui-monospace, monospace; }
+  .shelf { display: flex; gap: 12px; margin-top: 10px; }
+  .tile { width: 120px; } .tile i { display: block; width: 120px; height: 120px; border-radius: 8px; }
+  .tile div { font-size: 12px; margin-top: 6px; color: var(--text); } .tile small { color: var(--faint); font-size: 11.5px; }
+  .section-title { font-size: 16px; font-weight: 700; margin: 26px 0 0; }
+  .foot { font-size: 11.5px; color: var(--faint); margin-top: 18px; }
+
+  /* Option B: Immersive */
+  .immersive { height: 420px; display: grid; grid-template-columns: 1fr 1fr; align-items: center; padding: 0 40px; position: relative; overflow: hidden; }
+  .immersive::before { content: ""; position: absolute; inset: -40px; background: var(--cover) center / cover; filter: blur(70px) brightness(.55) saturate(1.4); }
+  .immersive > * { position: relative; }
+  .immersive .cover { width: 260px; height: 260px; border-radius: 12px; background: var(--cover) center / cover; box-shadow: 0 30px 70px -10px #000; margin: 0 auto; }
+  .immersive .meta { text-align: center; margin-top: 14px; }
+  .lyrics p { font-size: 24px; font-weight: 700; margin: 6px 0; color: #ffffff55; }
+  .lyrics p.now { color: #fff; }
+
+  /* Option C: Liner notes */
+  .liner { display: grid; grid-template-columns: 240px 1fr; gap: 28px; padding: 28px; background: #f3efe9; color: #1f1b1d; }
+  .liner .cover { width: 240px; height: 240px; background: var(--cover) center / cover; }
+  .liner h5 { font: 700 30px/1.1 "New York", Georgia, serif; margin: 0 0 4px; }
+  .liner .caps { font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: #6d6266; margin-top: 14px; }
+  .liner .cols { columns: 2; column-gap: 28px; font-size: 13px; margin-top: 8px; }
+  .liner .cols div { break-inside: avoid; margin-bottom: 8px; } .liner .cols b { display: block; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: #6d6266; }
+
+  .features { counter-reset: f; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0; list-style: none; }
+  .features li { counter-increment: f; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px 14px 52px; position: relative; }
+  .features li::before { content: counter(f); position: absolute; left: 16px; top: 14px; width: 24px; height: 24px; border-radius: 7px; background: #f7821b26; color: var(--accent); font-weight: 800; font-size: 13px; display: grid; place-items: center; }
+  .features b { color: var(--text); display: block; margin-bottom: 2px; }
+  .features small { display: block; margin-top: 6px; color: var(--faint); }
+</style>
+</head>
+<body>
+<main>
+  <span class="tag">PLAN · MILESTONE 6</span>
+  <h1>Now Playing, redesigned</h1>
+  <p class="lead">The current page is a spreadsheet next to a picture. This plan turns it into a stage for the song:
+    the cover sets the mood, the numbers that matter to <em>you</em> (plays, last played, quality) lead, and Apple's
+    catalog facts become credits rather than a table. It also adds the data Music.app knows and Apple's API does not.</p>
+
+  <h2>What is wrong today</h2>
+  <div class="grid cols-3">
+    <div class="box"><h3>Half the page is empty</h3><p>Everything sits in the top 45%. Below the cover there is nothing, so the page feels unfinished at any window size.</p></div>
+    <div class="box"><h3>No hierarchy</h3><p>Composer, ISRC and "Lyrics: Word by word" have the same weight. A table of ten equal rows says nothing is important.</p></div>
+    <div class="box"><h3>Ignores the cover</h3><p>A pink, loud cover on a flat grey page. Apple sends the cover's colours; the page uses none of them.</p></div>
+    <div class="box"><h3>Repeats the player bar</h3><p>Title, artist and album are already at the bottom of the window. The page adds no new answer to "what is this song to me?".</p></div>
+    <div class="box"><h3>Quality is a 10-pt sticker</h3><p>"LOSSLESS" is the one thing an audio app should be proud of, and it is the smallest text on the page.</p></div>
+    <div class="box"><h3>Nothing to do</h3><p>No favourite, no add to playlist, no copy link. It is a dead end; Back is the only way out.</p></div>
+  </div>
+
+  <h2>References</h2>
+  <table>
+    <tr><th>App</th><th>What it does well</th><th>What we take</th></tr>
+    <tr><td>Apple Music (full-screen player)</td><td>The cover, blurred, becomes the backdrop. The page is coloured by the music.</td><td>Blurred-cover wash behind the hero, fading into the window.</td></tr>
+    <tr><td>Plexamp</td><td>Cover-driven colour, playback stats and "sonic" info treated as first-class.</td><td>Stat cards: plays, last played, added, skips.</td></tr>
+    <tr><td>Roon</td><td>Credits grouped by role; a "signal path" that shows format, bit depth and sample rate.</td><td>Credits card by role; a Sound card with the real file format from Music.app.</td></tr>
+    <tr><td>Spotify (Now Playing View)</td><td>Stacked cards under the cover: about the artist, credits, next up.</td><td>Sections as quiet cards, one idea each, then shelves to keep listening.</td></tr>
+    <tr><td>Last.fm track page</td><td>"Your scrobbles", first and last listen: the song's history with you.</td><td>Personal stats lead; catalog facts follow.</td></tr>
+    <tr><td>Doppler / Marvis Pro</td><td>Big confident type, quality as clear pills, generous but not wasteful spacing.</td><td>46-pt title, pill badges with the actual numbers (44.1 kHz, ALAC).</td></tr>
+  </table>
+  <p class="note">Web search was unavailable while writing this, so the references come from knowledge of the apps, not fresh screenshots.</p>
+
+  <h2>Option A — Stage <span class="tag">RECOMMENDED</span></h2>
+  <p>Hero with a blurred-cover backdrop, a bold title, quality pills and actions. Then four personal stats, then credits and sound side by side, then shelves. Fills the page at any height; scrolls when it must.</p>
+  <div class="frame">
+    <span class="frame-label">page area, 940 pt wide · illustrative Music.app numbers</span>
+    <div class="stage">
+      <div class="hero">
+        <div class="cover"></div>
+        <div>
+          <div class="eyebrow">Now playing · Single · 2026</div>
+          <div class="title">soldier game</div>
+          <div class="artist"><a href="#">ADO</a></div>
+          <div class="album"><a href="#">soldier game - Single</a> · Lantis</div>
+          <div class="pills">
+            <span class="pill">🎧 <b>Lossless</b> ALAC · 24-bit / 48 kHz</span>
+            <span class="pill">Japanese</span>
+            <span class="pill">Word-by-word lyrics</span>
+          </div>
+          <div class="actions">
+            <span class="btn">♥ Favourite</span><span class="btn">＋ Add to Playlist</span><span class="btn">↗ Copy Link</span>
+          </div>
+          <div class="lyric-line">♪ the line being sung right now<span>from the lyrics the Lyrics panel already loaded</span></div>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><div class="l">Plays</div><div class="n">37</div><div class="s">12 this month</div></div>
+        <div class="stat"><div class="l">Last played</div><div class="n">Today</div><div class="s">15:42</div></div>
+        <div class="stat"><div class="l">In library since</div><div class="n">3 Feb</div><div class="s">2026 · 8 months</div></div>
+        <div class="stat"><div class="l">Skips</div><div class="n">2</div><div class="s">last on 9 Oct</div></div>
+      </div>
+
+      <div class="two">
+        <div class="card"><h4>Credits</h4>
+          <div class="role"><span>Performed by</span><span>ADO</span></div>
+          <div class="role"><span>Composed by</span><span>Mitsuru Wakabayashi</span></div>
+          <div class="role"><span>Label</span><span>Lantis</span></div>
+          <div class="role"><span>Released</span><span>14 January 2026</span></div>
+          <div class="role"><span>Genre</span><span>Anime</span></div>
+        </div>
+        <div class="card"><h4>Sound</h4>
+          <div class="role"><span>Format</span><span>Apple Lossless (ALAC)</span></div>
+          <div class="role"><span>Sample rate · bit rate</span><span>48 kHz · 1,411 kbps</span></div>
+          <div class="role"><span>Length · BPM</span><span>3:41 · 172</span></div>
+          <div class="role"><span>On this Mac</span><span>Downloaded · 38.2 MB</span></div>
+          <div class="role"><span>ISRC</span><span class="mono">JPPO02504487 ⧉</span></div>
+        </div>
+      </div>
+
+      <div class="section-title">More by ADO</div>
+      <div class="shelf">
+        <div class="tile"><i style="background:linear-gradient(#5b3a8c,#251a3c)"></i><div>DND (feat. Kuromi)</div><small>Single · 2026</small></div>
+        <div class="tile"><i style="background:linear-gradient(#a8232f,#3a0c12)"></i><div>Raven Sky</div><small>Single · 2025</small></div>
+        <div class="tile"><i style="background:linear-gradient(#e9e3dc,#a69c92)"></i><div>Wish</div><small>Album · 2025</small></div>
+        <div class="tile"><i style="background:linear-gradient(#36485e,#141b24)"></i><div>Odo</div><small>Single · 2022</small></div>
+        <div class="tile"><i style="background:linear-gradient(#d8b86a,#6b5420)"></i><div>Usseewa</div><small>Single · 2020</small></div>
+      </div>
+      <div class="foot">℗ 2026 Lantis</div>
+    </div>
+  </div>
+
+  <h2>Option B — Immersive</h2>
+  <p>Apple Music's full-screen idea in a page: the cover centred on its own blur, lyrics large beside it. Beautiful while listening, but it hides the details behind an Info toggle and duplicates the Lyrics panel.</p>
+  <div class="frame">
+    <span class="frame-label">page area</span>
+    <div class="immersive">
+      <div><div class="cover"></div><div class="meta"><b style="font-size:18px">soldier game</b><br><span style="color:#ffffffb0">ADO · 🎧 Lossless</span></div></div>
+      <div class="lyrics"><p>previous line of the song</p><p class="now">the line being sung now</p><p>the line after it</p><p>and the next</p></div>
+    </div>
+  </div>
+
+  <h2>Option C — Liner notes</h2>
+  <p>The back of a CD sleeve: serif type, small caps, credits in columns, light paper. Distinct and calm, but it breaks with the dark app around it, and the stats feel out of place in print style.</p>
+  <div class="frame">
+    <div class="liner">
+      <div class="cover"></div>
+      <div>
+        <h5>soldier game</h5><div>ADO — <i>soldier game</i>, Single, 2026</div>
+        <div class="caps">Credits</div>
+        <div class="cols">
+          <div><b>Vocals</b>ADO</div><div><b>Composer</b>Mitsuru Wakabayashi</div><div><b>Label</b>Lantis</div>
+          <div><b>Released</b>14 January 2026</div><div><b>Format</b>Apple Lossless, 48 kHz</div><div><b>ISRC</b>JPPO02504487</div>
+        </div>
+        <div class="caps">You and this song</div><div style="font-size:13px">Played 37 times. Last on 20 October at 15:42. In your library since 3 February.</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>Where each piece comes from</h2>
+  <table>
+    <tr><th>Element</th><th>Source</th><th>Status</th></tr>
+    <tr><td>Title, artist, album, cover, cover colours</td><td>Apple catalog <code>/songs/{id}?include=albums,artists</code></td><td class="have">have</td></tr>
+    <tr><td>Composer, label, release date, genre, ISRC, language, lyrics kind, audio traits, copyright, album notes</td><td>Apple catalog</td><td class="have">have</td></tr>
+    <tr><td>Plays, skips, last played, last skipped, date added</td><td>Music.app <code>played count</code>, <code>skipped count</code>, <code>played date</code>, <code>skipped date</code>, <code>date added</code></td><td class="helper">helper change</td></tr>
+    <tr><td>Favourite, rating, disliked</td><td>Music.app <code>favorited</code>, <code>rating</code>, <code>disliked</code> (writable, so the ♥ button works)</td><td class="helper">helper change</td></tr>
+    <tr><td>Format, sample rate, bit rate, size, BPM, cloud status</td><td>Music.app <code>kind</code>, <code>sample rate</code>, <code>bit rate</code>, <code>size</code>, <code>bpm</code>, <code>cloud status</code>; Downloaded's <code>boot.xml</code> for ALAC</td><td class="helper">helper change</td></tr>
+    <tr><td>"12 this month"</td><td>Our own play log in <code>onlymuse.sqlite</code>; Music.app keeps only the total and the last date</td><td class="new">new</td></tr>
+    <tr><td>The lyric line playing now</td><td>The Lyrics panel's loaded lines</td><td class="have">have</td></tr>
+    <tr><td>More by the artist</td><td>Artist <code>?views=top-songs,latest-release</code>, as the artist page</td><td class="have">have</td></tr>
+    <tr><td>Blurred-cover backdrop</td><td>The cover decoded at 24 px and drawn stretched with linear filtering: a blur with no shader</td><td class="new">renderer</td></tr>
+    <tr><td>Cover shadow</td><td>The renderer's <code>softness</code> field, already in <code>Instance</code></td><td class="new">renderer</td></tr>
+  </table>
+  <p class="note">Caveats: Music.app has these fields only for songs in your library; a catalog song played without adding it has no plays or date added, and the stats cards then hide. For a streamed song, Music.app may report the stream's sample rate rather than the master's; bit depth is not in the scripting dictionary, so "24-bit" comes from Apple's <code>hi-res-lossless</code> trait, not a measurement.</p>
+
+  <h2>Build steps</h2>
+  <ol>
+    <li><b>Helper:</b> a <code>trackInfo</code> request: one AppleScript reading the fields above for a persistent ID, answered once per song change. Read only; the ♥ button later adds one write.</li>
+    <li><b>Renderer:</b> drop shadows via <code>softness</code>; a stretched tiny-cover backdrop with a fade into the window colour.</li>
+    <li><b>Page:</b> Option A's sections, each hidden when it has no data (no stats for a non-library song, no shelf without other releases).</li>
+    <li><b>Play log:</b> a <code>plays</code> table written when a song passes half its length, for "this month" and the features below.</li>
+    <li>Try-it section 6c in the README; capture at 1000, 1200 and 1600 pt wide.</li>
+  </ol>
+
+  <h2>Ten features worth adding</h2>
+  <ul class="features">
+    <li><b>Listening history and stats</b>Our own play log (Music.app keeps only totals) turns into top songs, artists and albums by week, month and year, with a "your year" page.<small>Needs the play log from step 4.</small></li>
+    <li><b>New from your artists</b>A feed of the latest releases from artists in your library, newest first. Apple Music buries this; the artist <code>latest-release</code> view already gives it.<small>One request per library artist, cached daily.</small></li>
+    <li><b>Lyrics translation and romaji</b>Apple's lyrics answers carry <code>ttmlLocalizations</code>. Show the Japanese line with its romaji or English under it, toggled in the Lyrics panel.<small>The data is already in the saved answers.</small></li>
+    <li><b>Favourite and rate from anywhere</b>A ♥ in the player bar, on rows and on Now Playing, writing to Music.app's <code>favorited</code>, so Favourite Songs stays in sync.<small>One AppleScript write.</small></li>
+    <li><b>Add to playlist</b>From a row's menu or by dragging a song onto a sidebar playlist. Create a playlist inline.<small>Apple's library playlists API.</small></li>
+    <li><b>Command palette (⌘K)</b>Type to jump to any page, playlist, artist or album, or run an action: shuffle library, go to Now Playing, toggle lyrics.<small>Reuses the search field and its IME support.</small></li>
+    <li><b>Quality everywhere</b>Hi-Res, Atmos and Lossless marks in every list, filters on Songs and Albums, and smart lists such as "Hi-Res in my library".<small>Audio traits are already parsed.</small></li>
+    <li><b>Smarter shuffle</b>Shuffle that avoids songs played in the last few hours, songs skipped often, and two songs from one album in a row.<small>The queue port already owns the order.</small></li>
+    <li><b>Mini player and menu bar</b>A small always-on-top window and a menu-bar item with the cover, controls and the current lyric line, plus global shortcuts.<small>A second window on the same renderer.</small></li>
+    <li><b>Song radio and sleep timer</b>"Play songs like this" from Apple's station for a song, and a timer that fades out and pauses at the end of a song.<small>The song's <code>station</code> relationship.</small></li>
+  </ul>
+</main>
+</body>
+</html>

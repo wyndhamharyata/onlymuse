@@ -1,5 +1,6 @@
 // Sends mouse events to one process, so a test never moves the real pointer.
-// swift tools/send-mouse.swift <pid> <x> <y> [move | click | scroll <pixels>], x and y in window points.
+// swift tools/send-mouse.swift <pid> <x> <y> [move | click | scroll <pixels> | type <text>], x and y in window points.
+// type sends the text as key presses, then Return.
 import CoreGraphics
 import Foundation
 let pid = pid_t(CommandLine.arguments[1])!
@@ -18,5 +19,18 @@ if action == "click" {
   let e = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1, wheel1: dy, wheel2: 0, wheel3: 0)
   e?.location = p
   post(e)
+}
+if action == "type" {
+  for character in CommandLine.arguments[5].utf16 {
+    for isDown in [true, false] {
+      let e = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: isDown)
+      var unit = character
+      e?.keyboardSetUnicodeString(stringLength: 1, unicodeString: &unit)
+      post(e)
+    }
+  }
+  // Return is key 36.
+  post(CGEvent(keyboardEventSource: nil, virtualKey: 36, keyDown: true))
+  post(CGEvent(keyboardEventSource: nil, virtualKey: 36, keyDown: false))
 }
 print("sent \(action) at \(p)")

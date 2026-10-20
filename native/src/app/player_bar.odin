@@ -67,8 +67,16 @@ build_song_info :: proc() {
 				text_box(adding_song.name, colors.text, 13.5, .Semibold)
 				text_box("Adding to library…", colors.dim, 12.5)
 			} else if is_song {
-				text_box(song.name, colors.text, 13.5, .Semibold)
-				text_box(fmt.tprintf("%s · %s", song.artist, song.album), colors.dim, 12.5)
+				title := ui.box("title", {width = ui.fill(), height = ui.fit_children(), axis = .X, align = .Center, gap = 7})
+
+				if ui.scope(title) {
+					scrolling_text("name", song.name, colors.text, 13.5, .Semibold)
+					if is_queue_song && queue_song.is_lossless do ui.box("", {width = ui.fit_text(), height = ui.fit_text(), padding = {4, 0, 4, 0}, corner_radius = 4, border_width = 1, border_color = colors.faint, text_color = colors.dim, font_size = 9.5, font_weight = .Bold}, "LOSSLESS")
+				}
+
+				// Go to Artist always opens the Apple Music artist, never the library one.
+				subtitle := scrolling_text("subtitle", fmt.tprintf("%s · %s", song.artist, song.album), colors.dim, 12.5, is_clickable = true)
+				if ui.signal(subtitle).is_clicked do navigate({kind = .Artist, title = fmt.aprint(song.artist)})
 			} else {
 				text_box("Not playing", colors.text, 13.5, .Semibold)
 				text_box("Music.app is closed" if now_playing.playback == .Closed else "Nothing in Music.app", colors.dim, 12.5)

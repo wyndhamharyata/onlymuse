@@ -1,9 +1,12 @@
 package app
 
 import "core:fmt"
+import "core:strings"
+import "core:time"
 import "om:font"
 import "om:icon"
 import "om:image"
+import "om:platform"
 import "om:render"
 import "om:ui"
 
@@ -132,4 +135,52 @@ to_clock_text :: proc(total_seconds: f64) -> string {
 // Takes the space left in a row, pushing what follows to the end.
 spacer :: proc() {
 	ui.box("", {width = ui.fill(), height = ui.points(1)})
+}
+
+// The text slides at this speed, so a long title takes longer to show in full.
+SLIDE_POINTS_PER_SECOND :: 40
+// A row that only passes under the pointer during a scroll is gone before this, and nothing slides.
+SLIDE_REST_SECONDS :: 0.3
+
+@(private = "file")
+slides: map[string]f64
+
+// One line that ends in "…" when it does not fit. Resting under the pointer, it slides to show the rest.
+scrolling_text :: proc(id, text: string, color: [4]f32, font_size: f32, weight := font.Weight.Regular, is_clickable := false) -> ^ui.Box {
+	box := ui.box(id, {width = ui.fill(), height = ui.fit_text(), text_color = color, font_size = font_size, font_weight = weight, flags = {.Truncate_Text, .Clickable if is_clickable else .Hoverable}}, text)
+	key := fmt.aprint(id, text)
+	defer delete(key)
+
+	if !ui.signal(box).is_hovered {
+		if key in slides {
+			delete_key_and_value(&slides, key)
+		}
+		return box
+	}
+
+	now := f64(time.to_unix_nanoseconds(time.now())) / 1e9
+	if key not_in slides do slides[strings.clone(key)] = now
+
+	rested := now - slides[key] - SLIDE_REST_SECONDS
+	if rested < 0 {
+		platform.request_frame_after(-rested)
+		return box
+	}
+
+	// The full line, measured against the box's width from last frame.
+	full := font.shape(text, font.system_font(weight, ui.to_pixels(font_size)))
+	overflow := full.size.x / ui.to_pixels(1) - (box.rect.z - box.rect.x)
+	if overflow <= 0 do return box
+
+	box.style.flags -= {.Truncate_Text}
+	box.style.text_offset = min(overflow, f32(rested) * SLIDE_POINTS_PER_SECOND)
+	if box.style.text_offset < overflow do platform.request_frame()
+
+	return box
+}
+
+@(private = "file")
+delete_key_and_value :: proc(m: ^map[string]f64, key: string) {
+	stored_key, _ := delete_key(m, key)
+	delete(stored_key)
 }

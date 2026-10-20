@@ -46,7 +46,7 @@ build_page :: proc(page: Page) {
 	case .Album:
 		build_album_page(page.id)
 	case .Artist:
-		build_artist_page(page.id)
+		build_artist_page(page.id, page.title)
 	case .Search:
 		build_search_page(page.id)
 	}

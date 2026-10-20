@@ -166,6 +166,20 @@ the page updates if Apple has something newer.
 - Downloaded lists the songs Music.app has downloaded, from its download folder, with how many are
   lossless.
 
+### 5e. Search, the player bar's extras, saved state and sign-in
+
+- Click Search in the sidebar and type, in any script. Japanese input composes in the field, with
+  the unfinished text underlined and the candidates under the caret. Return searches. Escape or a
+  click elsewhere leaves the field. Backspace, Option Backspace, the arrows, Cmd A and Cmd V work.
+  The term is kept for the next run.
+- Search results show the top artist, songs, albums and artists.
+- Click the artist and album line in the player bar to open the Apple Music artist.
+- A long song name ends in "…". Rest the pointer on it and it slides to show the rest.
+- A lossless song from the queue shows LOSSLESS next to its name.
+- Quit and open again. The app opens on the page you left, with Back and Forward, the panel and the
+  zoom as they were.
+- When the helper finds no music.apple.com sign-in, a card asks you to sign in and opens Apple's page.
+
 ## Development settings
 
 | Variable | Does |

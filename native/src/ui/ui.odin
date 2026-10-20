@@ -45,6 +45,8 @@ Align :: enum {
 Flag :: enum {
 	// Takes hover, press and click.
 	Clickable,
+	// Takes hover only, such as a title that slides to show the rest.
+	Hoverable,
 	// Scrolls its children along its axis.
 	Scroll,
 	// Hides children outside its rect.
@@ -68,6 +70,8 @@ Style :: struct {
 	// Of the children across the axis.
 	align:            Align,
 	text_align:       Align,
+	// Moves the text left by this many points, inside its clip.
+	text_offset:      f32,
 	background:       [4]f32,
 	// The background fades to this colour between the two shares of the height in gradient.
 	end_background:   [4]f32,
@@ -202,7 +206,7 @@ apply_events :: proc() {
 				// A trackpad already moves smoothly, and macOS adds the glide after a flick.
 				if e.is_precise do box.scroll = box.scroll_target
 			}
-		case platform.Key_Press:
+		case platform.Key_Press, platform.Text_Insert, platform.Text_Marked, platform.Text_Command:
 		}
 	}
 }
@@ -568,7 +572,7 @@ visit_hot :: proc(box: ^Box) {
 	if !is_under_mouse && .Clip in box.style.flags do return
 
 	if is_under_mouse && box.key != 0 {
-		if .Clickable in box.style.flags do state.hot_key = box.key
+		if .Clickable in box.style.flags || .Hoverable in box.style.flags do state.hot_key = box.key
 		if .Scroll in box.style.flags do state.scroll_keys[box.style.axis] = box.key
 	}
 
@@ -639,6 +643,7 @@ draw_text :: proc(box: ^Box, rect: [4]f32, clip_pixels: [4]f32, opacity: f32) {
 		left = inner.z - text_size.x
 	}
 
+	left -= style.text_offset
 	top := inner.y + (inner.w - inner.y - text_size.y) / 2
 	origin := [2]f32{math.round(left * scale), math.round(top * scale)}
 	font.draw(box.shaped, origin, style.text_color, intersect(clip_pixels, inner * scale), box.color_of, box.data, opacity)

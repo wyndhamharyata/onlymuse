@@ -36,6 +36,8 @@ app: struct {
 	accent:            [4]f32,
 	now_playing:       helper.Now_Playing,
 	panel:             Panel,
+	is_sign_in_needed: bool,
+	is_sign_in_open:   bool,
 	last_frame:        time.Tick,
 	// OM_CAPTURE saves a frame to this file and quits, for the development tests. OM_CAPTURE_SECONDS waits first.
 	capture_path:      string,
@@ -65,8 +67,10 @@ main :: proc() {
 	store.start()
 	apple.start()
 	start_queue()
-	navigate({kind = .Albums})
+	start_navigation()
+	start_saved_window_state()
 	start_lyrics()
+	start_search_field()
 
 	// A test or bench run opens behind the other windows and leaves Music.app as it is when it quits.
 	is_background := app.capture_path != "" || app.is_bench || os.get_env("OM_BACKGROUND", context.temp_allocator) == "1"
@@ -91,6 +95,9 @@ apply_helper_messages :: proc() {
 			app.accent = to_color_from_hex(message.color)
 		case "tokens":
 			apple.set_tokens(message.developer_token, message.user_token)
+			app.is_sign_in_needed = false
+		case "signInNeeded":
+			app.is_sign_in_needed = true
 		case "error":
 			// Music.app has no current track while stopped, and the helper's next post says so.
 			if !strings.contains(message.text, "get current track") do fmt.eprintfln("helper: %s", message.text)
@@ -111,11 +118,11 @@ apply_keys :: proc() {
 
 		switch key.characters {
 		case "=", "+":
-			app.zoom = min(app.zoom + ZOOM_STEP, MAX_ZOOM)
+			set_zoom(app.zoom + ZOOM_STEP)
 		case "-":
-			app.zoom = max(app.zoom - ZOOM_STEP, MIN_ZOOM)
+			set_zoom(app.zoom - ZOOM_STEP)
 		case "0":
-			app.zoom = 1
+			set_zoom(1)
 		case "q":
 			platform.quit()
 		}
@@ -123,7 +130,38 @@ apply_keys :: proc() {
 }
 
 toggle_panel :: proc(panel: Panel) {
-	app.panel = .None if app.panel == panel else panel
+	set_panel(.None if app.panel == panel else panel)
+}
+
+set_panel :: proc(panel: Panel) {
+	app.panel = panel
+	saved := [Panel]string{.None = "null", .Lyrics = `"lyrics"`, .Up_Next = `"queue"`}
+	store.save_state("panel", saved[panel])
+}
+
+// The panel and the zoom of the last run, saved as the gpuix app saved them.
+start_saved_window_state :: proc() {
+	if panel, ok := store.find_state("panel", context.temp_allocator); ok {
+		switch panel {
+		case `"lyrics"`:
+			app.panel = .Lyrics
+		case `"queue"`:
+			app.panel = .Up_Next
+		case "null":
+			app.panel = .None
+		}
+	}
+
+	if zoom, ok := store.find_state("zoom", context.temp_allocator); ok {
+		value, is_number := strconv.parse_f32(zoom)
+		if is_number do app.zoom = clamp(value, MIN_ZOOM, MAX_ZOOM)
+	}
+}
+
+set_zoom :: proc(zoom: f32) {
+	// Steps of 0.1 add up to 1.2000001, so the zoom is kept to two places.
+	app.zoom = math.round(clamp(zoom, MIN_ZOOM, MAX_ZOOM) * 100) / 100
+	store.save_state("zoom", fmt.tprintf("%.2f", app.zoom))
 }
 
 draw_frame :: proc() -> bool {
@@ -134,6 +172,7 @@ draw_frame :: proc() -> bool {
 	append(&app.frame_starts, start)
 	apply_helper_messages()
 	update_queue()
+	apply_search_events()
 	apply_keys()
 
 	window := app.window
@@ -158,6 +197,7 @@ draw_frame :: proc() -> bool {
 	}
 
 	build_player_bar()
+	if app.is_sign_in_needed do build_sign_in_card()
 	build_frame_time()
 	ui.end_frame()
 
@@ -170,6 +210,43 @@ draw_frame :: proc() -> bool {
 	if app.is_bench && app.frame_count == app.bench_frame_count do finish_bench()
 
 	return app.capture_path != "" || app.is_bench || ui.is_animating() || font.is_redraw_needed() || image.is_animating() || is_lyrics_moving
+}
+
+SIGN_IN_CARD_POINTS :: 380
+
+// onlymuse reads Apple Music with the sign-in of music.apple.com, which the helper keeps.
+build_sign_in_card :: proc() {
+	root := ui.current_parent()
+	window_size := [2]f32{root.style.width.value, root.style.height.value}
+	// It takes every click, so nothing behind it opens.
+	cover := ui.box("sign in cover", {width = ui.fill(), height = ui.fill(), background = to_color(0x000000a0), position = {0, 0}, flags = {.Floating, .Clickable}})
+
+	if ui.scope(cover) {
+		card := ui.box("card", {
+			width         = ui.points(SIGN_IN_CARD_POINTS),
+			height        = ui.fit_children(),
+			axis          = .Y,
+			gap           = 12,
+			padding       = {24, 24, 24, 24},
+			corner_radius = 14,
+			background    = colors.card,
+			border_width  = 1,
+			border_color  = colors.line,
+			position      = {(window_size.x - SIGN_IN_CARD_POINTS) / 2, window_size.y / 2 - 110},
+			flags         = {.Floating},
+		})
+
+		if ui.scope(card) {
+			ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.text, font_size = 18, font_weight = .Bold}, "Sign in to Apple Music")
+			ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.dim, flags = {.Wrap_Text}}, "onlymuse reads Apple Music with the sign-in of music.apple.com. Apple's own sign-in page opens in a window of its own.")
+
+			label := "Open the sign-in window again" if app.is_sign_in_open else "Sign In"
+			if action_button(label, "person.crop.circle", true) {
+				app.is_sign_in_open = true
+				helper.send(`{"type":"signIn"}`)
+			}
+		}
+	}
 }
 
 build_frame_time :: proc() {

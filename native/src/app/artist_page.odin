@@ -14,18 +14,52 @@ ARTIST_ALBUM_POINTS :: 150
 LATEST_RELEASE_POINTS :: 210
 SIMILAR_ARTIST_POINTS :: 130
 
-build_artist_page :: proc(artist_id: string) {
+// Music.app gives a song's artist only as a name. The catalog artist with that exact name is the one.
+find_artist_id :: proc(artist_name: string) -> (string, apple.Phase) {
+	watched := apple.watch(fmt.tprintf("/v1/catalog/%s/search?term=%s&types=artists&limit=12", apple.STOREFRONT, to_query_text(artist_name)))
+	if watched.phase != .Ready do return "", watched.phase
+
+	Search_Answer :: struct {
+		results: struct {
+			artists: apple.Related,
+		},
+	}
+	answer: Search_Answer
+	_ = unmarshal_text(watched.body, &answer)
+	artists := answer.results.artists.data
+	if len(artists) == 0 do return "", .Failed
+
+	for artist in artists do if artist.attributes.name == artist_name do return artist.id, .Ready
+
+	return artists[0].id, .Ready
+}
+
+// An artist page opened by name, from the player bar, finds its ID first.
+build_artist_page :: proc(page_id: string, name: string) {
+	artist_id := page_id
+
+	if artist_id == "" {
+		found, phase := find_artist_id(name)
+
+		if found == "" {
+			page := page_scroll("artist")
+			if ui.scope(page) do note(phase_note(phase) if phase != .Ready else fmt.tprintf("Apple Music has no artist named %s.", name))
+			return
+		}
+		artist_id = found
+	}
+
 	views := "top-songs,latest-release,full-albums,similar-artists"
 	path := fmt.tprintf("/v1/catalog/%s/artists/%s?views=%s", apple.STOREFRONT, artist_id, views)
 	watched := apple.watch(path)
-	name := ""
+	catalog_name := ""
 
 	if watched.phase == .Ready {
 		resources := apple.to_resources(watched.body, context.temp_allocator)
-		if len(resources) > 0 do name = resources[0].attributes.name
+		if len(resources) > 0 do catalog_name = resources[0].attributes.name
 	}
 
-	library_albums := watch_library_albums_of(name)
+	library_albums := watch_library_albums_of(catalog_name)
 	data, is_stale := find_page_data(path, watched.version * 31 + library_albums.version, watched.phase)
 	if is_stale && watched.phase == .Ready do read_artist(data, watched.body, library_albums)
 

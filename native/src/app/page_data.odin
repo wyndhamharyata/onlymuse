@@ -71,16 +71,10 @@ watch_all_pages :: proc(path: string) -> (bodies: []string, signature: int, phas
 
 		append(&list, watched.body)
 
-		Next :: struct {
-			next: string,
-		}
-		next: Next
-		_ = json.unmarshal_string(watched.body, &next, allocator = context.temp_allocator)
-		start := strings.index(next.next, "offset=")
-		if start < 0 do break
+		next_offset := find_next_offset(fmt.tprintf("%s%slimit=100&offset=%s", path, separator, offset), watched)
+		if next_offset == "" do break
 
-		offset = next.next[start + len("offset="):]
-		if end := strings.index_byte(offset, '&'); end >= 0 do offset = offset[:end]
+		offset = next_offset
 	}
 
 	return list[:], signature, .Ready
@@ -111,4 +105,40 @@ read_cards :: proc(data: ^Page_Data, bodies: []string) {
 
 phase_note :: proc(phase: apple.Phase) -> string {
 	return "Apple Music could not be reached." if phase == .Failed else "Loading…"
+}
+
+@(private = "file")
+Next_Offset :: struct {
+	version: int,
+	offset:  string,
+}
+
+// The offset of the next page, read once per answer version. Reading 50 KB of JSON each frame took 5 ms.
+@(private = "file")
+next_offsets: map[string]Next_Offset
+
+@(private = "file")
+find_next_offset :: proc(path: string, watched: apple.Watched) -> string {
+	if found, ok := next_offsets[path]; ok && found.version == watched.version do return found.offset
+
+	Next :: struct {
+		next: string,
+	}
+	next: Next
+	_ = json.unmarshal_string(watched.body, &next, allocator = context.temp_allocator)
+	offset := ""
+
+	if start := strings.index(next.next, "offset="); start >= 0 {
+		offset = next.next[start + len("offset="):]
+		if end := strings.index_byte(offset, '&'); end >= 0 do offset = offset[:end]
+	}
+
+	if found, ok := next_offsets[path]; ok {
+		delete(found.offset)
+		next_offsets[path] = {watched.version, strings.clone(offset)}
+	} else {
+		next_offsets[strings.clone(path)] = {watched.version, strings.clone(offset)}
+	}
+
+	return next_offsets[path].offset
 }

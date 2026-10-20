@@ -28,8 +28,8 @@ build_panel :: proc() -> bool {
 		tabs := ui.box("tabs", {width = ui.points(inner_width), height = ui.points(36), axis = .X, gap = 4, padding = {0, 0, 0, 10}})
 
 		if ui.scope(tabs) {
-			if build_tab("Up Next", app.panel == .Up_Next) do app.panel = .Up_Next
-			if build_tab("Lyrics", app.panel == .Lyrics) do app.panel = .Lyrics
+			if build_tab("Up Next", app.panel == .Up_Next) do set_panel(.Up_Next)
+			if build_tab("Lyrics", app.panel == .Lyrics) do set_panel(.Lyrics)
 		}
 
 		inner := ui.box("inner", {width = ui.points(inner_width), height = ui.fill(), axis = .Y, gap = 4})

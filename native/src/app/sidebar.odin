@@ -81,23 +81,3 @@ build_sidebar_item :: proc(label, symbol: string, symbol_color: [4]f32, page: Pa
 	}
 }
 
-// Typing comes in a later step. The field shows where it will be.
-build_search_field :: proc() {
-	field := ui.box("search", {
-		width         = ui.fill(),
-		height        = ui.points(30),
-		axis          = .X,
-		align         = .Center,
-		gap           = 7,
-		padding       = {9, 0, 9, 0},
-		corner_radius = 8,
-		background    = colors.field,
-	})
-
-	if ui.scope(field) {
-		icon_box("", "magnifyingglass", 13, colors.faint)
-		text_box("Search", colors.faint)
-	}
-
-	ui.box("", {width = ui.fill(), height = ui.points(6)})
-}

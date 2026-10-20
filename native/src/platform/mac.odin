@@ -58,7 +58,23 @@ Key_Press :: struct {
 	modifiers:  Modifiers,
 	is_repeat:  bool,
 }
+// Finished text from the keyboard or an input method.
+Text_Insert :: struct {
+	// Lives until the next frame.
+	text: string,
+}
+// An input method's unfinished text, such as kana before it becomes kanji. Empty when it ends.
+Text_Marked :: struct {
+	text: string,
+}
+// An editing key, by AppKit's selector, such as "deleteBackward:", "insertNewline:" or "moveLeft:".
+Text_Command :: struct {
+	name: string,
+}
 Event :: union {
+	Text_Insert,
+	Text_Marked,
+	Text_Command,
 	Mouse_Move,
 	Mouse_Press,
 	Mouse_Release,
@@ -97,6 +113,11 @@ state: struct {
 	events:          [dynamic]Event,
 	event_arena:     [2]runtime.Arena,
 	event_arena_index: int,
+	// While a text field is focused, key presses go through the view's input method.
+	is_text_input:   bool,
+	marked_length:   int,
+	// The caret of the focused field, in window points from the top left, for the input method.
+	caret_rect:      [4]f32,
 	odin_context:    runtime.Context,
 }
 
@@ -107,6 +128,11 @@ Visual_Effect_View :: struct {
 
 @(objc_class = "CAMetalDisplayLink")
 Display_Link :: struct {
+	using _: NS.Object,
+}
+
+@(objc_class = "NSPasteboard")
+Pasteboard :: struct {
 	using _: NS.Object,
 }
 
@@ -153,6 +179,115 @@ Target_windowShouldClose :: proc "c" (self: ^Target, sender: NS.id) -> NS.BOOL {
 	state.is_closed = true
 
 	return true
+}
+
+// The view that draws the app. It takes the keyboard while a text field is focused, so an input method
+// such as Japanese can compose text in it (NSTextInputClient).
+@(objc_class = "OMView", objc_superclass = NS.View, objc_implement)
+Text_View :: struct {
+	using _: NS.View,
+}
+
+@(objc_type = Text_View, objc_implement, objc_name = "acceptsFirstResponder")
+Text_View_acceptsFirstResponder :: proc "c" (self: ^Text_View) -> NS.BOOL {
+	return true
+}
+
+@(objc_type = Text_View, objc_implement, objc_name = "keyDown", objc_selector = "keyDown:")
+Text_View_keyDown :: proc "c" (self: ^Text_View, event: ^NS.Event) {
+	object := cast(^NS.Object)event
+	events := NS.Array.alloc()->initWithObjects(&object, 1)
+	msg_send(nil, self, "interpretKeyEvents:", events)
+	events->release()
+}
+
+@(private)
+to_odin_text :: proc "c" (text: ^NS.Object) -> string {
+	context = state.odin_context
+	plain := text
+	// An input method may send an NSAttributedString.
+	if msg_send(NS.BOOL, text, "respondsToSelector:", intrinsics.objc_find_selector("string")) do plain = msg_send(^NS.Object, text, "string")
+
+	return strings.clone((cast(^NS.String)plain)->odinString(), runtime.arena_allocator(&state.event_arena[state.event_arena_index]))
+}
+
+@(objc_type = Text_View, objc_implement, objc_name = "insertText", objc_selector = "insertText:replacementRange:")
+Text_View_insertText :: proc "c" (self: ^Text_View, text: ^NS.Object, replacement: NS.Range) {
+	context = state.odin_context
+	state.marked_length = 0
+	append(&state.events, Text_Insert{to_odin_text(text)})
+	request_frame()
+}
+
+@(objc_type = Text_View, objc_implement, objc_name = "setMarkedText", objc_selector = "setMarkedText:selectedRange:replacementRange:")
+Text_View_setMarkedText :: proc "c" (self: ^Text_View, text: ^NS.Object, selected, replacement: NS.Range) {
+	context = state.odin_context
+	marked := to_odin_text(text)
+	state.marked_length = len(marked)
+	append(&state.events, Text_Marked{marked})
+	request_frame()
+}
+
+@(objc_type = Text_View, objc_implement, objc_name = "unmarkText")
+Text_View_unmarkText :: proc "c" (self: ^Text_View) {
+	context = state.odin_context
+	state.marked_length = 0
+	append(&state.events, Text_Marked{})
+	request_frame()
+}
+
+@(objc_type = Text_View, objc_implement, objc_name = "hasMarkedText")
+Text_View_hasMarkedText :: proc "c" (self: ^Text_View) -> NS.BOOL {
+	return state.marked_length > 0
+}
+
+// NSNotFound marks no range.
+@(private)
+NOT_FOUND :: NS.UInteger(max(int))
+
+@(objc_type = Text_View, objc_implement, objc_name = "markedRange")
+Text_View_markedRange :: proc "c" (self: ^Text_View) -> NS.Range {
+	if state.marked_length == 0 do return {NOT_FOUND, 0}
+
+	return {0, NS.UInteger(state.marked_length)}
+}
+
+@(objc_type = Text_View, objc_implement, objc_name = "selectedRange")
+Text_View_selectedRange :: proc "c" (self: ^Text_View) -> NS.Range {
+	return {NOT_FOUND, 0}
+}
+
+@(objc_type = Text_View, objc_implement, objc_name = "validAttributesForMarkedText")
+Text_View_validAttributesForMarkedText :: proc "c" (self: ^Text_View) -> ^NS.Array {
+	return msg_send(^NS.Array, NS.Array, "array")
+}
+
+@(objc_type = Text_View, objc_implement, objc_name = "attributedSubstringForProposedRange", objc_selector = "attributedSubstringForProposedRange:actualRange:")
+Text_View_attributedSubstringForProposedRange :: proc "c" (self: ^Text_View, range: NS.Range, actual: ^NS.Range) -> ^NS.Object {
+	return nil
+}
+
+@(objc_type = Text_View, objc_implement, objc_name = "characterIndexForPoint", objc_selector = "characterIndexForPoint:")
+Text_View_characterIndexForPoint :: proc "c" (self: ^Text_View, point: NS.Point) -> NS.UInteger {
+	return NOT_FOUND
+}
+
+// Where the input method opens its list of candidates: under the caret, on the screen.
+@(objc_type = Text_View, objc_implement, objc_name = "firstRectForCharacterRange", objc_selector = "firstRectForCharacterRange:actualRange:")
+Text_View_firstRectForCharacterRange :: proc "c" (self: ^Text_View, range: NS.Range, actual: ^NS.Range) -> NS.Rect {
+	caret := state.caret_rect
+	height := f64(state.window.size_points.y)
+	in_window := NS.Rect{{NS.Float(caret.x), NS.Float(height - f64(caret.w))}, {NS.Float(caret.z - caret.x), NS.Float(caret.w - caret.y)}}
+
+	return msg_send(NS.Rect, state.ns_window, "convertRectToScreen:", in_window)
+}
+
+@(objc_type = Text_View, objc_implement, objc_name = "doCommandBySelector", objc_selector = "doCommandBySelector:")
+Text_View_doCommandBySelector :: proc "c" (self: ^Text_View, selector: NS.SEL) {
+	context = state.odin_context
+	name := string(sel_getName(selector))
+	append(&state.events, Text_Command{strings.clone(name, runtime.arena_allocator(&state.event_arena[state.event_arena_index]))})
+	request_frame()
 }
 
 @(objc_class = "OMBlurView", objc_superclass = Visual_Effect_View, objc_implement)
@@ -246,7 +381,7 @@ open_window :: proc(title: string, size_points: [2]f32, on_frame: Frame_Proc, is
 	layer->setFramebufferOnly(true)
 	msg_send(nil, layer, "setColorspace:", srgb_color_space())
 
-	view := msg_send(^NS.View, msg_send(^NS.View, NS.View, "alloc"), "initWithFrame:", content_rect)
+	view := msg_send(^NS.View, msg_send(^Text_View, Text_View, "alloc"), "initWithFrame:", content_rect)
 	view->setLayer(layer)
 	view->setWantsLayer(true)
 	// NSViewWidthSizable | NSViewHeightSizable
@@ -299,6 +434,7 @@ Objc_Super :: struct {
 @(default_calling_convention = "c", private)
 foreign objc_runtime {
 	objc_msgSendSuper :: proc(super: ^Objc_Super, selector: NS.SEL) ---
+	sel_getName :: proc(selector: NS.SEL) -> cstring ---
 }
 
 @(private)
@@ -432,11 +568,19 @@ take_event :: proc(event: ^NS.Event) -> bool {
 			is_momentum = momentum_phase != 0,
 		})
 	case .KeyDown:
+		modifiers := to_modifiers(event)
+
+		// A text field takes the key through the view's input method, except a shortcut.
+		if state.is_text_input && .Command not_in modifiers && .Control not_in modifiers {
+			request_frame()
+			return false
+		}
+
 		characters := event->charactersIgnoringModifiers()->odinString()
 		append(&state.events, Key_Press {
 			key_code   = u16(event->keyCode()),
 			characters = strings.clone(characters, arena_allocator),
-			modifiers  = to_modifiers(event),
+			modifiers  = modifiers,
 			is_repeat  = bool(event->isARepeat()),
 		})
 		is_taken = true
@@ -482,6 +626,29 @@ request_frame_after :: proc(seconds: f64) {
 wake :: proc "contextless" () {
 	event := NS.Event.otherEventWithType(.ApplicationDefined, {0, 0}, {}, 0, 0, nil, 0, 0, 0)
 	state.app->postEvent(event, true)
+}
+
+// Turns the keyboard over to a text field, or back to the app's shortcuts.
+set_text_input :: proc(is_on: bool, caret_rect: [4]f32 = {}) {
+	state.caret_rect = caret_rect
+	if is_on == state.is_text_input do return
+
+	state.is_text_input = is_on
+	if is_on {
+		msg_send(NS.BOOL, state.ns_window, "makeFirstResponder:", state.view)
+	} else {
+		state.marked_length = 0
+		msg_send(nil, msg_send(^NS.Object, state.view, "inputContext"), "discardMarkedText")
+	}
+}
+
+// The text on the clipboard, for Cmd V. It lives until the next frame.
+read_clipboard :: proc() -> string {
+	board := msg_send(^Pasteboard, Pasteboard, "generalPasteboard")
+	text := msg_send(^NS.String, board, "stringForType:", NS.AT("public.utf8-plain-text"))
+	if text == nil do return ""
+
+	return strings.clone(text->odinString(), context.temp_allocator)
 }
 
 quit :: proc() {

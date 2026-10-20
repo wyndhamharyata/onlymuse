@@ -137,7 +137,7 @@ build_controls :: proc() {
 				flags            = {.Clickable},
 			})
 			paint := new(Icon_Paint, context.temp_allocator)
-			paint^ = {"pause.fill" if is_playing else "play.fill", 15, colors.ink}
+			paint^ = {"pause.fill" if is_playing else "play.fill", 15, colors.ink, 1}
 			play.draw = draw_icon
 			play.data = paint
 			if ui.signal(play).is_clicked {

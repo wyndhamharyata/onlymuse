@@ -70,12 +70,12 @@ start :: proc() {
 }
 
 // Draws the symbol centred in rect, all in pixels.
-draw :: proc(name: string, size_pixels: f32, rect, clip: [4]f32, color: [4]f32) {
+draw :: proc(name: string, size_pixels: f32, rect, clip: [4]f32, color: [4]f32, stretch_y: f32 = 1) {
 	entry := find(name, size_pixels)
 	if entry.rect.z == 0 do return
 
 	width := f32(entry.rect.z)
-	height := f32(entry.rect.w)
+	height := math.round(f32(entry.rect.w) * (stretch_y if stretch_y > 0 else 1))
 	left := math.round((rect.x + rect.z - width) / 2)
 	top := math.round((rect.y + rect.w - height) / 2)
 	uv := [4]f32{f32(entry.rect.x), f32(entry.rect.y), f32(entry.rect.x + entry.rect.z), f32(entry.rect.y + entry.rect.w)} / ATLAS_SIZE

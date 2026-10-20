@@ -127,13 +127,12 @@ build_song_row :: proc(id: string, song: Catalog_Song, subtitle: string, is_curr
 	return track_song_row(ui.signal(row), song)
 }
 
-// A favourite's heart always shows. Another's shows while the row is under the pointer, to click.
+// Filled in the accent for a favourite, an empty outline for any other, on song lists and albums.
 build_row_heart :: proc(row: ^ui.Box, song: Catalog_Song, is_current: bool) {
 	persistent_id := app.now_playing.song.persistent_id if is_current else ""
 	is_on := is_favourite(song, persistent_id)
-	alpha: f32 = 1 if is_on || is_mouse_in(row) else 0
 
-	if favourite_button("heart", is_on, 13, alpha) && alpha > 0 do toggle_favourite(song, persistent_id)
+	if favourite_button("heart", is_on, 13) do toggle_favourite(song, persistent_id)
 }
 
 list_library_albums :: proc() -> (cards: []apple.Card, signature: int, phase: apple.Phase) {

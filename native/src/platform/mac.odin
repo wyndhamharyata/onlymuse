@@ -3,6 +3,7 @@ package platform
 import "base:intrinsics"
 import "base:runtime"
 import "core:strings"
+import "core:unicode/utf8"
 import NS "core:sys/darwin/Foundation"
 import MTL "vendor:darwin/Metal"
 import "om:mac"
@@ -224,6 +225,15 @@ to_odin_text :: proc "c" (text: ^NS.Object) -> string {
 	return strings.clone((cast(^NS.String)plain)->odinString(), runtime.arena_allocator(&state.event_arena[state.event_arena_index]))
 }
 
+// NSResponder's form, which AppKit uses when it finds no input context.
+@(objc_type = Text_View, objc_implement, objc_name = "insertTextPlain", objc_selector = "insertText:")
+Text_View_insertTextPlain :: proc "c" (self: ^Text_View, text: ^NS.Object) {
+	context = state.odin_context
+	state.marked_length = 0
+	append(&state.events, Text_Insert{to_odin_text(text)})
+	request_frame()
+}
+
 @(objc_type = Text_View, objc_implement, objc_name = "insertText", objc_selector = "insertText:replacementRange:")
 Text_View_insertText :: proc "c" (self: ^Text_View, text: ^NS.Object, replacement: NS.Range) {
 	context = state.odin_context
@@ -395,6 +405,9 @@ open_window :: proc(title: string, size_points, min_size_points: [2]f32, on_fram
 	layer->setFramebufferOnly(true)
 	msg_send(nil, layer, "setColorspace:", srgb_color_space())
 
+	// AppKit gives a view an input context only when its class says it is an NSTextInputClient. Without
+	// one, keys go to NSResponder's insertText: and an input method never starts.
+	class_addProtocol(rawptr(intrinsics.objc_find_class("OMView")), objc_getProtocol("NSTextInputClient"))
 	view := msg_send(^NS.View, msg_send(^Text_View, Text_View, "alloc"), "initWithFrame:", content_rect)
 	view->setLayer(layer)
 	view->setWantsLayer(true)
@@ -449,6 +462,8 @@ Objc_Super :: struct {
 foreign objc_runtime {
 	objc_msgSendSuper :: proc(super: ^Objc_Super, selector: NS.SEL) ---
 	sel_getName :: proc(selector: NS.SEL) -> cstring ---
+	objc_getProtocol :: proc(name: cstring) -> rawptr ---
+	class_addProtocol :: proc(class: rawptr, protocol: rawptr) -> NS.BOOL ---
 }
 
 @(private)
@@ -657,6 +672,28 @@ set_text_input :: proc(is_on: bool, caret_rect: [4]f32 = {}) {
 		state.marked_length = 0
 		msg_send(nil, msg_send(^NS.Object, state.view, "inputContext"), "discardMarkedText")
 	}
+}
+
+// For the tests, which cannot type into a window behind the others: sends each character to the view as
+// a key press, as the keyboard would, through its input context. Reports whether it has one.
+type_for_test :: proc(text: string) -> bool {
+	input_context := msg_send(^NS.Object, state.view, "inputContext")
+	has_context := input_context != nil
+	// AppKit activates the context of the key window's first responder. A test window is never key.
+	if has_context do msg_send(nil, input_context, "activate")
+	window_number := msg_send(NS.Integer, state.ns_window, "windowNumber")
+
+	for character in text {
+		buffer, size := utf8.encode_rune(character)
+		ns_character := NS.String.alloc()->initWithOdinString(string(buffer[:size]))
+		defer ns_character->release()
+
+		// NSEventTypeKeyDown is 10.
+		event := msg_send(^NS.Event, NS.Event, "keyEventWithType:location:modifierFlags:timestamp:windowNumber:context:characters:charactersIgnoringModifiers:isARepeat:keyCode:", NS.UInteger(10), NS.Point{}, NS.UInteger(0), NS.TimeInterval(0), window_number, rawptr(nil), ns_character, ns_character, NS.BOOL(false), u16(0))
+		msg_send(nil, state.view, "keyDown:", event)
+	}
+
+	return has_context
 }
 
 // The text on the clipboard, for Cmd V. It lives until the next frame.

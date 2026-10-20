@@ -225,8 +225,8 @@ Rebuild the helper first: `cd .. && bun run helper`.
 
 - A heart follows the song name in the player bar. Click it, or press Cmd L, to make the playing
   song a favourite in Music.app, which also puts it in Favourite Songs. A note confirms it.
-- Song rows in Songs, playlists, albums and Up Next show a filled heart for a favourite, and an
-  empty one under the pointer to click.
+- Song rows in Songs, playlists and albums show a heart: filled in the accent for a favourite, an
+  empty outline for any other. Up Next has none.
 - A song that is not in your library cannot be a favourite in Music.app; the note says so.
 - The app now keeps its own play log: a song heard to its middle is a play, one left sooner a skip.
 
@@ -273,6 +273,7 @@ Rebuild the helper first: `cd .. && bun run helper`.
 | `OM_HELPER=<file>` | Runs this instead of the Swift helper. `tools/fake-helper.sh` says a song plays. |
 | `OM_FAKE_POSITION=<seconds>` | Where the fake helper's song starts. |
 | `OM_FAKE_NAME`, `OM_FAKE_ARTIST`, `OM_FAKE_ALBUM`, `OM_FAKE_DURATION` | The fake helper's song, soldier game by default. |
+| `OM_TYPE=<text>` | Types this into the focused field a second after start, through the view's input context, as the keyboard would. |
 | `OM_PALETTE=<term>` | Opens the command palette with this term at start, as a test cannot type into a window behind the others. |
 | `OM_BACKGROUND=1` | For the tests. Opens the window behind the others, never focused and with no Dock icon, so AeroSpace leaves it floating. macOS stops a covered window's display link, so a timer runs its frames, which are captured but not shown. The helper leaves Music.app as it is when the app quits. Captures set it. The bench keeps its window in front, as it measures the screen. |
 | `OM_DATA=<folder>` | Keeps `onlymuse.sqlite` in this folder instead. |

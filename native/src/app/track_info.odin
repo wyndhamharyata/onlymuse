@@ -186,14 +186,9 @@ apply_favourite_answer :: proc(message: helper.Message) {
 }
 
 // The heart on a row, the player bar and Now Playing. Returns true when clicked.
-favourite_button :: proc(id: string, is_favourite: bool, size_points: f32 = 14, alpha: f32 = 1) -> bool {
-	color := FAVOURITE_COLOR if is_favourite else colors.dim
-	color.a *= alpha
-
-	return icon_button(id, "heart.fill" if is_favourite else "heart", size_points, color)
+favourite_button :: proc(id: string, is_favourite: bool, size_points: f32 = 14) -> bool {
+	return icon_button(id, "heart.fill" if is_favourite else "heart", size_points, app.accent if is_favourite else colors.faint)
 }
-
-FAVOURITE_COLOR :: [4]f32{1, 0x5f / 255.0, 0x7a / 255.0, 1}
 
 // ---- The play log ----
 

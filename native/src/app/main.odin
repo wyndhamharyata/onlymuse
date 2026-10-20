@@ -38,6 +38,9 @@ app: struct {
 	// The tab the panel opens on.
 	last_panel:        Panel,
 	is_sign_in_needed: bool,
+	// OM_TYPE: text typed into the focused field a second in, for the tests.
+	test_typing:       string,
+	started_at:        time.Tick,
 	is_sign_in_open:   bool,
 	last_frame:        time.Tick,
 	// OM_CAPTURE saves a frame to this file and quits, for the development tests. OM_CAPTURE_SECONDS waits first.
@@ -77,6 +80,8 @@ main :: proc() {
 	start_palette()
 	start_shuffle_rules()
 	if term := os.get_env("OM_PALETTE", context.temp_allocator); term != "" do open_palette_for_test(term)
+	app.test_typing = os.get_env("OM_TYPE", context.allocator)
+	app.started_at = time.tick_now()
 
 	// A test or bench run opens behind the other windows and leaves Music.app as it is when it quits.
 	is_background := app.capture_path != "" || app.is_bench || os.get_env("OM_BACKGROUND", context.temp_allocator) == "1"
@@ -196,6 +201,12 @@ draw_frame :: proc() -> bool {
 	dt_seconds := f32(time.duration_seconds(time.tick_diff(app.last_frame, start)))
 	app.last_frame = start
 	append(&app.frame_starts, start)
+	// Before the frame reads its events, so the typed keys are among them.
+	if app.test_typing != "" && time.duration_seconds(time.tick_since(app.started_at)) > 1 {
+		has_context := platform.type_for_test(app.test_typing)
+		fmt.eprintfln("typed %q, input context: %v", app.test_typing, has_context)
+		app.test_typing = ""
+	}
 	apply_helper_messages()
 	update_queue()
 	update_play_log()
@@ -243,6 +254,7 @@ draw_frame :: proc() -> bool {
 	}
 
 	app.frame_count += 1
+
 	is_capture_frame := app.capture_path != "" && app.frame_count >= 3 && time.tick_diff(app.capture_time, start) >= 0
 	if is_capture_frame do render.request_capture(app.capture_path)
 	append(&app.build_durations, time.tick_since(start))

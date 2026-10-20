@@ -18,6 +18,10 @@ STAGE_COVER_POINTS :: 280
 SMALL_STAGE_COVER_POINTS :: 220
 // Narrower than this, the details go under the cover.
 SIDE_BY_SIDE_POINTS :: 560
+HERO_GAP_POINTS :: 26
+// The text beside the cover takes at least this much, else the text goes under the cover.
+MIN_INFO_POINTS :: 360
+NARROW_STATS_POINTS :: 560
 BACKDROP_POINTS :: 520
 // The cover is drawn this small and stretched for the backdrop: a blur with no blur.
 BACKDROP_PIXELS :: 24
@@ -87,7 +91,7 @@ build_now_playing_page :: proc() {
 		if ui.scope(stage) {
 			set_backdrop(details.song.artwork, shown.artwork_path)
 			build_hero(details, info, shown, width)
-			if info.is_in_library do build_stats(details.song, info)
+			if info.is_in_library do build_stats(details.song, info, width)
 			build_detail_cards(details, info, shown.persistent_id, width)
 			if watched.phase != .Ready do note(phase_note(watched.phase))
 			build_more_by(details)
@@ -143,9 +147,11 @@ build_page_backdrop :: proc() {
 
 @(private = "file")
 build_hero :: proc(details: Song_Details, info: Track_Info, shown: helper.Song, width: f32) {
-	is_side_by_side := width >= SIDE_BY_SIDE_POINTS
 	cover_points: f32 = STAGE_COVER_POINTS if width >= 760 else SMALL_STAGE_COVER_POINTS
-	hero := ui.box("hero", {width = ui.fill(), height = ui.fit_children(), axis = .X if is_side_by_side else .Y, align = .End if is_side_by_side else .Start, gap = 26})
+	cover_points = min(cover_points, width)
+	is_side_by_side := width - cover_points - HERO_GAP_POINTS >= MIN_INFO_POINTS
+	info_width := width - cover_points - HERO_GAP_POINTS if is_side_by_side else width
+	hero := ui.box("hero", {width = ui.fill(), height = ui.fit_children(), axis = .X if is_side_by_side else .Y, gap = HERO_GAP_POINTS})
 
 	if ui.scope(hero) {
 		cover := ui.box("cover", {width = ui.points(cover_points), height = ui.points(cover_points)})
@@ -162,13 +168,17 @@ build_hero :: proc(details: Song_Details, info: Track_Info, shown: helper.Song, 
 
 		if ui.scope(info_box) {
 			ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = to_color(0xffffffb0), font_size = 11.5, font_weight = .Bold}, to_eyebrow(details))
-			ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.text, font_size = 44, font_weight = .Bold, padding = {0, 2, 0, 2}, flags = {.Wrap_Text}}, details.song.name)
+			ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.text, font_size = to_title_size(info_width), font_weight = .Bold, padding = {0, 2, 0, 2}, flags = {.Wrap_Text}}, details.song.name)
 
-			artist := ui.box("artist", {width = ui.fit_text(), height = ui.fit_text(), text_color = app.accent if details.artist_id != "" else colors.text, font_size = 20, font_weight = .Semibold, flags = {.Clickable} if details.artist_id != "" else {}}, details.song.artist_name)
+			artist_flags := ui.Flags{.Truncate_Text}
+			if details.artist_id != "" do artist_flags |= {.Clickable}
+			artist := ui.box("artist", {width = ui.fill(), height = ui.fit_text(), text_color = app.accent if details.artist_id != "" else colors.text, font_size = 20, font_weight = .Semibold, flags = artist_flags}, details.song.artist_name)
 			if ui.signal(artist).is_clicked do navigate({kind = .Artist, id = details.artist_id, title = details.song.artist_name})
 
 			album_line := details.album if details.label == "" else fmt.tprintf("%s · %s", details.album, details.label)
-			album := ui.box("album", {width = ui.fit_text(), height = ui.fit_text(), text_color = to_color(0xffffffb0), font_size = 14, flags = {.Clickable} if details.album_id != "" else {}}, album_line)
+			album_flags := ui.Flags{.Truncate_Text}
+			if details.album_id != "" do album_flags |= {.Clickable}
+			album := ui.box("album", {width = ui.fill(), height = ui.fit_text(), text_color = to_color(0xffffffb0), font_size = 14, flags = album_flags}, album_line)
 			if ui.signal(album).is_clicked do navigate({kind = .Album, id = details.album_id})
 
 			build_pills(details, info)
@@ -176,6 +186,15 @@ build_hero :: proc(details: Song_Details, info: Track_Info, shown: helper.Song, 
 			build_lyric_line(shown)
 		}
 	}
+}
+
+// The title keeps its two or three lines rather than filling the column with one word each.
+@(private = "file")
+to_title_size :: proc(info_width: f32) -> f32 {
+	if info_width >= 520 do return 44
+	if info_width >= 400 do return 36
+
+	return 30
 }
 
 // "NOW PLAYING · SINGLE · 2026".
@@ -273,22 +292,39 @@ build_lyric_line :: proc(shown: helper.Song) {
 // ---- What Music.app knows ----
 
 @(private = "file")
-build_stats :: proc(song: Catalog_Song, info: Track_Info) {
-	row := ui.box("stats", {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 10})
+build_stats :: proc(song: Catalog_Song, info: Track_Info, width: f32) {
+	weeks, rank := count_weekly_plays(song)
+	last := info.played_date_ms
+	added := info.date_added_ms
+	skipped := info.skipped_date_ms
 
-	if ui.scope(row) {
-		weeks, rank := count_weekly_plays(song)
-		plays := build_stat_card("plays", "PLAYS", fmt.tprintf("%d", info.played_count), fmt.tprintf("#%d this month", rank) if rank > 0 else "", 1.4)
-		if ui.scope(plays) do build_spark(weeks)
+	Stat :: struct {
+		id, label, value, note: string,
+		weight:                 f32,
+		weeks:                  [STAT_WEEKS]int,
+		has_spark:              bool,
+	}
+	stats := [4]Stat {
+		{"plays", "PLAYS", fmt.tprintf("%d", info.played_count), fmt.tprintf("#%d this month", rank) if rank > 0 else "", 1.4, weeks, true},
+		{"last played", "LAST PLAYED", to_day_text(last) if last > 0 else "Never", platform.format_date(last, "HH:mm") if last > 0 else "", 1, {}, false},
+		{"added", "IN LIBRARY SINCE", platform.format_date(added, "d MMM") if added > 0 else "—", platform.format_date(added, "yyyy") if added > 0 else "", 1, {}, false},
+		{"skips", "SKIPS", fmt.tprintf("%d", info.skipped_count), fmt.tprintf("last on %s", platform.format_date(skipped, "d MMM")) if skipped > 0 else "", 1, {}, false},
+	}
 
-		last := info.played_date_ms
-		build_stat_card("last played", "LAST PLAYED", to_day_text(last) if last > 0 else "Never", platform.format_date(last, "HH:mm") if last > 0 else "")
+	// Under this, four cards are too narrow to read their own numbers.
+	columns := 4 if width >= NARROW_STATS_POINTS else 2
 
-		added := info.date_added_ms
-		build_stat_card("added", "IN LIBRARY SINCE", platform.format_date(added, "d MMM") if added > 0 else "—", platform.format_date(added, "yyyy") if added > 0 else "")
+	for start := 0; start < len(stats); start += columns {
+		row := ui.box(fmt.tprintf("stats %d", start), {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 10})
 
-		skipped := info.skipped_date_ms
-		build_stat_card("skips", "SKIPS", fmt.tprintf("%d", info.skipped_count), fmt.tprintf("last on %s", platform.format_date(skipped, "d MMM")) if skipped > 0 else "")
+		if ui.scope(row) {
+			for stat in stats[start:min(start + columns, len(stats))] {
+				card := build_stat_card(stat.id, stat.label, stat.value, stat.note, stat.weight)
+				if stat.has_spark {
+					if ui.scope(card) do build_spark(stat.weeks)
+				}
+			}
+		}
 	}
 }
 
@@ -486,7 +522,7 @@ build_more_by :: proc(details: Song_Details) {
 	shelf := ui.box("more by", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 10, padding = {0, 4, 0, 0}})
 
 	if ui.scope(shelf) {
-		ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.text, font_size = 17, font_weight = .Bold}, fmt.tprintf("More by %s", details.song.artist_name))
+		ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.text, font_size = 17, font_weight = .Bold, flags = {.Truncate_Text}}, fmt.tprintf("More by %s", details.song.artist_name))
 		row := ui.box("tiles", {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 12})
 
 		if ui.scope(row) {

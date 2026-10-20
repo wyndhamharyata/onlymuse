@@ -252,3 +252,10 @@ delete_key_and_value :: proc(m: ^map[string]f64, key: string) {
 	stored_key, _ := delete_key(m, key)
 	delete(stored_key)
 }
+
+// Whether the pointer is over the box, as of last frame, even when a button inside it has the hover.
+is_mouse_in :: proc(box: ^ui.Box) -> bool {
+	mouse := ui.mouse_position()
+
+	return mouse.x >= box.rect.x && mouse.x < box.rect.z && mouse.y >= box.rect.y && mouse.y < box.rect.w
+}

@@ -114,10 +114,20 @@ build_song_row :: proc(id: string, song: Catalog_Song, subtitle: string, is_curr
 			text_box(subtitle, colors.dim, 12)
 		}
 
+		build_row_heart(row, song, is_current)
 		ui.box("", {width = ui.points(44), height = ui.fit_text(), text_align = .End, text_color = colors.faint, font_size = 12}, to_clock_text(song.duration_seconds))
 	}
 
 	return ui.signal(row).is_clicked
+}
+
+// A favourite's heart always shows. Another's shows while the row is under the pointer, to click.
+build_row_heart :: proc(row: ^ui.Box, song: Catalog_Song, is_current: bool) {
+	persistent_id := app.now_playing.song.persistent_id if is_current else ""
+	is_on := is_favourite(song, persistent_id)
+	alpha: f32 = 1 if is_on || is_mouse_in(row) else 0
+
+	if favourite_button("heart", is_on, 13, alpha) && alpha > 0 do toggle_favourite(song, persistent_id)
 }
 
 build_albums_page :: proc() {

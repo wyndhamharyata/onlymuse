@@ -72,6 +72,7 @@ main :: proc() {
 	start_saved_window_state()
 	start_lyrics()
 	start_search_field()
+	start_play_log()
 
 	// A test or bench run opens behind the other windows and leaves Music.app as it is when it quits.
 	is_background := app.capture_path != "" || app.is_bench || os.get_env("OM_BACKGROUND", context.temp_allocator) == "1"
@@ -102,6 +103,10 @@ apply_helper_messages :: proc() {
 		case "error":
 			// Music.app has no current track while stopped, and the helper's next post says so.
 			if !strings.contains(message.text, "get current track") do fmt.eprintfln("helper: %s", message.text)
+		case "trackInfo":
+			apply_track_info(message)
+		case "setFavoriteResult":
+			apply_favourite_answer(message)
 		case "playSongResult", "setNextResult":
 			apply_queue_answer(message.request_id, message.persistent_id)
 		case "nowPlaying":
@@ -126,6 +131,8 @@ apply_keys :: proc() {
 			set_zoom(1)
 		case "q":
 			platform.quit()
+		case "l":
+			if song, persistent_id, is_song := find_playing_song(); is_song do toggle_favourite(song, persistent_id)
 		}
 	}
 }
@@ -185,6 +192,7 @@ draw_frame :: proc() -> bool {
 	append(&app.frame_starts, start)
 	apply_helper_messages()
 	update_queue()
+	update_play_log()
 	apply_search_events()
 	apply_keys()
 
@@ -211,6 +219,7 @@ draw_frame :: proc() -> bool {
 	}
 
 	build_player_bar()
+	build_toast()
 	if app.is_sign_in_needed do build_sign_in_card()
 	build_frame_time()
 	ui.end_frame()

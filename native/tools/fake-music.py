@@ -4,6 +4,7 @@
 # OM_FAKE_LOG      file that keeps every command the app sent
 # OM_FAKE_SPEED    how many song seconds pass in one real second, 1 by default
 # OM_FAKE_MISSING  a song name that is not in the library until it has been asked for 3 times
+# trackInfo answers made-up plays and a lossless file. setFavorite keeps favourites until it quits.
 import json
 import os
 import sys
@@ -18,6 +19,9 @@ lock = threading.Lock()
 asked = {}
 player = {"state": "stopped", "song": None, "position": 0.0, "read_at": time.time(), "volume": 50}
 handoff = {"after": None, "song": None}
+# Persistent IDs marked as favourites, and how often each song has played.
+favourites = set()
+played = {}
 
 
 def send(message):
@@ -48,7 +52,19 @@ def send_now_playing():
     })
 
 
+def track_info(persistent_id):
+    added = time.time() - 86400 * 40
+    return {
+        "type": "trackInfo", "persistentID": persistent_id, "isInLibrary": True, "favorited": persistent_id in favourites,
+        "playedCount": played.get(persistent_id, 0), "playedDateMs": time.time() * 1000 - 3600 * 1000, "skippedCount": 2,
+        "skippedDateMs": time.time() * 1000 - 86400 * 1000 * 11, "dateAddedMs": added * 1000, "rating": 0,
+        "bitRate": 1411, "sampleRate": 48000, "kind": "Apple Lossless audio file", "bpm": 172, "size": 38200000,
+    }
+
+
 def start(match):
+    persistent_id = to_persistent_id(match)
+    played[persistent_id] = played.get(persistent_id, 0) + 1
     player.update(state="playing", song=match, position=0.0, read_at=time.time())
     send_now_playing()
 
@@ -77,6 +93,18 @@ def apply(command):
         player["position"] = command["positionSeconds"]
         player["read_at"] = time.time()
         send_now_playing()
+    elif kind == "trackInfo":
+        send(track_info(command["persistentID"]))
+    elif kind == "setFavorite":
+        persistent_id = command.get("persistentID") or (to_persistent_id(command["song"]) if command.get("song") else None)
+        if persistent_id:
+            (favourites.add if command["favorited"] else favourites.discard)(persistent_id)
+        message = {"type": "setFavoriteResult", "favorited": command["favorited"], "persistentID": persistent_id}
+        if "requestId" in command:
+            message["requestId"] = command["requestId"]
+        send(message)
+        if persistent_id:
+            send(track_info(persistent_id))
     elif kind == "setVolume":
         player["volume"] = command["volumePercent"]
         send({"type": "volume", "volumePercent": player["volume"]})

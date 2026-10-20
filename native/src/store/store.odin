@@ -30,6 +30,15 @@ SCHEMA :: `
 		fetched_at integer not null,
 		used_at integer not null
 	);
+	create table if not exists plays (
+		catalog_id text not null,
+		name text not null,
+		artist text not null,
+		album text not null,
+		is_skip integer not null,
+		played_at integer not null
+	);
+	create index if not exists plays_by_time on plays (played_at);
 	create table if not exists state (
 		key text primary key,
 		value text not null,
@@ -167,4 +176,51 @@ save_state :: proc(key, value: string) {
 	bind_text(statement, 2, value)
 	mac.sqlite3_bind_int64(statement, 3, now_ms())
 	mac.sqlite3_step(statement)
+}
+
+// A song heard to its middle, or left before it. Music.app keeps only a count and the last date.
+Play :: struct {
+	catalog_id: string,
+	name:       string,
+	artist:     string,
+	album:      string,
+	is_skip:    bool,
+	// Unix ms.
+	played_at:  i64,
+}
+
+save_play :: proc(play: Play) {
+	statement, ok := prepare("insert into plays (catalog_id, name, artist, album, is_skip, played_at) values (?1, ?2, ?3, ?4, ?5, ?6)")
+	if !ok do return
+	defer mac.sqlite3_finalize(statement)
+
+	bind_text(statement, 1, play.catalog_id)
+	bind_text(statement, 2, play.name)
+	bind_text(statement, 3, play.artist)
+	bind_text(statement, 4, play.album)
+	mac.sqlite3_bind_int64(statement, 5, 1 if play.is_skip else 0)
+	mac.sqlite3_bind_int64(statement, 6, play.played_at if play.played_at > 0 else now_ms())
+	mac.sqlite3_step(statement)
+}
+
+// Every play since since_ms, oldest first.
+list_plays :: proc(since_ms: i64, allocator := context.allocator) -> []Play {
+	statement, ok := prepare("select catalog_id, name, artist, album, is_skip, played_at from plays where played_at >= ?1 order by played_at")
+	if !ok do return nil
+	defer mac.sqlite3_finalize(statement)
+	mac.sqlite3_bind_int64(statement, 1, since_ms)
+
+	plays := make([dynamic]Play, allocator)
+	for mac.sqlite3_step(statement) == mac.SQLITE_ROW {
+		append(&plays, Play {
+			catalog_id = column_text(statement, 0, allocator),
+			name       = column_text(statement, 1, allocator),
+			artist     = column_text(statement, 2, allocator),
+			album      = column_text(statement, 3, allocator),
+			is_skip    = mac.sqlite3_column_int64(statement, 4) != 0,
+			played_at  = mac.sqlite3_column_int64(statement, 5),
+		})
+	}
+
+	return plays[:]
 }

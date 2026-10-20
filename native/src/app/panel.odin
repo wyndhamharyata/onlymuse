@@ -92,9 +92,11 @@ build_queue_row :: proc(index: int, row_points: f32) {
 			scrolling_text("artist", song.artist_name, colors.dim, 12, is_hovered = is_hovered)
 		}
 
+		build_row_heart(row, song, is_current)
+
 		// The song playing stays. Another shows its remove button while hovered.
-		if !is_current && row.hot_t > 0.01 {
-			is_removed = icon_button("remove", "xmark", 11, {colors.dim.r, colors.dim.g, colors.dim.b, row.hot_t})
+		if !is_current && is_mouse_in(row) {
+			is_removed = icon_button("remove", "xmark", 11, colors.dim)
 		}
 	}
 

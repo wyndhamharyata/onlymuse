@@ -8,6 +8,9 @@ struct Command: Decodable {
   let volumePercent: Int?
   let song: SongMatch?
   let afterPersistentID: String?
+  // trackInfo and setFavorite name a song by its persistent ID, or by a match when the app has none.
+  let persistentID: String?
+  let favorited: Bool?
 }
 
 // What the app knows of a catalog song, to find it in Music.app's library.

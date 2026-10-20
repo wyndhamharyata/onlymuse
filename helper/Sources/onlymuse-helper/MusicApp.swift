@@ -129,6 +129,98 @@ final class MusicApp {
     _ = run(NSAppleScript(source: "tell application \"Music\" to play (first track of library playlist 1 whose persistent ID is \"\(persistentID)\")")!)
   }
 
+  // What Music.app knows of a song and Apple's API does not: its plays, dates, favourite and file. Read only.
+  // The current track comes first, so a streamed song not in the library still answers what it can.
+  func readTrackInfo(persistentID: String) -> [String: Any] {
+    var info: [String: Any] = ["type": "trackInfo", "persistentID": persistentID]
+
+    guard isRunning, !persistentID.isEmpty else { return info }
+
+    // Each property in a try of its own, as a streamed song has some and not others.
+    let names = [
+      "played count", "played date", "skipped count", "skipped date", "date added", "favorited", "rating",
+      "bit rate", "sample rate", "kind", "bpm", "size",
+    ]
+    let reads = names.enumerated().map { index, name in
+      "  set item \(index + 1) of answers to missing value\n  try\n    set item \(index + 1) of answers to (\(name) of t)\n  end try"
+    }.joined(separator: "\n")
+    let id = Self.toAppleScriptText(persistentID)
+    let script = NSAppleScript(source: """
+      tell application "Music"
+        set t to missing value
+        try
+          if persistent ID of current track is \(id) then set t to current track
+        end try
+        if t is missing value then
+          set found to (every track of library playlist 1 whose persistent ID is \(id))
+          if (count of found) is 0 then return missing value
+          set t to item 1 of found
+        end if
+        set answers to {\(names.map { _ in "missing value" }.joined(separator: ", "))}
+      \(reads)
+        return answers
+      end tell
+      """)!
+
+    guard let list = run(script), list.numberOfItems == names.count else { return info }
+
+    for (index, name) in names.enumerated() {
+      guard let item = list.atIndex(index + 1), item.descriptorType != typeType else { continue }
+      let key = Self.toCamelCase(name)
+
+      switch name {
+      case "played date", "skipped date", "date added":
+        if let date = item.dateValue { info[key + "Ms"] = date.timeIntervalSince1970 * 1000 }
+      case "favorited":
+        info[key] = item.booleanValue
+      case "kind":
+        if let text = item.stringValue { info[key] = text }
+      case "size":
+        info[key] = item.doubleValue
+      default:
+        info[key] = Int(item.int32Value)
+      }
+    }
+    // A song in the library has a date it was added.
+    info["isInLibrary"] = info["dateAddedMs"] != nil
+
+    return info
+  }
+
+  // Sets Music.app's favourite, which also puts the song in Favourite Songs. The playing song or a library song.
+  func setFavorite(persistentID: String?, match: SongMatch?, favorited: Bool) -> String? {
+    guard isRunning else { return nil }
+
+    var id = persistentID ?? ""
+    if id.isEmpty, let match { id = findSong(match) ?? "" }
+    guard !id.isEmpty else { return nil }
+
+    let quoted = Self.toAppleScriptText(id)
+    let script = NSAppleScript(source: """
+      tell application "Music"
+        try
+          if persistent ID of current track is \(quoted) then
+            set favorited of current track to \(favorited)
+            return "done"
+          end if
+        end try
+        set found to (every track of library playlist 1 whose persistent ID is \(quoted))
+        if (count of found) is 0 then return ""
+        set favorited of item 1 of found to \(favorited)
+        return "done"
+      end tell
+      """)!
+
+    return run(script)?.stringValue == "done" ? id : nil
+  }
+
+  // "played count" as "playedCount".
+  private static func toCamelCase(_ name: String) -> String {
+    let words = name.split(separator: " ")
+
+    return words.enumerated().map { index, word in index == 0 ? String(word) : word.capitalized }.joined()
+  }
+
   // The persistent ID of the library song closest in length to the match, without playing it.
   func findSong(_ match: SongMatch) -> String? {
     let name = Self.toAppleScriptText(match.name)

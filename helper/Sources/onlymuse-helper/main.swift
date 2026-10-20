@@ -76,6 +76,16 @@ startReadingCommands(onCommand: { command in
     guard let requestId = command.requestId, let song = command.song else { return }
     let persistentID: Any = music.playSong(song) ?? NSNull()
     send(["type": "playSongResult", "requestId": requestId, "persistentID": persistentID])
+  case "trackInfo":
+    guard let persistentID = command.persistentID else { return }
+    send(music.readTrackInfo(persistentID: persistentID))
+  case "setFavorite":
+    guard let favorited = command.favorited else { return }
+    let changedID = music.setFavorite(persistentID: command.persistentID, match: command.song, favorited: favorited)
+    var result: [String: Any] = ["type": "setFavoriteResult", "favorited": favorited, "persistentID": changedID ?? NSNull()]
+    if let requestId = command.requestId { result["requestId"] = requestId }
+    send(result)
+    if let changedID { send(music.readTrackInfo(persistentID: changedID)) }
   case "setNext":
     guard let requestId = command.requestId else { return }
     let persistentID: Any = handoff.set(afterID: command.afterPersistentID, next: command.song) ?? NSNull()

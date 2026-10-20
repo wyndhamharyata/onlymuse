@@ -217,6 +217,17 @@ From here the app goes its own way rather than copying Apple Music.
 - A song started outside the app is found in Apple Music by its name and artist.
 - In a narrow window, the details go under the cover.
 
+### 6c. Favourites
+
+Rebuild the helper first: `cd .. && bun run helper`.
+
+- A heart follows the song name in the player bar. Click it, or press Cmd L, to make the playing
+  song a favourite in Music.app, which also puts it in Favourite Songs. A note confirms it.
+- Song rows in Songs, playlists, albums and Up Next show a filled heart for a favourite, and an
+  empty one under the pointer to click.
+- A song that is not in your library cannot be a favourite in Music.app; the note says so.
+- The app now keeps its own play log: a song heard to its middle is a play, one left sooner a skip.
+
 ## Development settings
 
 | Variable | Does |

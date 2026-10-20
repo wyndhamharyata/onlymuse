@@ -282,6 +282,7 @@ build_numbered_songs :: proc(songs: []Catalog_Song) {
 			if ui.scope(row) {
 				ui.box("", {width = ui.points(24), height = ui.fit_text(), text_color = app.accent if is_current else colors.faint}, fmt.tprintf("%d", index + 1))
 				text_box(song.name, app.accent if is_current else colors.text)
+				build_row_heart(row, song, is_current)
 				ui.box("", {width = ui.points(44), height = ui.fit_text(), text_align = .End, text_color = colors.faint, font_size = 12}, to_clock_text(song.duration_seconds))
 			}
 

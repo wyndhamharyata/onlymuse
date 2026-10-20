@@ -34,6 +34,19 @@ Message :: struct {
 	user_token:          string `json:"userToken"`,
 	text:                string,
 	request_id:          int `json:"requestId"`,
+	// trackInfo: what Music.app knows of a song. Dates are Unix ms, 0 when it has none.
+	is_in_library:       bool `json:"isInLibrary"`,
+	favorited:           bool,
+	played_count:        int `json:"playedCount"`,
+	played_date_ms:      f64 `json:"playedDateMs"`,
+	skipped_count:       int `json:"skippedCount"`,
+	skipped_date_ms:     f64 `json:"skippedDateMs"`,
+	date_added_ms:       f64 `json:"dateAddedMs"`,
+	bit_rate:            int `json:"bitRate"`,
+	sample_rate:         int `json:"sampleRate"`,
+	kind:                string,
+	bpm:                 int,
+	size:                f64,
 }
 
 Playback :: enum {
@@ -183,6 +196,31 @@ request_set_next :: proc(after_persistent_id: string, song: Maybe(Song_Match)) -
 	}
 	after_json := fmt.tprintf("\"%s\"", after_persistent_id) if after_persistent_id != "" else after
 	send(fmt.tprintf(`{{"type":"setNext","requestId":%d,"afterPersistentID":%s,"song":%s}}`, last_request_id, after_json, song_json))
+
+	return last_request_id
+}
+
+// What Music.app knows of a song: plays, dates, favourite and file. Its answer is trackInfo.
+request_track_info :: proc(persistent_id: string) {
+	Command :: struct {
+		type:          string,
+		persistent_id: string `json:"persistentID"`,
+	}
+	send_value(Command{"trackInfo", persistent_id})
+}
+
+// By persistent ID when the song is the playing one or known, else by a match in the library.
+// Its answer is setFavoriteResult, with a null persistent ID when Music.app found no such song.
+request_set_favorite :: proc(persistent_id: string, song: Song_Match, favorited: bool) -> int {
+	last_request_id += 1
+	Command :: struct {
+		type:          string,
+		request_id:    int `json:"requestId"`,
+		persistent_id: string `json:"persistentID"`,
+		song:          Song_Match,
+		favorited:     bool,
+	}
+	send_value(Command{"setFavorite", last_request_id, persistent_id, song, favorited})
 
 	return last_request_id
 }

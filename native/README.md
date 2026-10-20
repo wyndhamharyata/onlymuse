@@ -82,11 +82,37 @@ To measure three passes over the whole library:
 OM_BENCH=1 OM_BENCH_FRAMES=8000 ./build/onlymuse
 ```
 
+### 4. Lyrics
+
+The app now starts the Swift helper, as the gpuix app does, so build it once first with
+`cd .. && bun run helper`. The panel on the right opens on Lyrics.
+
+- Play a song in Music.app, or in the gpuix app. The panel shows its name and lyrics.
+- Each word fades into your accent colour as it is sung. The line before fades back as the next one
+  starts. The lines glide up so the current one stays fourth from the top.
+- A Japanese line shows its pronunciation in Latin letters under it, lit word by word too.
+- `⌘]` runs the lyrics 50 ms earlier and `⌘[` 50 ms later. A note shows the new lead for 2 seconds.
+  The app starts from the lead you saved in the gpuix app, 0.5 s by default.
+- Pause in Music.app. The lyrics stop. Between words the app draws nothing, so it stays near 4% CPU
+  while a song plays.
+- Click Up Next and Lyrics to switch tabs. The Up Next list is still sample songs.
+
+Quitting the app pauses Music.app, as the gpuix app does.
+
+To try it without Music.app, with a stand-in that says "soldier game" by ADO plays from 30 s:
+
+```
+OM_HELPER=$PWD/tools/fake-helper.sh OM_BACKGROUND=1 ./build/onlymuse
+```
+
 ## Development settings
 
 | Variable | Does |
 | --- | --- |
 | `OM_BENCH=1` | Scrolls by itself for 1,200 frames, prints frame times and quits. |
+| `OM_HELPER=<file>` | Runs this instead of the Swift helper. `tools/fake-helper.sh` says a song plays. |
+| `OM_FAKE_POSITION=<seconds>` | Where the fake helper's song starts. |
+| `OM_BACKGROUND=1` | The helper leaves Music.app as it is when the app quits. The bench and captures set it. |
 | `OM_DATA=<folder>` | Reads `onlymuse.sqlite` from this folder instead. |
 | `OM_BENCH_FRAMES=<count>` | Frames the bench runs. 1,200 by default. |
 | `OM_CAPTURE=<file>` | Saves a frame to the file as raw BGRA pixels and quits. It prints the size. Convert it with `magick -size <width>x<height> -depth 8 bgra:<file> out.png`. |

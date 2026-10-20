@@ -85,3 +85,59 @@ to_artwork_url :: proc(template: string, size_pixels: int, allocator := context.
 
 	return url
 }
+
+// Runs sql with one text parameter and returns the first column of the first row.
+@(private)
+read_one_text :: proc(sql: cstring, parameter: string, allocator := context.allocator) -> (string, bool) {
+	db: mac.Sqlite
+	path := strings.clone_to_cstring(data_path(), context.temp_allocator)
+
+	if mac.sqlite3_open_v2(path, &db, mac.SQLITE_OPEN_READONLY, nil) != mac.SQLITE_OK do return "", false
+	defer mac.sqlite3_close(db)
+
+	statement: mac.Sqlite_Statement
+	if mac.sqlite3_prepare_v2(db, sql, -1, &statement, nil) != mac.SQLITE_OK do return "", false
+	defer mac.sqlite3_finalize(statement)
+
+	// SQLITE_TRANSIENT: SQLite copies the text.
+	mac.sqlite3_bind_text(statement, 1, raw_data(parameter), i32(len(parameter)), rawptr(~uintptr(0)))
+
+	if mac.sqlite3_step(statement) != mac.SQLITE_ROW do return "", false
+
+	text := mac.sqlite3_column_text(statement, 0)[:mac.sqlite3_column_bytes(statement, 0)]
+
+	return strings.clone(string(text), allocator), true
+}
+
+// The answer the gpuix app saved for an API path, such as a song's lyrics.
+find_saved_answer :: proc(path: string, allocator := context.allocator) -> (string, bool) {
+	return read_one_text("select body from responses where path = ?", path, allocator)
+}
+
+// A saved value of the gpuix app's window, as JSON, such as "lyricLeadMs".
+find_saved_state :: proc(key: string, allocator := context.allocator) -> (string, bool) {
+	return read_one_text("select value from state where key = ?", key, allocator)
+}
+
+// The catalog ID of a song in the gpuix app's saved queue, found by its name and artist.
+find_queue_song_id :: proc(name, artist: string, allocator := context.allocator) -> (string, bool) {
+	Queue :: struct {
+		songs: []struct {
+			id:          string,
+			name:        string,
+			artist_name: string `json:"artistName"`,
+		},
+	}
+
+	text, ok := find_saved_state("queue", context.temp_allocator)
+	if !ok do return "", false
+
+	queue: Queue
+	if json.unmarshal_string(text, &queue, allocator = context.temp_allocator) != nil do return "", false
+
+	for song in queue.songs {
+		if song.name == name && song.artist_name == artist do return strings.clone(song.id, allocator), true
+	}
+
+	return "", false
+}

@@ -6,7 +6,9 @@ import "core:os"
 import "core:slice"
 import "core:strconv"
 import "core:time"
+import "om:apple"
 import "om:font"
+import "om:helper"
 import "om:image"
 import "om:library"
 import "om:platform"
@@ -85,6 +87,9 @@ app: struct {
 	capture_time:    time.Tick,
 	frame_count:     int,
 	albums:          []library.Album,
+	accent:          [4]f32,
+	now_playing:     helper.Now_Playing,
+	is_lyrics_tab:   bool,
 	is_bench:        bool,
 	bench_frame_count: int,
 	bench_direction: f32,
@@ -109,6 +114,13 @@ main :: proc() {
 	}
 
 	app.albums = library.list_albums()
+	app.accent = colors.accent
+	app.is_lyrics_tab = true
+	app.is_panel_open = true
+	start_lyrics()
+	// A test or bench run leaves Music.app as it is when it quits.
+	is_background := app.capture_path != "" || app.is_bench || os.get_env("OM_BACKGROUND", context.temp_allocator) == "1"
+	helper.start(is_background)
 	app.window = platform.open_window("onlymuse", {1200, 800}, draw_frame)
 	render.start(app.window.device, app.window.layer)
 	font.start()
@@ -117,10 +129,37 @@ main :: proc() {
 	platform.run()
 }
 
+apply_helper_messages :: proc() {
+	for message in helper.take_messages() {
+		helper.apply(&app.now_playing, message)
+
+		switch message.type {
+		case "accent":
+			app.accent = to_color_from_hex(message.color)
+		case "tokens":
+			apple.set_tokens(message.developer_token, message.user_token)
+		case "error":
+			fmt.eprintfln("helper: %s", message.text)
+		}
+	}
+}
+
+// "#F7821B", as the helper sends the system accent.
+to_color_from_hex :: proc(hex: string) -> [4]f32 {
+	if len(hex) != 7 || hex[0] != '#' do return colors.accent
+
+	value, ok := strconv.parse_u64_of_base(hex[1:], 16)
+	if !ok do return colors.accent
+
+	return to_color(u32(value << 8) | 0xff)
+}
+
 apply_keys :: proc() {
 	for event in platform.list_events() {
 		key, ok := event.(platform.Key_Press)
 		if !ok || .Command not_in key.modifiers do continue
+
+		apply_lead_key(key)
 
 		switch key.characters {
 		case "=", "+":
@@ -141,6 +180,7 @@ draw_frame :: proc() -> bool {
 	dt_seconds := f32(time.duration_seconds(time.tick_diff(app.last_frame, start)))
 	app.last_frame = start
 	append(&app.frame_starts, start)
+	apply_helper_messages()
 	apply_keys()
 
 	window := app.window
@@ -155,9 +195,10 @@ draw_frame :: proc() -> bool {
 	root.style.axis = .X
 	root.style.background = colors.window
 
+	colors.accent_tint = {app.accent.r, app.accent.g, app.accent.b, colors.accent_tint.a}
 	build_sidebar()
 	build_main()
-	build_panel()
+	is_lyrics_moving := build_panel()
 	build_frame_time()
 
 	ui.end_frame()
@@ -170,7 +211,7 @@ draw_frame :: proc() -> bool {
 	if is_capture_frame do platform.quit()
 	if app.is_bench && app.frame_count == app.bench_frame_count do finish_bench()
 
-	return app.capture_path != "" || app.is_bench || ui.is_animating() || font.is_redraw_needed() || image.is_animating()
+	return app.capture_path != "" || app.is_bench || ui.is_animating() || font.is_redraw_needed() || image.is_animating() || is_lyrics_moving
 }
 
 build_sidebar :: proc() {
@@ -196,7 +237,7 @@ build_sidebar :: proc() {
 				background       = colors.accent_tint if is_selected else {},
 				hover_background = colors.accent_tint if is_selected else colors.hover,
 				press_background = colors.pressed,
-				text_color       = colors.accent if is_selected else colors.text,
+				text_color       = app.accent if is_selected else colors.text,
 				font_weight      = .Medium,
 				flags            = {.Clickable},
 			}, page)
@@ -224,7 +265,7 @@ build_main :: proc() {
 				background       = colors.accent_tint if app.is_panel_open else colors.hover,
 				hover_background = colors.pressed,
 				press_background = colors.accent_tint,
-				text_color       = colors.accent if app.is_panel_open else colors.text,
+				text_color       = app.accent if app.is_panel_open else colors.text,
 				font_weight      = .Medium,
 				flags            = {.Clickable},
 			}, "Up Next")
@@ -361,41 +402,79 @@ build_row :: proc(row: int) {
 	}
 }
 
-build_panel :: proc() {
+// Returns true while the lyrics move.
+build_panel :: proc() -> bool {
 	width := ui.animate("panel width", PANEL_WIDTH_POINTS if app.is_panel_open else 0)
 
-	if width < 1 do return
+	if width < 1 do return false
 
 	panel := ui.box("panel", {
 		width      = ui.points(width),
 		height     = ui.fill(),
 		axis       = .Y,
-		padding    = {16, 64, 16, 16},
+		padding    = {16, 52, 16, 0},
 		gap        = 4,
 		background = colors.panel,
 		fade       = 1 - width / PANEL_WIDTH_POINTS,
 		flags      = {.Clip},
 	})
+	is_moving := false
 
 	if ui.scope(panel) {
-		ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.text, font_size = 15, font_weight = .Bold, padding = {8, 0, 8, 8}}, "Up Next")
+		tabs := ui.box("tabs", {width = ui.points(PANEL_WIDTH_POINTS - 32), height = ui.points(32), axis = .X, gap = 4, padding = {0, 0, 0, 8}})
 
-		for index in 0 ..< 12 {
-			song := sample_songs[index]
-			item := ui.box(fmt.tprintf("next %d", index), {
-				width            = ui.points(PANEL_WIDTH_POINTS - 32),
-				height           = ui.fit_children(),
-				axis             = .Y,
-				padding          = {8, 6, 8, 6},
-				corner_radius    = 6,
-				hover_background = colors.hover,
-				flags            = {.Clickable},
-			})
+		if ui.scope(tabs) {
+			if build_tab("Up Next", !app.is_lyrics_tab) do app.is_lyrics_tab = false
+			if build_tab("Lyrics", app.is_lyrics_tab) do app.is_lyrics_tab = true
+		}
 
-			if ui.scope(item) {
-				ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.text, flags = {.Wrap_Text}}, song[0])
-				ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.dim, font_size = 12}, song[1])
+		inner := ui.box("inner", {width = ui.points(PANEL_WIDTH_POINTS - 32), height = ui.fill(), axis = .Y, gap = 4})
+
+		if ui.scope(inner) {
+			if app.is_lyrics_tab {
+				is_moving = build_lyrics()
+			} else {
+				build_up_next()
 			}
+		}
+	}
+
+	return is_moving
+}
+
+// Returns true when clicked.
+build_tab :: proc(label: string, is_selected: bool) -> bool {
+	tab := ui.box(label, {
+		width            = ui.fit_text(),
+		height           = ui.fill(),
+		padding          = {12, 0, 12, 0},
+		corner_radius    = 12,
+		background       = colors.accent_tint if is_selected else {},
+		hover_background = colors.accent_tint if is_selected else colors.hover,
+		text_color       = app.accent if is_selected else colors.text,
+		font_weight      = .Semibold,
+		flags            = {.Clickable},
+	}, label)
+
+	return ui.signal(tab).is_clicked
+}
+
+build_up_next :: proc() {
+	for index in 0 ..< 12 {
+		song := sample_songs[index]
+		item := ui.box(fmt.tprintf("next %d", index), {
+			width            = ui.fill(),
+			height           = ui.fit_children(),
+			axis             = .Y,
+			padding          = {8, 6, 8, 6},
+			corner_radius    = 6,
+			hover_background = colors.hover,
+			flags            = {.Clickable},
+		})
+
+		if ui.scope(item) {
+			ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.text, flags = {.Wrap_Text}}, song[0])
+			ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.dim, font_size = 12}, song[1])
 		}
 	}
 }

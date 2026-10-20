@@ -85,6 +85,8 @@ state: struct {
 	ns_window:       ^NS.Window,
 	view:            ^NS.View,
 	display_link:    ^Display_Link,
+	target:          ^Target,
+	timer:           ^NS.Timer,
 	is_link_running: bool,
 	is_closed:       bool,
 	on_frame:        Frame_Proc,
@@ -124,6 +126,12 @@ Target_metalDisplayLink :: proc "c" (self: ^Target, link: NS.id, update: ^NS.Obj
 	state.window.drawable = msg_send(^CA.MetalDrawable, update, "drawable")
 	draw_frame()
 	state.window.drawable = nil
+}
+
+@(objc_type = Target, objc_implement, objc_name = "timerFired", objc_selector = "timerFired:")
+Target_timerFired :: proc "c" (self: ^Target, timer: NS.id) {
+	state.timer = nil
+	request_frame()
 }
 
 @(objc_type = Target, objc_implement, objc_name = "windowDidResize", objc_selector = "windowDidResize:")
@@ -236,6 +244,7 @@ open_window :: proc(title: string, size_points: [2]f32, on_frame: Frame_Proc) ->
 
 	target := msg_send(^Target, msg_send(^Target, Target, "alloc"), "init")
 	ns_window->setDelegate(cast(^NS.WindowDelegate)target)
+	state.target = target
 
 	link := msg_send(^Display_Link, msg_send(^Display_Link, Display_Link, "alloc"), "initWithMetalLayer:", layer)
 	msg_send(nil, link, "setDelegate:", target)
@@ -416,6 +425,23 @@ to_button :: proc(event: ^NS.Event) -> Mouse_Button {
 	}
 
 	return .Middle
+}
+
+// Draws a frame after this many seconds, such as when the next lyric word starts.
+request_frame_after :: proc(seconds: f64) {
+	fire_date := msg_send(^NS.Date, NS.Date, "dateWithTimeIntervalSinceNow:", NS.TimeInterval(max(0, seconds)))
+
+	// An earlier timer stays. The frame it draws asks again for the later one.
+	if state.timer != nil {
+		pending := msg_send(^NS.Date, state.timer, "fireDate")
+		if msg_send(NS.TimeInterval, pending, "timeIntervalSinceDate:", fire_date) <= 0 do return
+
+		msg_send(nil, state.timer, "invalidate")
+	}
+
+	state.timer = msg_send(^NS.Timer, NS.Timer, "scheduledTimerWithTimeInterval:target:selector:userInfo:repeats:", NS.TimeInterval(max(0, seconds)), state.target, intrinsics.objc_find_selector("timerFired:"), rawptr(nil), NS.BOOL(false))
+	// The timer also fires while a window is resized or a menu is open.
+	msg_send(nil, NS.RunLoop.mainRunLoop(), "addTimer:forMode:", state.timer, NS.RunLoopCommonModes)
 }
 
 // Wakes the event loop from any thread, so it sees a change made outside an event.

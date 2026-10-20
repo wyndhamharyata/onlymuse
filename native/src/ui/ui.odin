@@ -94,6 +94,8 @@ Box :: struct {
 	style:            Style,
 	text:             string,
 	draw:             Draw_Proc,
+	// Colours the text per character instead of style.text_color.
+	color_of:         font.Color_Proc,
 	data:             rawptr,
 	last_built_frame: int,
 	// Layout, in points from the top left of the window.
@@ -254,6 +256,7 @@ make_box :: proc(key: u64, style: Style) -> ^Box {
 	box.next = nil
 	box.text = ""
 	box.draw = nil
+	box.color_of = nil
 	box.data = nil
 	box.last_built_frame = state.frame_index
 
@@ -626,9 +629,8 @@ draw_text :: proc(box: ^Box, rect: [4]f32, clip_pixels: [4]f32, opacity: f32) {
 	}
 
 	top := inner.y + (inner.w - inner.y - text_size.y) / 2
-	color := style.text_color
-	color.a *= opacity
-	font.draw(box.shaped, {math.round(left * scale), math.round(top * scale)}, color, intersect(clip_pixels, inner * scale))
+	origin := [2]f32{math.round(left * scale), math.round(top * scale)}
+	font.draw(box.shaped, origin, style.text_color, intersect(clip_pixels, inner * scale), box.color_of, box.data, opacity)
 }
 
 to_pixels :: proc(points: f32) -> f32 {

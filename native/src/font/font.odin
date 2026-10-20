@@ -274,8 +274,10 @@ to_shaped_line :: proc(ct_line: mac.Line_Ref, font: Font, top_y: f32) -> Shaped_
 	return Shaped_Line{glyphs[:], width, baseline_y, utf16_range}
 }
 
-// Draws every glyph. color_of picks a colour per glyph, such as the sung words of a lyric line.
-draw :: proc(shaped: ^Shaped_Text, origin_pixels: [2]f32, color: [4]f32, clip: [4]f32, color_of: proc(utf16_index: int, data: rawptr) -> [4]f32 = nil, data: rawptr = nil) {
+Color_Proc :: #type proc(utf16_index: int, data: rawptr) -> [4]f32
+
+// Draws every glyph. color_of picks a colour per glyph, such as the sung words of a lyric line. opacity scales either.
+draw :: proc(shaped: ^Shaped_Text, origin_pixels: [2]f32, color: [4]f32, clip: [4]f32, color_of: Color_Proc = nil, data: rawptr = nil, opacity: f32 = 1) {
 	for line in shaped.lines {
 		baseline_y := math.round(origin_pixels.y + line.baseline_y)
 
@@ -298,6 +300,7 @@ draw :: proc(shaped: ^Shaped_Text, origin_pixels: [2]f32, color: [4]f32, clip: [
 
 			uv := [4]f32{f32(entry.rect.x), f32(entry.rect.y), f32(entry.rect.x + entry.rect.z), f32(entry.rect.y + entry.rect.w)} / ATLAS_SIZE
 			glyph_color := color_of(glyph.utf16_index, data) if color_of != nil else color
+			glyph_color.a *= opacity
 			render.push({rect = rect, uv = uv, color = glyph_color, clip = clip, kind = .Glyph}, state.atlas)
 		}
 	}

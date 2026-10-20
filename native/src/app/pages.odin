@@ -49,5 +49,7 @@ build_page :: proc(page: Page) {
 		build_artist_page(page.id, page.title)
 	case .Search:
 		build_search_page(page.id)
+	case .Now_Playing:
+		build_now_playing_page()
 	}
 }

@@ -206,6 +206,17 @@ From here the app goes its own way rather than copying Apple Music.
   palette. Library items have no colours from Apple, so the name picks two hues, and an album keeps
   the same colours everywhere.
 
+### 6b. Now Playing
+
+- Click the cover in the player bar. The page shows the song playing, with its cover large: title,
+  artist and album, which open their pages, the quality badges (Hi-Res Lossless, Lossless, Dolby
+  Atmos, Spatial Audio, Apple Digital Master, Explicit), then composer, genre, release date, track,
+  length, language, lyrics, record label, ISRC and copyright, and the album's notes when Apple has
+  them.
+- It follows the song: skip, and the page shows the next one. Back returns to where you were.
+- A song started outside the app is found in Apple Music by its name and artist.
+- In a narrow window, the details go under the cover.
+
 ## Development settings
 
 | Variable | Does |

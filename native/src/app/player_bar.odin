@@ -29,7 +29,6 @@ build_player_bar :: proc() {
 }
 
 // With Music.app stopped or closed, the player shows the last song, paused where it was.
-@(private = "file")
 find_shown_song :: proc() -> (helper.Song, bool) {
 	now_playing := app.now_playing
 	if now_playing.playback == .Playing || now_playing.playback == .Paused do return now_playing.song, true
@@ -62,7 +61,14 @@ build_song_info :: proc() {
 		if is_queue_song do placeholder = to_placeholder(queue_song.artwork, queue_song.album_name)
 		if queue.is_adding do placeholder = to_placeholder(adding_song.artwork, adding_song.album_name)
 		if !is_song && !queue.is_adding do placeholder = {top = colors.card, bottom = colors.card}
-		artwork_box(artwork_source, PLAYER_ARTWORK_POINTS, 6, placeholder)
+		// The cover opens the Now Playing page.
+		cover := ui.box("cover", {width = ui.fit_children(), height = ui.fit_children(), flags = {.Clickable} if is_song else {}})
+		if ui.signal(cover).is_clicked do navigate({kind = .Now_Playing})
+
+		if ui.scope(cover) {
+			artwork_box(artwork_source, PLAYER_ARTWORK_POINTS, 6, placeholder)
+			ui.box("", {width = ui.points(PLAYER_ARTWORK_POINTS), height = ui.points(PLAYER_ARTWORK_POINTS), corner_radius = 6, background = {1, 1, 1, 0.12 * cover.hot_t}, position = {0, 0}, flags = {.Floating}})
+		}
 
 		text := ui.box("", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 2})
 

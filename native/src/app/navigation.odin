@@ -18,6 +18,8 @@ Page_Kind :: enum {
 	Album,
 	Artist,
 	Search,
+	// The song playing, whichever it is.
+	Now_Playing,
 }
 
 Page :: struct {
@@ -121,6 +123,7 @@ page_ids := [Page_Kind]string {
 	.Album            = "album",
 	.Artist           = "artist",
 	.Search           = "search",
+	.Now_Playing      = "nowPlaying",
 }
 
 @(private = "file")

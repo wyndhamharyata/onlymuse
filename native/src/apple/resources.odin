@@ -85,6 +85,22 @@ Attributes :: struct {
 	},
 	track_number:           int `json:"trackNumber"`,
 	disc_number:            int `json:"discNumber"`,
+	// A song's and its album's details, for the Now Playing page.
+	composer_name:          string `json:"composerName"`,
+	album_artist_name:      string `json:"albumArtistName"`,
+	isrc:                   string,
+	content_rating:         string `json:"contentRating"`,
+	audio_locale:           string `json:"audioLocale"`,
+	has_lyrics:             bool `json:"hasLyrics"`,
+	has_time_synced_lyrics: bool `json:"hasTimeSyncedLyrics"`,
+	is_apple_digital_master: bool `json:"isAppleDigitalMaster"`,
+	record_label:           string `json:"recordLabel"`,
+	copyright:              string,
+	track_count:            int `json:"trackCount"`,
+	editorial_notes:        struct {
+		standard: string,
+		short:    string,
+	} `json:"editorialNotes"`,
 	can_edit:               Maybe(bool) `json:"canEdit"`,
 	can_delete:             Maybe(bool) `json:"canDelete"`,
 }

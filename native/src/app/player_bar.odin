@@ -15,8 +15,8 @@ build_player_bar :: proc() {
 		height       = ui.points(PLAYER_HEIGHT_POINTS),
 		axis         = .X,
 		align        = .Center,
-		gap          = 20,
-		padding      = {20, 0, 20, 0},
+		gap          = 16,
+		padding      = {16, 0, 16, 0},
 		background   = colors.player,
 	})
 

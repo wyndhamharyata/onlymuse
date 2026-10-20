@@ -8,7 +8,7 @@ import "om:ui"
 
 SHELF_TILE_POINTS :: 150
 FIRST_SHELF_TILE_POINTS :: 210
-CARD_GAP_POINTS :: 16
+CARD_GAP_POINTS :: 14
 // Cards built past each edge of a shelf, so a fast scroll finds them ready.
 EXTRA_CARD_COUNT :: 2
 ALBUM_COVER_POINTS :: 240
@@ -22,7 +22,7 @@ fit_tile_size :: proc(width, target, gap: f32) -> f32 {
 
 // A scrolling page with its title. Children go inside the returned box.
 page_scroll :: proc(id: string) -> ^ui.Box {
-	box := ui.box(id, {width = ui.fill(), height = ui.fill(), axis = .Y, gap = 24, padding = {PAGE_PADDING_POINTS, 0, PAGE_PADDING_POINTS, PAGE_PADDING_POINTS}, flags = {.Scroll, .Clip}})
+	box := ui.box(id, {width = ui.fill(), height = ui.fill(), axis = .Y, gap = 20, padding = {PAGE_PADDING_POINTS, 0, PAGE_PADDING_POINTS, PAGE_PADDING_POINTS}, flags = {.Scroll, .Clip}})
 	keep_scroll(box)
 
 	return box
@@ -216,7 +216,7 @@ read_album :: proc(data: ^Page_Data, body: string) {
 }
 
 build_album_header :: proc(data: ^Page_Data) {
-	header := ui.box("header", {width = ui.fill(), height = ui.fit_children(), axis = .X, align = .End, gap = 28, padding = {0, 0, 0, 0}})
+	header := ui.box("header", {width = ui.fill(), height = ui.fit_children(), axis = .X, align = .End, gap = 20})
 
 	if ui.scope(header) {
 		artwork_box(apple.to_artwork_url(data.artwork, to_artwork_pixels(ALBUM_COVER_POINTS)), ALBUM_COVER_POINTS, 10, to_placeholder(data.artwork, data.title, "square.stack"))

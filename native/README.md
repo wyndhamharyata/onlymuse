@@ -196,6 +196,8 @@ From here the app goes its own way rather than copying Apple Music.
 - Rest the pointer on an Up Next row with a long title. The title and the artist slide.
 - A lossless song's LOSSLESS badge sits right after its name.
 - The window cannot be made smaller than 1000 by 600 points.
+- Spacing is tighter everywhere, in steps of 4, 8, 12, 16 and 20 points: pages have 20 at their
+  edges, the panel 8, the toolbar is as tall as the traffic lights, and the player bar is 70.
 - Swipe up and down Home on the trackpad, a little crooked. The shelves stay put. Each swipe moves
   along one axis, picked from its first few points, and a swipe has to go clearly sideways to move a
   shelf.

@@ -27,7 +27,7 @@ build_sidebar :: proc() {
 		width        = ui.points(SIDEBAR_WIDTH_POINTS),
 		height       = ui.fill(),
 		axis         = .Y,
-		padding      = {10, TRAFFIC_LIGHTS_HEIGHT_POINTS, 10, 0},
+		padding      = {8, TRAFFIC_LIGHTS_HEIGHT_POINTS, 8, 0},
 		background   = colors.sidebar,
 	})
 
@@ -35,7 +35,7 @@ build_sidebar :: proc() {
 	if ui.scope(sidebar) {
 		build_search_field()
 
-		list := ui.box("list", {width = ui.fill(), height = ui.fill(), axis = .Y, gap = 1, padding = {0, 0, 0, 12}, flags = {.Scroll, .Clip}})
+		list := ui.box("list", {width = ui.fill(), height = ui.fill(), axis = .Y, gap = 1, padding = {0, 0, 0, 8}, flags = {.Scroll, .Clip}})
 
 		if ui.scope(list) {
 			build_group_title("Apple Music")

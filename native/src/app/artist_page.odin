@@ -177,7 +177,7 @@ build_artist_header :: proc(data: ^Page_Data, width: f32) {
 			flags          = {.Floating},
 		})
 
-		bottom := ui.box("bottom", {width = ui.fill(), height = ui.fill(), axis = .X, align = .End, gap = 10, padding = {28, 0, 28, 22}, flags = {.Floating}})
+		bottom := ui.box("bottom", {width = ui.fill(), height = ui.fill(), axis = .X, align = .End, gap = 10, padding = {20, 0, 20, 18}, flags = {.Floating}})
 
 		if ui.scope(bottom) {
 			name := ui.box("name", {width = ui.fill(), height = ui.fit_children(), axis = .Y})
@@ -195,7 +195,7 @@ build_artist_header :: proc(data: ^Page_Data, width: f32) {
 
 @(private = "file")
 build_artist_middle :: proc(data: ^Page_Data) {
-	middle := ui.box("middle", {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 28})
+	middle := ui.box("middle", {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 20})
 
 	if ui.scope(middle) {
 		if len(data.latest) > 0 {

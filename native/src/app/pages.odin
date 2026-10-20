@@ -8,7 +8,7 @@ build_page_area :: proc() {
 	area := ui.box("page area", {width = ui.fill(), height = ui.fill(), axis = .Y})
 
 	if ui.scope(area) {
-		toolbar := ui.box("toolbar", {width = ui.fill(), height = ui.points(TOOLBAR_HEIGHT_POINTS), axis = .X, align = .Center, gap = 4, padding = {18, 0, 0, 0}})
+		toolbar := ui.box("toolbar", {width = ui.fill(), height = ui.points(TOOLBAR_HEIGHT_POINTS), axis = .X, align = .Center, gap = 2, padding = {PAGE_PADDING_POINTS - 4, 0, 0, 0}})
 
 		if ui.scope(toolbar) {
 			if icon_button("back", "chevron.left", 16, colors.text, can_go_back()) do go_back()

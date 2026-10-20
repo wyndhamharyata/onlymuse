@@ -15,14 +15,14 @@ build_panel :: proc() -> bool {
 		width      = ui.points(width),
 		height     = ui.fill(),
 		axis       = .Y,
-		padding    = {16, 14, 16, 16},
+		padding    = {8, 8, 8, 8},
 		gap        = 4,
 		background = colors.panel,
 		fade       = 1 - width / PANEL_WIDTH_POINTS,
 		flags      = {.Clip},
 	})
 	is_moving := false
-	inner_width: f32 = PANEL_WIDTH_POINTS - 32
+	inner_width: f32 = PANEL_WIDTH_POINTS - 16
 
 	if ui.scope(panel) {
 		inner := ui.box("inner", {width = ui.points(inner_width), height = ui.fill(), axis = .Y, gap = 4})
@@ -36,7 +36,7 @@ build_panel :: proc() -> bool {
 			}
 		}
 
-		ui.box("", {width = ui.points(1), height = ui.points(12)})
+		ui.box("", {width = ui.points(1), height = ui.points(4)})
 		build_panel_tabs(inner_width)
 	}
 
@@ -49,7 +49,7 @@ build_up_next :: proc() {
 		return
 	}
 
-	list := ui.box("up next", {width = ui.fill(), height = ui.fill(), axis = .Y, gap = 2, padding = {0, 0, 0, 16}, flags = {.Scroll, .Clip}})
+	list := ui.box("up next", {width = ui.fill(), height = ui.fill(), axis = .Y, gap = 2, flags = {.Scroll, .Clip}})
 	row_points: f32 = 52
 	first_row := max(queue.index, queue.index + int(list.scroll / row_points) - EXTRA_ROW_COUNT)
 	last_row := min(len(queue.songs) - 1, queue.index + int((list.scroll + list.size.y) / row_points) + EXTRA_ROW_COUNT)
@@ -73,7 +73,7 @@ build_queue_row :: proc(index: int, row_points: f32) {
 		axis             = .X,
 		align            = .Center,
 		gap              = 10,
-		padding          = {8, 0, 4, 0},
+		padding          = {6, 0, 4, 0},
 		corner_radius    = 6,
 		background       = tint if is_current else {},
 		hover_background = tint if is_current else colors.hover,
@@ -109,7 +109,7 @@ build_queue_row :: proc(index: int, row_points: f32) {
 build_panel_tabs :: proc(width: f32) {
 	tabs := ui.box("panel tabs", {
 		width         = ui.points(width),
-		height        = ui.points(32),
+		height        = ui.points(30),
 		axis          = .X,
 		gap           = 2,
 		padding       = {2, 2, 2, 2},

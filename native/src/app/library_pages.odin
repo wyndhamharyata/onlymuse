@@ -8,7 +8,7 @@ SONG_ROW_POINTS :: 54
 SONG_ARTWORK_POINTS :: 40
 // The tile size that fits a whole number of tiles across, as close to this as it can.
 TARGET_TILE_POINTS :: 160
-TILE_GAP_POINTS :: 18
+TILE_GAP_POINTS :: 14
 // The title and the artist under a tile.
 TILE_TEXT_POINTS :: 46
 // Artwork is asked for in steps of this many pixels, so a resized window reuses the saved files.

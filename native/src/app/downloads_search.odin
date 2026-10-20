@@ -206,7 +206,7 @@ build_search_page :: proc(term: string) {
 
 @(private = "file")
 build_search_top :: proc(data: ^Page_Data) {
-	top := ui.box("top", {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 28})
+	top := ui.box("top", {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 20})
 
 	if ui.scope(top) {
 		if len(data.similar) > 0 {

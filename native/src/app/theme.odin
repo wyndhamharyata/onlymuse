@@ -47,9 +47,10 @@ to_accent_tint :: proc(accent: [4]f32) -> [4]f32 {
 }
 
 SIDEBAR_WIDTH_POINTS :: 228
-PLAYER_HEIGHT_POINTS :: 80
-TOOLBAR_HEIGHT_POINTS :: 52
-PAGE_PADDING_POINTS :: 30
+PLAYER_HEIGHT_POINTS :: 70
+// As tall as the traffic lights' strip.
+TOOLBAR_HEIGHT_POINTS :: 44
+PAGE_PADDING_POINTS :: 20
 PANEL_WIDTH_POINTS :: 320
 // The sidebar, the panel and a page two tiles wide, with the player bar's three parts unsqueezed.
 MIN_WINDOW_WIDTH_POINTS :: 1000

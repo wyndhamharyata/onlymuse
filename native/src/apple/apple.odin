@@ -4,12 +4,17 @@ package apple
 import "core:fmt"
 import "core:strings"
 import "core:sync"
+import "core:time"
 import "om:library"
 import "om:net"
 
 BASE_URL :: "https://amp-api.music.apple.com"
 // The storefront of the account, from /v1/me/storefront.
 STOREFRONT :: "id"
+
+// 30 seconds in steps of 100 ms.
+@(private)
+TOKEN_WAIT_COUNT :: 300
 
 Answer :: struct {
 	// 0 when there was no answer.
@@ -39,9 +44,12 @@ has_tokens :: proc() -> bool {
 	return state.developer_token != ""
 }
 
-// The gpuix app's saved answer when it has one, else Apple's. Safe on any thread. The body uses allocator.
+// The gpuix app's saved answer when it has one, else Apple's. Safe on any thread, and it blocks. The body uses allocator.
 fetch :: proc(path: string, allocator := context.allocator) -> Answer {
 	if saved, ok := library.find_saved_answer(path, allocator); ok do return {200, saved}
+
+	// The helper reads the tokens from a web page a moment after it starts.
+	for wait_count := 0; !has_tokens() && wait_count < TOKEN_WAIT_COUNT; wait_count += 1 do time.sleep(100 * time.Millisecond)
 
 	headers: [4]string
 	{

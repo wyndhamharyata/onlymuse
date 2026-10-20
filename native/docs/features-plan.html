@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>onlymuse — ten features, mocked up</title>
+<style>
+  :root {
+    --window: #1b1b1e; --sidebar: #232327; --panel: #222226; --card: #2a2a2f; --line: #2e2e33; --hover: #ffffff12;
+    --text: #f2f2f4; --dim: #acacb4; --faint: #8a8a93; --accent: #f7821b; --tint: #f7821b2e; --good: #7ee2a8;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #121214; color: var(--text); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 48px 32px 96px; }
+  h1 { font-size: 34px; margin: 0 0 6px; letter-spacing: -0.02em; }
+  h2 { font-size: 24px; margin: 0; letter-spacing: -0.01em; }
+  p, li { color: var(--dim); }
+  a { color: var(--accent); }
+  .lead { font-size: 16px; max-width: 780px; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .06em; padding: 2px 8px; border-radius: 5px; background: var(--tint); color: var(--accent); vertical-align: middle; }
+  .tag.merge { background: #7ee2a826; color: var(--good); }
+  .tag.no { background: #ffffff14; color: var(--faint); }
+  code { font: 12px "SF Mono", ui-monospace, monospace; color: var(--text); background: #ffffff10; padding: 1px 5px; border-radius: 4px; }
+  img { display: block; object-fit: cover; }
+
+  .feature { margin-top: 72px; }
+  .feature-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .num { font-size: 13px; font-weight: 800; color: var(--accent); background: var(--tint); border-radius: 7px; width: 26px; height: 26px; display: inline-grid; place-items: center; }
+  .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 12px 0 14px; }
+  .fact { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 12.5px; color: var(--dim); }
+  .fact b { display: block; font-size: 11px; color: var(--faint); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 2px; }
+
+  .frame { border-radius: 14px; overflow: hidden; border: 1px solid var(--line); background: var(--window); position: relative; }
+  .frame-label { position: absolute; top: 10px; right: 12px; z-index: 5; font-size: 11px; color: #ffffffa0; background: #0007; padding: 2px 8px; border-radius: 6px; }
+  .page { padding: 22px 22px 26px; }
+  .page-title { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; margin: 0; }
+  .sub { color: var(--dim); font-size: 13px; }
+  .row { display: flex; align-items: center; gap: 12px; }
+  .cover { border-radius: 6px; flex: none; background: var(--card); }
+  .song { display: flex; align-items: center; gap: 11px; padding: 6px; border-radius: 7px; }
+  .song.current { background: var(--tint); } .song.current .name { color: var(--accent); }
+  .song:hover, .song.hover { background: var(--hover); }
+  .name { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meta { font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .grow { flex: 1; min-width: 0; }
+  .time { font-size: 12px; color: var(--faint); width: 40px; text-align: right; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 8px; font-weight: 600; font-size: 12.5px; background: #ffffff14; color: var(--text); white-space: nowrap; }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #ffffff10; color: var(--dim); border: 1px solid transparent; }
+  .chip.on { background: var(--tint); color: var(--accent); border-color: #f7821b55; }
+  .badge { display: inline-block; font-size: 9.5px; font-weight: 800; letter-spacing: .04em; padding: 1px 5px; border-radius: 4px; border: 1px solid currentColor; color: var(--dim); }
+  .badge.hires { color: #f7c46b; } .badge.atmos { color: #9db8ff; }
+  .card { background: #ffffff0a; border: 1px solid #ffffff10; border-radius: 10px; padding: 14px 16px; }
+  .card h4 { margin: 0 0 10px; font-size: 11.5px; color: var(--faint); text-transform: uppercase; letter-spacing: .06em; }
+  .split { display: grid; gap: 14px; }
+  .muted-app { display: grid; grid-template-columns: 190px 1fr; min-height: 300px; }
+  .side { background: var(--sidebar); padding: 12px 8px; font-size: 13px; }
+  .side .item { padding: 5px 10px; border-radius: 7px; color: var(--text); display: flex; gap: 8px; align-items: center; }
+  .side .group { color: var(--faint); font-size: 11px; font-weight: 600; padding: 10px 10px 4px; }
+  .side .item.target { background: var(--tint); outline: 1.5px solid var(--accent); }
+  .menu { background: #2c2c31f2; border: 1px solid #ffffff1c; border-radius: 10px; box-shadow: 0 20px 50px -10px #000c; padding: 5px; font-size: 13px; width: 230px; }
+  .menu .mi { padding: 5px 10px; border-radius: 6px; display: flex; justify-content: space-between; color: var(--text); }
+  .menu .mi.sel { background: var(--accent); color: #fff; }
+  .menu .sep { height: 1px; background: #ffffff14; margin: 4px 6px; }
+  .menu .hint { color: var(--faint); font-size: 12px; }
+  .toast { display: inline-flex; gap: 8px; align-items: center; background: #2c2c31; border: 1px solid #ffffff1c; padding: 8px 12px; border-radius: 10px; font-size: 12.5px; box-shadow: 0 12px 30px -8px #000a; }
+  .verdict { margin-top: 12px; padding: 12px 14px; border-left: 3px solid var(--good); background: #7ee2a80d; border-radius: 0 10px 10px 0; color: var(--dim); font-size: 13px; }
+  .verdict.no { border-color: var(--faint); background: #ffffff08; }
+  .verdict b { color: var(--text); }
+
+  /* 1. Stats */
+  .bars { display: flex; align-items: flex-end; gap: 4px; height: 90px; margin-top: 10px; }
+  .bars i { flex: 1; background: linear-gradient(#f7821b, #f7821b80); border-radius: 3px 3px 0 0; }
+  .bars i.low { background: #ffffff1c; }
+  .rank { display: grid; grid-template-columns: 20px 40px 1fr auto; gap: 10px; align-items: center; padding: 5px 0; }
+  .rank .n { color: var(--faint); font-weight: 700; font-size: 12px; text-align: right; }
+  .plays { font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .artist-tile { text-align: center; font-size: 12px; } .artist-tile img { width: 76px; height: 76px; border-radius: 50%; margin: 0 auto 6px; }
+
+  /* 3. Lyrics */
+  .lyrics { background: var(--panel); padding: 18px 18px 22px; width: 330px; }
+  .lyr { margin: 12px 0; } .lyr .jp { font-size: 19px; font-weight: 700; color: #ffffff55; line-height: 1.3; } .lyr .ro { font-size: 13px; color: #ffffff40; margin-top: 2px; }
+  .lyr.now .jp { color: #fff; } .lyr.now .ro { color: #ffffffb0; }
+
+  /* 6. Palette */
+  .palette-wrap { position: relative; height: 420px; background: linear-gradient(#1b1b1e, #141416); display: grid; place-items: start center; padding-top: 50px; }
+  .palette { width: 560px; background: #26262af5; border: 1px solid #ffffff1f; border-radius: 14px; box-shadow: 0 40px 90px -20px #000; overflow: hidden; }
+  .palette .input { display: flex; align-items: center; gap: 10px; padding: 14px 16px; font-size: 17px; border-bottom: 1px solid #ffffff12; }
+  .palette .input .caret { width: 2px; height: 20px; background: var(--accent); margin-left: -8px; }
+  .palette .g { padding: 8px 8px 4px; } .palette .gt { font-size: 11px; color: var(--faint); font-weight: 700; padding: 0 8px 4px; text-transform: uppercase; letter-spacing: .06em; }
+  .palette .r { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 8px; font-size: 13.5px; }
+  .palette .r.sel { background: var(--tint); } .palette .r .k { margin-left: auto; color: var(--faint); font-size: 12px; }
+  .kbd { font: 11px "SF Mono", monospace; padding: 1px 5px; border: 1px solid #ffffff2a; border-radius: 4px; color: var(--dim); }
+
+  /* 9. Mini player */
+  .menubar { height: 26px; background: #e9e6ea33; display: flex; align-items: center; justify-content: flex-end; gap: 16px; padding: 0 14px; font-size: 12.5px; color: #fff; }
+  .menubar .np { display: flex; align-items: center; gap: 6px; padding: 1px 8px; border-radius: 5px; background: #ffffff26; }
+  .drop { position: absolute; right: 120px; top: 30px; width: 300px; background: #2a2a2ef2; border: 1px solid #ffffff1f; border-radius: 12px; padding: 12px; box-shadow: 0 30px 70px -10px #000; }
+  .mini { position: absolute; left: 30px; bottom: 30px; width: 340px; height: 96px; border-radius: 14px; overflow: hidden; display: flex; gap: 12px; align-items: center; padding: 12px; border: 1px solid #ffffff1f; box-shadow: 0 30px 70px -10px #000; }
+  .mini::before { content: ""; position: absolute; inset: -30px; background: url(covers/king.jpg) center / cover; filter: blur(30px) brightness(.5); }
+  .mini > * { position: relative; }
+  .ctrl { display: flex; gap: 14px; align-items: center; font-size: 16px; }
+  .ctrl .pp { width: 30px; height: 30px; border-radius: 50%; background: #fff; color: #111; display: grid; place-items: center; font-size: 12px; }
+  .progress { height: 4px; border-radius: 2px; background: #ffffff26; position: relative; } .progress i { position: absolute; inset: 0 40% 0 0; background: #fff; border-radius: 2px; }
+
+  /* Stage+ */
+  .stage { position: relative; padding: 26px 26px 30px; overflow: hidden; }
+  .stage::before { content: ""; position: absolute; inset: -60px -60px auto -60px; height: 560px; background: url(covers/soldier.jpg) center / cover;
+    filter: blur(60px) saturate(1.3) brightness(.7); opacity: .6; -webkit-mask-image: linear-gradient(#000 30%, transparent 85%); mask-image: linear-gradient(#000 30%, transparent 85%); }
+  .stage > * { position: relative; }
+  .hero { display: flex; gap: 26px; align-items: flex-end; }
+  .hero img { width: 280px; height: 280px; border-radius: 12px; box-shadow: 0 24px 60px -12px #000c, 0 0 0 1px #ffffff14; }
+  .eyebrow { font-size: 11.5px; font-weight: 700; letter-spacing: .08em; color: #ffffffb0; text-transform: uppercase; }
+  .title { font-size: 44px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; margin: 6px 0; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 999px; background: #ffffff14; border: 1px solid #ffffff1c; color: var(--text); }
+  .pill b { color: #fbc8d1; }
+  .stats { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 10px; margin-top: 24px; }
+  .stat .l { font-size: 11.5px; color: var(--faint); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+  .stat .n { font-size: 24px; font-weight: 750; letter-spacing: -0.02em; } .stat .s { font-size: 12px; color: var(--dim); }
+  .spark { display: flex; align-items: flex-end; gap: 3px; height: 30px; margin-top: 4px; } .spark i { flex: 1; background: #fbc8d1aa; border-radius: 2px; }
+  .role { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 13px; } .role span:first-child { color: var(--dim); }
+  .tile { width: 118px; font-size: 12px; } .tile img { width: 118px; height: 118px; border-radius: 8px; margin-bottom: 6px; position: relative; }
+  .tile .newdot { display: inline-block; font-size: 9.5px; font-weight: 800; color: #fff; background: var(--accent); padding: 0 5px; border-radius: 4px; margin-right: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--faint); font-weight: 600; font-size: 12px; } td:first-child { color: var(--text); }
+</style>
+</head>
+<body>
+<main>
+  <span class="tag">PLAN · MILESTONE 6</span>
+  <h1>Ten features, mocked up</h1>
+  <p class="lead">Each feature with a mockup in the app's own style, where its data comes from, its size, and whether part of it
+    belongs on the Now Playing page. The last section merges those parts into <b>Stage+</b>, the recommended Option A from the
+    <a href="now-playing-plan.html">Now Playing plan</a> grown with them. Covers, names and lyrics are from your library; play
+    counts, dates, release days and which songs carry which quality mark are illustrative.</p>
+
+  <!-- 1 -->
+  <section class="feature">
+    <div class="feature-head"><span class="num">1</span><h2>Listening history and stats</h2><span class="tag merge">PART MERGES</span></div>
+    <div class="facts">
+      <div class="fact"><b>Where</b>A "Listening" page in the sidebar, under Library.</div>
+      <div class="fact"><b>Data</b>Our own <code>plays</code> table, written when a song passes half its length. Music.app's totals seed it.</div>
+      <div class="fact"><b>Size</b>Medium: the log, one page, a bar chart drawn with plain boxes.</div>
+    </div>
+    <div class="frame"><span class="frame-label">Listening page</span>
+      <div class="page split" style="grid-template-columns: 1.3fr 1fr;">
+        <div>
+          <div class="row" style="justify-content: space-between;"><h3 class="page-title">October</h3>
+            <div class="row" style="gap:6px"><span class="chip">Week</span><span class="chip on">Month</span><span class="chip">Year</span></div></div>
+          <div class="sub">38 h 12 min · 612 plays · 214 songs · 61 artists</div>
+          <div class="bars">
+            <i style="height:40%"></i><i style="height:62%"></i><i style="height:35%"></i><i style="height:80%"></i><i style="height:55%"></i><i class="low" style="height:12%"></i><i class="low" style="height:18%"></i>
+            <i style="height:48%"></i><i style="height:70%"></i><i style="height:66%"></i><i style="height:90%"></i><i style="height:52%"></i><i class="low" style="height:20%"></i><i style="height:44%"></i>
+            <i style="height:58%"></i><i style="height:73%"></i><i style="height:100%"></i><i style="height:61%"></i><i style="height:39%"></i><i style="height:84%"></i>
+          </div>
+          <div class="sub" style="margin-top:4px; font-size:11.5px">1 Oct — 20 Oct · minutes listened per day</div>
+          <div style="margin-top:18px; font-weight:700">Top artists</div>
+          <div class="row" style="gap:18px; margin-top:10px">
+            <div class="artist-tile"><img src="covers/dnd.jpg">ADO<div class="plays">94 plays</div></div>
+            <div class="artist-tile"><img src="covers/mydearest.jpg">supercell<div class="plays">61 plays</div></div>
+            <div class="artist-tile"><img src="covers/yodaka.jpg">Kenshi Yonezu<div class="plays">38 plays</div></div>
+            <div class="artist-tile"><img src="covers/amore.jpg">ReoNa<div class="plays">27 plays</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <h4>Top songs</h4>
+          <div class="rank"><span class="n">1</span><img class="cover" src="covers/soldier.jpg" width="40" height="40"><div class="grow"><div class="name">soldier game</div><div class="meta">ADO</div></div><span class="plays">37</span></div>
+          <div class="rank"><span class="n">2</span><img class="cover" src="covers/raven.jpg" width="40" height="40"><div class="grow"><div class="name">Raven Sky</div><div class="meta">ADO</div></div><span class="plays">29</span></div>
+          <div class="rank"><span class="n">3</span><img class="cover" src="covers/king.jpg" width="40" height="40"><div class="grow"><div class="name">KING</div><div class="meta">Ironmouse, shirobeats &amp; Sleeping Forest</div></div><span class="plays">24</span></div>
+          <div class="rank"><span class="n">4</span><img class="cover" src="covers/mydearest.jpg" width="40" height="40"><div class="grow"><div class="name">My Dearest</div><div class="meta">supercell</div></div><span class="plays">21</span></div>
+          <div class="rank"><span class="n">5</span><img class="cover" src="covers/yodaka.jpg" width="40" height="40"><div class="grow"><div class="name">Yodaka</div><div class="meta">Kenshi Yonezu</div></div><span class="plays">18</span></div>
+          <div class="rank"><span class="n">6</span><img class="cover" src="covers/walk.jpg" width="40" height="40"><div class="grow"><div class="name">Walk on your way</div><div class="meta">Eir Aoi</div></div><span class="plays">16</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="verdict"><b>Merges:</b> Stage's Plays card gets a small chart of this song's plays per week, and "#1 this month" when it is.</div>
+  </section>
+
+  <!-- 2 -->
+  <section class="feature">
+    <div class="feature-head"><span class="num">2</span><h2>New from your artists</h2><span class="tag merge">PART MERGES</span></div>
+    <div class="facts">
+      <div class="fact"><b>Where</b>A "New for You" page under Apple Music, with a count in the sidebar.</div>
+      <div class="fact"><b>Data</b>Each library artist's <code>latest-release</code> view, checked once a day, newest first. "Seen" is kept locally.</div>
+      <div class="fact"><b>Size</b>Medium: ~600 artists, so a daily background sweep with the existing cache.</div>
+    </div>
+    <div class="frame"><span class="frame-label">New for You page</span>
+      <div class="page">
+        <div class="row" style="justify-content: space-between;"><div><h3 class="page-title">New for You</h3><div class="sub">Releases from the 598 artists in your library</div></div><span class="btn">Mark all as seen</span></div>
+        <div style="margin:18px 0 8px; font-weight:700">This week <span class="sub" style="font-weight:400">· 4 new</span></div>
+        <div class="row" style="gap:14px; align-items:flex-start">
+          <div class="tile"><img src="covers/dnd.jpg"><span class="newdot">NEW</span>DND (feat. Kuromi)<div class="meta">ADO · Single · 17 Oct</div></div>
+          <div class="tile"><img src="covers/sukideite.jpg"><span class="newdot">NEW</span>Suki de Ite<div class="meta">ADO · Single · 15 Oct</div></div>
+          <div class="tile"><img src="covers/yodaka.jpg"><span class="newdot">NEW</span>Yodaka<div class="meta">Kenshi Yonezu · 14 Oct</div></div>
+          <div class="tile"><img src="covers/walk.jpg"><span class="newdot">NEW</span>Walk on your way<div class="meta">Eir Aoi · 14 Oct</div></div>
+        </div>
+        <div style="margin:20px 0 8px; font-weight:700">Earlier this month</div>
+        <div class="row" style="gap:14px; align-items:flex-start">
+          <div class="tile"><img src="covers/raven.jpg">Raven Sky<div class="meta">ADO · 8 Oct</div></div>
+          <div class="tile"><img src="covers/aigayueni.jpg">Aigayueni<div class="meta">Tsukuyomi · 6 Oct</div></div>
+          <div class="tile"><img src="covers/amore.jpg">Amore (Special Edition)<div class="meta">ReoNa · EP · 3 Oct</div></div>
+          <div class="tile"><img src="covers/pause.jpg">PAUSE<div class="meta">Harusaruhi · 2 Oct</div></div>
+          <div class="tile"><img src="covers/echoing.jpg">Echoing Laments in the Rain<div class="meta">Mabodofu · 1 Oct</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="verdict"><b>Merges:</b> Stage's "More by ADO" shelf leads with the artist's newest release, marked NEW when you have not played it.</div>
+  </section>
+
+  <!-- 3 -->
+  <section class="feature">
+    <div class="feature-head"><span class="num">3</span><h2>Lyrics with romaji and translation</h2><span class="tag merge">PART MERGES</span></div>
+    <div class="facts">
+      <div class="fact"><b>Where</b>The Lyrics panel: Original · Romaji · Both, and Translation when Apple has one.</div>
+      <div class="fact"><b>Data</b>Already downloaded: the lyrics TTML carries <code>&lt;transliterations&gt;</code> per line key (L1, L2…) and <code>&lt;translations&gt;</code>.</div>
+      <div class="fact"><b>Size</b>Small: parse two more blocks, draw a second line.</div>
+    </div>
+    <div class="frame" style="display:flex; justify-content:center; background:#18181b"><span class="frame-label">Lyrics panel · real lines from KING</span>
+      <div class="lyrics">
+        <div class="row" style="gap:6px; margin-bottom:8px"><span class="chip">Original</span><span class="chip">Romaji</span><span class="chip on">Both</span></div>
+        <div class="lyr"><div class="jp">幽閉 利口 逝く前に</div><div class="ro">yuuhei rikou iku mae ni</div></div>
+        <div class="lyr now"><div class="jp">ユーヘイじゃ利口に難儀ダーリン</div><div class="ro">yuuhei ja rikou ni nangi daarin</div></div>
+        <div class="lyr"><div class="jp">幽閉 ストップ 知ってないし</div><div class="ro">yuuhei sutoppu shitte nai shi</div></div>
+        <div class="lyr"><div class="jp">勘弁にしといてなんて惨忍</div><div class="ro">kanben ni shitoite nante zannin</div></div>
+        <div class="lyr"><div class="jp">人様願う欠片のアイロニ</div><div class="ro">hitosama negau kakera no aironi</div></div>
+      </div>
+    </div>
+    <div class="verdict"><b>Merges:</b> Stage's "line playing now" shows the romaji under it. The TTML also names the songwriters (here, Kanaria), which fills Stage's Credits when Apple's song attributes have no composer.</div>
+  </section>
+
+  <!-- 4 -->
+  <section class="feature">
+    <div class="feature-head"><span class="num">4</span><h2>Favourite from anywhere</h2><span class="tag merge">MERGES</span></div>
+    <div class="facts">
+      <div class="fact"><b>Where</b>A ♥ by the player bar's title, on a row's hover, and on Now Playing. ⌘L toggles it.</div>
+      <div class="fact"><b>Data</b>Music.app's <code>favorited</code>, written by the helper, so Favourite Songs updates everywhere.</div>
+      <div class="fact"><b>Size</b>Small: one read, one write.</div>
+    </div>
+    <div class="frame"><span class="frame-label">player bar and a song row</span>
+      <div class="page" style="display:grid; gap:16px">
+        <div class="row" style="background:#ffffff06; border-radius:10px; padding:10px 14px">
+          <img class="cover" src="covers/soldier.jpg" width="48" height="48">
+          <div><div class="row" style="gap:8px"><b style="font-size:13.5px">soldier game</b><span class="badge">LOSSLESS</span><span style="color:#ff5f7a; font-size:15px">♥</span></div><div class="meta">ADO · soldier game - Single</div></div>
+          <div class="grow"></div><span class="toast">♥ Added to Favourite Songs <span style="color:var(--accent); font-weight:600">Undo</span></span>
+        </div>
+        <div>
+          <div class="song hover"><img class="cover" src="covers/raven.jpg" width="40" height="40"><div class="grow"><div class="name">Raven Sky</div><div class="meta">ADO · Raven Sky - Single</div></div><span style="color:var(--dim)">♡</span><span class="time">3:12</span></div>
+          <div class="song"><img class="cover" src="covers/mydearest.jpg" width="40" height="40"><div class="grow"><div class="name">My Dearest</div><div class="meta">supercell · My Dearest</div></div><span style="color:#ff5f7a">♥</span><span class="time">4:51</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="verdict"><b>Merges:</b> Stage's Favourite button is this, filled when the song is a favourite.</div>
+  </section>
+
+  <!-- 5 -->
+  <section class="feature">
+    <div class="feature-head"><span class="num">5</span><h2>Add to playlist</h2><span class="tag merge">MERGES</span></div>
+    <div class="facts">
+      <div class="fact"><b>Where</b>A row's right-click menu, a drag onto a sidebar playlist, and Now Playing's button.</div>
+      <div class="fact"><b>Data</b>Apple's <code>POST /v1/me/library/playlists/{id}/tracks</code>; New Playlist uses <code>POST /v1/me/library/playlists</code>.</div>
+      <div class="fact"><b>Size</b>Medium: a menu, drag and drop, two writes.</div>
+    </div>
+    <div class="frame"><span class="frame-label">right-click menu, and a drag onto the sidebar</span>
+      <div class="muted-app" style="min-height:400px">
+        <div class="side">
+          <div class="group">Playlists</div>
+          <div class="item">♫ Acoustic anime</div><div class="item target">♫ Animenz <span style="margin-left:auto; color:var(--accent); font-size:11px">+1</span></div>
+          <div class="item">♫ FROM THE FIRST TAKE</div><div class="item">♫ late night study vibe</div><div class="item">♫ My Favourites</div>
+        </div>
+        <div class="page" style="position:relative">
+          <div class="song current"><img class="cover" src="covers/soldier.jpg" width="40" height="40"><div class="grow"><div class="name">soldier game</div><div class="meta">ADO · soldier game - Single</div></div><span class="time">3:41</span></div>
+          <div class="song hover"><img class="cover" src="covers/orion.jpg" width="40" height="40"><div class="grow"><div class="name">Orion (English Version)</div><div class="meta">YOASOBI · Orion - Single</div></div><span class="time">3:30</span></div>
+          <div class="song"><img class="cover" src="covers/sayonara.jpg" width="40" height="40"><div class="grow"><div class="name">Sayonara Memories</div><div class="meta">supercell · Sayonara Memories - EP</div></div><span class="time">5:20</span></div>
+          <div style="position:absolute; left:250px; top:58px; display:flex; gap:4px">
+            <div class="menu"><div class="mi">Play Next</div><div class="mi">Play Later</div><div class="sep"></div><div class="mi sel">Add to Playlist <span>▸</span></div><div class="mi">Favourite <span class="hint">⌘L</span></div><div class="mi">Start Radio</div><div class="sep"></div><div class="mi">Go to Album</div><div class="mi">Go to Artist</div><div class="mi">Copy Link</div></div>
+            <div class="menu" style="margin-top:62px; width:210px"><div class="mi" style="color:var(--faint)">🔍 Find a playlist</div><div class="sep"></div><div class="mi">Acoustic anime</div><div class="mi">Animenz</div><div class="mi">late night study vibe</div><div class="mi">My Favourites</div><div class="sep"></div><div class="mi" style="color:var(--accent)">＋ New Playlist…</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="verdict"><b>Merges:</b> Stage's Add to Playlist button opens the same playlist menu. The right-click menu is also where Favourite (4) and Start Radio (10) live on rows.</div>
+  </section>
+
+  <!-- 6 -->
+  <section class="feature">
+    <div class="feature-head"><span class="num">6</span><h2>Command palette</h2><span class="tag no">STAYS GLOBAL</span></div>
+    <div class="facts">
+      <div class="fact"><b>Where</b>⌘K anywhere. Arrow keys, Return, Escape.</div>
+      <div class="fact"><b>Data</b>Library lists already loaded, the catalog search, and a list of actions.</div>
+      <div class="fact"><b>Size</b>Medium: the search field and IME support are already built.</div>
+    </div>
+    <div class="frame"><span class="frame-label">⌘K over any page</span>
+      <div class="palette-wrap">
+        <div class="palette">
+          <div class="input"><span style="color:var(--faint)">🔍</span>ado<span class="caret"></span><span style="margin-left:auto" class="kbd">esc</span></div>
+          <div class="g"><div class="gt">Library</div>
+            <div class="r sel"><img class="cover" src="covers/dnd.jpg" width="28" height="28" style="border-radius:50%">ADO <span class="meta">Artist · 41 songs</span><span class="k">↵</span></div>
+            <div class="r"><img class="cover" src="covers/raven.jpg" width="28" height="28">Raven Sky - Single <span class="meta">ADO</span></div>
+            <div class="r"><img class="cover" src="covers/soldier.jpg" width="28" height="28">soldier game <span class="meta">Song · ADO</span></div></div>
+          <div class="g"><div class="gt">Apple Music</div>
+            <div class="r"><img class="cover" src="covers/sukideite.jpg" width="28" height="28">Suki de Ite - Single <span class="meta">ADO · not in library</span></div></div>
+          <div class="g" style="padding-bottom:10px"><div class="gt">Actions</div>
+            <div class="r">⤨ Shuffle ADO</div><div class="r">♪ Go to Now Playing <span class="k"><span class="kbd">⌘</span> <span class="kbd">0</span></span></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="verdict no"><b>Stays global:</b> nothing to merge. It is the fastest way <i>to</i> Now Playing, not part of it.</div>
+  </section>
+
+  <!-- 7 -->
+  <section class="feature">
+    <div class="feature-head"><span class="num">7</span><h2>Quality everywhere</h2><span class="tag merge">MERGES</span></div>
+    <div class="facts">
+      <div class="fact"><b>Where</b>Marks on every row and tile, filter chips on Songs and Albums, a "Hi-Res in My Library" list.</div>
+      <div class="fact"><b>Data</b><code>audioTraits</code>: of the 3,284 catalog songs in the saved answers, 3,270 are lossless, 329 hi-res, 369 Atmos.</div>
+      <div class="fact"><b>Size</b>Small: the traits are parsed; filters run on loaded lists.</div>
+    </div>
+    <div class="frame"><span class="frame-label">Songs with a quality filter</span>
+      <div class="page">
+        <div class="row" style="justify-content:space-between"><div><h3 class="page-title">Songs</h3><div class="sub">329 of 2,153 songs</div></div>
+          <div class="row" style="gap:6px"><span class="chip">All</span><span class="chip">Lossless</span><span class="chip on">Hi-Res</span><span class="chip">Dolby Atmos</span></div></div>
+        <div style="margin-top:12px">
+          <div class="song"><img class="cover" src="covers/sayonara.jpg" width="40" height="40"><div class="grow"><div class="name">Sayonara Memories</div><div class="meta">supercell · Sayonara Memories - EP</div></div><span class="badge hires">HI-RES</span><span class="time">4:58</span></div>
+          <div class="song"><img class="cover" src="covers/amulet.jpg" width="40" height="40"><div class="grow"><div class="name">Amulet</div><div class="meta">SHE'S · Amulet</div></div><span class="badge hires">HI-RES</span> <span class="badge atmos">ATMOS</span><span class="time">4:12</span></div>
+          <div class="song"><img class="cover" src="covers/orion.jpg" width="40" height="40"><div class="grow"><div class="name">Orion (English Version)</div><div class="meta">YOASOBI · Orion - Single</div></div><span class="badge hires">HI-RES</span> <span class="badge atmos">ATMOS</span><span class="time">3:30</span></div>
+          <div class="song"><img class="cover" src="covers/amore.jpg" width="40" height="40"><div class="grow"><div class="name">Amore</div><div class="meta">ReoNa · Amore (Special Edition) - EP</div></div><span class="badge hires">HI-RES</span><span class="time">4:05</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="verdict"><b>Merges:</b> Stage's quality pills are the large form of these marks, with the sample rate from Music.app added.</div>
+  </section>
+
+  <!-- 8 -->
+  <section class="feature">
+    <div class="feature-head"><span class="num">8</span><h2>Smarter shuffle</h2><span class="tag no">STAYS IN THE QUEUE</span></div>
+    <div class="facts">
+      <div class="fact"><b>Where</b>Hold or right-click Shuffle for its rules. Up Next says why a song moved.</div>
+      <div class="fact"><b>Data</b>The play log (1) and Music.app's skip counts.</div>
+      <div class="fact"><b>Size</b>Small once the play log exists: the queue port owns the order.</div>
+    </div>
+    <div class="frame"><span class="frame-label">Shuffle's rules, and Up Next</span>
+      <div class="page split" style="grid-template-columns: 300px 1fr; align-items:start">
+        <div class="menu" style="width:auto; padding:10px">
+          <div style="font-weight:700; font-size:13px; padding:2px 6px 8px">Shuffle</div>
+          <div class="mi"><span>Leave out songs played in the last</span><span style="color:var(--accent)">6 h</span></div>
+          <div class="mi"><span>Leave out songs I often skip</span><span style="color:var(--accent)">●</span></div>
+          <div class="mi"><span>Keep one album's songs apart</span><span style="color:var(--accent)">●</span></div>
+          <div class="mi"><span>Favour favourites</span><span style="color:var(--faint)">○</span></div>
+        </div>
+        <div>
+          <div class="song current"><img class="cover" src="covers/king.jpg" width="36" height="36"><div class="grow"><div class="name">KING</div><div class="meta">Ironmouse, shirobeats &amp; Sleeping Forest</div></div></div>
+          <div class="song"><img class="cover" src="covers/sayonara.jpg" width="36" height="36"><div class="grow"><div class="name">Sayonara Memories</div><div class="meta">supercell</div></div></div>
+          <div class="song"><img class="cover" src="covers/pause.jpg" width="36" height="36"><div class="grow"><div class="name">PAUSE</div><div class="meta">Harusaruhi</div></div></div>
+          <div class="sub" style="padding:6px 8px; font-size:12px">3 songs left out: played in the last 6 h. 1 left out: skipped 6 times.</div>
+        </div>
+      </div>
+    </div>
+    <div class="verdict no"><b>Stays in the queue:</b> it shapes Up Next. Stage's Skips card shows the number it uses.</div>
+  </section>
+
+  <!-- 9 -->
+  <section class="feature">
+    <div class="feature-head"><span class="num">9</span><h2>Mini player and menu bar</h2><span class="tag no">SHARES THE LOOK</span></div>
+    <div class="facts">
+      <div class="fact"><b>Where</b>A menu bar item with a dropdown, and a small always-on-top window (⌥⌘M).</div>
+      <div class="fact"><b>Data</b>What the player bar has, plus the current lyric line.</div>
+      <div class="fact"><b>Size</b>Medium to large: a second window and a status item on the same renderer.</div>
+    </div>
+    <div class="frame" style="height:320px; background: linear-gradient(135deg, #4a3f52, #2b2d3a 60%, #3d2f2a)"><span class="frame-label" style="top:36px">desktop</span>
+      <div class="menubar"><span>⌁</span><span>Wi-Fi</span><span class="np">♪ KING — Ironmouse</span><span>20 Oct 16:09</span></div>
+      <div class="drop">
+        <div class="row"><img class="cover" src="covers/king.jpg" width="64" height="64"><div class="grow"><div class="name" style="font-weight:700">KING</div><div class="meta">Ironmouse, shirobeats &amp; Sleeping Forest</div><div class="meta" style="color:#ffffffb0">幽閉 ストップ 知ってないし</div></div></div>
+        <div class="progress" style="margin:12px 0 10px"><i></i></div>
+        <div class="ctrl" style="justify-content:center">⤨ ⏮ <span class="pp">❚❚</span> ⏭ <span style="color:var(--accent)">♥</span></div>
+      </div>
+      <div class="mini"><img class="cover" src="covers/king.jpg" width="72" height="72"><div class="grow"><div class="name" style="font-weight:700">KING</div><div class="meta" style="color:#ffffffb0">yuuhei sutoppu shitte nai shi</div><div class="ctrl" style="margin-top:6px; font-size:14px">⏮ <span class="pp" style="width:26px; height:26px">❚❚</span> ⏭</div></div></div>
+    </div>
+    <div class="verdict no"><b>Shares the look:</b> the blurred-cover backdrop and lyric line come from Stage; it is its own window.</div>
+  </section>
+
+  <!-- 10 -->
+  <section class="feature">
+    <div class="feature-head"><span class="num">10</span><h2>Song radio and sleep timer</h2><span class="tag merge">RADIO MERGES</span></div>
+    <div class="facts">
+      <div class="fact"><b>Where</b>Start Radio on Now Playing and in a row's menu. The sleep timer by the volume.</div>
+      <div class="fact"><b>Data</b>The song's <code>station</code> relationship; the timer pauses through the helper.</div>
+      <div class="fact"><b>Size</b>Small each.</div>
+    </div>
+    <div class="frame"><span class="frame-label">Start Radio, and the sleep timer by the volume</span>
+      <div class="page split" style="grid-template-columns: 1fr 1fr; align-items:start">
+        <div class="card"><h4>Playing from</h4>
+          <div class="row"><div class="cover" style="width:56px; height:56px; background:linear-gradient(135deg,#f7821b,#c2185b)"></div><div><div class="name" style="font-weight:700">soldier game Radio</div><div class="meta">Songs like soldier game, endless</div></div></div>
+          <div class="sub" style="margin-top:10px; font-size:12px">Up Next fills from Apple's station as songs play. Your shuffle rules (8) still apply.</div>
+        </div>
+        <div style="display:flex; gap:10px; align-items:flex-start; justify-content:flex-end">
+          <div class="menu" style="width:200px"><div class="mi" style="color:var(--faint)">Sleep timer</div><div class="sep"></div><div class="mi sel">End of this song</div><div class="mi">15 minutes</div><div class="mi">30 minutes</div><div class="mi">1 hour</div><div class="mi">End of the album</div></div>
+          <span class="chip on">☾ 12:40</span>
+        </div>
+      </div>
+    </div>
+    <div class="verdict"><b>Merges:</b> Stage gets a Start Radio button next to Favourite and Add to Playlist. The sleep timer stays in the player bar.</div>
+  </section>
+
+  <!-- Stage+ -->
+  <section class="feature">
+    <div class="feature-head"><span class="num">★</span><h2>Stage+ — Option A with what merges</h2><span class="tag">RECOMMENDED</span></div>
+    <p>Favourite (4), Add to Playlist (5) and Start Radio (10) as the actions. Quality pills (7). The live lyric line with romaji (3).
+      A Plays card with this song's weekly chart and rank (1). Credits with the songwriters from the lyrics (3). The shelf leads with the
+      artist's newest release (2).</p>
+    <div class="frame"><span class="frame-label">Now Playing · page area · illustrative numbers</span>
+      <div class="stage">
+        <div class="hero">
+          <img src="covers/soldier.jpg">
+          <div class="grow">
+            <div class="eyebrow">Now playing · Single · 2026</div>
+            <div class="title">soldier game</div>
+            <div style="font-size:20px; font-weight:600">ADO</div>
+            <div style="font-size:14px; color:#ffffffb0">soldier game - Single · Lantis</div>
+            <div class="row" style="gap:8px; margin-top:14px; flex-wrap:wrap"><span class="pill">🎧 <b>Lossless</b> ALAC · 48 kHz</span><span class="pill">Japanese</span><span class="pill">Word-by-word lyrics</span></div>
+            <div class="row" style="gap:8px; margin-top:14px"><span class="btn" style="color:#ff8fa3">♥ Favourite</span><span class="btn">＋ Add to Playlist</span><span class="btn">◉ Start Radio</span><span class="btn">↗ Copy Link</span></div>
+            <div style="margin-top:16px"><div style="font-size:18px; font-weight:700">♪ the line being sung right now</div><div style="font-size:13px; color:#ffffffa0">and its romaji under it</div></div>
+          </div>
+        </div>
+        <div class="stats">
+          <div class="card stat"><div class="l">Plays</div><div class="row" style="justify-content:space-between; align-items:flex-end"><div><div class="n">37</div><div class="s">#1 this month</div></div>
+            <div class="spark" style="width:140px"><i style="height:20%"></i><i style="height:35%"></i><i style="height:30%"></i><i style="height:55%"></i><i style="height:40%"></i><i style="height:70%"></i><i style="height:85%"></i><i style="height:100%"></i></div></div></div>
+          <div class="card stat"><div class="l">Last played</div><div class="n">Today</div><div class="s">15:42</div></div>
+          <div class="card stat"><div class="l">In library since</div><div class="n">3 Feb</div><div class="s">2026</div></div>
+          <div class="card stat"><div class="l">Skips</div><div class="n">2</div><div class="s">last on 9 Oct</div></div>
+        </div>
+        <div class="split" style="grid-template-columns: 1.1fr 1fr; margin-top:10px">
+          <div class="card"><h4>Credits</h4>
+            <div class="role"><span>Performed by</span><span>ADO</span></div><div class="role"><span>Composed by</span><span>Mitsuru Wakabayashi</span></div>
+            <div class="role"><span>Lyrics by</span><span>from the lyrics' songwriters</span></div><div class="role"><span>Label · released</span><span>Lantis · 14 January 2026</span></div></div>
+          <div class="card"><h4>Sound</h4>
+            <div class="role"><span>Format</span><span>Apple Lossless (ALAC)</span></div><div class="role"><span>Sample rate · bit rate</span><span>48 kHz · 1,411 kbps</span></div>
+            <div class="role"><span>Length · BPM</span><span>3:41 · 172</span></div><div class="role"><span>ISRC</span><span style="font:12.5px 'SF Mono',monospace">JPPO02504487 ⧉</span></div></div>
+        </div>
+        <div style="margin:22px 0 10px; font-weight:700; font-size:16px">More by ADO</div>
+        <div class="row" style="gap:12px; align-items:flex-start">
+          <div class="tile"><img src="covers/dnd.jpg"><span class="newdot">NEW</span>DND (feat. Kuromi)<div class="meta">Single · 17 Oct</div></div>
+          <div class="tile"><img src="covers/sukideite.jpg"><span class="newdot">NEW</span>Suki de Ite<div class="meta">Single · 15 Oct</div></div>
+          <div class="tile"><img src="covers/raven.jpg">Raven Sky<div class="meta">Single · 8 Oct</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="feature">
+    <h2>Suggested order</h2>
+    <table style="margin-top:12px">
+      <tr><th>#</th><th>Step</th><th>Brings</th><th>Size</th></tr>
+      <tr><td>1</td><td>Helper <code>trackInfo</code> + Stage page</td><td>The redesign with Music.app's numbers</td><td>Medium</td></tr>
+      <tr><td>2</td><td>Favourite (4) and quality marks (7)</td><td>Stage's ♥ and pills; marks in every list</td><td>Small</td></tr>
+      <tr><td>3</td><td>Romaji and songwriters from the lyrics (3)</td><td>Data already downloaded</td><td>Small</td></tr>
+      <tr><td>4</td><td>Play log, then Listening (1) and smarter shuffle (8)</td><td>History that Music.app does not keep</td><td>Medium</td></tr>
+      <tr><td>5</td><td>Row menu with Add to Playlist (5) and Start Radio (10)</td><td>The actions everywhere</td><td>Medium</td></tr>
+      <tr><td>6</td><td>New for You (2), command palette (6)</td><td>Discovery and speed</td><td>Medium</td></tr>
+      <tr><td>7</td><td>Mini player and menu bar (9), sleep timer (10)</td><td>Away from the main window</td><td>Medium–large</td></tr>
+    </table>
+  </section>
+</main>
+</body>
+</html>

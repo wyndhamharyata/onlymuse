@@ -88,7 +88,14 @@ main :: proc() {
 	helper.start(is_background)
 
 	// The bench measures the screen's own frames, so its window shows in front.
-	app.window = platform.open_window("onlymuse", {1200, 800}, {MIN_WINDOW_WIDTH_POINTS, MIN_WINDOW_HEIGHT_POINTS}, draw_frame, is_background && !app.is_bench)
+	// OM_WINDOW=<width>x<height> opens the window at that size in points, for the tests.
+	window_size := [2]f32{1200, 800}
+	if size_text := os.get_env("OM_WINDOW", context.temp_allocator); size_text != "" {
+		if width_text, _, height_text := strings.partition(size_text, "x"); height_text != "" {
+			window_size = {f32(strconv.parse_f64(width_text) or_else 1200), f32(strconv.parse_f64(height_text) or_else 800)}
+		}
+	}
+	app.window = platform.open_window("onlymuse", window_size, {MIN_WINDOW_WIDTH_POINTS, MIN_WINDOW_HEIGHT_POINTS}, draw_frame, is_background && !app.is_bench)
 	render.start(app.window.device, app.window.layer)
 	font.start()
 	icon.start()

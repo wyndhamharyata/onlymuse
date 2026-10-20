@@ -21,7 +21,10 @@ SIDE_BY_SIDE_POINTS :: 560
 HERO_GAP_POINTS :: 26
 // The text beside the cover takes at least this much, else the text goes under the cover.
 MIN_INFO_POINTS :: 360
-NARROW_STATS_POINTS :: 560
+NARROW_STATS_POINTS :: 720
+ONE_STAT_POINTS :: 380
+// The plays card is at least this wide to show its bars beside its numbers.
+SPARK_BESIDE_POINTS :: 260
 BACKDROP_POINTS :: 520
 // The cover is drawn this small and stretched for the backdrop: a blur with no blur.
 BACKDROP_PIXELS :: 24
@@ -193,8 +196,9 @@ build_hero :: proc(details: Song_Details, info: Track_Info, shown: helper.Song, 
 to_title_size :: proc(info_width: f32) -> f32 {
 	if info_width >= 520 do return 44
 	if info_width >= 400 do return 36
+	if info_width >= 260 do return 30
 
-	return 30
+	return 24
 }
 
 // "NOW PLAYING · SINGLE · 2026".
@@ -228,7 +232,7 @@ build_pills :: proc(details: Song_Details, info: Track_Info) {
 
 	if len(pills) == 0 do return
 
-	row := ui.box("pills", {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 6, padding = {0, 10, 0, 0}})
+	row := ui.box("pills", {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 6, padding = {0, 10, 0, 0}, flags = {.Wrap_Children}})
 
 	if ui.scope(row) {
 		for pill, index in pills {
@@ -251,7 +255,7 @@ build_pills :: proc(details: Song_Details, info: Track_Info) {
 
 @(private = "file")
 build_actions :: proc(details: Song_Details, persistent_id: string) {
-	row := ui.box("actions", {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 8, padding = {0, 12, 0, 0}})
+	row := ui.box("actions", {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 8, padding = {0, 12, 0, 0}, flags = {.Wrap_Children}})
 
 	if ui.scope(row) {
 		is_on := is_favourite(details.song, persistent_id)
@@ -311,15 +315,21 @@ build_stats :: proc(song: Catalog_Song, info: Track_Info, width: f32) {
 		{"skips", "SKIPS", fmt.tprintf("%d", info.skipped_count), fmt.tprintf("last on %s", platform.format_date(skipped, "d MMM")) if skipped > 0 else "", 1, {}, false},
 	}
 
-	// Under this, four cards are too narrow to read their own numbers.
-	columns := 4 if width >= NARROW_STATS_POINTS else 2
+	// Narrower than these, four or two cards are too narrow to read their own numbers.
+	columns := 4 if width >= NARROW_STATS_POINTS else 2 if width >= ONE_STAT_POINTS else 1
 
 	for start := 0; start < len(stats); start += columns {
 		row := ui.box(fmt.tprintf("stats %d", start), {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 10})
+		in_row := stats[start:min(start + columns, len(stats))]
+		row_weight: f32
+		for stat in in_row do row_weight += stat.weight
 
 		if ui.scope(row) {
-			for stat in stats[start:min(start + columns, len(stats))] {
-				card := build_stat_card(stat.id, stat.label, stat.value, stat.note, stat.weight)
+			for stat in in_row {
+				// The bars go under the numbers when beside them they would leave the numbers no room.
+				card_width := (width - 10 * f32(len(in_row) - 1)) * stat.weight / row_weight
+				is_stacked := stat.has_spark && card_width < SPARK_BESIDE_POINTS
+				card := build_stat_card(stat.id, stat.label, stat.value, stat.note, stat.weight, is_stacked)
 				if stat.has_spark {
 					if ui.scope(card) do build_spark(stat.weeks)
 				}
@@ -329,8 +339,8 @@ build_stats :: proc(song: Catalog_Song, info: Track_Info, width: f32) {
 }
 
 @(private = "file")
-build_stat_card :: proc(id, label, value, note_text: string, weight: f32 = 1) -> ^ui.Box {
-	card := ui.box(id, {width = ui.fill(weight), height = ui.fit_children(), axis = .X, align = .End, padding = {14, 12, 14, 12}, corner_radius = 10, background = to_color(0xffffff0a), border_width = 1, border_color = to_color(0xffffff10)})
+build_stat_card :: proc(id, label, value, note_text: string, weight: f32 = 1, is_stacked := false) -> ^ui.Box {
+	card := ui.box(id, {width = ui.fill(weight), height = ui.fit_children(), axis = .Y if is_stacked else .X, align = .Start if is_stacked else .End, gap = 8 if is_stacked else 0, padding = {14, 12, 14, 12}, corner_radius = 10, background = to_color(0xffffff0a), border_width = 1, border_color = to_color(0xffffff10)})
 
 	if ui.scope(card) {
 		column := ui.box("text", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 1})

@@ -273,6 +273,7 @@ Rebuild the helper first: `cd .. && bun run helper`.
 | `OM_HELPER=<file>` | Runs this instead of the Swift helper. `tools/fake-helper.sh` says a song plays. |
 | `OM_FAKE_POSITION=<seconds>` | Where the fake helper's song starts. |
 | `OM_FAKE_NAME`, `OM_FAKE_ARTIST`, `OM_FAKE_ALBUM`, `OM_FAKE_DURATION` | The fake helper's song, soldier game by default. |
+| `OM_WINDOW=<width>x<height>` | Opens the window at this size in points. |
 | `OM_TYPE=<text>` | Types this into the focused field a second after start, through the view's input context, as the keyboard would. |
 | `OM_PALETTE=<term>` | Opens the command palette with this term at start, as a test cannot type into a window behind the others. |
 | `OM_BACKGROUND=1` | For the tests. Opens the window behind the others, never focused and with no Dock icon, so AeroSpace leaves it floating. macOS stops a covered window's display link, so a timer runs its frames, which are captured but not shown. The helper leaves Music.app as it is when the app quits. Captures set it. The bench keeps its window in front, as it measures the screen. |

@@ -12,6 +12,8 @@ CARD_GAP_POINTS :: 14
 // Cards built past each edge of a shelf, so a fast scroll finds them ready.
 EXTRA_CARD_COUNT :: 2
 ALBUM_COVER_POINTS :: 240
+ALBUM_HEADER_GAP_POINTS :: 20
+MIN_ALBUM_INFO_POINTS :: 300
 
 // The tile size that fits a whole number of tiles across width, as close to target as it can.
 fit_tile_size :: proc(width, target, gap: f32) -> f32 {
@@ -179,7 +181,7 @@ build_album_page :: proc(album_id: string) {
 			return
 		}
 
-		build_album_header(data)
+		build_album_header(data, page.size.x - page.style.padding.x - page.style.padding.z)
 		build_numbered_songs(data.songs)
 	}
 }
@@ -215,30 +217,38 @@ read_album :: proc(data: ^Page_Data, body: string) {
 	data.badges = badges[:]
 }
 
-build_album_header :: proc(data: ^Page_Data) {
-	header := ui.box("header", {width = ui.fill(), height = ui.fit_children(), axis = .X, align = .End, gap = 20})
+// width is the page's from the last frame, 0 on the first.
+build_album_header :: proc(data: ^Page_Data, width: f32) {
+	cover_points: f32 = ALBUM_COVER_POINTS if width <= 0 else min(ALBUM_COVER_POINTS, width)
+	// The text goes under the cover when beside it, it would have too little room.
+	is_side_by_side := width <= 0 || width - cover_points - ALBUM_HEADER_GAP_POINTS >= MIN_ALBUM_INFO_POINTS
+	header := ui.box("header", {width = ui.fill(), height = ui.fit_children(), axis = .X if is_side_by_side else .Y, align = .End if is_side_by_side else .Start, gap = ALBUM_HEADER_GAP_POINTS})
 
 	if ui.scope(header) {
-		artwork_box(apple.to_artwork_url(data.artwork, to_artwork_pixels(ALBUM_COVER_POINTS)), ALBUM_COVER_POINTS, 10, to_placeholder(data.artwork, data.title, "square.stack"))
+		artwork_box(apple.to_artwork_url(data.artwork, to_artwork_pixels(cover_points)), cover_points, 10, to_placeholder(data.artwork, data.title, "square.stack"))
 
 		info := ui.box("info", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 6})
 
 		if ui.scope(info) {
-			ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.text, font_size = 32, font_weight = .Bold, flags = {.Wrap_Text}}, data.title)
+			info_width := width - cover_points - ALBUM_HEADER_GAP_POINTS if is_side_by_side && width > 0 else width
+			title_size: f32 = 32 if width <= 0 || info_width >= 360 else 26 if info_width >= 240 else 22
+			ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.text, font_size = title_size, font_weight = .Bold, flags = {.Wrap_Text}}, data.title)
 
-			artist := ui.box("artist", {width = ui.fit_text(), height = ui.fit_text(), text_color = app.accent, font_size = 20, font_weight = .Semibold, flags = {.Clickable} if data.link_id != "" else {}}, data.subtitle)
+			artist_flags := ui.Flags{.Truncate_Text}
+			if data.link_id != "" do artist_flags |= {.Clickable}
+			artist := ui.box("artist", {width = ui.fill(), height = ui.fit_text(), text_color = app.accent, font_size = 20, font_weight = .Semibold, flags = artist_flags}, data.subtitle)
 			if ui.signal(artist).is_clicked do navigate({kind = .Artist, id = data.link_id, title = data.subtitle})
 
 			text_box(data.detail, colors.dim)
 
-			badges := ui.box("badges", {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 8, padding = {0, 6, 0, 10}})
+			badges := ui.box("badges", {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 8, padding = {0, 6, 0, 10}, flags = {.Wrap_Children}})
 
 			if ui.scope(badges) {
 				for label in data.badges do build_badge(label, colors.dim)
 				build_badge("In Library" if data.is_in_library else "Not in Library", to_color(0x7ee2a8ff) if data.is_in_library else colors.faint)
 			}
 
-			buttons := ui.box("buttons", {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 8})
+			buttons := ui.box("buttons", {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 8, flags = {.Wrap_Children}})
 
 			if ui.scope(buttons) {
 				if action_button("Play", "play.fill", true) do play_songs(data.songs, 0)

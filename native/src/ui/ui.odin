@@ -58,6 +58,8 @@ Flag :: enum {
 	Wrap_Text,
 	// One line that ends in an ellipsis when it is too long.
 	Truncate_Text,
+	// A row whose children go on to a new line when the next one does not fit, such as pills.
+	Wrap_Children,
 }
 Flags :: bit_set[Flag]
 
@@ -478,7 +480,75 @@ resolve :: proc(box: ^Box) {
 	for child := box.first; child != nil; child = child.next do resolve(child)
 
 	if style.width.kind == .Children && style.axis == .Y do box.size.x = children_extent(box, .X) + style.padding.x + style.padding.z
-	if style.height.kind == .Children do box.size.y = children_extent(box, .Y) + style.padding.y + style.padding.w
+	if style.height.kind == .Children {
+		extent := wrap_lines(box, nil) if is_wrapping(box) else children_extent(box, .Y)
+		box.size.y = extent + style.padding.y + style.padding.w
+	}
+}
+
+@(private)
+is_wrapping :: proc(box: ^Box) -> bool {
+	return .Wrap_Children in box.style.flags && box.style.axis == .X
+}
+
+// Lays a wrapping row's children in lines no wider than the row, and returns the height of the lines.
+// With a clip, it places them too.
+@(private)
+wrap_lines :: proc(box: ^Box, clip: ^[4]f32) -> f32 {
+	style := box.style
+	inner_width := box.size.x - style.padding.x - style.padding.z
+	line_top: f32
+	line := box.first
+
+	for line != nil {
+		// The children that fit on this line, and the tallest of them.
+		width, height: f32
+		end := line
+		count := 0
+
+		for child := line; child != nil; child = child.next {
+			if .Floating in child.style.flags {
+				end = child.next
+				continue
+			}
+
+			next_width := width + child.size.x + (style.gap if count > 0 else 0)
+			if count > 0 && next_width > inner_width do break
+
+			width = next_width
+			height = max(height, child.size.y)
+			count += 1
+			end = child.next
+		}
+
+		if clip != nil {
+			pen := [2]f32{box.rect.x + style.padding.x, box.rect.y + style.padding.y + line_top}
+
+			for child := line; child != end; child = child.next {
+				if .Floating in child.style.flags {
+					place(child, {box.rect.x, box.rect.y} + child.style.position, clip^)
+					continue
+				}
+
+				origin := pen
+				switch style.align {
+				case .Start:
+				case .Center:
+					origin.y += math.round((height - child.size.y) / 2)
+				case .End:
+					origin.y += height - child.size.y
+				}
+				place(child, origin, clip^)
+				pen.x += child.size.x + style.gap
+			}
+		}
+
+		line_top += height
+		line = end
+		if line != nil do line_top += style.gap
+	}
+
+	return line_top
 }
 
 // Positions, from the root down. clip is in points.
@@ -501,6 +571,12 @@ place :: proc(box: ^Box, origin: [2]f32, clip: [4]f32) {
 		max_scroll := max(0, box.content_size[main] - box.size[main])
 		box.scroll_target = clamp(box.scroll_target, 0, max_scroll)
 		box.scroll = clamp(approach(box.scroll, box.scroll_target, HOT_RATE), 0, max_scroll)
+	}
+
+	if is_wrapping(box) {
+		wrap_lines(box, &child_clip)
+		if .Animate_Position in style.flags do animate_rect(box)
+		return
 	}
 
 	pen := [2]f32{box.rect.x + style.padding.x, box.rect.y + style.padding.y}

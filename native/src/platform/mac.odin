@@ -345,7 +345,7 @@ remove_layer_background :: proc "c" (layer: ^Layer) {
 
 // A background window, for the tests and the bench, opens behind the others and never takes focus.
 // Its app is an accessory, so a tiling window manager such as AeroSpace leaves it alone.
-open_window :: proc(title: string, size_points: [2]f32, on_frame: Frame_Proc, is_background := false) -> ^Window {
+open_window :: proc(title: string, size_points, min_size_points: [2]f32, on_frame: Frame_Proc, is_background := false) -> ^Window {
 	state.odin_context = context
 	state.on_frame = on_frame
 	state.is_background = is_background
@@ -363,6 +363,7 @@ open_window :: proc(title: string, size_points: [2]f32, on_frame: Frame_Proc, is
 	msg_send(nil, ns_window, "setTitleVisibility:", NS.Integer(1))
 	msg_send(nil, ns_window, "setReleasedWhenClosed:", NS.BOOL(false))
 	msg_send(nil, ns_window, "setAcceptsMouseMovedEvents:", NS.BOOL(true))
+	msg_send(nil, ns_window, "setContentMinSize:", NS.Size{NS.Float(min_size_points.x), NS.Float(min_size_points.y)})
 	ns_window->setOpaque(false)
 	ns_window->setBackgroundColor(msg_send(^NS.Color, NS.Color, "clearColor"))
 	state.ns_window = ns_window

@@ -42,6 +42,10 @@ Entry :: struct {
 	last_drawn_frame: int,
 	ready_time:       time.Tick,
 	failed_time:      time.Tick,
+	// The same picture at any size. Apple's URLs differ only in the last part, the size.
+	family:           u64,
+	// Another size stood in until this one loaded, so it shows at once, with no fade.
+	had_stand_in:     bool,
 }
 
 @(private)
@@ -62,6 +66,8 @@ state: struct {
 	pool:         thread.Pool,
 	mutex:        sync.Mutex,
 	finished:     [dynamic]^Job,
+	// The entry of each family last loaded, to stand in for a size still loading.
+	families:     map[u64]u64,
 	frame_index:  int,
 	is_fading:    bool,
 }
@@ -99,10 +105,21 @@ find :: proc(url: string, size_pixels: int) -> (texture: ^MTL.Texture, opacity: 
 		entry = new(Entry)
 		entry.url = strings.clone(url)
 		entry.size_pixels = size_pixels
+		entry.family = to_family(url)
 		state.entries[key] = entry
 	}
 
 	entry.last_drawn_frame = state.frame_index
+
+	if entry.phase != .Ready {
+		if stand_in, has_stand_in := find_stand_in(entry.family, key); has_stand_in {
+			entry.had_stand_in = true
+			stand_in.last_drawn_frame = state.frame_index
+			if entry.phase == .Waiting do append(&state.waiting, key)
+
+			return stand_in.texture, 1
+		}
+	}
 
 	switch entry.phase {
 	case .Waiting:
@@ -111,6 +128,8 @@ find :: proc(url: string, size_pixels: int) -> (texture: ^MTL.Texture, opacity: 
 	case .Failed:
 		if time.tick_since(entry.failed_time) > RETRY_LATER do entry.phase = .Waiting
 	case .Ready:
+		if entry.had_stand_in do return entry.texture, 1
+
 		seconds := f32(time.duration_seconds(time.tick_since(entry.ready_time)))
 		opacity = min(1, seconds / FADE_IN_SECONDS)
 		if opacity < 1 do state.is_fading = true
@@ -119,6 +138,27 @@ find :: proc(url: string, size_pixels: int) -> (texture: ^MTL.Texture, opacity: 
 	}
 
 	return nil, 0
+}
+
+@(private)
+to_family :: proc(url: string) -> u64 {
+	family := url
+	if !strings.has_prefix(url, "/") {
+		if slash := strings.last_index_byte(url, '/'); slash > 0 do family = url[:slash]
+	}
+
+	return hash.fnv64a(transmute([]u8)family)
+}
+
+@(private)
+find_stand_in :: proc(family, key: u64) -> (^Entry, bool) {
+	stand_in_key, ok := state.families[family]
+	if !ok || stand_in_key == key do return nil, false
+
+	stand_in := state.entries[stand_in_key] or_else nil
+	if stand_in == nil || stand_in.phase != .Ready do return nil, false
+
+	return stand_in, true
 }
 
 @(private)
@@ -156,6 +196,7 @@ take_finished :: proc() {
 			entry.phase = .Ready
 			entry.texture = job.texture
 			entry.ready_time = time.tick_now()
+			state.families[entry.family] = job.key
 		}
 
 		delete(job.url)
@@ -186,6 +227,7 @@ unload_extra :: proc() {
 
 	for candidate in candidates[:min(len(candidates), ready_count - MAX_IMAGE_COUNT)] {
 		entry := state.entries[candidate.key]
+		if state.families[entry.family] == candidate.key do delete_key(&state.families, entry.family)
 		// A command buffer keeps the textures it draws alive until the GPU is done.
 		entry.texture->release()
 		delete(entry.url)

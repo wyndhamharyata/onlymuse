@@ -190,6 +190,12 @@ From here the app goes its own way rather than copying Apple Music.
   The tabs at its top and the two buttons by the volume are gone. One button by the volume shows and
   hides the panel, opening it on the tab it last showed.
 - An artist with no photo shows their album cover filling the circle, not inset on a square of colour.
+- Open and close the panel with a page of covers showing. The covers stay drawn while the page
+  resizes, rather than flashing back to their placeholders. Dragging the window's edge behaves the
+  same.
+- Rest the pointer on an Up Next row with a long title. The title and the artist slide.
+- A lossless song's LOSSLESS badge sits right after its name.
+- The window cannot be made smaller than 1000 by 600 points.
 - While a cover loads, its tile shows a gradient with a symbol of what it is (album, playlist,
   artist, song). Apple Music items use the cover's own colours, so the cover fades in over its own
   palette. Library items have no colours from Apple, so the name picks two hues, and an album keeps

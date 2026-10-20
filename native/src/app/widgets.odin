@@ -186,6 +186,13 @@ to_clock_text :: proc(total_seconds: f64) -> string {
 	return fmt.tprintf("%d:%02d", whole_seconds / 60, whole_seconds % 60)
 }
 
+// The width of one line of text, in points.
+measure_text :: proc(text: string, font_size: f32, weight := font.Weight.Regular) -> f32 {
+	if text == "" do return 0
+
+	return font.shape(text, font.system_font(weight, ui.to_pixels(font_size))).size.x / ui.to_pixels(1)
+}
+
 // Takes the space left in a row, pushing what follows to the end.
 spacer :: proc() {
 	ui.box("", {width = ui.fill(), height = ui.points(1)})
@@ -200,12 +207,17 @@ SLIDE_REST_SECONDS :: 0.3
 slides: map[string]f64
 
 // One line that ends in "…" when it does not fit. Resting under the pointer, it slides to show the rest.
-scrolling_text :: proc(id, text: string, color: [4]f32, font_size: f32, weight := font.Weight.Regular, is_clickable := false) -> ^ui.Box {
-	box := ui.box(id, {width = ui.fill(), height = ui.fit_text(), text_color = color, font_size = font_size, font_weight = weight, flags = {.Truncate_Text, .Clickable if is_clickable else .Hoverable}}, text)
+// Inside a clickable row, the row's hover is passed in, so the text never takes the row's click.
+scrolling_text :: proc(id, text: string, color: [4]f32, font_size: f32, weight := font.Weight.Regular, is_clickable := false, is_hovered: Maybe(bool) = nil, width := ui.Size{.Fill, 1}) -> ^ui.Box {
+	flags: ui.Flags = {.Truncate_Text}
+	if is_clickable do flags += {.Clickable}
+	if is_hovered == nil && !is_clickable do flags += {.Hoverable}
+
+	box := ui.box(id, {width = width, height = ui.fit_text(), text_color = color, font_size = font_size, font_weight = weight, flags = flags}, text)
 	key := fmt.aprint(id, text)
 	defer delete(key)
 
-	if !ui.signal(box).is_hovered {
+	if !(is_hovered.? or_else ui.signal(box).is_hovered) {
 		if key in slides {
 			delete_key_and_value(&slides, key)
 		}

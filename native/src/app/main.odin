@@ -78,7 +78,7 @@ main :: proc() {
 	helper.start(is_background)
 
 	// The bench measures the screen's own frames, so its window shows in front.
-	app.window = platform.open_window("onlymuse", {1200, 800}, draw_frame, is_background && !app.is_bench)
+	app.window = platform.open_window("onlymuse", {1200, 800}, {MIN_WINDOW_WIDTH_POINTS, MIN_WINDOW_HEIGHT_POINTS}, draw_frame, is_background && !app.is_bench)
 	render.start(app.window.device, app.window.layer)
 	font.start()
 	icon.start()

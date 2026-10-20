@@ -74,8 +74,17 @@ build_song_info :: proc() {
 				title := ui.box("title", {width = ui.fill(), height = ui.fit_children(), axis = .X, align = .Center, gap = 7})
 
 				if ui.scope(title) {
-					scrolling_text("name", song.name, colors.text, 13.5, .Semibold)
-					if is_queue_song && queue_song.is_lossless do ui.box("", {width = ui.fit_text(), height = ui.fit_text(), padding = {4, 0, 4, 0}, corner_radius = 4, border_width = 1, border_color = colors.faint, text_color = colors.dim, font_size = 9.5, font_weight = .Bold}, "LOSSLESS")
+					is_lossless := is_queue_song && queue_song.is_lossless
+					name_width := ui.Size{.Fill, 1}
+
+					// Last frame's width of the row, less the badge, caps the name.
+					if row_width := title.rect.z - title.rect.x; is_lossless && row_width > 0 {
+						badge_width := measure_text("LOSSLESS", 9.5, .Bold) + 8 + 7
+						name_width = ui.points(min(measure_text(song.name, 13.5, .Semibold), row_width - badge_width))
+					}
+
+					scrolling_text("name", song.name, colors.text, 13.5, .Semibold, width = name_width)
+					if is_lossless do ui.box("", {width = ui.fit_text(), height = ui.fit_text(), padding = {4, 0, 4, 0}, corner_radius = 4, border_width = 1, border_color = colors.faint, text_color = colors.dim, font_size = 9.5, font_weight = .Bold}, "LOSSLESS")
 				}
 
 				// Go to Artist always opens the Apple Music artist, never the library one.

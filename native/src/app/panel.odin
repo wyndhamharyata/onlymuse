@@ -15,7 +15,7 @@ build_panel :: proc() -> bool {
 		width      = ui.points(width),
 		height     = ui.fill(),
 		axis       = .Y,
-		padding    = {16, 14, 16, 12},
+		padding    = {16, 14, 16, 16},
 		gap        = 4,
 		background = colors.panel,
 		fade       = 1 - width / PANEL_WIDTH_POINTS,
@@ -36,6 +36,7 @@ build_panel :: proc() -> bool {
 			}
 		}
 
+		ui.box("", {width = ui.points(1), height = ui.points(12)})
 		build_panel_tabs(inner_width)
 	}
 
@@ -83,11 +84,12 @@ build_queue_row :: proc(index: int, row_points: f32) {
 	if ui.scope(row) {
 		artwork_box(apple.to_artwork_url(song.artwork, to_artwork_pixels(36)), 36, 4, to_placeholder(song.artwork, song.album_name))
 
-		text := ui.box("", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 2})
+		text := ui.box("text", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 2})
 
 		if ui.scope(text) {
-			text_box(song.name, app.accent if is_current else colors.text, weight = .Medium)
-			text_box(song.artist_name, colors.dim, 12)
+			is_hovered := ui.signal(row).is_hovered
+			scrolling_text("name", song.name, app.accent if is_current else colors.text, 13, .Medium, is_hovered = is_hovered)
+			scrolling_text("artist", song.artist_name, colors.dim, 12, is_hovered = is_hovered)
 		}
 
 		// The song playing stays. Another shows its remove button while hovered.

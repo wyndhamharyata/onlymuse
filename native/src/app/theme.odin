@@ -51,6 +51,9 @@ PLAYER_HEIGHT_POINTS :: 80
 TOOLBAR_HEIGHT_POINTS :: 52
 PAGE_PADDING_POINTS :: 30
 PANEL_WIDTH_POINTS :: 320
+// The sidebar, the panel and a page two tiles wide, with the player bar's three parts unsqueezed.
+MIN_WINDOW_WIDTH_POINTS :: 1000
+MIN_WINDOW_HEIGHT_POINTS :: 600
 
 // "2a2a2f", as Apple sends artwork colours.
 parse_hex_color :: proc(hex: string) -> ([4]f32, bool) {

@@ -35,6 +35,125 @@ index ff7e6c2..7df2e84 100644
                      style.refine(hover_style);
                  }
              }
+diff --git a/crates/gpui/src/elements/image_cache.rs b/crates/gpui/src/elements/image_cache.rs
+index ee14361..8d85f7f 100644
+--- a/crates/gpui/src/elements/image_cache.rs
++++ b/crates/gpui/src/elements/image_cache.rs
+@@ -351,3 +351,114 @@ impl ImageCacheProvider for RetainAllImageCacheProvider {
+             .into()
+     }
+ }
++
++/// onlymuse patch: an image cache that keeps the images drawn most recently. Past `max_images` it unloads
++/// the ones not drawn for `min_idle`, oldest first, so the pixels and GPU textures of every image ever
++/// shown do not pile up. The global asset cache keeps them all for the life of the app.
++pub struct RecentImageCache {
++    items: HashMap<u64, (ImageCacheItem, std::time::Instant)>,
++    max_images: usize,
++    min_idle: std::time::Duration,
++    last_unload: std::time::Instant,
++}
++
++impl RecentImageCache {
++    /// Create a new image cache.
++    pub fn new(max_images: usize, min_idle: std::time::Duration, cx: &mut App) -> Entity<Self> {
++        let e = cx.new(|_cx| RecentImageCache {
++            items: HashMap::new(),
++            max_images,
++            min_idle,
++            last_unload: std::time::Instant::now(),
++        });
++        cx.observe_release(&e, |image_cache, cx| {
++            for (_, (mut item, _)) in std::mem::take(&mut image_cache.items) {
++                if let Some(Ok(image)) = item.get() {
++                    cx.drop_image(image, None);
++                }
++            }
++        })
++        .detach();
++        e
++    }
++
++    /// The number of images held, loaded or loading.
++    pub fn len(&self) -> usize {
++        self.items.len()
++    }
++
++    /// True when it holds no image.
++    pub fn is_empty(&self) -> bool {
++        self.items.is_empty()
++    }
++
++    // At most twice a second: the scan sorts every idle image.
++    fn unload_idle(&mut self, window: &mut Window, cx: &mut App) {
++        let now = std::time::Instant::now();
++        if self.items.len() <= self.max_images
++            || now - self.last_unload < std::time::Duration::from_millis(500)
++        {
++            return;
++        }
++        self.last_unload = now;
++
++        let mut idle: Vec<(u64, std::time::Instant)> = self
++            .items
++            .iter()
++            .filter(|(_, (item, used))| {
++                matches!(item, ImageCacheItem::Loaded(_)) && now - *used >= self.min_idle
++            })
++            .map(|(key, (_, used))| (*key, *used))
++            .collect();
++        idle.sort_by_key(|(_, used)| *used);
++
++        let excess = self.items.len() - self.max_images;
++        for (key, _) in idle.into_iter().take(excess) {
++            if let Some((mut item, _)) = self.items.remove(&key)
++                && let Some(Ok(image)) = item.get()
++            {
++                cx.drop_image(image, Some(window));
++            }
++        }
++    }
++}
++
++impl ImageCache for RecentImageCache {
++    fn load(
++        &mut self,
++        resource: &Resource,
++        window: &mut Window,
++        cx: &mut App,
++    ) -> Option<Result<Arc<RenderImage>, ImageCacheError>> {
++        let key = hash(resource);
++
++        if let Some((item, used)) = self.items.get_mut(&key) {
++            *used = std::time::Instant::now();
++            let result = item.get();
++            self.unload_idle(window, cx);
++            return result;
++        }
++
++        let fut = AssetLogger::<ImageAssetLoader>::load(resource.clone(), cx);
++        let task = cx.background_executor().spawn(fut).shared();
++        self.items.insert(
++            key,
++            (ImageCacheItem::Loading(task.clone()), std::time::Instant::now()),
++        );
++
++        let entity = window.current_view();
++        window
++            .spawn(cx, {
++                async move |cx| {
++                    _ = task.await;
++                    cx.on_next_frame(move |_, cx| {
++                        cx.notify(entity);
++                    });
++                }
++            })
++            .detach();
++
++        self.unload_idle(window, cx);
++        None
++    }
++}
 diff --git a/crates/gpui/src/platform.rs b/crates/gpui/src/platform.rs
 index e37ab99..9f82b7b 100644
 --- a/crates/gpui/src/platform.rs

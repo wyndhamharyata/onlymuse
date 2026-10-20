@@ -229,6 +229,13 @@ the layout and the rules.
   and `vendor/gpuix-runtime.js`, which `scripts/gpuix-native.ts` installs. A back-and-forth scroll
   of New then missed 2 to 3 frames in place of 1 to 48, and its longest stall fell from up to 51 ms
   to 16 ms.
+- **Covers are unloaded once off screen.** GPUI's global image cache kept every image it had
+  drawn for the life of the app, about 1.2 MB a cover: the pixels in memory and a texture on the
+  GPU. After an hour the app held 1.2 GB, macOS moved most of it to swap while the app sat in the
+  background, and the next scroll waited on it: rows stayed blank for 1.6 s. The patched gpuix
+  loads files and URLs through `RecentImageCache`, which keeps the 160 images drawn most recently
+  and unloads the others once they have not been drawn for 5 s. Scrolling all of Albums three
+  times went from 1.6 GB to 290 MB.
 - **No present of an unchanged frame.** After fast input GPUI presented the last frame again on every
   display frame for 1 second, so the display would not slow down. On the ProMotion screen it slows
   to 40 Hz anyway once the content stops changing, and each of those presents waited 25 ms for a

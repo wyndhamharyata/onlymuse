@@ -107,7 +107,8 @@ build_song_menu :: proc() {
 
 			if ui.scope(menu) {
 				if menu_item("play next", "Play Next") {
-					play_next(song)
+					// The queue keeps the song after the menu frees its own copy.
+					play_next(clone_song(song))
 					show_toast(fmt.tprintf("%s plays next", song.name))
 					is_closing = true
 				}

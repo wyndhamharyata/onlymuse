@@ -36,37 +36,64 @@ index ff7e6c2..7df2e84 100644
                  }
              }
 diff --git a/crates/gpui/src/elements/image_cache.rs b/crates/gpui/src/elements/image_cache.rs
-index ee14361..8d85f7f 100644
+index ee14361..6ee3a79 100644
 --- a/crates/gpui/src/elements/image_cache.rs
 +++ b/crates/gpui/src/elements/image_cache.rs
-@@ -351,3 +351,114 @@ impl ImageCacheProvider for RetainAllImageCacheProvider {
+@@ -351,3 +351,151 @@ impl ImageCacheProvider for RetainAllImageCacheProvider {
              .into()
      }
  }
 +
 +/// onlymuse patch: an image cache that keeps the images drawn most recently. Past `max_images` it unloads
 +/// the ones not drawn for `min_idle`, oldest first, so the pixels and GPU textures of every image ever
-+/// shown do not pile up. The global asset cache keeps them all for the life of the app.
++/// shown do not pile up. The global asset cache keeps them all for the life of the app. An image in the
++/// last frame drawn is never unloaded, so a still window with more images than the limit keeps them.
 +pub struct RecentImageCache {
 +    items: HashMap<u64, (ImageCacheItem, std::time::Instant)>,
 +    max_images: usize,
 +    min_idle: std::time::Duration,
++    last_used: std::time::Instant,
 +    last_unload: std::time::Instant,
 +}
 +
++// Images asked for within this of the latest one belong to the last frame drawn.
++const SAME_FRAME: std::time::Duration = std::time::Duration::from_millis(100);
++const UNLOAD_EVERY: std::time::Duration = std::time::Duration::from_millis(250);
++
 +impl RecentImageCache {
-+    /// Create a new image cache.
++    /// Create a new image cache. It also unloads once a second, so a window that stops drawing
++    /// still lets its images go.
 +    pub fn new(max_images: usize, min_idle: std::time::Duration, cx: &mut App) -> Entity<Self> {
++        let now = std::time::Instant::now();
 +        let e = cx.new(|_cx| RecentImageCache {
 +            items: HashMap::new(),
 +            max_images,
 +            min_idle,
-+            last_unload: std::time::Instant::now(),
++            last_used: now,
++            last_unload: now,
 +        });
 +        cx.observe_release(&e, |image_cache, cx| {
 +            for (_, (mut item, _)) in std::mem::take(&mut image_cache.items) {
 +                if let Some(Ok(image)) = item.get() {
 +                    cx.drop_image(image, None);
++                }
++            }
++        })
++        .detach();
++        let weak = e.downgrade();
++        cx.spawn(async move |cx| {
++            loop {
++                cx.background_executor()
++                    .timer(std::time::Duration::from_secs(1))
++                    .await;
++                let unloaded = weak.update(cx, |image_cache, _cx| image_cache.take_idle());
++                let Ok(images) = unloaded else { break };
++                if !images.is_empty() {
++                    cx.update(|cx| {
++                        for image in images {
++                            cx.drop_image(image, None);
++                        }
++                    });
 +                }
 +            }
 +        })
@@ -84,33 +111,43 @@ index ee14361..8d85f7f 100644
 +        self.items.is_empty()
 +    }
 +
-+    // At most twice a second: the scan sorts every idle image.
-+    fn unload_idle(&mut self, window: &mut Window, cx: &mut App) {
++    // The images past the limit that may go, removed from the cache, oldest first.
++    fn take_idle(&mut self) -> Vec<Arc<RenderImage>> {
 +        let now = std::time::Instant::now();
-+        if self.items.len() <= self.max_images
-+            || now - self.last_unload < std::time::Duration::from_millis(500)
-+        {
-+            return;
++        if self.items.len() <= self.max_images {
++            return Vec::new();
 +        }
 +        self.last_unload = now;
 +
++        let last_frame = self.last_used - SAME_FRAME;
 +        let mut idle: Vec<(u64, std::time::Instant)> = self
 +            .items
 +            .iter()
 +            .filter(|(_, (item, used))| {
-+                matches!(item, ImageCacheItem::Loaded(_)) && now - *used >= self.min_idle
++                matches!(item, ImageCacheItem::Loaded(_))
++                    && *used < last_frame
++                    && now - *used >= self.min_idle
 +            })
 +            .map(|(key, (_, used))| (*key, *used))
 +            .collect();
 +        idle.sort_by_key(|(_, used)| *used);
 +
 +        let excess = self.items.len() - self.max_images;
-+        for (key, _) in idle.into_iter().take(excess) {
-+            if let Some((mut item, _)) = self.items.remove(&key)
-+                && let Some(Ok(image)) = item.get()
-+            {
-+                cx.drop_image(image, Some(window));
-+            }
++        idle.into_iter()
++            .take(excess)
++            .filter_map(|(key, _)| {
++                let (mut item, _) = self.items.remove(&key)?;
++                item.get()?.ok()
++            })
++            .collect()
++    }
++
++    fn unload_idle(&mut self, window: &mut Window, cx: &mut App) {
++        if std::time::Instant::now() - self.last_unload < UNLOAD_EVERY {
++            return;
++        }
++        for image in self.take_idle() {
++            cx.drop_image(image, Some(window));
 +        }
 +    }
 +}
@@ -123,9 +160,11 @@ index ee14361..8d85f7f 100644
 +        cx: &mut App,
 +    ) -> Option<Result<Arc<RenderImage>, ImageCacheError>> {
 +        let key = hash(resource);
++        let now = std::time::Instant::now();
++        self.last_used = now;
 +
 +        if let Some((item, used)) = self.items.get_mut(&key) {
-+            *used = std::time::Instant::now();
++            *used = now;
 +            let result = item.get();
 +            self.unload_idle(window, cx);
 +            return result;
@@ -133,10 +172,8 @@ index ee14361..8d85f7f 100644
 +
 +        let fut = AssetLogger::<ImageAssetLoader>::load(resource.clone(), cx);
 +        let task = cx.background_executor().spawn(fut).shared();
-+        self.items.insert(
-+            key,
-+            (ImageCacheItem::Loading(task.clone()), std::time::Instant::now()),
-+        );
++        self.items
++            .insert(key, (ImageCacheItem::Loading(task.clone()), now));
 +
 +        let entity = window.current_view();
 +        window

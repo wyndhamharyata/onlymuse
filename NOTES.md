@@ -233,9 +233,13 @@ the layout and the rules.
   drawn for the life of the app, about 1.2 MB a cover: the pixels in memory and a texture on the
   GPU. After an hour the app held 1.2 GB, macOS moved most of it to swap while the app sat in the
   background, and the next scroll waited on it: rows stayed blank for 1.6 s. The patched gpuix
-  loads files and URLs through `RecentImageCache`, which keeps the 160 images drawn most recently
-  and unloads the others once they have not been drawn for 5 s. Scrolling all of Albums three
-  times went from 1.6 GB to 290 MB.
+  loads files and URLs through `RecentImageCache`. Past 40 images it unloads those not drawn for
+  1 s, oldest first, on a 1 s timer as well as while drawing, so a window that stops drawing lets
+  them go too. Images in the last frame drawn are never unloaded. A cover shown again is read back
+  from disk. Three passes over Albums held 36 covers and 245 MB, where the stock cache reached 1.6 GB.
+- **Artwork downloads are retried.** Apple's image server resets a connection now and then. A
+  failed download left its tile grey for the rest of the run. A download is now tried up to 4 times
+  over 1.75 s on a reset, 429 or 5xx, and once more 30 s later, when the tile is told to ask again.
 - **No present of an unchanged frame.** After fast input GPUI presented the last frame again on every
   display frame for 1 second, so the display would not slow down. On the ProMotion screen it slows
   to 40 Hz anyway once the content stops changing, and each of those presents waited 25 ms for a

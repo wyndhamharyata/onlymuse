@@ -1,14 +1,15 @@
 diff --git a/packages/native/src/custom_elements/img.rs b/packages/native/src/custom_elements/img.rs
-index f31c20a..7c31fb6 100644
+index f31c20a..f3e8315 100644
 --- a/packages/native/src/custom_elements/img.rs
 +++ b/packages/native/src/custom_elements/img.rs
-@@ -174,6 +174,24 @@ fn img_fallback(ctx: &CustomRenderContext, alt: &str, message: &str) -> gpui::An
+@@ -174,6 +174,25 @@ fn img_fallback(ctx: &CustomRenderContext, alt: &str, message: &str) -> gpui::An
          .into_any_element()
  }
  
-+// onlymuse patch: the images kept, by how recently they were drawn. A page of covers is well under this.
-+const RECENT_IMAGE_COUNT: usize = 160;
-+const RECENT_IMAGE_IDLE: std::time::Duration = std::time::Duration::from_secs(5);
++// onlymuse patch: the images kept, by how recently they were drawn. Those in the last frame drawn are
++// never unloaded, so a page with more covers than this keeps them all while they show.
++const RECENT_IMAGE_COUNT: usize = 40;
++const RECENT_IMAGE_IDLE: std::time::Duration = std::time::Duration::from_secs(1);
 +
 +thread_local! {
 +    static RECENT_IMAGES: std::cell::RefCell<Option<gpui::Entity<gpui::RecentImageCache>>> =
@@ -27,7 +28,7 @@ index f31c20a..7c31fb6 100644
  impl CustomElement for ImgElement {
      fn render(
          &mut self,
-@@ -187,9 +205,12 @@ impl CustomElement for ImgElement {
+@@ -187,9 +206,12 @@ impl CustomElement for ImgElement {
              window.drop_image(image).ok();
          }
  

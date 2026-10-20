@@ -47,15 +47,36 @@ function findSavedPath(url: string): string | null {
   return null;
 }
 
-async function download(url: string): Promise<void> {
+// Apple's image server resets a connection now and then, and answers 429 or 5xx when busy. Those are tried again.
+const retryDelaysMs = [250, 500, 1000];
+// A download that still fails is tried again this much later, so its tile does not stay grey.
+const laterRetryMs = 30_000;
+
+async function fetchWithRetries(url: string): Promise<Response | null> {
+  for (let attempt = 0; ; attempt += 1) {
+    const response = await fetch(url).catch(() => null);
+    const isPassing = !response || response.status === 429 || response.status >= 500;
+
+    if (!isPassing || attempt >= retryDelaysMs.length) return response;
+
+    await Bun.sleep(retryDelaysMs[attempt]);
+  }
+}
+
+function tellWaiters(url: string): void {
+  for (const waiter of waiters.get(url) ?? []) waiter();
+}
+
+// True once the file is on disk.
+async function download(url: string): Promise<boolean> {
   const startMs = performance.now();
-  const response = await fetch(url);
+  const response = await fetchWithRetries(url);
 
-  probe("artwork", { ms: Math.round(performance.now() - startMs), status: response.status });
+  probe("artwork", { ms: Math.round(performance.now() - startMs), status: response?.status ?? 0 });
 
-  const fileExtension = fileExtensions[response.headers.get("content-type") ?? ""];
+  const fileExtension = fileExtensions[response?.headers.get("content-type") ?? ""];
 
-  if (!response.ok || !fileExtension) return;
+  if (!response?.ok || !fileExtension) return false;
 
   const path = join(folder, `${toBaseName(url)}.${fileExtension}`);
   const partPath = `${path}.part`;
@@ -64,7 +85,17 @@ async function download(url: string): Promise<void> {
   await Bun.write(partPath, response);
   renameSync(partPath, path);
   knownPaths.set(url, path);
-  for (const waiter of waiters.get(url) ?? []) waiter();
+  tellWaiters(url);
+
+  return true;
+}
+
+// The tile asks again when told, and its next read starts a new download.
+function retryLater(url: string): void {
+  setTimeout(() => {
+    knownPaths.delete(url);
+    tellWaiters(url);
+  }, laterRetryMs);
 }
 
 function startDownloads(): void {
@@ -73,7 +104,10 @@ function startDownloads(): void {
 
     downloadCount += 1;
     download(url)
-      .catch(() => knownPaths.delete(url))
+      .catch(() => false)
+      .then((isSaved) => {
+        if (!isSaved) retryLater(url);
+      })
       .finally(() => {
         downloadCount -= 1;
         startDownloads();

@@ -157,9 +157,20 @@ free_shaped :: proc(shaped: ^Shaped_Text) {
 	free(shaped)
 }
 
-// Shapes text once and keeps it while it is drawn. max_width_pixels 0 keeps it on one line.
-shape :: proc(text: string, font: Font, max_width_pixels: f32 = 0) -> ^Shaped_Text {
-	key := hash.fnv64a(transmute([]u8)text) ~ (u64(mac.CFHash(mac.Type_Ref(font.ct_font))) * 31) ~ (u64(max_width_pixels) << 40)
+Overflow :: enum {
+	// Breaks into more lines.
+	Wrap,
+	// Stays on one line and ends in an ellipsis.
+	Truncate,
+}
+
+// kCTLineTruncationEnd. Start is 0 and Middle is 2.
+@(private)
+TRUNCATE_END :: 1
+
+// Shapes text once and keeps it while it is drawn. max_width_pixels 0 keeps it on one line, whole.
+shape :: proc(text: string, font: Font, max_width_pixels: f32 = 0, overflow := Overflow.Wrap) -> ^Shaped_Text {
+	key := hash.fnv64a(transmute([]u8)text) ~ (u64(mac.CFHash(mac.Type_Ref(font.ct_font))) * 31) ~ (u64(max_width_pixels) << 40) ~ (u64(overflow) << 62)
 
 	if shaped, ok := state.shaped[key]; ok {
 		shaped.last_used_frame = state.frame_index
@@ -190,6 +201,22 @@ shape :: proc(text: string, font: Font, max_width_pixels: f32 = 0) -> ^Shaped_Te
 		ct_line := mac.CTLineCreateWithAttributedString(attributed)
 		append(&lines, to_shaped_line(ct_line, font, 0))
 		mac.CFRelease(ct_line)
+	} else if overflow == .Truncate {
+		ct_line := mac.CTLineCreateWithAttributedString(attributed)
+		defer mac.CFRelease(ct_line)
+		ellipsis := mac.to_cf_string("…")
+		defer mac.CFRelease(ellipsis)
+		ellipsis_attributed := mac.CFAttributedStringCreate(nil, ellipsis, attributes)
+		defer mac.CFRelease(ellipsis_attributed)
+		ellipsis_line := mac.CTLineCreateWithAttributedString(ellipsis_attributed)
+		defer mac.CFRelease(ellipsis_line)
+
+		// Nil when even the ellipsis does not fit.
+		truncated := mac.CTLineCreateTruncatedLine(ct_line, f64(max_width_pixels), TRUNCATE_END, ellipsis_line)
+		if truncated != nil {
+			append(&lines, to_shaped_line(truncated, font, 0))
+			mac.CFRelease(truncated)
+		}
 	} else {
 		typesetter := mac.CTTypesetterCreateWithAttributedString(attributed)
 		defer mac.CFRelease(typesetter)

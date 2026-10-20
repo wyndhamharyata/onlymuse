@@ -7,6 +7,8 @@ import "core:slice"
 import "core:strconv"
 import "core:time"
 import "om:font"
+import "om:image"
+import "om:library"
 import "om:platform"
 import "om:render"
 import "om:ui"
@@ -42,7 +44,13 @@ ROW_HEIGHT_POINTS :: 52
 ROW_COUNT :: 2000
 // Rows built past each edge of the list, so a fast scroll finds them ready.
 EXTRA_ROW_COUNT :: 2
-BENCH_FRAME_COUNT :: 1200
+// The tile size that fits a whole number of tiles across, as close to this as it can.
+TARGET_TILE_POINTS :: 160
+TILE_GAP_POINTS :: 18
+// The title and the artist under a tile.
+TILE_TEXT_POINTS :: 46
+// Artwork is asked for in steps of this many pixels, so a resized window reuses the saved files.
+ARTWORK_STEP_PIXELS :: 100
 BENCH_POINTS_PER_FRAME :: 30
 // The first frames open the window and load fonts, so the bench leaves them out.
 BENCH_SKIPPED_FRAME_COUNT :: 10
@@ -76,7 +84,9 @@ app: struct {
 	capture_path:    string,
 	capture_time:    time.Tick,
 	frame_count:     int,
+	albums:          []library.Album,
 	is_bench:        bool,
+	bench_frame_count: int,
 	bench_direction: f32,
 	build_durations: [dynamic]time.Duration,
 	frame_starts:    [dynamic]time.Tick,
@@ -84,10 +94,11 @@ app: struct {
 
 main :: proc() {
 	app.zoom = 1
-	app.page = "Songs"
+	app.page = "Albums"
 	app.selected_row = -1
 	app.capture_path = os.get_env("OM_CAPTURE", context.allocator)
 	app.is_bench = os.get_env("OM_BENCH", context.temp_allocator) == "1"
+	app.bench_frame_count = strconv.parse_int(os.get_env("OM_BENCH_FRAMES", context.temp_allocator)) or_else 1200
 	capture_seconds := strconv.parse_f64(os.get_env("OM_CAPTURE_SECONDS", context.temp_allocator)) or_else 0
 	app.capture_time = time.tick_add(time.tick_now(), time.Duration(capture_seconds * f64(time.Second)))
 	app.bench_direction = 1
@@ -97,9 +108,11 @@ main :: proc() {
 		title = fmt.aprintf("%d. %s (%d)", index + 1, song[0], index / len(sample_songs) + 1)
 	}
 
+	app.albums = library.list_albums()
 	app.window = platform.open_window("onlymuse", {1200, 800}, draw_frame)
 	render.start(app.window.device, app.window.layer)
 	font.start()
+	image.start()
 	app.last_frame = time.tick_now()
 	platform.run()
 }
@@ -135,6 +148,7 @@ draw_frame :: proc() -> bool {
 
 	render.begin_frame(size_pixels)
 	font.begin_frame()
+	image.begin_frame()
 	ui.begin_frame(window.size_points, window.pixels_per_point, app.zoom, dt_seconds)
 
 	root := ui.current_parent()
@@ -154,9 +168,9 @@ draw_frame :: proc() -> bool {
 	append(&app.build_durations, time.tick_since(start))
 	render.end_frame(window.drawable)
 	if is_capture_frame do platform.quit()
-	if app.is_bench && app.frame_count == BENCH_FRAME_COUNT do finish_bench()
+	if app.is_bench && app.frame_count == app.bench_frame_count do finish_bench()
 
-	return app.capture_path != "" || app.is_bench || ui.is_animating() || font.is_redraw_needed()
+	return app.capture_path != "" || app.is_bench || ui.is_animating() || font.is_redraw_needed() || image.is_animating()
 }
 
 build_sidebar :: proc() {
@@ -218,7 +232,83 @@ build_main :: proc() {
 			if ui.signal(button).is_clicked do app.is_panel_open = !app.is_panel_open
 		}
 
-		build_list()
+		if app.page == "Albums" {
+			build_albums()
+		} else {
+			build_list()
+		}
+	}
+}
+
+Tile_Artwork :: struct {
+	url:         string,
+	size_pixels: int,
+}
+
+draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
+	artwork := cast(^Tile_Artwork)box.data
+	texture, image_opacity := image.find(artwork.url, artwork.size_pixels)
+
+	if texture == nil do return
+
+	render.push({rect = rect, uv = {0, 0, 1, 1}, color = {1, 1, 1, opacity * image_opacity}, corner_radius = ui.to_pixels(box.style.corner_radius), clip = clip, kind = .Image}, texture)
+}
+
+build_albums :: proc() {
+	grid := ui.box("albums", {width = ui.fill(), height = ui.fill(), axis = .Y, padding = {30, 0, 30, 30}, flags = {.Scroll, .Clip}})
+
+	if app.is_bench do run_bench_scroll(grid)
+
+	// The width the grid had last frame.
+	width := grid.size.x - grid.style.padding.x - grid.style.padding.z
+	if width <= 0 do return
+
+	column_count := max(1, int(math.round((width + TILE_GAP_POINTS) / (TARGET_TILE_POINTS + TILE_GAP_POINTS))))
+	tile_points := math.floor((width - TILE_GAP_POINTS * f32(column_count - 1)) / f32(column_count))
+	row_points := tile_points + TILE_TEXT_POINTS + TILE_GAP_POINTS
+	row_count := (len(app.albums) + column_count - 1) / column_count
+	first_row := max(0, int(grid.scroll / row_points) - 1)
+	last_row := min(row_count - 1, int((grid.scroll + grid.size.y) / row_points) + 1)
+	artwork_pixels := int(math.ceil(ui.to_pixels(tile_points) / ARTWORK_STEP_PIXELS)) * ARTWORK_STEP_PIXELS
+
+	if ui.scope(grid) {
+		ui.box("", {width = ui.fill(), height = ui.points(f32(first_row) * row_points)})
+
+		for row in first_row ..= last_row {
+			row_box := ui.box(fmt.tprintf("row %d", row), {width = ui.fill(), height = ui.points(row_points), axis = .X, gap = TILE_GAP_POINTS})
+
+			if ui.scope(row_box) {
+				for column in 0 ..< column_count {
+					index := row * column_count + column
+					if index >= len(app.albums) do break
+
+					build_album_tile(app.albums[index], tile_points, artwork_pixels)
+				}
+			}
+		}
+
+		ui.box("", {width = ui.fill(), height = ui.points(f32(row_count - 1 - last_row) * row_points)})
+	}
+}
+
+build_album_tile :: proc(album: library.Album, tile_points: f32, artwork_pixels: int) {
+	tile := ui.box(album.id, {width = ui.points(tile_points), height = ui.fit_children(), axis = .Y, gap = 2, flags = {.Clickable}})
+
+	if ui.scope(tile) {
+		hover_shade := [4]f32{1, 1, 1, 0.08 * tile.hot_t}
+		cover := ui.box("", {width = ui.points(tile_points), height = ui.points(tile_points + 6), padding = {0, 0, 0, 6}})
+
+		if ui.scope(cover) {
+			artwork := new(Tile_Artwork, context.temp_allocator)
+			artwork^ = {library.to_artwork_url(album.artwork_url, artwork_pixels), artwork_pixels}
+			art := ui.box("", {width = ui.points(tile_points), height = ui.points(tile_points), corner_radius = 8, background = colors.card})
+			art.draw = draw_artwork
+			art.data = artwork
+			ui.box("", {width = ui.points(tile_points), height = ui.points(tile_points), corner_radius = 8, background = hover_shade, flags = {.Floating}})
+		}
+
+		ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.text, font_weight = .Medium, flags = {.Truncate_Text}}, album.name)
+		ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.dim, font_size = 12, flags = {.Truncate_Text}}, album.artist_name)
 	}
 }
 
@@ -351,6 +441,8 @@ finish_bench :: proc() {
 		return time.duration_milliseconds(values[int(math.floor(f64(len(values) - 1) * fraction))])
 	}
 	fmt.printfln("build per frame ms: p50 %.2f p99 %.2f max %.2f", to_ms(builds, 0.5), to_ms(builds, 0.99), to_ms(builds, 1))
+	ready, total := image.count()
+	fmt.printfln("covers on the GPU %d, known %d", ready, total)
 	fmt.printfln("gap between frames ms: p50 %.2f p99 %.2f max %.2f", to_ms(gaps[:], 0.5), to_ms(gaps[:], 0.99), to_ms(gaps[:], 1))
 	platform.quit()
 }

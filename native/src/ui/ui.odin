@@ -54,6 +54,8 @@ Flag :: enum {
 	// Glides to a new place instead of jumping.
 	Animate_Position,
 	Wrap_Text,
+	// One line that ends in an ellipsis when it is too long.
+	Truncate_Text,
 }
 Flags :: bit_set[Flag]
 
@@ -488,7 +490,7 @@ resolve_children :: proc(box: ^Box, inner: [2]f32) {
 			child.size[main] = math.floor(leftover * sizes[main].value / fill_weight)
 		}
 
-		if .Wrap_Text in child.style.flags do wrap_text(child)
+		if .Wrap_Text in child.style.flags || .Truncate_Text in child.style.flags do fit_text_to_width(child)
 	}
 }
 
@@ -502,11 +504,12 @@ resolve_free_size :: proc(child: ^Box, inner: [2]f32) {
 
 // Wrapped text needs its width before its height is known.
 @(private)
-wrap_text :: proc(box: ^Box) {
+fit_text_to_width :: proc(box: ^Box) {
 	if box.text == "" do return
 
 	inner_width := box.size.x - box.style.padding.x - box.style.padding.z
-	box.shaped = font.shape(box.text, to_font(box.style), inner_width * state.scale)
+	overflow := font.Overflow.Truncate if .Truncate_Text in box.style.flags else font.Overflow.Wrap
+	box.shaped = font.shape(box.text, to_font(box.style), inner_width * state.scale, overflow)
 
 	if box.style.height.kind == .Text {
 		box.size.y = math.ceil(box.shaped.size.y / state.scale) + box.style.padding.y + box.style.padding.w

@@ -5,6 +5,7 @@ import "base:runtime"
 import "core:strings"
 import NS "core:sys/darwin/Foundation"
 import MTL "vendor:darwin/Metal"
+import "om:mac"
 import CA "vendor:darwin/QuartzCore"
 
 msg_send :: intrinsics.objc_send
@@ -271,17 +272,9 @@ foreign objc_runtime {
 	objc_msgSendSuper :: proc(super: ^Objc_Super, selector: NS.SEL) ---
 }
 
-foreign import core_graphics "system:CoreGraphics.framework"
-
-@(default_calling_convention = "c", private)
-foreign core_graphics {
-	kCGColorSpaceSRGB:          NS.id
-	CGColorSpaceCreateWithName :: proc(name: NS.id) -> rawptr ---
-}
-
 @(private)
 srgb_color_space :: proc() -> rawptr {
-	return CGColorSpaceCreateWithName(kCGColorSpaceSRGB)
+	return rawptr(mac.CGColorSpaceCreateWithName(mac.kCGColorSpaceSRGB))
 }
 
 @(private)
@@ -382,6 +375,9 @@ take_event :: proc(event: ^NS.Event) -> bool {
 		append(&state.events, Mouse_Press{to_position(event), button, int(event->clickCount())})
 	case .LeftMouseUp, .RightMouseUp, .OtherMouseUp:
 		append(&state.events, Mouse_Release{to_position(event), to_button(event)})
+	case .ApplicationDefined:
+		request_frame()
+		return true
 	case .MouseExited:
 		append(&state.events, Mouse_Exit{})
 	case .ScrollWheel:

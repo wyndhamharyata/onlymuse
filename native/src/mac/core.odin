@@ -120,6 +120,7 @@ foreign core_text {
 	CTLineGetGlyphRuns :: proc(line: Line_Ref) -> Array_Ref ---
 	CTLineGetTypographicBounds :: proc(line: Line_Ref, ascent, descent, leading: ^f64) -> f64 ---
 	CTLineGetStringRange :: proc(line: Line_Ref) -> Range ---
+	CTLineCreateTruncatedLine :: proc(line: Line_Ref, width: f64, truncation_type: u32, token: Line_Ref) -> Line_Ref ---
 	CTRunGetGlyphCount :: proc(run: Run_Ref) -> Index ---
 	CTRunGetGlyphs :: proc(run: Run_Ref, range: Range, buffer: [^]Glyph) ---
 	CTRunGetPositions :: proc(run: Run_Ref, range: Range, buffer: [^]Point) ---

@@ -62,11 +62,33 @@ title, a list of 2,000 songs and an Up Next panel.
 
 `OM_BENCH=1 ./build/onlymuse` prints frame times as before, now through the whole UI.
 
+### 3. Albums with covers
+
+The app opens on Albums: every album in your library, read from the gpuix app's saved answers in
+`~/Library/Application Support/onlymuse/onlymuse.sqlite`. The file is only read, never written.
+
+- The first run downloads the covers into `~/Library/Caches/onlymuse-native/images`. Each one fades in
+  as it arrives. Later runs read them from disk.
+- Scroll fast from top to bottom and back. Covers scrolled past before they loaded are skipped, so
+  the ones on screen come first.
+- Hover a cover. It lights up a little.
+- Long names end in an ellipsis. Songs in the sidebar still shows the 2,000-row list.
+- Open Activity Monitor and scroll for a minute. Memory stays near 275 MB. The app keeps at most 160
+  covers on the GPU and never unloads one on screen.
+
+To measure three passes over the whole library:
+
+```
+OM_BENCH=1 OM_BENCH_FRAMES=8000 ./build/onlymuse
+```
+
 ## Development settings
 
 | Variable | Does |
 | --- | --- |
 | `OM_BENCH=1` | Scrolls by itself for 1,200 frames, prints frame times and quits. |
+| `OM_DATA=<folder>` | Reads `onlymuse.sqlite` from this folder instead. |
+| `OM_BENCH_FRAMES=<count>` | Frames the bench runs. 1,200 by default. |
 | `OM_CAPTURE=<file>` | Saves a frame to the file as raw BGRA pixels and quits. It prints the size. Convert it with `magick -size <width>x<height> -depth 8 bgra:<file> out.png`. |
 | `OM_CAPTURE_SECONDS=<seconds>` | Waits this long before the capture, so a test can click first. |
 

@@ -233,7 +233,7 @@ the layout and the rules.
   drawn for the life of the app, about 1.2 MB a cover: the pixels in memory and a texture on the
   GPU. After an hour the app held 1.2 GB, macOS moved most of it to swap while the app sat in the
   background, and the next scroll waited on it: rows stayed blank for 1.6 s. The patched gpuix
-  loads files and URLs through `RecentImageCache`. Past 40 images it unloads those not drawn for
+  loads files and URLs through `RecentImageCache`. Past 80 images it unloads those not drawn for
   1 s, oldest first, on a 1 s timer as well as while drawing, so a window that stops drawing lets
   them go too. Images in the last frame drawn are never unloaded. A cover shown again is read back
   from disk. Three passes over Albums held 36 covers and 245 MB, where the stock cache reached 1.6 GB.

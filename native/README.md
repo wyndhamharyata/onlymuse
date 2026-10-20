@@ -268,8 +268,8 @@ Rebuild the helper first: `cd .. && bun run helper`.
 
 - Play a song. The accent turns to a colour from its cover over about half a second: the artist on
   Stage, the selected sidebar item, the shuffle button, the hearts and the sung words.
-- The colour leans to the cover's vivid parts, and is lightened when it would be too dark to read on
-  the window.
+- The colour is the cover's main hue, so a mostly blue cover with a red title gives blue. It is
+  lightened when it would be too dark to read on the window.
 - A black and white cover, or no cover, keeps the accent chosen in System Settings.
 
 ## Development settings

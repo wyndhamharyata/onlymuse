@@ -97,7 +97,7 @@ to_color_from_hsl :: proc(hue, saturation, lightness: f32) -> [4]f32 {
 // ---- The accent from the cover ----
 
 // A cover less colourful than this, such as a black and white photo, keeps the system accent.
-MIN_COVER_VIVIDNESS :: 0.04
+MIN_COVER_VIVIDNESS :: 0.015
 // The accent is text on the dark window and the fill of a button under white text, so the cover's hue
 // keeps to these.
 COVER_ACCENT_SATURATION :: [2]f32{0.55, 0.9}

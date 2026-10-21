@@ -319,9 +319,11 @@ A song plays from Apple Music whenever Apple has it. YouTube Music adds what App
 
 ### 7b. When Music.app stops on a song
 
+- Music.app says it plays a song while it still loads it. The player then says Loading in Music.app
+  and its clock stays at 0:00. Only a song still at 0:00 after about 16 s is started again.
 - Music.app can play a song just added to the library for a few seconds, then wait on it for good
   while it says it plays. The clock then stays still, and after about 4 s the queue starts the song
-  again, at most twice. The Console notes each time.
+  again. Either way, a song is started again at most twice, and the Console notes each time.
 
 ### 8. Console
 
@@ -339,6 +341,7 @@ A song plays from Apple Music whenever Apple has it. YouTube Music adds what App
 | `OM_FAKE_LOG=<file>` | The fake helpers write the commands they get to this file. |
 | `OM_FAKE_SPEED=<n>` | `tools/fake-music.py` plays songs n times faster, so they end in seconds. |
 | `OM_FAKE_UNPLAYABLE=<name>` | `tools/fake-music.py` finds this song but never starts it, as Music.app does with a song it has no file for. |
+| `OM_FAKE_SLOW_START=<name>` | `tools/fake-music.py` keeps this song at 0:00 for 7 s the first time it plays, and says it plays. |
 | `OM_FAKE_STALL=<name>` | `tools/fake-music.py` stops this song at 5 s the first time it plays, and still says it plays. |
 | `OM_FAKE_MISSING=<name>` | `tools/fake-music.py` finds this song only on the 4th ask, as if Apple were adding it. |
 | `OM_HELPER=<file>` | Runs this instead of the Swift helper. `tools/fake-helper.sh` says a song plays. |

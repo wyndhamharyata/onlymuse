@@ -71,6 +71,8 @@ Now_Playing :: struct {
 	// Positions in a row that had not moved on while Music.app said it played. Music.app does that while it
 	// waits for a song it cannot load, and the clock then stays still.
 	stall_count:         int,
+	// The position has moved since the song began. Music.app says it plays a song while it still loads it.
+	has_started:         bool,
 }
 
 // A position this far past the last one has moved on. The helper sends one every 2 s.
@@ -275,12 +277,14 @@ apply :: proc(now_playing: ^Now_Playing, message: Message) {
 		now_playing.position_seconds = message.position_seconds
 		now_playing.position_read_at_ms = min(message.position_read_at_ms, now_ms()) if message.position_read_at_ms > 0 else now_ms()
 		now_playing.stall_count = 0
+		now_playing.has_started = message.position_seconds >= MIN_PROGRESS_SECONDS
 	case "position":
 		is_same_song := now_playing.playback == .Playing && now_playing.song.persistent_id == message.persistent_id
 		if !is_same_song do return
 
 		has_moved := message.position_seconds > now_playing.position_seconds + MIN_PROGRESS_SECONDS
 		now_playing.stall_count = 0 if has_moved else now_playing.stall_count + 1
+		if has_moved do now_playing.has_started = true
 		now_playing.position_seconds = message.position_seconds
 		now_playing.position_read_at_ms = min(message.position_read_at_ms, now_ms())
 	}
@@ -317,7 +321,7 @@ position_seconds :: proc(now_playing: Now_Playing) -> f64 {
 	case .Paused:
 		return now_playing.position_seconds
 	case .Playing:
-		if now_playing.stall_count > 0 do return now_playing.position_seconds
+		if now_playing.stall_count > 0 || !now_playing.has_started do return now_playing.position_seconds
 		elapsed_seconds := max(0, now_ms() - now_playing.position_read_at_ms) / 1000
 		return min(now_playing.position_seconds + elapsed_seconds, now_playing.song.duration_seconds)
 	}

@@ -117,7 +117,10 @@ build_song_info :: proc() {
 				}
 
 				// Go to Artist always opens the Apple Music artist, never the library one.
-				subtitle := scrolling_text("subtitle", fmt.tprintf("%s · %s", song.artist, song.album), colors.dim, 12.5, is_clickable = true)
+				// Music.app says it plays while it still loads a song. A position that has not moved by the first check says so.
+				is_loading := now_playing.playback == .Playing && !now_playing.has_started && now_playing.stall_count > 0
+				subtitle_text := "Loading in Music.app…" if is_loading else fmt.tprintf("%s · %s", song.artist, song.album)
+				subtitle := scrolling_text("subtitle", subtitle_text, colors.dim, 12.5, is_clickable = true)
 				if ui.signal(subtitle).is_clicked do navigate({kind = .Artist, title = fmt.aprint(song.artist)})
 			} else {
 				text_box("Not playing", colors.text, 13.5, .Semibold)

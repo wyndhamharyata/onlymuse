@@ -83,6 +83,8 @@ START_TIMEOUT_SECONDS :: 8.0
 // Music.app can play a song just added to the library for a few seconds, then wait on it for good. Two
 // positions in a row that stand still, about 4 s, start the song again, as playing another song and back does.
 STALLED_POSITION_COUNT :: 2
+// A song at 0:00 may still be loading, which takes Music.app several seconds, so it gets about 16 s.
+UNSTARTED_POSITION_COUNT :: 8
 MAX_RESTART_COUNT :: 2
 // While a song plays, its position is saved this often, so a force quit loses at most this much.
 POSITION_SAVE_SECONDS :: 5.0
@@ -307,10 +309,15 @@ fall_back_to_youtube :: proc() -> bool {
 }
 
 @(private = "file")
-restart_stalled_song :: proc() {
+restart_stalled_song :: proc(has_started: bool) {
 	restart_count := queue_state.restart_count + 1
 	song := queue.songs[queue.index]
-	console.add("Queue", "Music.app stopped at %s of %s and played on no further, so it starts the song again.", to_clock_text(app.now_playing.position_seconds), song.name)
+
+	if has_started {
+		console.add("Queue", "Music.app stopped at %s of %s and played on no further, so it starts the song again.", to_clock_text(app.now_playing.position_seconds), song.name)
+	} else {
+		console.add("Queue", "Music.app had not started %s after %d s, so it starts the song again.", song.name, UNSTARTED_POSITION_COUNT * 2)
+	}
 
 	// Until Music.app's next post, its last position still reads as stopped.
 	app.now_playing.stall_count = 0
@@ -342,15 +349,18 @@ update_queue :: proc() {
 		queue_state.requests[request_id] = {kind = .Poll, play_count = queue_state.play_count}
 	}
 
-	is_stalled := app.now_playing.stall_count >= STALLED_POSITION_COUNT && app.now_playing.playback == .Playing
-	if is_stalled && is_queue_leading() && queue_state.restart_count < MAX_RESTART_COUNT do restart_stalled_song()
+	now_playing := app.now_playing
+	is_playing := now_playing.playback == .Playing
+	has_stalled := is_playing && now_playing.has_started && now_playing.stall_count >= STALLED_POSITION_COUNT
+	has_not_started := is_playing && !now_playing.has_started && now_playing.stall_count >= UNSTARTED_POSITION_COUNT
+	can_restart := is_queue_leading() && queue_state.restart_count < MAX_RESTART_COUNT
+	if (has_stalled || has_not_started) && can_restart do restart_stalled_song(now_playing.has_started)
 
 	if queue_state.is_starting_youtube && app.now_playing.song.persistent_id == queue.playing_persistent_id {
 		queue_state.is_starting_youtube = false
 	}
 
 	if queue_state.start_deadline_ms > 0 {
-		now_playing := app.now_playing
 		has_song := now_playing.playback == .Playing || now_playing.playback == .Paused
 		has_started := has_song && now_playing.song.persistent_id == queue.playing_persistent_id
 

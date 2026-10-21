@@ -17,15 +17,13 @@ Icon_Paint :: struct {
 	name:        string,
 	size_points: f32,
 	color:       [4]f32,
-	// Draws the symbol this much taller than it is, such as SF's heart, which reads as squat.
-	stretch_y:   f32,
 }
 
 draw_icon :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	paint := cast(^Icon_Paint)box.data
 	color := paint.color
 	color.a *= opacity
-	icon.draw(paint.name, ui.to_pixels(paint.size_points), rect, clip, color, paint.stretch_y)
+	icon.draw(paint.name, ui.to_pixels(paint.size_points), rect, clip, color)
 }
 
 // An SF Symbol in a box of its own size plus padding.
@@ -37,9 +35,7 @@ icon_box :: proc(id: string, name: string, size_points: f32, color: [4]f32, styl
 
 	box := ui.box(id, style)
 	paint := new(Icon_Paint, context.temp_allocator)
-	// SF's heart is about 1.1 times as wide as it is tall.
-	stretch_y: f32 = 1.1 if strings.has_prefix(name, "heart") else 1
-	paint^ = {name, size_points, color, stretch_y}
+	paint^ = {name, size_points, color}
 	box.draw = draw_icon
 	box.data = paint
 

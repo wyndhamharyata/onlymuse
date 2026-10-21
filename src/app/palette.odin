@@ -365,7 +365,7 @@ add_actions :: proc(results: ^[dynamic]Palette_Result, term: string, allocator :
 		{"Next Song", "forward.fill", "", .Next},
 		{"Previous Song", "backward.fill", "", .Previous},
 		{"Shuffle All Songs", "shuffle", "", .Shuffle_All},
-		{"Favourite the Song Playing", "heart", "⌘L", .Favourite},
+		{"Favourite the Song Playing", "heart.circle", "⌘L", .Favourite},
 		{"Show Lyrics", "quote.bubble", "", .Show_Lyrics},
 		{"Show Up Next", "list.bullet", "", .Show_Up_Next},
 	}

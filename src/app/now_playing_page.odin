@@ -247,7 +247,7 @@ build_actions :: proc(details: Song_Details, persistent_id: string) {
 
 	if ui.scope(row) {
 		is_on := is_favourite(details.song, persistent_id)
-		if action_button("Favourite", "heart.fill" if is_on else "heart", false, app.accent if is_on else colors.text) do toggle_favourite(details.song, persistent_id)
+		if action_button("Favourite", "heart.circle.fill" if is_on else "heart.circle", false, app.accent if is_on else colors.text) do toggle_favourite(details.song, persistent_id)
 
 		if details.song.id != "" && action_button("Add to Playlist", "plus", false) {
 			button := ui.find_box("Add to Playlist", row)

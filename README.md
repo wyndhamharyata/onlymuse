@@ -23,6 +23,13 @@ cd ~/side_project/onlymuse
 The sections below are the milestones the app was built in, each with what to try. The older ones
 compare it with the GPUIX version, which it then ran beside.
 
+## The app
+
+`./build.sh app` builds `build/onlymuse.app`. Drag it to Applications, or open it with
+`open build/onlymuse.app`. The helper sits in `Contents/Helpers`, keeps its identifier and certificate,
+and so keeps Music.app's Automation permission, the Keychain's permission for Helium's key, and the Apple
+and YouTube sign-ins. The icon is the ring of `design/icon.html`, made with `scripts/make-app-icon.sh`.
+
 ## Keys
 
 | Key | Does |

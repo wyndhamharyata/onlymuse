@@ -97,7 +97,9 @@ start :: proc(is_background: bool) {
 
 	if path == "" {
 		executable_folder, _ := os.get_executable_directory(context.temp_allocator)
-		path = fmt.tprintf("%s/../helper/.build/release/onlymuse-helper", executable_folder)
+		// onlymuse.app holds the helper in Contents/Helpers. build/onlymuse runs the one SwiftPM built.
+		bundled := fmt.tprintf("%s/../Helpers/onlymuse-helper", executable_folder)
+		path = bundled if os.exists(bundled) else fmt.tprintf("%s/../helper/.build/release/onlymuse-helper", executable_folder)
 	}
 
 	child_stdin, to_helper, _ := os.pipe()

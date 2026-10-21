@@ -49,7 +49,8 @@ src/
 helper/             The Swift helper.
 tools/              The test stand-ins: a fake Music.app and helper, and a mouse and key sender.
 scripts/            The signing certificate.
-design/             The mock.
+app/                The app's Info.plist and AppIcon.icns, which ./build.sh app puts in onlymuse.app.
+design/             The mock, and the app icon: design/icon.html shows the four drawn, app-icon.svg is the one kept.
 docs/               The plans and mocks of later features.
 experiments/        The scripts behind NOTES.md. am.sh asks Apple's API with the web player's tokens.
 ```
@@ -101,6 +102,8 @@ A procedure name starts with a verb. Each verb has one meaning.
 | `./build.sh` | Builds `build/onlymuse` for debugging. |
 | `./build.sh release` | Builds `build/onlymuse` optimised. Run it with `./build/onlymuse`. |
 | `./build.sh helper` | Builds the helper and signs it as "onlymuse local". |
+| `./build.sh app` | Builds `build/onlymuse.app`, with the helper in `Contents/Helpers` and the icon, both signed. |
+| `scripts/make-app-icon.sh` | Makes `app/AppIcon.icns` from `design/app-icon.svg`. Run it after changing the icon. |
 | `scripts/make-signing-certificate.sh` | Makes the "onlymuse local" certificate, once per Mac. Music.app's Automation permission then holds across builds. |
 | `OM_BENCH=1 ./build/onlymuse` | Scrolls a long list and prints frame times. Its window shows in front. |
 

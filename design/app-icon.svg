@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- The ring, option B of design/icon.html: an o that reads as a record, with the playhead on it. -->
+  <defs>
+    <clipPath id="squircle"><rect x="100" y="100" width="824" height="824" rx="185"/></clipPath>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="22"/></filter>
+    <filter id="lift" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#000" flood-opacity=".45"/></filter>
+    <filter id="icon-shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000" flood-opacity=".35"/></filter>
+    <linearGradient id="graphite" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2c2a33"/><stop offset="1" stop-color="#121216"/></linearGradient>
+    <linearGradient id="hues" x1="0.1" y1="0.1" x2="0.9" y2="0.9"><stop offset="0" stop-color="#a98be6"/><stop offset=".55" stop-color="#ff5d8f"/><stop offset="1" stop-color="#ffb057"/></linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  </defs>
+  <g filter="url(#icon-shadow)">
+    <g clip-path="url(#squircle)">
+      <rect x="100" y="100" width="824" height="824" fill="url(#graphite)"/>
+      <circle cx="512" cy="512" r="232" fill="none" stroke="url(#hues)" stroke-width="104" filter="url(#soft)" opacity=".55"/>
+      <circle cx="512" cy="512" r="232" fill="none" stroke="url(#hues)" stroke-width="96"/>
+      <circle cx="512" cy="512" r="30" fill="#f2f2f4"/>
+      <circle cx="676" cy="348" r="66" fill="#fff" filter="url(#lift)"/>
+      <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#sheen)"/>
+      <rect x="101.5" y="101.5" width="821" height="821" rx="183.5" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width="3"/>
+    </g>
+  </g>
+</svg>

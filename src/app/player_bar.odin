@@ -102,7 +102,8 @@ build_song_info :: proc() {
 					if row_width := title.rect.z - title.rect.x; row_width > 0 {
 						after_width: f32 = 0 if is_from_youtube else 22 + 7
 						if badge != "" do after_width += measure_text(badge, 9.5, .Bold) + 8 + 7
-						name_width = ui.points(min(measure_text(song.name, 13.5, .Semibold), row_width - after_width))
+						// A point more than the text, as a box exactly as wide cuts a short name such as "If" to nothing.
+						name_width = ui.points(min(measure_text(song.name, 13.5, .Semibold) + 1, row_width - after_width))
 					}
 
 					scrolling_text("name", song.name, colors.text, 13.5, .Semibold, width = name_width)

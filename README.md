@@ -317,6 +317,12 @@ A song plays from Apple Music whenever Apple has it. YouTube Music adds what App
 - Add to Playlist works for a song only on YouTube too. It stays in the playlist in onlymuse, as
   Apple's playlists hold Apple songs alone. Its menu offers Remove from Playlist.
 
+### 7b. When Music.app stops on a song
+
+- Music.app can play a song just added to the library for a few seconds, then wait on it for good
+  while it says it plays. The clock then stays still, and after about 4 s the queue starts the song
+  again, at most twice. The Console notes each time.
+
 ### 8. Console
 
 - Press ⌘K and open Console. It lists every error since onlymuse started, newest first: requests
@@ -332,6 +338,8 @@ A song plays from Apple Music whenever Apple has it. YouTube Music adds what App
 | `OM_FRAMES=1` | Shows how long each frame took to build, at the top right. |
 | `OM_FAKE_LOG=<file>` | The fake helpers write the commands they get to this file. |
 | `OM_FAKE_SPEED=<n>` | `tools/fake-music.py` plays songs n times faster, so they end in seconds. |
+| `OM_FAKE_UNPLAYABLE=<name>` | `tools/fake-music.py` finds this song but never starts it, as Music.app does with a song it has no file for. |
+| `OM_FAKE_STALL=<name>` | `tools/fake-music.py` stops this song at 5 s the first time it plays, and still says it plays. |
 | `OM_FAKE_MISSING=<name>` | `tools/fake-music.py` finds this song only on the 4th ask, as if Apple were adding it. |
 | `OM_HELPER=<file>` | Runs this instead of the Swift helper. `tools/fake-helper.sh` says a song plays. |
 | `OM_FAKE_POSITION=<seconds>` | Where the fake helper's song starts. |

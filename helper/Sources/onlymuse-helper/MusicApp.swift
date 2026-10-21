@@ -302,11 +302,12 @@ final class MusicApp {
     NSWorkspace.shared.openApplication(at: url, configuration: configuration)
   }
 
-  private func run(_ script: NSAppleScript) -> NSAppleEventDescriptor? {
+  private func run(_ script: NSAppleScript, reportsError: Bool = true) -> NSAppleEventDescriptor? {
     var error: NSDictionary?
     let result = script.executeAndReturnError(&error)
 
     if let error {
+      guard reportsError else { return nil }
       sendError("Music.app answered with an error: \(error[NSAppleScript.errorMessage] as? String ?? "\(error)")")
       return nil
     }
@@ -323,7 +324,8 @@ final class MusicApp {
     }
 
     // A streamed song answers with the four bytes "msng", AppleScript's missing value, instead of an image.
-    guard let data = run(artworkScript)?.data else { return nil }
+    // A streamed song often has no artwork Music.app can give, which is no error.
+    guard let data = run(artworkScript, reportsError: false)?.data else { return nil }
 
     let isPng = data.starts(with: [0x89, 0x50, 0x4E, 0x47])
     let isJpeg = data.starts(with: [0xFF, 0xD8])

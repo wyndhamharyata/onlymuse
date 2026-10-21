@@ -5,6 +5,9 @@
 # OM_FAKE_SPEED    how many song seconds pass in one real second, 1 by default
 # OM_FAKE_MISSING  a song name that is not in the library until it has been asked for 3 times
 # OM_FAKE_UNPLAYABLE a song name found in the library that never starts, as when Music.app has no file for it
+# OM_FAKE_STALL    a song name that stops at 5 s the first time it plays and still says it plays, as Music.app
+#                  does with a song it cannot load
+# Every 2 s while a song plays, it sends the position, as the real helper does.
 # OM_FAKE_TOKENS   a folder with the web player's tokens in dev and mut, sent as the real helper sends
 #                  them, so the app reads Apple's catalog. Without it, Apple is never asked. A file yt-cookie in
 #                  the folder is sent as the YouTube page's cookie, so the app reads YouTube Music signed in.
@@ -20,6 +23,9 @@ import zlib
 speed = float(os.environ.get("OM_FAKE_SPEED", "1"))
 missing_name = os.environ.get("OM_FAKE_MISSING", "")
 unplayable_name = os.environ.get("OM_FAKE_UNPLAYABLE", "")
+stall_name = os.environ.get("OM_FAKE_STALL", "")
+STALL_SECONDS = 5.0
+POSITION_SECONDS = 2.0
 log = open(os.environ["OM_FAKE_LOG"], "a") if os.environ.get("OM_FAKE_LOG") else None
 lock = threading.Lock()
 asked = {}
@@ -44,7 +50,8 @@ def to_persistent_id(match):
 def position():
     if player["state"] != "playing":
         return player["position"]
-    return player["position"] + (time.time() - player["read_at"]) * speed
+    moved = player["position"] + (time.time() - player["read_at"]) * speed
+    return min(moved, STALL_SECONDS) if player.get("is_stalling") else moved
 
 
 def send_now_playing():
@@ -73,6 +80,7 @@ def track_info(persistent_id):
 def start(match):
     persistent_id = to_persistent_id(match)
     played[persistent_id] = played.get(persistent_id, 0) + 1
+    player["is_stalling"] = match["name"] == stall_name and played[persistent_id] == 1
     player.update(state="playing", song=match, position=0.0, read_at=time.time())
     send_now_playing()
 
@@ -121,10 +129,14 @@ def apply(command):
 
 # At a song's end Music.app posts Paused, then Stopped, unless the handoff starts the next song.
 def tick():
+    last_position_sent = time.time()
     while True:
         time.sleep(0.05)
         with lock:
             song = player["song"]
+            if player["state"] == "playing" and song is not None and time.time() - last_position_sent >= POSITION_SECONDS:
+                last_position_sent = time.time()
+                send({"type": "position", "persistentID": to_persistent_id(song), "positionSeconds": position(), "positionReadAtMs": time.time() * 1000})
             if player["state"] != "playing" or song is None or position() < song["durationSeconds"]:
                 continue
             if handoff["song"] and handoff["after"] == to_persistent_id(song):

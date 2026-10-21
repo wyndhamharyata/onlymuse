@@ -80,6 +80,10 @@ END_TOLERANCE_SECONDS :: 3.0
 RESTART_AFTER_SECONDS :: 3.0
 // Music.app starts a library song within a second or two. One it has no file for shows a dialog and never starts.
 START_TIMEOUT_SECONDS :: 8.0
+// Music.app can play a song just added to the library for a few seconds, then wait on it for good. Two
+// positions in a row that stand still, about 4 s, start the song again, as playing another song and back does.
+STALLED_POSITION_COUNT :: 2
+MAX_RESTART_COUNT :: 2
 // While a song plays, its position is saved this often, so a force quit loses at most this much.
 POSITION_SAVE_SECONDS :: 5.0
 
@@ -103,6 +107,8 @@ queue_state: struct {
 	start_deadline_ms: f64,
 	// The YouTube page has the queue's song and has not started it yet.
 	is_starting_youtube: bool,
+	// Times the song playing was started again after Music.app stopped on it.
+	restart_count:     int,
 	next_poll_ms:      f64,
 	is_polling:        bool,
 	last_resume_save:  f64,
@@ -182,6 +188,7 @@ play_at :: proc(index: int) {
 	queue.index = index
 	queue_state.start_deadline_ms = 0
 	queue_state.is_starting_youtube = false
+	queue_state.restart_count = 0
 	start_matches()
 	queue.is_adding = false
 	queue.playing_persistent_id = ""
@@ -299,6 +306,18 @@ fall_back_to_youtube :: proc() -> bool {
 	return true
 }
 
+@(private = "file")
+restart_stalled_song :: proc() {
+	restart_count := queue_state.restart_count + 1
+	song := queue.songs[queue.index]
+	console.add("Queue", "Music.app stopped at %s of %s and played on no further, so it starts the song again.", to_clock_text(app.now_playing.position_seconds), song.name)
+
+	// Until Music.app's next post, its last position still reads as stopped.
+	app.now_playing.stall_count = 0
+	play_at(queue.index)
+	queue_state.restart_count = restart_count
+}
+
 // Called each frame: starts polling once a song is added, and asks Music.app again when a poll is due.
 update_queue :: proc() {
 	added: int
@@ -322,6 +341,9 @@ update_queue :: proc() {
 		request_id := helper.request_play(to_song_match(queue.songs[queue.index]))
 		queue_state.requests[request_id] = {kind = .Poll, play_count = queue_state.play_count}
 	}
+
+	is_stalled := app.now_playing.stall_count >= STALLED_POSITION_COUNT && app.now_playing.playback == .Playing
+	if is_stalled && is_queue_leading() && queue_state.restart_count < MAX_RESTART_COUNT do restart_stalled_song()
 
 	if queue_state.is_starting_youtube && app.now_playing.song.persistent_id == queue.playing_persistent_id {
 		queue_state.is_starting_youtube = false

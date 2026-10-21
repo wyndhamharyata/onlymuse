@@ -29,6 +29,8 @@ MATCH_SECONDS :: 3
 // little apart, and a refusal stops matching for a minute.
 MATCH_GAP :: 300 * time.Millisecond
 REFUSED_PAUSE :: 60 * time.Second
+// Each refusal in a row doubles the pause, up to this.
+MAX_REFUSED_PAUSE :: 30 * time.Minute
 // The matching thread takes this many songs at a time, so it fetches the albums they name in one request.
 MATCH_BATCH_COUNT :: 20
 // Albums found for one YouTube album. A single and an album of the same name are both worth checking.
@@ -47,6 +49,7 @@ matcher: struct {
 	failed:     map[string]time.Tick,
 	// No search starts before this, after Apple refused one.
 	resume_at:  time.Tick,
+	refusal_count: int,
 	// Songs waiting for the matching thread.
 	pending:    [dynamic]^Match_Job,
 	pool:       thread.Pool,
@@ -316,12 +319,24 @@ finish_job :: proc(job: ^Match_Job, best: Catalog_Song, is_found: bool, status: 
 		platform.wake()
 	}
 
+	// The rest of a batch fails with the same refusal, which counts once.
+	if status == 429 {
+		if time.tick_diff(matcher.resume_at, time.tick_now()) >= 0 {
+			matcher.refusal_count += 1
+			pause := min(REFUSED_PAUSE * time.Duration(1 << uint(min(matcher.refusal_count - 1, 5))), MAX_REFUSED_PAUSE)
+			matcher.resume_at = time.tick_add(time.tick_now(), pause)
+		}
+		matcher.failed[job.video_id] = matcher.resume_at
+		return
+	}
+
 	if status != 200 {
-		pause := REFUSED_PAUSE if status == 429 else MATCH_GAP
-		matcher.resume_at = time.tick_add(time.tick_now(), pause)
+		matcher.resume_at = time.tick_add(time.tick_now(), MATCH_GAP)
 		matcher.failed[job.video_id] = time.tick_add(time.tick_now(), REFUSED_PAUSE)
 		return
 	}
+
+	matcher.refusal_count = 0
 
 	save_found_match(job.video_id, best, is_found)
 	delete(job.video_id)

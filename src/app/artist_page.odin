@@ -161,10 +161,13 @@ build_artist_header :: proc(data: ^Page_Data, width: f32) {
 	if ui.scope(header) {
 		if width > 0 {
 			photo_width := int(math.ceil(ui.to_pixels(width) / PHOTO_WIDTH_STEP_PIXELS)) * PHOTO_WIDTH_STEP_PIXELS
-			photo_height := int(ui.to_pixels(ARTIST_HEADER_POINTS))
-			photo := apple.to_artwork_url(data.artwork, photo_width, photo_height)
+			// Apple fits the photo inside the size asked for, so a wide size gives a small photo. A square
+			// as wide as the header gives it whole, to be cropped.
+			photo := apple.to_artwork_url(data.artwork, photo_width, photo_width)
 			box := artwork_rect_box(photo, {width, ARTIST_HEADER_POINTS}, 12, {top = fallback, bottom = fallback})
 			box.style.flags += {.Floating}
+			// A face is mostly in the upper part of an artist's photo.
+			if box.data != nil do (cast(^Artwork_Paint)box.data).focus_y = 0.25
 		}
 
 		ink := colors.window

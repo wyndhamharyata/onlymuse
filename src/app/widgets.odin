@@ -68,6 +68,9 @@ Artwork_Paint :: struct {
 	// The symbol shows until the picture fades in over it.
 	symbol_points: f32,
 	symbol_color:  [4]f32,
+	// A picture of another shape fills the box and is cropped. This is where its crop starts across
+	// the height, from 0 for the top to 1 for the bottom.
+	focus_y:       f32,
 }
 
 draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
@@ -84,7 +87,27 @@ draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 
 	if texture == nil do return
 
-	render.push({rect = rect, uv = {0, 0, 1, 1}, color = {1, 1, 1, opacity * image_opacity}, corner_radius = ui.to_pixels(box.style.corner_radius), clip = clip, kind = .Image}, texture)
+	render.push({rect = rect, uv = to_fill_uv(rect, texture, paint.focus_y), color = {1, 1, 1, opacity * image_opacity}, corner_radius = ui.to_pixels(box.style.corner_radius), clip = clip, kind = .Image}, texture)
+}
+
+// The part of the texture that fills rect at its own proportions.
+@(private = "file")
+to_fill_uv :: proc(rect: [4]f32, texture: ^MTL.Texture, focus_y: f32) -> [4]f32 {
+	rect_ratio := (rect.z - rect.x) / (rect.w - rect.y)
+	texture_ratio := f32(texture->width()) / f32(texture->height())
+	if rect_ratio <= 0 || abs(rect_ratio - texture_ratio) < 0.01 do return {0, 0, 1, 1}
+
+	if texture_ratio > rect_ratio {
+		width := rect_ratio / texture_ratio
+		left := (1 - width) / 2
+
+		return {left, 0, left + width, 1}
+	}
+
+	height := texture_ratio / rect_ratio
+	top := (1 - height) * focus_y
+
+	return {0, top, 1, top + height}
 }
 
 // What shows while a picture loads: a gradient in the picture's own colours, or in two colours picked
@@ -139,6 +162,7 @@ artwork_rect_box :: proc(source: string, size_points: [2]f32, radius_points: f32
 		// In steps of 4, so a tile resizing with the panel reuses a few sizes of its symbol.
 		symbol_points = max(8, math.round(min(size_points.x, size_points.y) * 0.3 / 4) * 4),
 		symbol_color  = placeholder.mark,
+		focus_y       = 0.5,
 	}
 	box.draw = draw_artwork
 	box.data = paint

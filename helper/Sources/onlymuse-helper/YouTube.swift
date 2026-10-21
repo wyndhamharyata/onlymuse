@@ -222,6 +222,15 @@ final class YouTube: NSObject, WKNavigationDelegate {
 
     if isLoading { return }
 
+    // The page plays at its own volume until a song's first state comes, as the player may not exist before.
+    if lastState == "" { run("document.getElementById('movie_player').setVolume(\(volumePercent))") }
+
+    // Before a song starts, and while it waits for more of itself, the page plays nothing. Its state then goes
+    // to the app as neither playing nor paused, so the app's clock stays still.
+    let isWaiting = !hasEnded && playerState != Self.playingState && playerState != Self.pausedState
+
+    if isWaiting { return }
+
     let state = hasEnded ? "stopped" : playerState == Self.pausedState ? "paused" : "playing"
 
     if hasEnded {
@@ -229,9 +238,6 @@ final class YouTube: NSObject, WKNavigationDelegate {
       pollTimer = nil
       run("document.getElementById('movie_player').pauseVideo()")
     }
-
-    // The page plays at its own volume until a song's first state comes, as the player may not exist before.
-    if lastState == "" { run("document.getElementById('movie_player').setVolume(\(volumePercent))") }
 
     if state != lastState {
       lastState = state

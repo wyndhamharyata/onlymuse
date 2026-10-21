@@ -49,7 +49,7 @@ is_resume_shown :: proc() -> bool {
 
 // The cover the player bar shows: Music.app's, or Apple's for a song of the queue.
 find_player_artwork_source :: proc() -> string {
-	if queue.is_adding do return apple.to_artwork_url(queue.songs[queue.index].artwork, to_artwork_pixels(PLAYER_ARTWORK_POINTS))
+	if queue.is_adding || is_starting_youtube_song() do return apple.to_artwork_url(queue.songs[queue.index].artwork, to_artwork_pixels(PLAYER_ARTWORK_POINTS))
 
 	song, is_song := find_shown_song()
 	queue_song, is_queue_song := find_queue_song(song.persistent_id)
@@ -62,15 +62,17 @@ build_song_info :: proc() {
 	now_playing := app.now_playing
 	song, is_song := find_shown_song()
 	queue_song, is_queue_song := find_queue_song(song.persistent_id)
-	adding_song := queue.songs[queue.index] if queue.is_adding else {}
+	// A song being added to the library, or loaded by the YouTube page, shows before Music.app or the page has it.
+	is_waiting := queue.is_adding || is_starting_youtube_song()
+	adding_song := queue.songs[queue.index] if is_waiting else {}
 	info := ui.box("info", {width = ui.fill(1), height = ui.fit_children(), axis = .X, align = .Center, gap = 12})
 
 	if ui.scope(info) {
 		artwork_source := find_player_artwork_source()
 		placeholder := to_placeholder({}, song.album if is_song else "")
 		if is_queue_song do placeholder = to_placeholder(queue_song.artwork, queue_song.album_name)
-		if queue.is_adding do placeholder = to_placeholder(adding_song.artwork, adding_song.album_name)
-		if !is_song && !queue.is_adding do placeholder = {top = colors.card, bottom = colors.card}
+		if is_waiting do placeholder = to_placeholder(adding_song.artwork, adding_song.album_name)
+		if !is_song && !is_waiting do placeholder = {top = colors.card, bottom = colors.card}
 		// The cover opens the Now Playing page.
 		cover := ui.box("cover", {width = ui.fit_children(), height = ui.fit_children(), flags = {.Clickable} if is_song else {}})
 		if ui.signal(cover).is_clicked do navigate({kind = .Now_Playing})
@@ -83,9 +85,9 @@ build_song_info :: proc() {
 		text := ui.box("", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 2})
 
 		if ui.scope(text) {
-			if queue.is_adding {
+			if is_waiting {
 				text_box(adding_song.name, colors.text, 13.5, .Semibold)
-				text_box("Adding to library…", colors.dim, 12.5)
+				text_box("Adding to library…" if queue.is_adding else "Loading from YouTube…", colors.dim, 12.5)
 			} else if is_song {
 				title := ui.box("title", {width = ui.fill(), height = ui.fit_children(), axis = .X, align = .Center, gap = 7})
 

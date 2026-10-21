@@ -2,6 +2,7 @@
 package youtube
 
 import "core:crypto/legacy/sha1"
+import "core:encoding/json"
 import "core:encoding/hex"
 import "core:fmt"
 import "core:mem"
@@ -60,6 +61,7 @@ has_cookie_answer :: proc() -> bool {
 HOME_ID :: "FEmusic_home"
 LIKED_ID :: "VLLM"
 LIBRARY_PLAYLISTS_ID :: "FEmusic_liked_playlists"
+PODCAST_EPISODES_ID :: "VLSE"
 // The search filters behind YouTube Music's own Songs, Videos and Artists tabs.
 SONGS_FILTER :: "EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D"
 VIDEOS_FILTER :: "EgWKAQIQAWoKEAkQChAFEAMQBA%3D%3D"
@@ -76,6 +78,11 @@ search_path :: proc(query, filter: string) -> string {
 // The next part of a long list, which a List names by its continuation.
 continuation_path :: proc(token: string) -> string {
 	return to_path("browse", fmt.tprintf("{{%s}}", to_json_field("continuation", token)))
+}
+
+// The next shelves of a page. YouTube takes this token in the address, as its web player sends it.
+section_continuation_path :: proc(token: string) -> string {
+	return to_path("browse", fmt.tprintf("{{%s}}", to_json_field("ctoken", token)))
 }
 
 // An album, a playlist or the liked songs open by browse ID. A mix or a radio is a playlist ID, such as
@@ -110,6 +117,17 @@ send_request :: proc(path: string, allocator: mem.Allocator) -> apple.Answer {
 	endpoint, _, body_json := strings.partition(path[len(PATH_PREFIX):], "?")
 	if len(body_json) < 2 do return {}
 
+	section_token := ""
+	if strings.has_prefix(body_json, `{"ctoken":`) {
+		Section :: struct {
+			ctoken: string,
+		}
+		section: Section
+		_ = json.unmarshal_string(body_json, &section, allocator = context.temp_allocator)
+		section_token = section.ctoken
+		body_json = "{}"
+	}
+
 	region := strings.to_upper(apple.STOREFRONT, context.temp_allocator)
 	client := fmt.tprintf(`{{"context":{{"client":{{"clientName":"WEB_REMIX","clientVersion":"%s","hl":"en","gl":"%s"}}}}`, CLIENT_VERSION, region)
 	// body_json is an object, so its "{" gives way to the context's.
@@ -125,6 +143,7 @@ send_request :: proc(path: string, allocator: mem.Allocator) -> apple.Answer {
 	}
 
 	url := fmt.tprintf("%s%s?prettyPrint=false", BASE_URL, endpoint)
+	if section_token != "" do url = fmt.tprintf("%s&ctoken=%s&continuation=%s&type=next", url, section_token, section_token)
 	response := net.fetch(url, headers[:], context.temp_allocator, .Post, body)
 
 	return {response.status, strings.clone(string(response.body), allocator)}

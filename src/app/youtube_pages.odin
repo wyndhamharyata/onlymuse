@@ -12,6 +12,8 @@ import "om:youtube"
 
 // A long YouTube list stops after this many parts of about 100 songs.
 MAX_YOUTUBE_PART_COUNT :: 50
+// YouTube's home sends a few shelves at a time. Mixes for you come in its later parts.
+MAX_HOME_PART_COUNT :: 6
 SHOWN_YOUTUBE_SONG_COUNT :: 6
 
 // ---- Reading YouTube's answers ----
@@ -81,6 +83,28 @@ watch_youtube_songs :: proc(path: string) -> (first: youtube.List, songs: []Cata
 	return first, data.songs, phase
 }
 
+// The shelves of every part of YouTube's home.
+watch_youtube_home :: proc() -> (shelves: []apple.Shelf, signature: int, phase: apple.Phase) {
+	first, watched := watch_youtube_list(youtube.browse_path(youtube.HOME_ID))
+	signature = watched.version
+	if watched.phase != .Ready do return nil, signature, watched.phase
+
+	all := make([dynamic]apple.Shelf, context.temp_allocator)
+	append(&all, ..first.shelves)
+	token := first.section_continuation
+
+	for part_count := 1; token != "" && part_count < MAX_HOME_PART_COUNT; part_count += 1 {
+		part, part_watched := watch_youtube_list(youtube.section_continuation_path(token))
+		signature = signature * 31 + part_watched.version
+		if part_watched.phase != .Ready do break
+
+		append(&all, ..part.shelves)
+		token = part.section_continuation
+	}
+
+	return all[:], signature, .Ready
+}
+
 youtube_phase_note :: proc(phase: apple.Phase) -> string {
 	return "YouTube Music could not be reached." if phase == .Failed else "Loading…"
 }
@@ -106,14 +130,14 @@ build_youtube_mixes_page :: proc() {
 		return
 	}
 
-	list, watched := watch_youtube_list(youtube.browse_path(youtube.HOME_ID))
-	data, is_stale := find_page_data("youtube mixes", watched.version, watched.phase)
+	shelves, signature, phase := watch_youtube_home()
+	data, is_stale := find_page_data("youtube mixes", signature, phase)
 
-	if is_stale && watched.phase == .Ready {
+	if is_stale && phase == .Ready {
 		cards := make([dynamic]apple.Card, page_allocator(data))
 		seen := make(map[string]bool, context.temp_allocator)
 
-		for shelf in list.shelves {
+		for shelf in shelves {
 			for card in shelf.cards {
 				is_mix := card.kind == .YouTube_Playlist && (strings.has_prefix(card.id, "RD") || strings.has_prefix(card.id, "VLRD"))
 				if !is_mix || seen[card.id] do continue
@@ -125,7 +149,7 @@ build_youtube_mixes_page :: proc() {
 		data.cards = cards[:]
 	}
 
-	build_card_grid_page("Mixes", data.cards, watched.phase, false)
+	build_card_grid_page("Mixes", data.cards, phase, false)
 }
 
 build_youtube_sign_in_page :: proc(title, text: string) {
@@ -183,7 +207,11 @@ build_bring_over_page :: proc(page: Page) {
 
 	if page.id == "" {
 		list, watched := watch_youtube_list(youtube.browse_path(youtube.LIBRARY_PLAYLISTS_ID))
-		build_card_grid_page("Bring Over from YouTube Music", list.cards, watched.phase, false)
+		playlists := make([dynamic]apple.Card, context.temp_allocator)
+		// Episodes for Later holds podcasts, which Apple Music has no place for.
+		for card in list.cards do if card.id != youtube.PODCAST_EPISODES_ID do append(&playlists, card)
+
+		build_card_grid_page("Bring Over from YouTube Music", playlists[:], watched.phase, false)
 		return
 	}
 
@@ -260,17 +288,17 @@ bring_over :: proc(name: string, songs: []Catalog_Song) {
 
 // Apple's shelves with YouTube's between them, one of each in turn.
 merge_youtube_shelves :: proc(apple_shelves: []apple.Shelf, allocator := context.allocator) -> (shelves: []apple.Shelf, version: int) {
-	list, watched := watch_youtube_list(youtube.browse_path(youtube.HOME_ID))
-	if watched.phase != .Ready do return apple_shelves, watched.version
+	youtube_shelves, signature, phase := watch_youtube_home()
+	if phase != .Ready do return apple_shelves, signature
 
 	merged := make([dynamic]apple.Shelf, allocator)
 
-	for index in 0 ..< max(len(apple_shelves), len(list.shelves)) {
+	for index in 0 ..< max(len(apple_shelves), len(youtube_shelves)) {
 		if index < len(apple_shelves) do append(&merged, apple_shelves[index])
-		if index < len(list.shelves) do append(&merged, list.shelves[index])
+		if index < len(youtube_shelves) do append(&merged, youtube_shelves[index])
 	}
 
-	return merged[:], watched.version
+	return merged[:], signature
 }
 
 // Songs Apple lacks, once its catalog has been checked for each, and YouTube's videos.

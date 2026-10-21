@@ -21,6 +21,8 @@ List :: struct {
 	cards:        []apple.Card,
 	// The token for the next part of a long list. Empty at its end.
 	continuation: string,
+	// The token for the next shelves of a page such as home, which continuation_path cannot ask for.
+	section_continuation: string,
 }
 
 is_song_id :: proc(id: string) -> bool {
@@ -42,6 +44,7 @@ Reader :: struct {
 	shelves:      [dynamic]apple.Shelf,
 	cards:        [dynamic]apple.Card,
 	continuation: string,
+	section_continuation: string,
 }
 
 // Reads any answer of browse, search or next. The JSON is read in the temp allocator, and what is kept is copied into allocator.
@@ -66,7 +69,7 @@ to_list :: proc(body: string, allocator := context.allocator) -> List {
 		if song.album_name == "" do song.album_name = reader.title
 	}
 
-	return {reader.title, reader.subtitle, reader.detail, reader.artwork, reader.songs[:], reader.shelves[:], reader.cards[:], reader.continuation}
+	return {reader.title, reader.subtitle, reader.detail, reader.artwork, reader.songs[:], reader.shelves[:], reader.cards[:], reader.continuation, reader.section_continuation}
 }
 
 @(private)
@@ -86,7 +89,7 @@ read_value :: proc(reader: ^Reader, value: json.Value) {
 			case "continuationCommand":
 				if reader.continuation == "" do reader.continuation = clone(reader, as_string(child(child_value, "token")))
 			case "nextContinuationData":
-				if reader.continuation == "" do reader.continuation = clone(reader, as_string(child(child_value, "continuation")))
+				if reader.section_continuation == "" do reader.section_continuation = clone(reader, as_string(child(child_value, "continuation")))
 			case:
 				read_value(reader, child_value)
 			}

@@ -300,7 +300,7 @@ fall_back_to_youtube :: proc() -> bool {
 
 	youtube_song := clone_song(to_youtube_song(song))
 	reject_match(youtube_song)
-	delete_song(queue.songs[queue.index])
+	retire_song(queue.songs[queue.index])
 	queue.songs[queue.index] = youtube_song
 	show_toast(fmt.tprintf("Apple Music could not play %s, so it plays from YouTube", youtube_song.name))
 	console.add("Queue", "Music.app did not start %s within %.0f s, so it plays from YouTube from now on.", youtube_song.name, START_TIMEOUT_SECONDS)
@@ -419,8 +419,28 @@ clone_songs :: proc(songs: []Catalog_Song) -> []Catalog_Song {
 
 @(private = "file")
 delete_songs :: proc(songs: []Catalog_Song) {
-	for song in songs do delete_song(song)
-	delete(songs)
+	for song in songs do retire_song(song)
+	append(&retired.lists, songs)
+}
+
+// Songs and lists the queue let go of, freed when the next frame starts, as Up Next and the player may
+// already show them in this one. See free_retired_memory.
+@(private = "file")
+retired: struct {
+	songs: [dynamic]Catalog_Song,
+	lists: [dynamic][]Catalog_Song,
+}
+
+@(private = "file")
+retire_song :: proc(song: Catalog_Song) {
+	append(&retired.songs, song)
+}
+
+free_retired_songs :: proc() {
+	for song in retired.songs do delete_song(song)
+	for list in retired.lists do delete(list)
+	clear(&retired.songs)
+	clear(&retired.lists)
 }
 
 // A YouTube song whose Apple song is known plays from Apple Music, and a copy of Apple's song takes its place.
@@ -430,7 +450,7 @@ set_playable :: proc(index: int) {
 	if playable.id == queue.songs[index].id do return
 
 	cloned := clone_song(playable)
-	delete_song(queue.songs[index])
+	retire_song(queue.songs[index])
 	queue.songs[index] = cloned
 }
 
@@ -488,8 +508,7 @@ play_next :: proc(song: Catalog_Song) {
 	original[len(original) - 1] = clone_song(song)
 
 	// The new lists hold the old songs themselves, so only the old lists go.
-	delete(queue.songs)
-	delete(queue.original_songs)
+	append(&retired.lists, queue.songs, queue.original_songs)
 	queue.songs = songs
 	queue.original_songs = original
 	sync_handoff()
@@ -504,13 +523,13 @@ remove_from_queue :: proc(index: int) {
 	if index == queue.index do return
 
 	removed_id := strings.clone(queue.songs[index].id, context.temp_allocator)
-	delete_song(queue.songs[index])
+	retire_song(queue.songs[index])
 	ordered_remove_slice(&queue.songs, index)
 
 	for song, original_index in queue.original_songs {
 		if song.id != removed_id do continue
 
-		delete_song(song)
+		retire_song(song)
 		ordered_remove_slice(&queue.original_songs, original_index)
 		break
 	}

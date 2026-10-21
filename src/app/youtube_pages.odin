@@ -43,7 +43,7 @@ watch_youtube_list :: proc(path: string) -> (youtube.List, apple.Watched) {
 	}
 
 	if parsed.version != watched.version {
-		virtual.arena_destroy(&parsed.arena)
+		retire_arena(parsed.arena)
 		parsed^ = {}
 		_ = virtual.arena_init_growing(&parsed.arena)
 		parsed.version = watched.version

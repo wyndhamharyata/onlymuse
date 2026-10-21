@@ -138,7 +138,8 @@ find_library_match :: proc(song: Catalog_Song) -> (Catalog_Song, bool, apple.Pha
 	if phase != .Ready do return {}, false, phase
 
 	if !library_index.is_built || signature != library_index.signature {
-		virtual.arena_destroy(&library_index.arena)
+		retire_arena(library_index.arena)
+		library_index.arena = {}
 		library_index.by_title = {}
 		_ = virtual.arena_init_growing(&library_index.arena)
 		allocator := virtual.arena_allocator(&library_index.arena)

@@ -237,6 +237,7 @@ to_min_window_size :: proc(zoom: f32) -> [2]f32 {
 
 draw_frame :: proc() -> bool {
 	free_all(context.temp_allocator)
+	free_retired_memory()
 	start := time.tick_now()
 	dt_seconds := f32(time.duration_seconds(time.tick_diff(app.last_frame, start)))
 	app.last_frame = start

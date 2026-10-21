@@ -257,7 +257,8 @@ update_results :: proc() {
 	signature := ((song_signature * 31 + album_signature) * 31 + artist_signature) * 31 + catalog.version + len(playlists) * 7
 	if term == palette.built_term && signature == palette.built_signature do return
 
-	virtual.arena_destroy(&palette.arena)
+	retire_arena(palette.arena)
+	palette.arena = {}
 	_ = virtual.arena_init_growing(&palette.arena)
 	allocator := virtual.arena_allocator(&palette.arena)
 	palette.built_term = strings.clone(term, allocator)

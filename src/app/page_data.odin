@@ -45,13 +45,29 @@ find_page_data :: proc(key: string, signature: int, phase: apple.Phase) -> (data
 	is_stale = data.signature != signature || data.phase != phase
 	if !is_stale do return data, false
 
-	virtual.arena_destroy(&data.arena)
+	retire_arena(data.arena)
 	data^ = {}
 	_ = virtual.arena_init_growing(&data.arena)
 	data.signature = signature
 	data.phase = phase
 
 	return data, true
+}
+
+// A frame's boxes point at the text they show, and draw it when the frame ends. An arena read again during a
+// frame, as an answer can arrive while the frame is built, is freed only when the next frame starts.
+@(private = "file")
+retired_arenas: [dynamic]virtual.Arena
+
+retire_arena :: proc(arena: virtual.Arena) {
+	append(&retired_arenas, arena)
+}
+
+// Called first in each frame, before any box points at anything.
+free_retired_memory :: proc() {
+	for &arena in retired_arenas do virtual.arena_destroy(&arena)
+	clear(&retired_arenas)
+	free_retired_songs()
 }
 
 page_allocator :: proc(data: ^Page_Data) -> mem.Allocator {
@@ -69,6 +85,9 @@ watch_all_pages :: proc(path: string) -> (bodies: []string, signature: int, phas
 		watched := apple.watch(fmt.tprintf("%s%slimit=100&offset=%s", path, separator, offset))
 		signature = signature * 31 + watched.version
 
+		// A saved page can name a next page that is gone, as after songs left a playlist. The list ends there.
+		is_past_end := watched.phase == .Failed && watched.status == 404 && offset != "0"
+		if is_past_end do break
 		if watched.phase != .Ready do return list[:], signature, watched.phase
 
 		append(&list, watched.body)

@@ -12,12 +12,13 @@ Sidebar_Item :: struct {
 apple_music_items := []Sidebar_Item{{.Home, "Home", "house"}, {.New, "New", "square.grid.2x2"}}
 
 youtube_items := []struct {
-	page:   Page,
+	label:  string,
 	symbol: string,
+	page:   Page,
 } {
-	{{kind = .YouTube_Mixes, title = "Mixes"}, "dot.radiowaves.left.and.right"},
-	{{kind = .YouTube_Playlist, id = youtube.LIKED_ID, title = "Liked Music"}, "hand.thumbsup"},
-	{{kind = .Bring_Over, title = "Bring Over"}, "square.and.arrow.down"},
+	{"Mixes", "dot.radiowaves.left.and.right", {kind = .YouTube_Mixes}},
+	{"Liked Music", "hand.thumbsup", {kind = .YouTube_Playlist, id = youtube.LIKED_ID, title = "Liked Music"}},
+	{"Bring Over", "square.and.arrow.down", {kind = .Bring_Over}},
 }
 
 library_items := []Sidebar_Item {
@@ -52,7 +53,7 @@ build_sidebar :: proc() {
 			for item in apple_music_items do build_sidebar_item(item.label, item.symbol, app.accent, {kind = item.kind})
 
 			build_group_title("YouTube Music")
-			for item in youtube_items do build_sidebar_item(item.page.title, item.symbol, colors.youtube, item.page)
+			for item in youtube_items do build_sidebar_item(item.label, item.symbol, colors.youtube, item.page)
 
 			build_group_title("Library")
 			for item in library_items do build_sidebar_item(item.label, item.symbol, app.accent, {kind = item.kind})

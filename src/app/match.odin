@@ -125,7 +125,7 @@ start_matching :: proc(song: Catalog_Song, video_id: string) {
 	thread.pool_add_task(&matcher.pool, context.allocator, check_match, job)
 }
 
-// Runs on a worker. A search that gets no answer is not saved, so the song is checked again next time.
+// Runs on a worker. A search that gets no answer is not saved, so the song plays from YouTube until the next run checks again.
 @(private = "file")
 check_match :: proc(task: thread.Task) {
 	job := cast(^Match_Job)task.data
@@ -153,7 +153,7 @@ check_match :: proc(task: thread.Task) {
 	}
 
 	if answer.status != 200 {
-		delete(job.video_id)
+		matcher.missing[job.video_id] = true
 		return
 	}
 

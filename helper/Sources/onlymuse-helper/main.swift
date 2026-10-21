@@ -27,6 +27,27 @@ func pauseWhenAppEnds() {
 
 application.setActivationPolicy(.accessory)
 
+// ⌘V and the other editing keys reach a sign-in page only through an Edit menu. The helper shows no menu bar, but its keys still work.
+func toEditMenu() -> NSMenu {
+  let bar = NSMenu()
+  let editItem = NSMenuItem()
+  let edit = NSMenu(title: "Edit")
+
+  edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+  edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+  edit.addItem(.separator())
+  edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+  edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+  edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+  edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+  editItem.submenu = edit
+  bar.addItem(editItem)
+
+  return bar
+}
+
+application.mainMenu = toEditMenu()
+
 // The handoff reacts first, so the queue's next song replaces a pick of Music.app's before more of it plays.
 DistributedNotificationCenter.default().addObserver(forName: .init("com.apple.Music.playerInfo"), object: nil, queue: .main) { _ in
   MainActor.assumeIsolated {

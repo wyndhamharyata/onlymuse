@@ -101,6 +101,7 @@ build_song_menu :: proc() {
 		// A YouTube song Apple has acts as Apple's song.
 		song := to_playable(song_menu.song)
 		is_from_youtube := youtube.is_song_id(song.id)
+		is_matched := youtube.is_song_id(song_menu.song.id) && !is_from_youtube
 		page := current_page()
 		position := song_menu.position
 		main_width: f32 = 0
@@ -125,6 +126,12 @@ build_song_menu :: proc() {
 				if page.kind == .Playlist && is_from_youtube && is_playlist_youtube_song(page.id, song.id) && menu_item("remove from playlist", "Remove from Playlist") {
 					remove_playlist_youtube_song(page.id, song.id)
 					show_toast(fmt.tprintf("Removed %s from %s", song.name, page.title))
+					is_closing = true
+				}
+
+				if is_matched && menu_item("play from youtube", "Play from YouTube Instead") {
+					reject_match(song_menu.song)
+					show_toast(fmt.tprintf("%s plays from YouTube from now on", song_menu.song.name))
 					is_closing = true
 				}
 

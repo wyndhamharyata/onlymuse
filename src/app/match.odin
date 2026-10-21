@@ -75,6 +75,11 @@ find_match :: proc(song: Catalog_Song) -> (Catalog_Song, Match_State) {
 		delete_key(&matcher.failed, video_id)
 	}
 
+	if store.is_match_rejected(video_id) {
+		matcher.missing[strings.clone(video_id)] = true
+		return song, .Missing
+	}
+
 	if saved, ok := store.find_match(video_id, context.temp_allocator); ok {
 		keep_match(video_id, saved)
 		return find_match_locked(song, video_id)
@@ -90,6 +95,21 @@ find_match_locked :: proc(song: Catalog_Song, video_id: string) -> (Catalog_Song
 	if found, ok := matcher.found[video_id]; ok do return found, .Found
 
 	return song, .Missing
+}
+
+// The person heard that Apple's song is another one, or Music.app could not play it. The YouTube song then
+// always plays from YouTube.
+reject_match :: proc(song: Catalog_Song) {
+	video_id := youtube.to_video_id(song.id)
+	if video_id == "" do return
+
+	store.save_rejected_match(video_id)
+
+	// The queue may hold a copy of Apple's song that shares its text, so the text stays.
+	sync.guard(&matcher.mutex)
+	delete_key(&matcher.found, video_id)
+	if video_id not_in matcher.missing do matcher.missing[strings.clone(video_id)] = true
+	matcher.version += 1
 }
 
 // The song to play: Apple's when it has it, else the YouTube one.

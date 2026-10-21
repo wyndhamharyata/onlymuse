@@ -48,6 +48,9 @@ SCHEMA :: `
 		song text not null,
 		checked_at integer not null
 	);
+	create table if not exists rejected_matches (
+		youtube_id text primary key
+	);
 `
 
 // OM_DATA names the folder, for the tests.
@@ -173,6 +176,25 @@ find_match :: proc(youtube_id: string, allocator := context.allocator) -> (strin
 	if mac.sqlite3_step(statement) != mac.SQLITE_ROW do return "", false
 
 	return column_text(statement, 0, allocator), true
+}
+
+// A match the person turned down. It stays through a change of the rule.
+is_match_rejected :: proc(youtube_id: string) -> bool {
+	statement, ok := prepare("select 1 from rejected_matches where youtube_id = ?")
+	if !ok do return false
+	defer mac.sqlite3_finalize(statement)
+	bind_text(statement, 1, youtube_id)
+
+	return mac.sqlite3_step(statement) == mac.SQLITE_ROW
+}
+
+save_rejected_match :: proc(youtube_id: string) {
+	statement, ok := prepare("insert or ignore into rejected_matches (youtube_id) values (?1)")
+	if !ok do return
+	defer mac.sqlite3_finalize(statement)
+
+	bind_text(statement, 1, youtube_id)
+	mac.sqlite3_step(statement)
 }
 
 // Every saved match goes, such as when the rule that makes them changes.

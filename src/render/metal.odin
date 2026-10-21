@@ -49,6 +49,8 @@ Batch :: struct {
 FRAMES_IN_FLIGHT :: 3
 @(private)
 MAX_INSTANCE_COUNT :: 64 * 1024
+// Instances a buffer starts with. A frame that draws more grows its buffer, so a short page costs 1 MB a buffer, not 8.
+FIRST_INSTANCE_COUNT :: 8 * 1024
 
 @(private)
 state: struct {
@@ -103,7 +105,7 @@ start :: proc(device: ^MTL.Device, layer: ^CA.MetalLayer) {
 	state.sampler = device->newSamplerState(sampler_descriptor)
 
 	for &buffer in state.buffers {
-		buffer = device->newBufferWithLength(MAX_INSTANCE_COUNT * size_of(Instance), {})
+		buffer = device->newBufferWithLength(FIRST_INSTANCE_COUNT * size_of(Instance), {})
 	}
 
 	white := [4]u8{255, 255, 255, 255}
@@ -222,6 +224,17 @@ end_frame :: proc(drawable: ^CA.MetalDrawable) {
 	state.buffer_wait = time.tick_since(wait_start)
 
 	buffer := state.buffers[slot]
+	needed_bytes := len(state.instances) * size_of(Instance)
+
+	// The GPU is done with this slot's buffer, so a larger one can take its place.
+	if int(buffer->length()) < needed_bytes {
+		capacity := int(buffer->length())
+		for capacity < needed_bytes do capacity *= 2
+		buffer->release()
+		buffer = state.device->newBufferWithLength(NS.UInteger(capacity), {})
+		state.buffers[slot] = buffer
+	}
+
 	intrinsics.mem_copy_non_overlapping(buffer->contentsPointer(), raw_data(state.instances), len(state.instances) * size_of(Instance))
 
 	if state.capture_path != "" do capture(buffer)

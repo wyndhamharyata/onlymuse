@@ -1,5 +1,6 @@
 package app
 
+import "base:runtime"
 import "core:fmt"
 import "core:math"
 import "core:os"
@@ -61,7 +62,11 @@ app: struct {
 	frame_starts:      [dynamic]time.Tick,
 }
 
+// Each frame's temp memory, of which a long page takes more than the 256 KB build.sh gives each thread.
+MAIN_TEMP_BYTES :: 4 * 1024 * 1024
+
 main :: proc() {
+	runtime.default_temp_allocator_init(&runtime.global_default_temp_allocator_data, MAIN_TEMP_BYTES, context.allocator)
 	app.zoom = 1
 	app.accent = DEFAULT_ACCENT
 	app.system_accent = DEFAULT_ACCENT

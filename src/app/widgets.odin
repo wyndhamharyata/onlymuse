@@ -73,7 +73,7 @@ draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	paint := cast(^Artwork_Paint)box.data
 	texture: ^MTL.Texture
 	image_opacity: f32
-	if paint.source != "" do texture, image_opacity = image.find(paint.source, paint.size_pixels)
+	if paint.source != "" do texture, image_opacity = image.find(paint.source, paint.size_pixels, to_crop(rect, paint.focus_y))
 
 	if image_opacity < 1 && paint.symbol != "" {
 		color := paint.symbol_color
@@ -84,6 +84,16 @@ draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	if texture == nil do return
 
 	render.push({rect = rect, uv = to_fill_uv(rect, texture, paint.focus_y), color = {1, 1, 1, opacity * image_opacity}, corner_radius = ui.to_pixels(box.style.corner_radius), clip = clip, kind = .Image}, texture)
+}
+
+// The box's shape, rounded down to a quarter, so a box that resizes reuses a few textures. A texture a
+// little taller than the box is cut the rest of the way by to_fill_uv.
+@(private = "file")
+to_crop :: proc(rect: [4]f32, focus_y: f32) -> image.Crop {
+	height := rect.w - rect.y
+	if height <= 0 do return {}
+
+	return {math.floor((rect.z - rect.x) / height * 4) / 4, focus_y}
 }
 
 // The part of the texture that fills rect at its own proportions.

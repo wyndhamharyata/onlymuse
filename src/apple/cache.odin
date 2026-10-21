@@ -28,13 +28,26 @@ Entry :: struct {
 	using watched: Watched,
 	path:          string,
 	is_checking:   bool,
+	// Unix ms of the last watch, so an answer no page has asked for in a while leaves memory.
+	used_at:       i64,
 }
+
+// An answer no page has watched for this long leaves memory. It stays saved, so a page asking again finds it at once.
+@(private)
+UNUSED_ANSWER_MS :: 5 * 60 * 1000
+
+// Bodies replaced or let go during a frame, freed when the next starts, as a page may still read them.
+@(private)
+retired_bodies: [dynamic]string
 
 @(private)
 cache: struct {
 	mutex:   sync.Mutex,
 	entries: map[string]^Entry,
 	pool:    thread.Pool,
+	// Each new body takes the next number as its version. A version is never used twice, so a page that read an
+	// answer let go of earlier never takes a new one for the same.
+	last_version: int,
 	is_started: bool,
 }
 
@@ -92,7 +105,10 @@ CHECK_THREAD_COUNT :: 4
 watch :: proc(path: string) -> Watched {
 	sync.guard(&cache.mutex)
 
-	if entry, ok := cache.entries[path]; ok do return entry.watched
+	if entry, ok := cache.entries[path]; ok {
+		entry.used_at = now_ms()
+		return entry.watched
+	}
 
 	if !cache.is_started {
 		thread.pool_init(&cache.pool, context.allocator, CHECK_THREAD_COUNT)
@@ -102,13 +118,15 @@ watch :: proc(path: string) -> Watched {
 
 	entry := new(Entry)
 	entry.path = strings.clone(path)
+	entry.used_at = now_ms()
 	cache.entries[entry.path] = entry
 
 	saved, is_saved := store.find_answer(path)
 	if is_saved {
 		entry.phase = .Ready
 		entry.body = saved.body
-		entry.version = 1
+		cache.last_version += 1
+		entry.version = cache.last_version
 
 		age := time.Duration((now_ms() - saved.fetched_at) * i64(time.Millisecond))
 		if age < to_fresh_duration(path) do return entry.watched
@@ -141,8 +159,10 @@ check :: proc(task: thread.Task) {
 
 	switch {
 	case answer.status == 200 && answer.body != entry.body:
+		if entry.body != "" do append(&retired_bodies, entry.body)
 		entry.body = answer.body
-		entry.version += 1
+		cache.last_version += 1
+		entry.version = cache.last_version
 		entry.phase = .Ready
 	case answer.status != 200 && entry.phase == .Loading:
 		entry.phase = .Failed
@@ -173,4 +193,25 @@ refresh :: proc(path: string) {
 
 	entry.is_checking = true
 	thread.pool_add_task(&cache.pool, context.allocator, check, entry)
+}
+
+// Called first in each frame. Frees the bodies replaced since the last, and lets go of answers no page has watched lately.
+free_retired_bodies :: proc() {
+	sync.guard(&cache.mutex)
+
+	for body in retired_bodies do delete(body)
+	clear(&retired_bodies)
+
+	now := now_ms()
+	unused := make([dynamic]string, context.temp_allocator)
+	for path, entry in cache.entries do if !entry.is_checking && now - entry.used_at > UNUSED_ANSWER_MS do append(&unused, path)
+
+	for path in unused {
+		entry := cache.entries[path]
+		delete_key(&cache.entries, path)
+		// A page may have read it in this frame, which has not started, so it goes with the next.
+		if entry.body != "" do append(&retired_bodies, entry.body)
+		delete(entry.path)
+		free(entry)
+	}
 }

@@ -32,8 +32,11 @@ if [ "$mode" = helper ]; then
 	codesign --force --sign "onlymuse local" --identifier dev.mwyndham.onlymuse.helper helper/.build/release/onlymuse-helper
 	exit
 fi
-# Without it this Odin marks the binary as needing a macOS newer than the one it runs on, and Finder will not open the app.
-flags="-collection:om=src -vet-unused -vet-shadowing -strict-style -minimum-os-version:26.0"
+# Without -minimum-os-version this Odin marks the binary as needing a macOS newer than the one it runs on, and
+# Finder will not open the app. Each thread's temp allocator keeps its first block for good. At Odin's 4 MB, the
+# 18 threads that live as long as the app held 70 MB. A task that needs more takes another block for its time.
+# The main thread starts its own at 4 MB, as each frame uses it.
+flags="-collection:om=src -vet-unused -vet-shadowing -strict-style -minimum-os-version:26.0 -define:DEFAULT_TEMP_ALLOCATOR_BACKING_SIZE=262144"
 
 if [ "$mode" = release ]; then
 	# A single-module build drops the input view's Objective-C methods, so no key ever reaches a text field.

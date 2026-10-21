@@ -102,6 +102,8 @@ foreign core_graphics {
 	CGImageGetWidth :: proc(image: Image_Ref) -> uint ---
 	CGImageGetHeight :: proc(image: Image_Ref) -> uint ---
 	CGImageRelease :: proc(image: Image_Ref) ---
+	// rect is in the image's pixels, from its top left.
+	CGImageCreateWithImageInRect :: proc(image: Image_Ref, rect: Rect) -> Image_Ref ---
 }
 
 @(default_calling_convention = "c")

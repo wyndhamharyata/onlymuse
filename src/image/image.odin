@@ -4,6 +4,7 @@ package image
 
 import "core:fmt"
 import "core:hash"
+import "core:math"
 import "core:os"
 import "core:path/filepath"
 import "core:slice"
@@ -18,8 +19,8 @@ import "om:net"
 import "om:platform"
 import "om:render"
 
-// Images kept on the GPU. One drawn in the last frame is never unloaded, so a page with more keeps them all.
-MAX_IMAGE_COUNT :: 160
+// The covers kept on the GPU, in bytes. One drawn in the last frame is never unloaded, so a page with more keeps them all.
+MAX_IMAGE_BYTES :: 64 * 1024 * 1024
 // Downloads and decodes at once, on their own threads.
 WORKER_COUNT :: 6
 // A failed image is asked for again this much later.
@@ -48,6 +49,15 @@ Entry :: struct {
 	// Another size stood in until this one loaded, so it shows at once, with no fade.
 	had_stand_in:     bool,
 	color:            Color,
+	crop:             Crop,
+	bytes:            int,
+}
+
+// The shape a picture is cut to before it goes to the GPU, width over height, kept around focus_y from its top.
+// An aspect of 0 keeps the whole picture. A picture shown cut then costs only the part shown.
+Crop :: struct {
+	aspect:  f32,
+	focus_y: f32,
 }
 
 // A guess at a picture's colour: the average of its pixels, the vivid and bright ones counting most.
@@ -62,6 +72,7 @@ Job :: struct {
 	key:         u64,
 	url:         string,
 	size_pixels: int,
+	crop:        Crop,
 	texture:     ^MTL.Texture,
 	color:      Color,
 }
@@ -107,14 +118,16 @@ is_animating :: proc() -> bool {
 }
 
 // The texture for url, or a file path, at size_pixels, or nil until it is loaded. opacity fades a new image in.
-find :: proc(url: string, size_pixels: int) -> (texture: ^MTL.Texture, opacity: f32) {
-	key := hash.fnv64a(transmute([]u8)url) ~ u64(size_pixels)
+find :: proc(url: string, size_pixels: int, crop := Crop{}) -> (texture: ^MTL.Texture, opacity: f32) {
+	crop_key := u64(crop.aspect * 100) << 40 | u64(crop.focus_y * 100) << 52
+	key := hash.fnv64a(transmute([]u8)url) ~ u64(size_pixels) ~ crop_key
 	entry, ok := state.entries[key]
 
 	if !ok {
 		entry = new(Entry)
 		entry.url = strings.clone(url)
 		entry.size_pixels = size_pixels
+		entry.crop = crop
 		entry.family = to_family(url)
 		state.entries[key] = entry
 	}
@@ -183,7 +196,7 @@ start_waiting :: proc() {
 		entry.phase = .Loading
 		state.loading_count += 1
 		job := new(Job)
-		job^ = Job{key = key, url = strings.clone(entry.url), size_pixels = entry.size_pixels}
+		job^ = Job{key = key, url = strings.clone(entry.url), size_pixels = entry.size_pixels, crop = entry.crop}
 		thread.pool_add_task(&state.pool, context.allocator, load, job)
 	}
 	clear(&state.waiting)
@@ -205,6 +218,7 @@ take_finished :: proc() {
 		} else {
 			entry.phase = .Ready
 			entry.texture = job.texture
+			entry.bytes = int(job.texture->width() * job.texture->height()) * 4
 			entry.color = job.color
 			entry.ready_time = time.tick_now()
 			state.families[entry.family] = job.key
@@ -218,10 +232,10 @@ take_finished :: proc() {
 
 @(private)
 unload_extra :: proc() {
-	ready_count := 0
-	for _, entry in state.entries do if entry.phase == .Ready do ready_count += 1
+	ready_bytes := 0
+	for _, entry in state.entries do if entry.phase == .Ready do ready_bytes += entry.bytes
 
-	if ready_count <= MAX_IMAGE_COUNT do return
+	if ready_bytes <= MAX_IMAGE_BYTES do return
 
 	Candidate :: struct {
 		key:              u64,
@@ -236,8 +250,11 @@ unload_extra :: proc() {
 
 	slice.sort_by(candidates[:], proc(a, b: Candidate) -> bool {return a.last_drawn_frame < b.last_drawn_frame})
 
-	for candidate in candidates[:min(len(candidates), ready_count - MAX_IMAGE_COUNT)] {
+	for candidate in candidates {
+		if ready_bytes <= MAX_IMAGE_BYTES do break
+
 		entry := state.entries[candidate.key]
+		ready_bytes -= entry.bytes
 		if state.families[entry.family] == candidate.key do delete_key(&state.families, entry.family)
 		// A command buffer keeps the textures it draws alive until the GPU is done.
 		entry.texture->release()
@@ -272,7 +289,7 @@ load :: proc(task: thread.Task) {
 		if !os.exists(path) && !download(job.url, path) do return
 	}
 
-	job.texture, job.color = decode(path, job.size_pixels)
+	job.texture, job.color = decode(path, job.size_pixels, job.crop)
 }
 
 @(private)
@@ -293,7 +310,7 @@ download :: proc(url, path: string) -> bool {
 }
 
 @(private)
-decode :: proc(path: string, size_pixels: int) -> (^MTL.Texture, Color) {
+decode :: proc(path: string, size_pixels: int, crop: Crop) -> (^MTL.Texture, Color) {
 	url := mac.CFURLCreateFromFileSystemRepresentation(nil, raw_data(path), len(path), false)
 	defer mac.CFRelease(url)
 	source := mac.CGImageSourceCreateWithURL(url, nil)
@@ -309,9 +326,12 @@ decode :: proc(path: string, size_pixels: int) -> (^MTL.Texture, Color) {
 	defer mac.CFRelease(options)
 
 	// ImageIO decodes straight to this size, so a large file never sits in memory whole.
-	image := mac.CGImageSourceCreateThumbnailAtIndex(source, 0, options)
-	if image == nil do return nil, {}
-	defer mac.CGImageRelease(image)
+	thumbnail := mac.CGImageSourceCreateThumbnailAtIndex(source, 0, options)
+	if thumbnail == nil do return nil, {}
+	defer mac.CGImageRelease(thumbnail)
+
+	image := to_cropped(thumbnail, crop)
+	defer if image != thumbnail do mac.CGImageRelease(image)
 
 	width := int(mac.CGImageGetWidth(image))
 	height := int(mac.CGImageGetHeight(image))
@@ -327,6 +347,32 @@ decode :: proc(path: string, size_pixels: int) -> (^MTL.Texture, Color) {
 	render.upload_texture(texture, {0, 0, width, height}, raw_data(pixels), width * 4)
 
 	return texture, guess_color(pixels)
+}
+
+// The part of image of crop's shape, centred across and at focus_y down. image itself when it has that shape already.
+@(private)
+to_cropped :: proc(image: mac.Image_Ref, crop: Crop) -> mac.Image_Ref {
+	width := f64(mac.CGImageGetWidth(image))
+	height := f64(mac.CGImageGetHeight(image))
+	aspect := f64(crop.aspect)
+	if aspect <= 0 || height <= 0 do return image
+
+	rect := mac.Rect{{0, 0}, {width, height}}
+
+	switch {
+	case width / height > aspect * 1.01:
+		rect.size.width = math.round(height * aspect)
+		rect.origin.x = math.round((width - rect.size.width) / 2)
+	case width / height < aspect * 0.99:
+		rect.size.height = math.round(width / aspect)
+		rect.origin.y = math.round((height - rect.size.height) * f64(crop.focus_y))
+	case:
+		return image
+	}
+
+	cropped := mac.CGImageCreateWithImageInRect(image, rect)
+
+	return cropped if cropped != nil else image
 }
 
 // From premultiplied BGRA. The pixels go into buckets by hue, each counted by its saturation squared

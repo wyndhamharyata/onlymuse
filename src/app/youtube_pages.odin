@@ -5,6 +5,7 @@ import "core:fmt"
 import "core:mem/virtual"
 import "core:strings"
 import "core:thread"
+import "core:time"
 import "om:apple"
 import "om:helper"
 import "om:store"
@@ -24,6 +25,8 @@ Parsed_List :: struct {
 	arena:   virtual.Arena,
 	version: int,
 	list:    youtube.List,
+	// Unix ms of the last frame that asked for it.
+	used_at: i64,
 }
 
 // Each answer read once per version, as reading a large one takes milliseconds.
@@ -42,6 +45,8 @@ watch_youtube_list :: proc(path: string) -> (youtube.List, apple.Watched) {
 		parsed_lists[strings.clone(path)] = parsed
 	}
 
+	parsed.used_at = time.to_unix_nanoseconds(time.now()) / 1_000_000
+
 	if parsed.version != watched.version {
 		retire_arena(parsed.arena)
 		parsed^ = {}
@@ -51,6 +56,21 @@ watch_youtube_list :: proc(path: string) -> (youtube.List, apple.Watched) {
 	}
 
 	return parsed.list, watched
+}
+
+// Called first in each frame. A list not asked for in a while leaves memory, as a page does.
+free_unused_youtube_lists :: proc() {
+	now := time.to_unix_nanoseconds(time.now()) / 1_000_000
+	unused := make([dynamic]string, context.temp_allocator)
+	for path, parsed in parsed_lists do if now - parsed.used_at > UNUSED_PAGE_MS do append(&unused, path)
+
+	for path in unused {
+		parsed := parsed_lists[path]
+		stored_path, _ := delete_key(&parsed_lists, path)
+		retire_arena(parsed.arena)
+		free(parsed)
+		delete(stored_path)
+	}
 }
 
 // The songs of every part of a long list, and the first part, which holds the header.

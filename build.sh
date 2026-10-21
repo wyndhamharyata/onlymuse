@@ -32,7 +32,8 @@ if [ "$mode" = helper ]; then
 	codesign --force --sign "onlymuse local" --identifier dev.mwyndham.onlymuse.helper helper/.build/release/onlymuse-helper
 	exit
 fi
-flags="-collection:om=src -vet-unused -vet-shadowing -strict-style"
+# Without it this Odin marks the binary as needing a macOS newer than the one it runs on, and Finder will not open the app.
+flags="-collection:om=src -vet-unused -vet-shadowing -strict-style -minimum-os-version:26.0"
 
 if [ "$mode" = release ]; then
 	# A single-module build drops the input view's Objective-C methods, so no key ever reaches a text field.

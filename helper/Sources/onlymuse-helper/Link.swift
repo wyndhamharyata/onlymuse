@@ -19,6 +19,14 @@ struct SongMatch: Decodable {
   let artistName: String
   let albumName: String
   let durationSeconds: Double
+  // Set for a song that plays from YouTube, which the helper plays in its YouTube page.
+  let youtubeId: String?
+
+  var youTubeVideoID: String? {
+    guard let youtubeId, !youtubeId.isEmpty else { return nil }
+
+    return youtubeId
+  }
 }
 
 // Writes one JSON line to the app, as Incoming in src/helper.ts names it.

@@ -5,7 +5,9 @@
 # OM_FAKE_SPEED    how many song seconds pass in one real second, 1 by default
 # OM_FAKE_MISSING  a song name that is not in the library until it has been asked for 3 times
 # OM_FAKE_TOKENS   a folder with the web player's tokens in dev and mut, sent as the real helper sends
-#                  them, so the app reads Apple's catalog. Without it, Apple is never asked.
+#                  them, so the app reads Apple's catalog. Without it, Apple is never asked. A file yt-cookie in
+#                  the folder is sent as the YouTube page's cookie, so the app reads YouTube Music signed in.
+# A song with a youtubeId plays as the YouTube page plays it, with the persistent ID "yt:" and the video ID.
 # trackInfo answers made-up plays and a lossless file. setFavorite keeps favourites until it quits.
 import json
 import os
@@ -32,6 +34,8 @@ def send(message):
 
 
 def to_persistent_id(match):
+    if match.get("youtubeId"):
+        return "yt:" + match["youtubeId"]
     return "%016X" % zlib.crc32(f"{match['name']}|{match['albumName']}".encode())
 
 
@@ -136,6 +140,9 @@ if os.environ.get("OM_FAKE_TOKENS"):
     folder = os.environ["OM_FAKE_TOKENS"]
     with open(os.path.join(folder, "dev")) as dev, open(os.path.join(folder, "mut")) as mut:
         send({"type": "tokens", "developerToken": dev.read().strip(), "userToken": mut.read().strip()})
+cookie_path = os.path.join(os.environ.get("OM_FAKE_TOKENS", ""), "yt-cookie")
+cookie = open(cookie_path).read().strip() if os.environ.get("OM_FAKE_TOKENS") and os.path.exists(cookie_path) else ""
+send({"type": "youtubeCookie", "cookie": cookie})
 send_now_playing()
 threading.Thread(target=tick, daemon=True).start()
 

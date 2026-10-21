@@ -16,6 +16,7 @@ import "om:platform"
 import "om:render"
 import "om:store"
 import "om:ui"
+import "om:youtube"
 
 // The zoom of the whole window, as in a browser.
 zoom_steps := [?]f32{0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2}
@@ -74,6 +75,7 @@ main :: proc() {
 
 	store.start()
 	apple.start()
+	youtube.start()
 	start_queue()
 	start_navigation()
 	start_saved_window_state()
@@ -123,6 +125,8 @@ apply_helper_messages :: proc() {
 			app.is_sign_in_needed = false
 		case "signInNeeded":
 			app.is_sign_in_needed = true
+		case "youtubeCookie":
+			youtube.set_cookie(message.cookie)
 		case "error":
 			// Music.app has no current track while stopped, and the helper's next post says so.
 			if !strings.contains(message.text, "get current track") do fmt.eprintfln("helper: %s", message.text)

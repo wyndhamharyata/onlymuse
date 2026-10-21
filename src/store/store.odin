@@ -43,6 +43,11 @@ SCHEMA :: `
 		value text not null,
 		saved_at integer not null
 	);
+	create table if not exists matches (
+		youtube_id text primary key,
+		song text not null,
+		checked_at integer not null
+	);
 `
 
 // OM_DATA names the folder, for the tests.
@@ -154,6 +159,29 @@ save_state :: proc(key, value: string) {
 
 	bind_text(statement, 1, key)
 	bind_text(statement, 2, value)
+	mac.sqlite3_bind_int64(statement, 3, now_ms())
+	mac.sqlite3_step(statement)
+}
+
+// The Apple Music song, as JSON, that a YouTube video is. Empty when Apple has no such song.
+find_match :: proc(youtube_id: string, allocator := context.allocator) -> (string, bool) {
+	statement, ok := prepare("select song from matches where youtube_id = ?")
+	if !ok do return "", false
+	defer mac.sqlite3_finalize(statement)
+	bind_text(statement, 1, youtube_id)
+
+	if mac.sqlite3_step(statement) != mac.SQLITE_ROW do return "", false
+
+	return column_text(statement, 0, allocator), true
+}
+
+save_match :: proc(youtube_id, song_json: string) {
+	statement, ok := prepare("insert into matches (youtube_id, song, checked_at) values (?1, ?2, ?3) on conflict (youtube_id) do update set song = ?2, checked_at = ?3")
+	if !ok do return
+	defer mac.sqlite3_finalize(statement)
+
+	bind_text(statement, 1, youtube_id)
+	bind_text(statement, 2, song_json)
 	mac.sqlite3_bind_int64(statement, 3, now_ms())
 	mac.sqlite3_step(statement)
 }

@@ -86,14 +86,19 @@ build_song_rows :: proc(page: ^ui.Box, songs: []Catalog_Song, dates: []string = 
 
 		for index in first ..= last {
 			song := songs[index]
-			is_current := is_playing && current.id == song.id
-			subtitle := song.album_name if dates != nil else fmt.tprintf("%s · %s", song.artist_name, song.album_name)
+			is_current := is_playing && is_same_queue_song(current, song)
+			subtitle := song.album_name if dates != nil else to_song_subtitle(song)
 			date := to_date_text(dates[index]) if index < len(dates) else ""
 			if build_song_row(fmt.tprintf("%d %s", index, song.id), song, subtitle, is_current, date) do play_songs(songs, index)
 		}
 
 		if last < len(songs) - 1 do ui.box("", {width = ui.fill(), height = ui.points(f32(len(songs) - 1 - last) * SONG_ROW_POINTS)})
 	}
+}
+
+// A video on YouTube has no album.
+to_song_subtitle :: proc(song: Catalog_Song) -> string {
+	return fmt.tprintf("%s · %s", song.artist_name, song.album_name) if song.album_name != "" else song.artist_name
 }
 
 // Returns true when clicked. A date, when given, sits before the heart.
@@ -131,8 +136,18 @@ build_song_row :: proc(id: string, song: Catalog_Song, subtitle: string, is_curr
 	return track_song_row(ui.signal(row), song)
 }
 
-// Filled in the accent for a favourite, an empty outline for any other, on song lists and albums.
-build_row_heart :: proc(row: ^ui.Box, song: Catalog_Song, is_current: bool) {
+// Filled in the accent for a favourite, an empty outline for any other, on song lists and albums. A YouTube
+// song Apple has takes the heart of Apple's song. One Apple lacks shows YouTube's mark, dim while it is checked.
+build_row_heart :: proc(row: ^ui.Box, chosen: Catalog_Song, is_current: bool) {
+	song, state := find_match(chosen)
+
+	if state != .Found {
+		color := colors.youtube if state == .Missing else colors.faint
+		// The same padding as the heart's button, so the lengths after it line up.
+		icon_box("", YOUTUBE_SYMBOL, 13, color, {padding = {4, 4, 4, 4}})
+		return
+	}
+
 	persistent_id := app.now_playing.song.persistent_id if is_current else ""
 	is_on := is_favourite(song, persistent_id)
 

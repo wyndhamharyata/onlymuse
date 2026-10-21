@@ -189,14 +189,18 @@ build_search_page :: proc(term: string) {
 			return
 		}
 
+		width := page.size.x - page.style.padding.x - page.style.padding.z
+
+		// YouTube may have what Apple lacks.
 		if len(data.songs) + len(data.cards) + len(data.similar) == 0 {
 			note(fmt.tprintf("Apple Music has nothing for \"%s\".", term))
+			build_youtube_search_results(term, nil, width)
 			return
 		}
 
 		build_search_top(data)
+		build_youtube_search_results(term, data.songs, width)
 
-		width := page.size.x - page.style.padding.x - page.style.padding.z
 		if width > 0 {
 			build_card_row("albums", "Albums", data.cards, fit_tile_size(width, ARTIST_ALBUM_POINTS, CARD_GAP_POINTS))
 			build_card_row("artists", "Artists", data.similar, fit_tile_size(width, SIMILAR_ARTIST_POINTS, CARD_GAP_POINTS), true)
@@ -227,7 +231,7 @@ build_search_top :: proc(data: ^Page_Data) {
 
 			for song, index in songs {
 				subtitle := fmt.tprintf("%s · %s", song.artist_name, song.album_name)
-				if build_song_row(fmt.tprintf("%d %s", index, song.id), song, subtitle, is_playing && current.id == song.id) do play_songs(songs, index)
+				if build_song_row(fmt.tprintf("%d %s", index, song.id), song, subtitle, is_playing && is_same_queue_song(current, song)) do play_songs(songs, index)
 			}
 		}
 	}

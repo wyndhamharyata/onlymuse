@@ -138,7 +138,7 @@ build_song_grid :: proc(songs: []Catalog_Song, dates: []string, playing: []Catal
 				for index := column; index < len(songs); index += column_count {
 					song := songs[index]
 					date := to_date_text(dates[index]) if has_dates && index < len(dates) else ""
-					if build_song_row(fmt.tprintf("%d %s", index, song.id), song, song.album_name, is_playing && current.id == song.id, date) do play_songs(playing, index)
+					if build_song_row(fmt.tprintf("%d %s", index, song.id), song, song.album_name, is_playing && is_same_queue_song(current, song), date) do play_songs(playing, index)
 				}
 			}
 		}

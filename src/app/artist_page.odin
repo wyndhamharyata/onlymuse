@@ -73,12 +73,21 @@ build_artist_page :: proc(page_id: string, name: string) {
 		}
 
 		width := page.size.x - page.style.padding.x - page.style.padding.z
-		build_artist_header(data, width)
+		channel := watch_youtube_artist(data.title)
+		detail := data.detail
+		if channel.detail != "" do detail = fmt.tprintf("%s · %s on YouTube", data.detail, channel.detail) if data.detail != "" else fmt.tprintf("%s on YouTube", channel.detail)
+
+		build_artist_header(data, detail, width)
 		build_artist_middle(data)
 
 		if width > 0 {
 			build_card_row("library", "In Your Library", data.library_cards, fit_tile_size(width, ARTIST_ALBUM_POINTS, CARD_GAP_POINTS))
 			build_card_row("albums", "Albums", data.cards, fit_tile_size(width, ARTIST_ALBUM_POINTS, CARD_GAP_POINTS))
+
+			for shelf, index in channel.shelves {
+				if is_youtube_only_shelf(shelf) do build_shelf(fmt.tprintf("youtube %d", index), shelf, width, ARTIST_ALBUM_POINTS)
+			}
+
 			build_recent_songs_shelf(artist_id, data.title)
 			build_card_row("similar", "Similar Artists", data.similar, fit_tile_size(width, SIMILAR_ARTIST_POINTS, CARD_GAP_POINTS), true)
 		}
@@ -153,8 +162,14 @@ read_artist :: proc(data: ^Page_Data, body: string, library_albums: apple.Watche
 	}
 }
 
+// The channel's videos, live performances and playlists. Its albums, singles and similar artists are Apple's already.
 @(private = "file")
-build_artist_header :: proc(data: ^Page_Data, width: f32) {
+is_youtube_only_shelf :: proc(shelf: apple.Shelf) -> bool {
+	return shelf.is_wide || (len(shelf.cards) > 0 && strings.has_prefix(shelf.cards[0].id, "VL"))
+}
+
+@(private = "file")
+build_artist_header :: proc(data: ^Page_Data, detail: string, width: f32) {
 	fallback := to_color_from_hex(fmt.tprintf("#%s", data.artwork.bg_color)) if len(data.artwork.bg_color) == 6 else colors.card
 	header := ui.box("header", {width = ui.fill(), height = ui.points(ARTIST_HEADER_POINTS)})
 
@@ -188,7 +203,7 @@ build_artist_header :: proc(data: ^Page_Data, width: f32) {
 
 			if ui.scope(name) {
 				ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.text, font_size = 40, font_weight = .Bold, flags = {.Truncate_Text}}, data.title)
-				text_box(data.detail, to_color(0xcfcfd4ff), 14)
+				text_box(detail, to_color(0xcfcfd4ff), 14)
 			}
 
 			if action_button("Play", "play.fill", true) do play_songs(data.songs, 0)

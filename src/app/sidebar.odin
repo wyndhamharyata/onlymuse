@@ -1,6 +1,7 @@
 package app
 
 import "om:ui"
+import "om:youtube"
 
 Sidebar_Item :: struct {
 	kind:   Page_Kind,
@@ -9,6 +10,15 @@ Sidebar_Item :: struct {
 }
 
 apple_music_items := []Sidebar_Item{{.Home, "Home", "house"}, {.New, "New", "square.grid.2x2"}}
+
+youtube_items := []struct {
+	page:   Page,
+	symbol: string,
+} {
+	{{kind = .YouTube_Mixes, title = "Mixes"}, "dot.radiowaves.left.and.right"},
+	{{kind = .YouTube_Playlist, id = youtube.LIKED_ID, title = "Liked Music"}, "hand.thumbsup"},
+	{{kind = .Bring_Over, title = "Bring Over"}, "square.and.arrow.down"},
+}
 
 library_items := []Sidebar_Item {
 	{.Favourite_Songs, "Favourite Songs", "star"},
@@ -40,6 +50,9 @@ build_sidebar :: proc() {
 		if ui.scope(list) {
 			build_group_title("Apple Music")
 			for item in apple_music_items do build_sidebar_item(item.label, item.symbol, app.accent, {kind = item.kind})
+
+			build_group_title("YouTube Music")
+			for item in youtube_items do build_sidebar_item(item.page.title, item.symbol, colors.youtube, item.page)
 
 			build_group_title("Library")
 			for item in library_items do build_sidebar_item(item.label, item.symbol, app.accent, {kind = item.kind})

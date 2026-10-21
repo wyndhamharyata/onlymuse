@@ -18,7 +18,8 @@ how to try each part of the app, and lists the development settings.
   text with CoreText. `src/ui` lays out a tree of boxes rebuilt every frame.
 - `helper/` holds the Swift helper, built with SwiftPM for macOS 26 and later, with no packages. It
   controls Music.app through `NSAppleScript`, sends Music.app's `playerInfo` posts, reads the system
-  accent colour and reads the tokens from a hidden music.apple.com page. WebKit keeps the
+  accent colour and reads the tokens from a hidden music.apple.com page. A second hidden page, on
+  music.youtube.com, plays YouTube songs and gives its sign-in cookie. WebKit keeps the
   sign-in in its own storage, so onlymuse stores no token itself.
 - The app starts the helper and speaks JSON lines with it over its stdin and stdout.
   `src/helper/helper.odin` names every message.
@@ -32,6 +33,7 @@ src/
   app/              The window: sidebar, pages, side panel, player bar, the queue and the palette.
                     main.odin opens the window and builds each frame. pages.odin picks the page.
   apple/            The one package that calls amp-api.music.apple.com, with its cache.
+  youtube/          The one package that calls music.youtube.com. Its answers go through apple's cache.
   helper/           The helper process and its messages. The one package that talks to Music.app.
   lyrics/           Lyrics from Apple, read from TTML, with romaji and translations.
   library/          The library, read from Apple's saved answers.
@@ -66,6 +68,8 @@ experiments/        The scripts behind NOTES.md. am.sh asks Apple's API with the
 | Queue | The songs onlymuse plays next, in order. Up Next shows it. |
 | Helper | The Swift process in `helper/`. |
 | Developer token | The web player's token for Apple's API. It expires about every two months. |
+| YouTube song | A song from YouTube Music, with the ID `yt:` and its video ID in place of a catalog ID. |
+| Match | The Apple Music song a YouTube song is. A YouTube song plays from Apple whenever it has a match. |
 | User token | The token of the signed-in account, sent as `media-user-token`. |
 
 ## Function verbs
@@ -260,6 +264,8 @@ and table values line up in columns, as `odinfmt` lines them.
   process by a test that takes the screen, and a test must never take it.
 - The helper reads `GPUIX_BACKGROUND=1` to leave Music.app as it is when the app quits. The name is
   older than the Odin app. Changing it means changing the helper and the app together.
+- With `GPUIX_BACKGROUND=1` the helper's YouTube page also plays muted, and never pauses Music.app. A
+  test of YouTube playback then makes no sound and leaves the person's music alone.
 
 ## Where the four projects disagreed
 

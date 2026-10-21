@@ -1,5 +1,6 @@
 package apple
 
+import "core:mem"
 import "core:strings"
 import "core:sync"
 import "core:thread"
@@ -37,12 +38,36 @@ cache: struct {
 	is_started: bool,
 }
 
+// Another package that answers the paths starting with its prefix, such as src/youtube. It blocks, and its body uses allocator.
+Source :: proc(path: string, allocator: mem.Allocator) -> Answer
+
+@(private)
+sources: map[string]Source
+
+// Called once at start, before any watch.
+add_source :: proc(prefix: string, source: Source) {
+	sources[prefix] = source
+}
+
+@(private)
+send_to_source :: proc(path: string, allocator := context.allocator) -> Answer {
+	for prefix, source in sources do if strings.has_prefix(path, prefix) do return source(path, allocator)
+
+	return send_request(path, .Get, allocator)
+}
+
 // How long an answer counts as fresh. The first rule whose text the path holds applies.
 @(private)
 fresh_rules := [?]struct {
 	part:     string,
 	duration: time.Duration,
 } {
+	// YouTube's home, mixes and library, and then the rest of YouTube.
+	{`"FEmusic_home"`, 10 * time.Minute},
+	{`"FEmusic_liked`, 0},
+	{`"VLLM"`, 0},
+	{"youtube/next?", 10 * time.Minute},
+	{"youtube/", 24 * time.Hour},
 	{"/v1/me/storefront", 30 * 24 * time.Hour},
 	{"lyrics", 30 * 24 * time.Hour},
 	{"/v1/me/recommendations", 10 * time.Minute},
@@ -107,7 +132,7 @@ check :: proc(task: thread.Task) {
 	path := entry.path
 	defer free_all(context.temp_allocator)
 
-	answer := send_request(path, .Get)
+	answer := send_to_source(path)
 	if answer.status == 200 do store.save_answer(path, answer.body)
 
 	sync.guard(&cache.mutex)

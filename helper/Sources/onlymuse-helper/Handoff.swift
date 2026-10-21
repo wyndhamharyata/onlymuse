@@ -11,19 +11,31 @@ final class Handoff {
   private let endToleranceSeconds = 3.0
 
   private let music: MusicApp
+  private let youTube: YouTube
   private var afterID: String?
+  private var next: SongMatch?
   private var nextID: String?
   private var expectedEnd: Date?
   private var timer: Timer?
 
-  init(music: MusicApp) {
+  init(music: MusicApp, youTube: YouTube) {
     self.music = music
+    self.youTube = youTube
   }
 
   // The song to play after afterID ends. nil clears the handoff. Answers with the next song's persistent ID.
   func set(afterID: String?, next: SongMatch?) -> String? {
     self.afterID = afterID
-    nextID = afterID == nil || !music.isRunning ? nil : next.flatMap { music.findSong($0) }
+    self.next = next
+
+    if afterID == nil || !music.isRunning {
+      nextID = nil
+    } else if let videoID = next?.youTubeVideoID {
+      nextID = YouTube.idPrefix + videoID
+    } else {
+      nextID = next.flatMap { music.findSong($0) }
+    }
+
     arm()
 
     return nextID
@@ -74,11 +86,20 @@ final class Handoff {
   private func fire() {
     guard let nextID else { return }
 
+    let nextSong = next
+
     timer?.invalidate()
     timer = nil
     afterID = nil
+    next = nil
     self.nextID = nil
     expectedEnd = nil
+
+    if let nextSong, let videoID = nextSong.youTubeVideoID {
+      _ = youTube.play(nextSong, videoID: videoID)
+      return
+    }
+
     music.play(persistentID: nextID)
   }
 }

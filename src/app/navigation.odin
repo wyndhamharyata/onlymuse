@@ -22,6 +22,11 @@ Page_Kind :: enum {
 	Search,
 	// The song playing, whichever it is.
 	Now_Playing,
+	// A YouTube Music album, playlist or mix. id is YouTube's browse ID or playlist ID.
+	YouTube_Playlist,
+	YouTube_Mixes,
+	// A YouTube playlist to bring over to Apple Music, or the list of them when id is empty.
+	Bring_Over,
 }
 
 Page :: struct {
@@ -127,6 +132,9 @@ page_ids := [Page_Kind]string {
 	.Artist_Recent_Songs = "artistRecentSongs",
 	.Search              = "search",
 	.Now_Playing         = "nowPlaying",
+	.YouTube_Playlist    = "youtubePlaylist",
+	.YouTube_Mixes       = "youtubeMixes",
+	.Bring_Over          = "bringOver",
 }
 
 @(private = "file")
@@ -134,7 +142,7 @@ to_saved_page :: proc(page: Page) -> Saved_Page {
 	saved := Saved_Page{id = page_ids[page.kind]}
 
 	#partial switch page.kind {
-	case .Playlist:
+	case .Playlist, .YouTube_Playlist, .Bring_Over:
 		saved.playlist = {page.id, page.title}
 	case .Catalog_Playlist:
 		saved.playlist_id = page.id
@@ -157,7 +165,7 @@ to_page :: proc(saved: Saved_Page) -> (Page, bool) {
 
 		page := Page{kind = kind}
 		#partial switch kind {
-		case .Playlist:
+		case .Playlist, .YouTube_Playlist, .Bring_Over:
 			page.id = saved.playlist.id
 			page.title = saved.playlist.name
 		case .Catalog_Playlist:

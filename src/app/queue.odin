@@ -9,6 +9,7 @@ import "om:apple"
 import "om:helper"
 import "om:platform"
 import "om:store"
+import "om:youtube"
 
 // The play queue. Music.app keeps no queue of its own after a song
 // started by AppleScript, so the app plays each next song itself, and the helper hands off at each end.
@@ -125,7 +126,7 @@ set_queue :: proc() {
 }
 
 to_song_match :: proc(song: Catalog_Song) -> helper.Song_Match {
-	return {song.name, song.artist_name, song.album_name, song.duration_seconds}
+	return {song.name, song.artist_name, song.album_name, song.duration_seconds, youtube.to_video_id(song.id)}
 }
 
 // Repeat all goes from the last song back to the first. -1 when the queue is over.
@@ -143,7 +144,7 @@ sync_handoff :: proc() {
 	after := queue.playing_persistent_id
 	repeat_index := queue.index if queue.repeat == "one" else find_next_index()
 	next_index := repeat_index if after != "" else -1
-	next_id := queue.songs[next_index].id if next_index >= 0 else ""
+	next_id := to_playable(queue.songs[next_index]).id if next_index >= 0 else ""
 	key := fmt.aprintf("%s|%d|%s", after, next_index, next_id)
 
 	if key == queue_state.handoff_key {
@@ -156,16 +157,21 @@ sync_handoff :: proc() {
 	queue_state.has_handoff = false
 
 	match: Maybe(helper.Song_Match)
-	if next_index >= 0 do match = to_song_match(queue.songs[next_index])
+	if next_index >= 0 {
+		queue.songs[next_index] = to_playable(queue.songs[next_index])
+		match = to_song_match(queue.songs[next_index])
+	}
 
 	request_id := helper.request_set_next(after if next_index >= 0 else "", match)
 	queue_state.requests[request_id] = {kind = .Set_Next, handoff_key = key, index = next_index, after = strings.clone(after)}
 }
 
+// A YouTube song whose Apple song is known plays from Apple Music, and takes its place in the queue.
 @(private = "file")
 play_at :: proc(index: int) {
 	queue_state.play_count += 1
 	queue_state.is_polling = false
+	queue.songs[index] = to_playable(queue.songs[index])
 	queue.index = index
 	queue.is_adding = false
 	queue.playing_persistent_id = ""
@@ -243,7 +249,7 @@ start_adding :: proc(catalog_id: string, play_count: int) {
 		defer free(job)
 		defer free_all(context.temp_allocator)
 
-		status := apple.post(fmt.tprintf("/v1/me/library?ids[songs]=%s", job.catalog_id))
+		status := apple.post(fmt.tprintf("/v1/me/library?ids[songs]=%s", job.catalog_id)).status
 		if status != 202 && status != 200 do fmt.eprintfln("queue: Apple answered %d to adding a song", status)
 
 		sync.guard(&queue_state.add_mutex)
@@ -319,8 +325,16 @@ clone_songs :: proc(songs: []Catalog_Song) -> []Catalog_Song {
 	return cloned
 }
 
+// Each YouTube song in the list is checked against Apple's catalog now, so it plays from Apple when its turn comes.
+@(private = "file")
+start_matches :: proc(songs: []Catalog_Song) {
+	for song in songs do if youtube.is_song_id(song.id) do find_match(song)
+}
+
 play_songs :: proc(songs: []Catalog_Song, index: int) {
 	if len(songs) == 0 do return
+
+	start_matches(songs)
 
 	if !queue.is_shuffled {
 		replace_songs(clone_songs(songs), clone_songs(songs))
@@ -334,6 +348,8 @@ play_songs :: proc(songs: []Catalog_Song, index: int) {
 
 shuffle_songs :: proc(songs: []Catalog_Song) {
 	if len(songs) == 0 do return
+
+	start_matches(songs)
 
 	replace_songs(to_shuffled(songs), clone_songs(songs))
 	queue.is_shuffled = true
@@ -587,6 +603,6 @@ resume_last_song :: proc() {
 
 	queue_state.play_count += 1
 	is_queue_song := resume.song.persistent_id == queue.playing_persistent_id
-	request_id := helper.request_play({resume.song.name, resume.song.artist, resume.song.album, resume.song.duration_seconds})
+	request_id := helper.request_play({resume.song.name, resume.song.artist, resume.song.album, resume.song.duration_seconds, youtube.to_video_id(resume.song.persistent_id)})
 	queue_state.requests[request_id] = {kind = .Resume, play_count = queue_state.play_count, after = "queue" if is_queue_song else ""}
 }

@@ -21,7 +21,7 @@ to_color_from_hex :: proc(hex: string) -> [4]f32 {
 
 // The colours of the design's mock. The window blurs what is behind it and tints it at 85%.
 colors := struct {
-	window, sidebar, player, panel, ink, line, card, hover, selected, field, text, dim, faint, track: [4]f32,
+	window, sidebar, player, panel, ink, line, card, hover, selected, field, text, dim, faint, track, youtube: [4]f32,
 } {
 	window   = to_color(0x1b1b1ed9),
 	sidebar  = to_color(0xffffff08),
@@ -38,6 +38,8 @@ colors := struct {
 	dim      = to_color(0xacacb4ff),
 	faint    = to_color(0x8a8a93ff),
 	track    = to_color(0x3a3a40ff),
+	// YouTube's red, on whatever plays from YouTube.
+	youtube  = to_color(0xff4e45ff),
 }
 
 DEFAULT_ACCENT :: [4]f32{0x0a / 255.0, 0x84 / 255.0, 1, 1}

@@ -11,14 +11,18 @@ func toAccentMessage() -> [String: Any] {
 
 // The helper is an app with no Dock icon, so AppKit tells it when the accent colour changes.
 let application = NSApplication.shared
-let music = MusicApp()
-let handoff = Handoff(music: music)
 // A window behind the others is a bench or test run, which must leave the music as it is when it ends.
 let pausesWhenAppEnds = ProcessInfo.processInfo.environment["GPUIX_BACKGROUND"] != "1"
+let music = MusicApp()
+let youTube = YouTube(music: music, isQuiet: !pausesWhenAppEnds)
+let handoff = Handoff(music: music, youTube: youTube)
 
 @MainActor
 func pauseWhenAppEnds() {
-  if pausesWhenAppEnds { music.pauseIfRunning() }
+  guard pausesWhenAppEnds else { return }
+
+  music.pauseIfRunning()
+  youTube.stop()
 }
 
 application.setActivationPolicy(.accessory)
@@ -26,6 +30,13 @@ application.setActivationPolicy(.accessory)
 // The handoff reacts first, so the queue's next song replaces a pick of Music.app's before more of it plays.
 DistributedNotificationCenter.default().addObserver(forName: .init("com.apple.Music.playerInfo"), object: nil, queue: .main) { _ in
   MainActor.assumeIsolated {
+    // Music.app pauses when a YouTube song starts. Only a song it plays again takes the player back.
+    if youTube.isActive {
+      guard music.readPlayback() != nil else { return }
+
+      youTube.stop()
+    }
+
     handoff.onPlayerChange()
     send(music.readNowPlaying())
   }
@@ -50,7 +61,9 @@ for name in workspaceNotifications {
 let volumeCheckSeconds = 2.0
 
 Timer.scheduledTimer(withTimeInterval: volumeCheckSeconds, repeats: true) { _ in
-  MainActor.assumeIsolated { music.sendVolumeWhenChanged() }
+  MainActor.assumeIsolated {
+    if !youTube.isActive { music.sendVolumeWhenChanged() }
+  }
 }
 
 // Music.app posts no position as a song plays, so the helper sends it, and the app's clock follows a seek made in Music.app.
@@ -58,7 +71,7 @@ let positionCheckSeconds = 2.0
 
 Timer.scheduledTimer(withTimeInterval: positionCheckSeconds, repeats: true) { _ in
   MainActor.assumeIsolated {
-    if let position = music.readPosition() { send(position) }
+    if !youTube.isActive, let position = music.readPosition() { send(position) }
   }
 }
 
@@ -70,11 +83,21 @@ startReadingCommands(onCommand: { command in
   // The app reloaded its code and keeps this helper, so it asks for what the helper sent at start.
   case "sendState":
     send(toAccentMessage())
-    send(music.readNowPlaying())
+    youTube.isActive ? youTube.sendState() : send(music.readNowPlaying())
+    youTube.sendCookie()
   case "signIn": webPlayer.signIn()
+  case "youtubeSignIn": youTube.signIn()
   case "playSong":
     guard let requestId = command.requestId, let song = command.song else { return }
-    let persistentID: Any = music.playSong(song) ?? NSNull()
+    var persistentID: Any = NSNull()
+
+    if let videoID = song.youTubeVideoID {
+      persistentID = youTube.play(song, videoID: videoID)
+    } else {
+      youTube.stop()
+      persistentID = music.playSong(song) ?? NSNull()
+    }
+
     send(["type": "playSongResult", "requestId": requestId, "persistentID": persistentID])
   case "trackInfo":
     guard let persistentID = command.persistentID else { return }
@@ -88,12 +111,18 @@ startReadingCommands(onCommand: { command in
     if let changedID { send(music.readTrackInfo(persistentID: changedID)) }
   case "setNext":
     guard let requestId = command.requestId else { return }
-    let persistentID: Any = handoff.set(afterID: command.afterPersistentID, next: command.song) ?? NSNull()
+    // After a YouTube song, the app starts the next song itself once the page says the song ended.
+    let isAfterYouTube = command.afterPersistentID?.hasPrefix(YouTube.idPrefix) ?? false
+    let persistentID: Any = handoff.set(afterID: isAfterYouTube ? nil : command.afterPersistentID, next: command.song) ?? NSNull()
     send(["type": "setNextResult", "requestId": requestId, "persistentID": persistentID])
-  default:
+  case "playPause", "seek", "setVolume":
+    guard !youTube.isActive else { return youTube.apply(command) }
+
     music.apply(command)
     // A seek moves the end, and Music.app posts nothing for it.
     if command.type == "seek" { handoff.arm() }
+  default:
+    music.apply(command)
   }
 }, onAppGone: { pauseWhenAppEnds() })
 
@@ -115,5 +144,6 @@ for signalNumber in [SIGINT, SIGTERM, SIGHUP] {
 
 send(toAccentMessage())
 send(music.readNowPlaying())
+youTube.sendCookie()
 webPlayer.refreshTokens()
 application.run()

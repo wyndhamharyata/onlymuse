@@ -54,16 +54,16 @@ has_tokens :: proc() -> bool {
 fetch :: proc(path: string, allocator := context.allocator) -> Answer {
 	if saved, ok := store.find_answer(path, allocator); ok do return {200, saved.body}
 
-	answer := send_request(path, .Get, allocator)
+	answer := send_to_source(path, allocator)
 	if answer.status == 200 do store.save_answer(path, answer.body)
 
 	return answer
 }
 
 // Such as /v1/me/library?ids[songs]=1440857781, which puts a song in the library. Apple answers 202.
-// A JSON body goes with a playlist's new songs. Blocks, so it runs on a worker.
-post :: proc(path: string, body := "") -> int {
-	return send_request(path, .Post, context.temp_allocator, body).status
+// A JSON body goes with a playlist's new songs. Blocks, so it runs on a worker. The answer's body uses the temp allocator.
+post :: proc(path: string, body := "") -> Answer {
+	return send_request(path, .Post, context.temp_allocator, body)
 }
 
 // The language of the answers. The saved path leaves it out, as every answer is in it.

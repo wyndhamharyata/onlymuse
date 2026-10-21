@@ -54,5 +54,11 @@ build_page :: proc(page: Page) {
 		build_search_page(page.id)
 	case .Now_Playing:
 		build_now_playing_page()
+	case .YouTube_Playlist:
+		build_youtube_playlist_page(page)
+	case .YouTube_Mixes:
+		build_youtube_mixes_page()
+	case .Bring_Over:
+		build_bring_over_page(page)
 	}
 }

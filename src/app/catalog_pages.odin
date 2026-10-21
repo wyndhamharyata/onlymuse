@@ -8,6 +8,9 @@ import "om:ui"
 
 SHELF_TILE_POINTS :: 150
 FIRST_SHELF_TILE_POINTS :: 210
+// A video's tile, in 16:9.
+WIDE_TILE_POINTS :: 240
+YOUTUBE_SYMBOL :: "play.rectangle.fill"
 CARD_GAP_POINTS :: 14
 // Cards built past each edge of a shelf, so a fast scroll finds them ready.
 EXTRA_CARD_COUNT :: 2
@@ -38,12 +41,17 @@ note :: proc(text: string) {
 	ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.dim, flags = {.Wrap_Text}}, text)
 }
 
+// Home holds YouTube Music's shelves too, between Apple's.
 build_shelves_page :: proc(title, path: string, is_new: bool) {
 	watched := apple.watch(path)
-	data, is_stale := find_page_data(path, watched.version, watched.phase)
+	youtube_version := 0
+	if !is_new do _, youtube_version = merge_youtube_shelves(nil, context.temp_allocator)
+	data, is_stale := find_page_data(path, watched.version * 1000 + youtube_version, watched.phase)
 
 	if is_stale && watched.phase == .Ready {
-		data.shelves = apple.to_new_shelves(watched.body, page_allocator(data)) if is_new else apple.to_home_shelves(watched.body, page_allocator(data))
+		allocator := page_allocator(data)
+		data.shelves = apple.to_new_shelves(watched.body, allocator) if is_new else apple.to_home_shelves(watched.body, allocator)
+		if !is_new do data.shelves, _ = merge_youtube_shelves(data.shelves, allocator)
 	}
 
 	page := page_scroll("shelves")
@@ -62,19 +70,25 @@ build_shelves_page :: proc(title, path: string, is_new: bool) {
 
 		for shelf, index in data.shelves {
 			target: f32 = FIRST_SHELF_TILE_POINTS if index == 0 else SHELF_TILE_POINTS
-			build_card_row(fmt.tprintf("shelf %d", index), shelf.title, shelf.cards, fit_tile_size(width, target, CARD_GAP_POINTS))
+			build_shelf(fmt.tprintf("shelf %d", index), shelf, width, target)
 		}
 	}
 }
 
+// A shelf of Apple's or YouTube's, its videos in wide tiles. width is the page's.
+build_shelf :: proc(id: string, shelf: apple.Shelf, width, target_points: f32) {
+	target := WIDE_TILE_POINTS if shelf.is_wide else target_points
+	build_card_row(id, shelf.title, shelf.cards, fit_tile_size(width, target, CARD_GAP_POINTS), is_wide = shelf.is_wide, is_youtube = shelf.is_youtube)
+}
+
 // A shelf of whole tiles, building only those in view. Empty boxes keep the width of the rest.
-build_card_row :: proc(id, title: string, cards: []apple.Card, tile_points: f32, is_round := false) {
+build_card_row :: proc(id, title: string, cards: []apple.Card, tile_points: f32, is_round := false, is_wide := false, is_youtube := false) {
 	if len(cards) == 0 do return
 
 	shelf := ui.box(id, {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 10})
 
 	if ui.scope(shelf) {
-		if title != "" do ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.text, font_size = 17, font_weight = .Bold}, title)
+		if title != "" do build_shelf_title(title, is_youtube)
 
 		row := ui.box("row", {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = CARD_GAP_POINTS, flags = {.Scroll, .Clip}})
 		step := tile_points + CARD_GAP_POINTS
@@ -85,7 +99,7 @@ build_card_row :: proc(id, title: string, cards: []apple.Card, tile_points: f32,
 			if first > 0 do ui.box("", {width = ui.points(f32(first) * step - CARD_GAP_POINTS), height = ui.points(1)})
 
 			for index in first ..= last {
-				if build_card_tile(fmt.tprintf("%d %s", index, cards[index].id), cards[index], tile_points, is_round) do open_card(cards, index)
+				if build_card_tile(fmt.tprintf("%d %s", index, cards[index].id), cards[index], tile_points, is_round, is_wide) do open_card(cards, index)
 			}
 
 			if last < len(cards) - 1 do ui.box("", {width = ui.points(f32(len(cards) - 1 - last) * step - CARD_GAP_POINTS), height = ui.points(1)})
@@ -101,19 +115,32 @@ card_symbols := [apple.Card_Kind]string {
 	.Playlist         = "music.note.list",
 	.Library_Playlist = "music.note.list",
 	.Song             = "music.note",
+	.YouTube_Playlist = "music.note.list",
+	.YouTube_Artist   = "music.mic",
 }
 
-// Returns true when clicked.
-build_card_tile :: proc(id: string, card: apple.Card, tile_points: f32, is_round := false) -> bool {
+// A shelf's name. One from YouTube starts with YouTube's mark.
+build_shelf_title :: proc(title: string, is_youtube: bool) {
+	row := ui.box("title", {width = ui.fill(), height = ui.fit_children(), axis = .X, align = .Center, gap = 7})
+
+	if ui.scope(row) {
+		if is_youtube do icon_box("", YOUTUBE_SYMBOL, 15, colors.youtube)
+		ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.text, font_size = 17, font_weight = .Bold, flags = {.Truncate_Text}}, title)
+	}
+}
+
+// Returns true when clicked. A wide tile is a video's, in 16:9.
+build_card_tile :: proc(id: string, card: apple.Card, tile_points: f32, is_round := false, is_wide := false) -> bool {
 	can_open := card.kind != .Other
 	tile := ui.box(id, {width = ui.points(tile_points), height = ui.fit_children(), axis = .Y, gap = 3, align = .Center if is_round else .Start, flags = {.Clickable} if can_open else {}})
 
 	if ui.scope(tile) {
 		radius: f32 = tile_points / 2 if is_round else 8
-		art := artwork_box(apple.to_artwork_url(card.artwork, to_artwork_pixels(tile_points)), tile_points, radius, to_placeholder(card.artwork, card.name, card_symbols[card.kind]))
+		size := [2]f32{tile_points, tile_points * 9 / 16 if is_wide else tile_points}
+		art := artwork_rect_box(apple.to_artwork_url(card.artwork, to_artwork_pixels(tile_points)), size, radius, to_placeholder(card.artwork, card.name, card_symbols[card.kind]))
 
 		if ui.scope(art) {
-			ui.box("", {width = ui.points(tile_points), height = ui.points(tile_points), corner_radius = radius, background = {1, 1, 1, 0.08 * tile.hot_t}, flags = {.Floating}})
+			ui.box("", {width = ui.points(size.x), height = ui.points(size.y), corner_radius = radius, background = {1, 1, 1, 0.08 * tile.hot_t}, flags = {.Floating}})
 		}
 
 		ui.box("", {width = ui.points(1), height = ui.points(4)})
@@ -138,6 +165,12 @@ open_card :: proc(cards: []apple.Card, index: int) {
 		navigate({kind = .Catalog_Playlist, id = card.id, title = card.name})
 	case .Library_Playlist:
 		navigate({kind = .Playlist, id = card.id, title = card.name})
+	case .YouTube_Playlist:
+		kind := Page_Kind.Bring_Over if current_page().kind == .Bring_Over else .YouTube_Playlist
+		navigate({kind = kind, id = card.id, title = card.name})
+	case .YouTube_Artist:
+		// The Apple Music artist of that name, which the artist page then fills in from YouTube.
+		navigate({kind = .Artist, title = card.name})
 	case .Song:
 		songs := make([dynamic]Catalog_Song, context.temp_allocator)
 		first := 0
@@ -285,7 +318,7 @@ build_numbered_songs :: proc(songs: []Catalog_Song) {
 
 	if ui.scope(list) {
 		for song, index in songs {
-			is_current := is_playing && current.id == song.id
+			is_current := is_playing && is_same_queue_song(current, song)
 			tint := to_accent_tint(app.accent)
 			row := ui.box(fmt.tprintf("%d %s", index, song.id), {width = ui.fill(), height = ui.points(36), axis = .X, align = .Center, gap = 12, padding = {10, 0, 10, 0}, corner_radius = 7, background = tint if is_current else {}, hover_background = tint if is_current else colors.hover, flags = {.Clickable}})
 
@@ -308,10 +341,11 @@ build_playlist_page :: proc(page: Page) {
 	tracks_path := fmt.tprintf("/v1/catalog/%s/playlists/%s/tracks", apple.STOREFRONT, page.id) if is_catalog else fmt.tprintf("/v1/me/library/playlists/%s/tracks", page.id)
 	bodies, signature, phase := watch_all_pages(tracks_path)
 	header := apple.watch(header_path) if is_catalog else {phase = .Ready}
-	data, is_stale := find_page_data(tracks_path, signature * 7 + header.version, phase)
+	data, is_stale := find_page_data(tracks_path, (signature * 7 + header.version) * 1000 + playlist_youtube_version, phase)
 
 	if is_stale && phase == .Ready {
 		read_library_songs(data, bodies)
+		if !is_catalog do data.songs = merge_playlist_youtube_songs(page.id, data.songs, page_allocator(data))
 		resources := apple.to_resources(header.body, page_allocator(data)) if is_catalog && header.phase == .Ready else nil
 		if len(resources) > 0 {
 			data.title = resources[0].attributes.name

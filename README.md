@@ -288,6 +288,27 @@ Rebuild the helper first: `./build.sh helper`.
 - Click "Recent Songs ›" for all of them, with Play and Shuffle, as the other song lists have.
 - In a narrow window the shelf takes one column and leaves out the dates.
 
+### 7. YouTube Music
+
+A song plays from Apple Music whenever Apple has it. YouTube Music adds what Apple lacks.
+
+- Search for a song. Under Apple's songs, From YouTube lists the songs Apple Music does not have, and
+  Videos on YouTube shows YouTube's videos in wide tiles. Click one to play it from YouTube.
+- Open an artist. The header says how many people listen on YouTube. Under Albums come the artist's
+  videos, live performances and playlists from their YouTube channel.
+- Home holds YouTube Music's shelves too, such as Quick picks, between Apple's.
+- In any YouTube list, a red YouTube mark stands where the heart would be for a song Apple does not
+  have. A song Apple has shows Apple's heart and plays from Apple, in lossless where Apple has it.
+- The player shows YOUTUBE in place of LOSSLESS while a song plays from YouTube. Pause, seek and the
+  volume act on YouTube's player, and the queue goes on to the next song, from either service.
+- Mixes, Liked Music and Bring Over, in the sidebar, need a sign-in. Their page offers Sign In to
+  YouTube Music, which opens Google's sign-in in a window of its own.
+- Bring Over lists your YouTube playlists. Open one to see what each song plays from, then click
+  Bring Over. The new Apple Music playlist holds the songs Apple has. The others stay in it, in their
+  places, and play from YouTube.
+- Add to Playlist works for a song only on YouTube too. It stays in the playlist in onlymuse, as
+  Apple's playlists hold Apple songs alone. Its menu offers Remove from Playlist.
+
 ## Development settings
 
 | Variable | Does |
@@ -301,7 +322,7 @@ Rebuild the helper first: `./build.sh helper`.
 | `OM_FAKE_POSITION=<seconds>` | Where the fake helper's song starts. |
 | `OM_FAKE_NAME`, `OM_FAKE_ARTIST`, `OM_FAKE_ALBUM`, `OM_FAKE_DURATION` | The fake helper's song, soldier game by default. |
 | `OM_WINDOW=<width>x<height>` | Opens the window at this size in points. |
-| `OM_FAKE_TOKENS=<folder>` | With `tools/fake-music.py`: sends the web player's tokens from `dev` and `mut` in this folder, so a test reads Apple's catalog. `experiments/am.sh` reads the same files. |
+| `OM_FAKE_TOKENS=<folder>` | With `tools/fake-music.py`: sends the web player's tokens from `dev` and `mut` in this folder, so a test reads Apple's catalog. `experiments/am.sh` reads the same files. A file `yt-cookie` there is sent as the YouTube page's cookie, so a test reads YouTube Music signed in. |
 | `OM_TYPE=<text>` | Types this into the focused field a second after start, through the view's input context, as the keyboard would. |
 | `OM_PALETTE=<term>` | Opens the command palette with this term at start, as a test cannot type into a window behind the others. |
 | `OM_BACKGROUND=1` | For the tests. Opens the window behind the others, never focused and with no Dock icon, so AeroSpace leaves it floating. macOS stops a covered window's display link, so a timer runs its frames, which are captured but not shown. The helper leaves Music.app as it is when the app quits. Captures set it. The bench keeps its window in front, as it measures the screen. |

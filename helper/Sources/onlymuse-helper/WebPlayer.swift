@@ -5,7 +5,7 @@ import WebKit
 @MainActor
 final class WebPlayer: NSObject, WKUIDelegate, NSWindowDelegate {
   private static let url = URL(string: "https://music.apple.com/id/browse")!
-  private static let userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15"
+  static let userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15"
   private static let readTokensScript = """
     (() => {
       const instance = window.MusicKit?.getInstance?.();

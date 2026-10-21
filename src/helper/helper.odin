@@ -33,6 +33,8 @@ Message :: struct {
 	developer_token:     string `json:"developerToken"`,
 	user_token:          string `json:"userToken"`,
 	text:                string,
+	// youtubeCookie: the cookie of music.youtube.com, empty when signed out.
+	cookie:              string,
 	request_id:          int `json:"requestId"`,
 	// trackInfo: what Music.app knows of a song. Dates are Unix ms, 0 when it has none.
 	is_in_library:       bool `json:"isInLibrary"`,
@@ -165,6 +167,8 @@ Song_Match :: struct {
 	artist_name:      string `json:"artistName"`,
 	album_name:       string `json:"albumName"`,
 	duration_seconds: f64 `json:"durationSeconds"`,
+	// Set for a song that plays from YouTube, in the helper's YouTube page.
+	youtube_id:       string `json:"youtubeId"`,
 }
 
 @(private)

@@ -8,6 +8,7 @@ import "core:thread"
 import "om:apple"
 import "om:platform"
 import "om:ui"
+import "om:youtube"
 
 SONG_MENU_POINTS :: 220
 PLAYLIST_MENU_POINTS :: 240
@@ -97,7 +98,10 @@ build_song_menu :: proc() {
 	}
 
 	if ui.scope(cover) {
-		song := song_menu.song
+		// A YouTube song Apple has acts as Apple's song.
+		song := to_playable(song_menu.song)
+		is_from_youtube := youtube.is_song_id(song.id)
+		page := current_page()
 		position := song_menu.position
 		main_width: f32 = 0
 
@@ -118,9 +122,15 @@ build_song_menu :: proc() {
 					if item.is_clicked || item.is_hovered do song_menu.is_playlists_open = true
 				}
 
+				if page.kind == .Playlist && is_from_youtube && is_playlist_youtube_song(page.id, song.id) && menu_item("remove from playlist", "Remove from Playlist") {
+					remove_playlist_youtube_song(page.id, song.id)
+					show_toast(fmt.tprintf("Removed %s from %s", song.name, page.title))
+					is_closing = true
+				}
+
 				menu_separator()
 				is_on := is_favourite(song)
-				if menu_item("favourite", "Remove from Favourites" if is_on else "Favourite", "⌘L" if is_playing_song(song) else "") {
+				if !is_from_youtube && menu_item("favourite", "Remove from Favourites" if is_on else "Favourite", "⌘L" if is_playing_song(song) else "") {
 					toggle_favourite(song, app.now_playing.song.persistent_id if is_playing_song(song) else "")
 					is_closing = true
 				}
@@ -131,7 +141,8 @@ build_song_menu :: proc() {
 					is_closing = true
 				}
 				if song.id != "" && menu_item("copy link", "Copy Link") {
-					platform.write_clipboard(fmt.tprintf("https://music.apple.com/%s/song/%s", apple.STOREFRONT, song.id))
+					apple_link := fmt.tprintf("https://music.apple.com/%s/song/%s", apple.STOREFRONT, song.id)
+					platform.write_clipboard(fmt.tprintf("https://music.youtube.com/watch?v=%s", youtube.to_video_id(song.id)) if is_from_youtube else apple_link)
 					show_toast("Copied the link to the song")
 					is_closing = true
 				}
@@ -156,7 +167,7 @@ build_playlist_menu :: proc(song: Catalog_Song, position: [2]f32, window_size: [
 
 			name := strings.trim_space(field_text(&playlist_name_field))
 			if playlist_name_field.is_submitted && name != "" {
-				create_playlist(name, song)
+				create_playlist_with(name, song)
 				is_done = true
 			}
 
@@ -270,10 +281,18 @@ Write_Job :: struct {
 }
 
 @(private = "file")
+Created_Playlist :: struct {
+	id, name, done_text: string,
+	youtube_songs:       []Playlist_YouTube_Song,
+	opens_page:          bool,
+}
+
+@(private = "file")
 write_results: struct {
 	mutex:   sync.Mutex,
 	toasts:  [dynamic]string,
 	refresh: [dynamic]string,
+	created: [dynamic]Created_Playlist,
 }
 
 @(private = "file")
@@ -287,7 +306,7 @@ start_write :: proc(job: Write_Job) {
 @(private = "file")
 run_write :: proc(data: rawptr) {
 	job := cast(^Write_Job)data
-	status := apple.post(job.path, job.body)
+	status := apple.post(job.path, job.body).status
 	is_done := status >= 200 && status < 300
 
 	{
@@ -320,8 +339,15 @@ apply_write_results :: proc() {
 		apple.refresh(path)
 		delete(path)
 	}
+	for created in write_results.created {
+		if len(created.youtube_songs) > 0 do add_playlist_youtube_songs(created.id, created.youtube_songs)
+		show_toast(created.done_text)
+		apple.refresh(PLAYLISTS_PATH)
+		if created.opens_page do navigate({kind = .Playlist, id = created.id, title = created.name})
+	}
 	clear(&write_results.toasts)
 	clear(&write_results.refresh)
+	clear(&write_results.created)
 }
 
 @(private = "file")
@@ -330,7 +356,16 @@ Song_Reference :: struct {
 	type: string,
 }
 
-add_to_playlist :: proc(playlist_id, playlist_name: string, song: Catalog_Song) {
+// A song only on YouTube stays in onlymuse's part of the playlist, as Apple's playlists hold Apple songs alone.
+add_to_playlist :: proc(playlist_id, playlist_name: string, chosen: Catalog_Song) {
+	song := to_playable(chosen)
+
+	if youtube.is_song_id(song.id) {
+		add_playlist_youtube_songs(playlist_id, {{"", song}})
+		show_toast(fmt.tprintf("Added %s to %s. It plays from YouTube.", song.name, playlist_name))
+		return
+	}
+
 	Body :: struct {
 		data: []Song_Reference,
 	}
@@ -346,7 +381,29 @@ add_to_playlist :: proc(playlist_id, playlist_name: string, song: Catalog_Song) 
 }
 
 @(private = "file")
-create_playlist :: proc(name: string, song: Catalog_Song) {
+create_playlist_with :: proc(name: string, chosen: Catalog_Song) {
+	song := to_playable(chosen)
+	done_text := fmt.tprintf("Made %s with %s", name, song.name)
+
+	if youtube.is_song_id(song.id) {
+		create_playlist(name, nil, {{"", song}}, done_text)
+		return
+	}
+
+	create_playlist(name, {song}, nil, done_text)
+}
+
+PLAYLISTS_PATH :: "/v1/me/library/playlists?limit=100"
+
+@(private = "file")
+Create_Job :: struct {
+	name, body, done_text: string,
+	youtube_songs:         []Playlist_YouTube_Song,
+	opens_page:            bool,
+}
+
+// A new library playlist of Apple songs, with songs only on YouTube kept beside it once Apple gives its ID.
+create_playlist :: proc(name: string, songs: []Catalog_Song, youtube_songs: []Playlist_YouTube_Song, done_text: string, opens_page := false) {
 	Body :: struct {
 		attributes:    struct {
 			name: string,
@@ -359,16 +416,41 @@ create_playlist :: proc(name: string, song: Catalog_Song) {
 	}
 	value: Body
 	value.attributes.name = name
-	value.relationships.tracks.data = {{song.id, "songs"}}
+	references := make([]Song_Reference, len(songs), context.temp_allocator)
+	for song, index in songs do references[index] = {song.id, "songs"}
+	value.relationships.tracks.data = references
 	body, _ := json.marshal(value, allocator = context.temp_allocator)
 
-	start_write({
-		path         = "/v1/me/library/playlists",
-		body         = string(body),
-		done_text    = fmt.tprintf("Made %s with %s", name, song.name),
-		failed_text  = fmt.tprintf("Could not make %s", name),
-		refresh_path = "/v1/me/library/playlists?limit=100",
-	})
+	kept := make([]Playlist_YouTube_Song, len(youtube_songs))
+	for song, index in youtube_songs do kept[index] = {strings.clone(song.after), clone_song(song.song)}
+
+	job := new(Create_Job)
+	job^ = {strings.clone(name), strings.clone(string(body)), strings.clone(done_text), kept, opens_page}
+	thread.create_and_start_with_data(job, run_create, self_cleanup = true)
+}
+
+// Runs on a thread of its own. The created playlist reaches the main thread through write_results.
+@(private = "file")
+run_create :: proc(data: rawptr) {
+	job := cast(^Create_Job)data
+	defer free_all(context.temp_allocator)
+	defer free(job)
+	defer delete(job.body)
+
+	answer := apple.post("/v1/me/library/playlists", job.body)
+	resources := apple.to_resources(answer.body, context.temp_allocator) if answer.status >= 200 && answer.status < 300 else nil
+
+	sync.guard(&write_results.mutex)
+	defer platform.wake()
+
+	if len(resources) == 0 {
+		append(&write_results.toasts, fmt.aprintf("Could not make %s: Apple answered %d.", job.name, answer.status))
+		delete(job.name)
+		delete(job.done_text)
+		return
+	}
+
+	append(&write_results.created, Created_Playlist{strings.clone(resources[0].id), job.name, job.done_text, job.youtube_songs, job.opens_page})
 }
 
 // ---- Dragging a song onto a playlist ----

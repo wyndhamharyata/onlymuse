@@ -276,6 +276,13 @@ final class MusicApp {
     return "\"\(escaped)\""
   }
 
+  // nil when Music.app is not running.
+  func readVolumePercent() -> Int? {
+    guard isRunning else { return nil }
+
+    return run(volumeScript).map { Int($0.int32Value) }
+  }
+
   // Music.app posts nothing when its own volume slider moves, so the helper asks every few seconds.
   func sendVolumeWhenChanged() {
     guard isRunning, let volumePercent = run(volumeScript).map({ Int($0.int32Value) }) else { return }

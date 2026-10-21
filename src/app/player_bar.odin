@@ -6,6 +6,7 @@ import "om:helper"
 import "om:apple"
 import "om:platform"
 import "om:ui"
+import "om:youtube"
 
 PLAYER_ARTWORK_POINTS :: 52
 
@@ -89,22 +90,27 @@ build_song_info :: proc() {
 				title := ui.box("title", {width = ui.fill(), height = ui.fit_children(), axis = .X, align = .Center, gap = 7})
 
 				if ui.scope(title) {
-					is_lossless := is_queue_song && queue_song.is_lossless
+					// A song from YouTube says so in place of LOSSLESS. It has no favourite in Music.app.
+					is_from_youtube := is_queue_song && youtube.is_song_id(queue_song.id)
+					badge := "YOUTUBE" if is_from_youtube else "LOSSLESS" if is_queue_song && queue_song.is_lossless else ""
+					badge_color := colors.youtube if is_from_youtube else colors.dim
 					name_width := ui.Size{.Fill, 1}
 
 					// Last frame's width of the row, less the badge and the heart, caps the name.
 					if row_width := title.rect.z - title.rect.x; row_width > 0 {
-						after_width: f32 = 22 + 7
-						if is_lossless do after_width += measure_text("LOSSLESS", 9.5, .Bold) + 8 + 7
+						after_width: f32 = 0 if is_from_youtube else 22 + 7
+						if badge != "" do after_width += measure_text(badge, 9.5, .Bold) + 8 + 7
 						name_width = ui.points(min(measure_text(song.name, 13.5, .Semibold), row_width - after_width))
 					}
 
 					scrolling_text("name", song.name, colors.text, 13.5, .Semibold, width = name_width)
-					if is_lossless do ui.box("", {width = ui.fit_text(), height = ui.fit_text(), padding = {4, 0, 4, 0}, corner_radius = 4, border_width = 1, border_color = colors.faint, text_color = colors.dim, font_size = 9.5, font_weight = .Bold}, "LOSSLESS")
+					if badge != "" do ui.box("", {width = ui.fit_text(), height = ui.fit_text(), padding = {4, 0, 4, 0}, corner_radius = 4, border_width = 1, border_color = badge_color if is_from_youtube else colors.faint, text_color = badge_color, font_size = 9.5, font_weight = .Bold}, badge)
 
-					playing, persistent_id, _ := find_playing_song()
-					find_track_info(persistent_id)
-					if favourite_button("favourite", is_favourite(playing, persistent_id), 13) do toggle_favourite(playing, persistent_id)
+					if !is_from_youtube {
+						playing, persistent_id, _ := find_playing_song()
+						find_track_info(persistent_id)
+						if favourite_button("favourite", is_favourite(playing, persistent_id), 13) do toggle_favourite(playing, persistent_id)
+					}
 				}
 
 				// Go to Artist always opens the Apple Music artist, never the library one.

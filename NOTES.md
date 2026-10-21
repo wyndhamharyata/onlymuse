@@ -87,7 +87,7 @@ Adding to the library does not favourite anything. Checked in Music.app (`favori
 `design/index.html` draws every page with real data, and its tech plan. `CLAUDE.md` holds the stack,
 the layout and the rules.
 
-- The app is a Bun process that draws with GPUIX. A Swift helper speaks JSON lines with it.
+- The app is an Odin program that draws with Metal. A Swift helper speaks JSON lines with it.
 - **The app owns the queue.** Music.app plays one song at a time. On `Stopped` near the end of a
   song, the app plays the next one. A stop far from the end is the user, so the queue waits.
   With Autoplay on in Music.app, it goes on to a song of its own at the end, with no `Stopped`.
@@ -106,9 +106,6 @@ the layout and the rules.
   only when it runs. Ctrl-C and a closed terminal signal both processes, so the helper pauses on
   SIGINT, SIGTERM and SIGHUP too. A run with `GPUIX_BACKGROUND=1`, a bench or a test, keeps the
   music playing. `kill -9` on the helper itself is the one case not covered.
-- **One helper across hot reloads.** `bun --hot` runs every module again on each save, which
-  started one more helper per save. The helper process lives on `globalThis`, and a reload only
-  swaps the function that reads its messages, then asks it to send its state again.
 - **The play position** is Music.app's last report, counted on from the moment the helper read it,
   which `positionReadAtMs` carries. The helper reads the artwork after the position, which could
   hold a report back. While a song plays the helper also sends the position every 2 seconds, read
@@ -120,11 +117,6 @@ the layout and the rules.
   within 43 ms. So onlymuse made under 90 ms of the half second the lyrics sounded late. The rest
   lies between Music.app's position and the sound, or in reading a word after it lights.
   `leadingSilence` in the TTML is not the cause: it differs per song, from 0.04 to 0.96 s.
-- **Lyrics move smoothly** with gpuix's `motion.div`, which animates opacity and position but not
-  colour or font size. Each word has a lit copy over it that fades in over 0.15 s as it is sung.
-  Every line has one size, and the current line shows by brightness, fading over 0.3 s. When the
-  line changes, the rows slide up by the measured height of the top line, which fades out as it
-  goes. The rows mount again on that change, starting from what the last render showed.
 - **Lyrics come from `syllable-lyrics`** with `l[script]=en-Latn&extend=ttmlLocalizations`. About
   half the songs are timed by word there, so the words light up as they are sung. The rest are timed
   by line. The same answer carries a pronunciation in Latin letters for songs in other scripts,
@@ -175,15 +167,13 @@ the layout and the rules.
   18 Oct 2026 the library held 850 downloads, 731 of them lossless.
 - **Artwork.** For a streamed song, AppleScript answers the four bytes `msng`, its missing value,
   instead of an image. The helper keeps only data that starts like a PNG or a JPEG.
-- **Images in GPUIX** need a definite width and height. A width of 100% draws the image at its own
-  size.
 - **Signing.** The helper is signed with the self-signed certificate "onlymuse local", from
   `scripts/make-signing-certificate.sh`. Every build then keeps its Automation permission.
 
 ### Persistence
 
-- `~/Library/Application Support/onlymuse/onlymuse.sqlite`, in WAL mode, holds two tables.
-  `responses` keeps Apple's answers with their ETags. `state` keeps the page and its history, the
+- `~/Library/Application Support/onlymuse-native/onlymuse.sqlite`, in WAL mode, holds three
+  tables. `responses` keeps Apple's answers with their ETags. `plays` logs each play and skip. `state` keeps the page and its history, the
   queue, the resume point, the open panel, the search term and the accent, as JSON per key.
 - A stored answer shows at once, without waiting for the tokens. A stale one is checked with
   `If-None-Match`. Apple answers 304 for an unchanged library or catalog answer. Home changes on
@@ -191,74 +181,9 @@ the layout and the rules.
 - A newer answer never shows during a scroll. On Home and New it shows only if the page has not
   been scrolled yet, and otherwise on the next visit. Elsewhere it waits until the page has rested
   for 1 second. A newer Home arriving mid-scroll redrew every shelf at once.
-- State is saved 300 ms after each change, and the play position every 5 seconds. A force quit
-  loses at most that much.
-- Song lists, grids, Home, New and the album page save the key of their top row, never a pixel
-  offset. A list row can scroll sideways in GPUIX 0.10, so each shelf of Home and New is a list row.
-  A shelf draws only the cards in view, between two empty boxes as wide as the cards it skips.
-- Artwork is saved in `~/Library/Caches/onlymuse/images`, named by a hash of its URL. A file unused
-  for 60 days is removed.
-
-## Frame times (18 Oct 2026)
-
-`bun run bench` measures each build behind the other windows. Findings from the profile of a scroll:
-
-- React does almost no work during a scroll. GPUI's frame is the cost: gpuix builds the element tree
-  from its retained tree (about half), taffy lays it out (about a third), then prepaint and paint.
-  A frame costs in proportion to the elements laid out, about 300 on a list page.
-- A frame takes 5 to 7 ms at p90 against 8.3 ms at 120 Hz. Single frames reach 15 to 30 ms.
-- gpuix 0.10 ships with GPUI's `test-support` on. With it, every update that dirties the window draws
-  a whole frame at once: each wheel event over a list costs about 6.5 ms, a click costs two draws,
-  and each React commit costs a draw too. `vendor/gpuix.patch` limits that draw
-  to test windows and covered windows, so a visible window draws once per display frame. A wheel
-  event then costs 0.5 ms and a commit about 0 ms.
-- The app runs the patched build. `vendor/gpuix-native.darwin-arm64.node` is gpuix 0.10.0 (commit
-  410fb56) built with `vendor/gpuix.patch` and Rust 1.97.1, then given SDK 26.5 with
-  `vtool`. dyld rejects the string table that the SDK 27 linker writes. `bun install` runs
-  `scripts/gpuix-native.ts`, which puts it in place of the published binary. On a gpuix upgrade, the
-  patch must be built again or dropped.
-- The patch also rests hover styles during a scroll, until 150 ms after the last wheel event. The
-  rows under a still pointer change every frame, so the highlight jumped from row to row and could
-  trail the content by a frame. Clicks and the cursor are unchanged.
-- GPUI keeps the layout of a line of text only while some frame draws it. A shelf of Home or New
-  that scrolled out and back had each line laid out again by CoreText, card by card, which showed as
-  a jolt on scrolling back. The patch keeps dropped layouts in a cache of up to 8,192 and takes them
-  from there first. CoreText then
-  shows in 0 to 3 samples of a back-and-forth scroll of New, from 16 to 20.
-- gpuix 0.10 pumps GPUI from an 8 ms JavaScript timer, against a display frame of 8.3 ms, so a
-  frame often waited a tick and a scroll moved every second or third refresh. Upstream commit
-  515df19 wakes JavaScript when the display link asks for a frame, with a 100 ms timer as fallback.
-  It is backported: `vendor/gpuix-native.patch` (gpuix) and the hook in `vendor/gpuix.patch` (GPUI),
-  and `vendor/gpuix-runtime.js`, which `scripts/gpuix-native.ts` installs. A back-and-forth scroll
-  of New then missed 2 to 3 frames in place of 1 to 48, and its longest stall fell from up to 51 ms
-  to 16 ms.
-- **Covers are unloaded once off screen.** GPUI's global image cache kept every image it had
-  drawn for the life of the app, about 1.2 MB a cover: the pixels in memory and a texture on the
-  GPU. After an hour the app held 1.2 GB, macOS moved most of it to swap while the app sat in the
-  background, and the next scroll waited on it: rows stayed blank for 1.6 s. The patched gpuix
-  loads files and URLs through `RecentImageCache`. Past 80 images it unloads those not drawn for
-  1 s, oldest first, on a 1 s timer as well as while drawing, so a window that stops drawing lets
-  them go too. Images in the last frame drawn are never unloaded. A cover shown again is read back
-  from disk. Three passes over Albums held 36 covers and 245 MB, where the stock cache reached 1.6 GB.
-- **Artwork downloads are retried.** Apple's image server resets a connection now and then. A
-  failed download left its tile grey for the rest of the run. A download is now tried up to 4 times
-  over 1.75 s on a reset, 429 or 5xx, and once more 30 s later, when the tile is told to ask again.
-- **No present of an unchanged frame.** After fast input GPUI presented the last frame again on every
-  display frame for 1 second, so the display would not slow down. On the ProMotion screen it slows
-  to 40 Hz anyway once the content stops changing, and each of those presents waited 25 ms for a
-  drawable on the main thread. A scroll begun in that second, as in scrolling back and forth, ran at
-  40 fps and JavaScript barely ran, then all of it caught up at once. The probe of 19 Oct showed it
-  as one second of 25 ms ticks with no frame drawn. The patch drops those presents.
-- **Zoom.** Cmd = and Cmd + zoom in, Cmd - zooms out and Cmd 0 resets, in steps from 67% to
-  200%, saved as `zoom` in the state table. The patched GPUI multiplies the display's scale by the
-  zoom and divides the window size, mouse positions and wheel deltas by it, so layout reflows and
-  text stays sharp. `setContentZoom` on the renderer sets it. The traffic lights stay at their size.
-- With `GPUI_FRAMES_WHEN_COVERED=1` the patched build draws from a 120 Hz thread instead of the
-  display, so a bench run behind other windows draws as a visible window does, screen on or asleep.
-- With the display asleep, `CGGetActiveDisplayList` lists no display and GPUI cannot create its
-  display link. A bench run then measures nothing on screen.
-- Up Next mounts 32 rows through gpuix's `itemCount`, not one per queued song. Opening it stalls for
-  about 40 ms, most of it the two draws of the click and the first draw of the new rows.
+- The play position is saved every 5 seconds. A force quit loses at most that much.
+- Each page in the Back and Forward history saves its scroll in points.
+- Artwork is saved in `~/Library/Caches/onlymuse-native/images`, named by a hash of its URL.
 
 ## Open questions
 

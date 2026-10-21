@@ -1,54 +1,53 @@
 # onlymuse
 
-A Mac app for Apple Music without the iTunes parts. It draws its own window with GPUIX. Apple
-Music's own API gives the pages their data. Music.app plays every song, so playback stays lossless.
+A Mac app for Apple Music without the iTunes parts. It draws its own window with Metal, its own text
+with CoreText and its own UI, in Odin. Apple Music's own API gives the pages their data. Music.app
+plays every song, so playback stays lossless.
 
 For one person only. It borrows the music.apple.com web player's tokens and drives Music.app. Never
 publish it.
 
-`design/index.html` holds the mock the app follows. `NOTES.md` holds what the tests in October 2026
-found about the API and Music.app.
+`design/index.html` holds the mock the app follows. `docs/` holds the plans for the features since.
+`NOTES.md` holds what the tests in October 2026 found about the API and Music.app. `README.md` says
+how to try each part of the app, and lists the development settings.
 
 ## Stack
 
-- Bun runs the app. `bun build --compile` ships it as one binary.
-- React 19 on `@gpuix/react` draws the window with GPUI and Metal. There is no web view. Pin
-  `@gpuix/react` and `@gpuix/native` to the same exact version.
-- TypeScript, `strict`. TypeScript 6 type-checks and parses for the lint. TypeScript 7 has no
-  JavaScript API.
+- Odin 2026-10 or later (`brew install odin`). No packages beyond Odin's own `core` and `vendor`.
+- `src/platform` opens the window with AppKit. `src/render` draws with Metal. `src/font` shapes
+  text with CoreText. `src/ui` lays out a tree of boxes rebuilt every frame.
 - `helper/` holds the Swift helper, built with SwiftPM for macOS 26 and later, with no packages. It
   controls Music.app through `NSAppleScript`, sends Music.app's `playerInfo` posts, reads the system
   accent colour and reads the tokens from a hidden music.apple.com page. WebKit keeps the
   sign-in in its own storage, so onlymuse stores no token itself.
 - The app starts the helper and speaks JSON lines with it over its stdin and stdout.
-  `src/helper.ts` names every message.
+  `src/helper/helper.odin` names every message.
+- The app keeps its SQLite file in `~/Library/Application Support/onlymuse-native` and its covers in
+  `~/Library/Caches/onlymuse-native`. The names stay, so the saved window and queue stay.
 
 ## Layout
 
 ```
 src/
-  main.tsx          The entry. Opens the window.
-  app.tsx           The window: sidebar, page, player bar.
-  helper.ts         The helper process and its messages. The one module that talks to Music.app.
-  apple-music.ts    The one module that calls amp-api.music.apple.com.
-  queue.ts          The play queue, shuffle and repeat. Plays the next song when Music.app stops.
-  navigation.ts     The page shown, with Back and Forward.
-  position.ts       The play position between Music.app's posts.
-  downloads.ts      The songs Music.app has downloaded, read from its download folder.
-  store.ts          The SQLite file: Apple's answers and the saved state of the window.
-  artwork.ts        Apple's artwork saved on disk.
-  checks.ts         The checks a saved value goes through as it comes back from the store.
-  format.ts         Times as text.
-  theme.ts          Colours, sizes and the accent.
-  icons.tsx         The SVG icons and the Icon component.
-  window/           The parts two or more pages share: Sidebar, PlayerBar, SidePanel, rows and cards.
-  pages/<page>/     One folder per page, with the components only that page renders. shelves/ draws
-                    Home and New. library/ draws every song list and every grid.
+  app/              The window: sidebar, pages, side panel, player bar, the queue and the palette.
+                    main.odin opens the window and builds each frame. pages.odin picks the page.
+  apple/            The one package that calls amp-api.music.apple.com, with its cache.
+  helper/           The helper process and its messages. The one package that talks to Music.app.
+  lyrics/           Lyrics from Apple, read from TTML, with romaji and translations.
+  library/          The library, read from Apple's saved answers.
+  store/            The SQLite file: Apple's answers, the play log and the saved state of the window.
+  ui/               The boxes, their layout, hover and scroll.
+  font/ icon/ image/  Text, SF Symbols and covers, each in its own atlas or textures.
+  render/           Metal and the shaders.
+  platform/         AppKit: the window, events, keys, text input and the clipboard.
+  net/              HTTP through libcurl.
+  mac/              The C APIs of macOS the app calls.
 helper/             The Swift helper.
-scripts/            The lint checks, the screenshot and the signing certificate.
+tools/              The test stand-ins: a fake Music.app and helper, and a mouse and key sender.
+scripts/            The signing certificate.
 design/             The mock.
-experiments/        The scripts behind NOTES.md.
-vendor/             The patched gpuix binary and its patch. NOTES.md, Frame times, says why.
+docs/               The plans and mocks of later features.
+experiments/        The scripts behind NOTES.md. am.sh asks Apple's API with the web player's tokens.
 ```
 
 ## Words
@@ -71,41 +70,46 @@ vendor/             The patched gpuix binary and its patch. NOTES.md, Frame time
 
 ## Function verbs
 
-A function name starts with a verb. Each verb has one meaning.
+A procedure name starts with a verb. Each verb has one meaning.
 
 | Verb | Means |
 | --- | --- |
-| `read` | Reads a value from state, a web page, Music.app or a file. |
+| `read` | Reads a value from an answer, a web page, Music.app or a file. |
 | `fetch` | Gets data over the network. |
+| `watch` | Asks for an answer and returns what there is so far, each frame. |
 | `list` | Returns a list worked out from state. |
 | `find` | Looks up one item that may be missing. |
 | `to` | Converts one value into another and reads nothing else. |
 | `send` | Sends a message to the helper, or from the helper to the app. |
 | `apply` | Takes in a message and changes state to match. |
 | `set` | Changes one value, inside its limits. |
-| `start`, `stop` | Starts or stops a process or a loop. |
+| `start`, `stop` | Starts or stops a process or a loop, or readies a package. |
+| `build` | Builds boxes for this frame. |
+| `draw` | Draws a box's own content, such as an image. |
 | `is`, `has` | Answers yes or no. |
-| `use` | A React hook. |
-
-A React component is a noun, such as `PlayerBar`.
 
 ## Commands
 
 | Command | What it does |
 | --- | --- |
-| `bun run dev` | Builds the helper and opens the app with hot reload. |
-| `bun run helper` | Builds the helper and signs it as "onlymuse local". |
+| `./build.sh` | Builds `build/onlymuse` for debugging. |
+| `./build.sh release` | Builds `build/onlymuse` optimised. Run it with `./build/onlymuse`. |
+| `./build.sh helper` | Builds the helper and signs it as "onlymuse local". |
 | `scripts/make-signing-certificate.sh` | Makes the "onlymuse local" certificate, once per Mac. Music.app's Automation permission then holds across builds. |
-| `bun run start` | Builds the helper and opens the app as the production build, with no hot reload. |
-| `bun run bench` | Measures JavaScript stalls, draw times and memory in both builds, behind the other windows. |
-| `bun scripts/gpuix-native.ts [stock\|patched]` | Installs gpuix's binary, patched by default. `bun install` runs it. |
-| `ONLYMUSE_PROBE=1 bun run dev` | Logs stalls, slow ticks and commits, fetches, refreshes, artwork and saves to `~/Library/Logs/onlymuse/probe.log`. Cmd Shift L marks a lag. |
-| `bun scripts/probe-report.ts [seconds]` | Prints the probe's log around each mark. |
-| `ONLYMUSE_FRAMES=1 bun run dev` | Shows GPUI's frame-time overlay in the window. |
-| `bun scripts/screenshot.ts <file>` | Opens the app behind the other windows and saves a picture of it. |
-| `bun run lint` | ESLint, then `scripts/check-words.mjs` and `scripts/check-structure.mjs`. |
-| `bun run typecheck` | TypeScript over `src/`. |
-| `bun run format` | Prettier over the files you name. |
+| `OM_BENCH=1 ./build/onlymuse` | Scrolls a long list and prints frame times. Its window shows in front. |
+
+## Testing without taking the screen
+
+A test run never touches the real library, Music.app or the person's window:
+
+- `OM_DATA=<folder>` with a copy of the SQLite file, made with `sqlite3 … "VACUUM INTO '…'"`.
+- `OM_HELPER=$PWD/tools/fake-music.py` instead of the helper. `OM_FAKE_TOKENS` lets it read Apple's
+  catalog, which is read only.
+- `OM_CAPTURE=<file>` saves a frame and quits, behind the other windows, where AeroSpace leaves it.
+  `OM_BACKGROUND=1` keeps any other run there too.
+- `tools/send-mouse.swift` clicks, drags and types into that window without bringing it in front.
+
+`README.md` lists every setting.
 
 # Rules
 
@@ -123,8 +127,7 @@ This rule settles every tie between the rules below.
 
 ## 2. Use plain words.
 
-This covers docs, commit messages, comments, UI text and names. `bun run lint` checks the words it
-can. A person checks the rest.
+This covers docs, commit messages, comments, UI text and names. A person checks them.
 
 1. Never use these words or their other forms: `bail`, `absent`, `clearing`, `no-op`,
    `falls through`, `survives`, `lands`, `landed`, `leaves`, `read better`, `invariant`, `gap`,
@@ -140,7 +143,7 @@ can. A person checks the rest.
 5. In docs and commit messages, never join two facts with `because`, `therefore` or `hence`. Write
    two plain sentences.
 6. One fact per sentence.
-7. Name a thing by what it does: `isMissing`, never `isAbsent`.
+7. Name a thing by what it does: `is_missing`, never `is_absent`.
 8. Read each sentence aloud. If a person explaining the thing to a teammate would not say it that
    way, write it again.
 
@@ -157,20 +160,20 @@ The default is no comment. Write one line only when it holds one of these:
 
 Never write a banner, step narration, a label such as `// Main logic`, commented-out code, or a TODO
 with no named task. A comment is one line. It explains the code as it is. It never refers to a past
-version or a change. TypeScript types carry the contract, so there is no JSDoc.
+version or a change. Types carry the contract.
 
 ## 4. A name is a full word.
 
-- Write full words. `errorCount`, never `nErr`.
-- A boolean reads as a question: `isPlaying`, `hasArtwork`.
+- Write full words. `error_count`, never `n_err`.
+- A boolean reads as a question: `is_playing`, `has_artwork`.
 - Use `min` and `max` for limits. Use `first` and `last` for a range that includes both ends.
 - One thing has one name everywhere, as the Words table lists. A name Apple's API, Music.app or a
-  library owns keeps its spelling, such as `playParams` and `persistentID`.
+  library owns keeps its spelling in its JSON tag, such as `playParams` and `persistentID`.
 
 ## 5. A number carries its unit.
 
-- Put the unit in the name: `durationSeconds`, `positionSeconds`, `timeoutMs`, `widthPx`,
-  `volumePercent`.
+- Put the unit in the name: `duration_seconds`, `position_seconds`, `timeout_ms`, `size_points`,
+  `size_pixels`, `volume_percent`. A size in the UI is in points unless its name says pixels.
 - Give a number a local name when a reader cannot tell what it is from its line.
 - Put parentheses around mixed operators when the order is not obvious.
 
@@ -180,9 +183,7 @@ version or a change. TypeScript types carry the contract, so there is no JSDoc.
   check inside the function.
 - Check a value once, where it enters: a helper message, an answer from Apple's API, a page
   read. Code past that point trusts the value.
-- A filter that means "everything" is a named value such as `"all"`, never `null`.
-- Every function declares its return type. A React component and a one-line pass-through are the
-  exceptions.
+- A filter that means "everything" is a named value such as `"all"`, never `nil`.
 - Point at a type that exists before you write a new one. Write a named type when two or more places
   use it.
 
@@ -196,18 +197,14 @@ version or a change. TypeScript types carry the contract, so there is no JSDoc.
 - Declare, then use. A run of declarations has a blank line between it and the statements around it.
   Inside the run, the inputs come first, then the values worked out from them.
 - A function of more than three lines keeps a blank line before its last return.
-- Name a compound condition before you test it: `const canSeek = isPlaying && hasDuration`.
-- A ternary fits on one line. Never nest one. A ternary whose branch is markup longer than eight
-  lines moves that branch into its own component.
-- Build a list with `if` and `push`. Never `[a && x, b && y].filter(Boolean)`. Never
-  `...(cond ? [item] : [])`.
+- Name a compound condition before you test it: `can_seek := is_playing && has_duration`.
+- An `x if cond else y` fits on one line. Never nest one.
+- Build a list with `if` and `append`.
 - Name a lookup table above the line that indexes it.
-- When two object literals in one function share fields, name the shared fields once and spread
-  them.
 - Keep a function under 15 branch points. Count `if`, `else if`, `for`, `while`, `case`, `catch`, a
-  ternary, `&&`, `||` and `??`. Lower the count by removing work, never by moving branches into a
+  `x if cond else y`, `&&`, `||` and `or_else`. Lower the count by removing work, never by moving branches into a
   helper with no rule of its own.
-- Use `startsWith`, `indexOf`, `slice` and `split` before regex.
+- Use `strings.has_prefix`, `strings.index` and `strings.split` before a pattern.
 
 ## 8. Functions, files and services
 
@@ -216,14 +213,13 @@ version or a change. TypeScript types carry the contract, so there is no JSDoc.
 - Before you write a new file or helper, ask one question. If you deleted it and put its code back
   where it is used, would the code be harder to follow? If not, do not write it.
 - A function inside a function that is called twice moves to the top level.
-- One module owns each outside service. `src/apple-music.ts` owns the base URL, the tokens and their
-  headers, the timeout and the check on each answer. `src/helper.ts` owns the helper process. Nothing
-  else calls `fetch` on Apple's host or writes to the helper.
-- A component lives with the page that renders it. It moves to `src/window/` only when two pages
-  render it.
-- Decide a value once, above the elements that read it. An element reads a name. It never decides
-  one.
-- A colour or a size the window uses twice is a named value in `src/theme.ts`.
+- One package owns each outside service. `src/apple` owns the base URL, the tokens and their
+  headers, the timeout and the check on each answer. `src/helper` owns the helper process. Nothing
+  else asks Apple's host or writes to the helper.
+- A procedure that builds part of one page lives in that page's file. It moves to `widgets.odin`
+  only when two pages use it.
+- Decide a value once, above the boxes that read it. A box reads a name. It never decides one.
+- A colour or a size the window uses twice is a named value in `src/app/theme.odin`.
 
 ## 9. Tests are user journeys.
 
@@ -231,7 +227,8 @@ version or a change. TypeScript types carry the contract, so there is no JSDoc.
    person sees or hears.
 2. Mock nothing, except a service we do not control. Apple's API and Music.app are those services.
    A stand-in for each answers in the tests.
-3. Never write a flag, a branch or a hook in `src/` only for a test.
+3. Never write a flag, a branch or a hook in `src/` only for a test. The `OM_` settings are the
+   exception, listed below.
 4. A test name states the situation and the result: `given a playing song, the player bar shows
    its name and position`.
 5. Before you keep an assertion, break `src/` on purpose and watch the test fail.
@@ -250,18 +247,19 @@ The rules above govern the helper too.
 - The type says the type. A `//` comment holds a reason only.
 - A blank line stands between a run of declarations and the statements that use it, and around a
   `do`/`catch` or an `if` of more than one line.
-- The lint reads the words in Swift comments and strings. A person checks the structure.
 
 ## Format
 
-Prettier with a print width of 100, double quotes, semicolons and ES5 trailing commas.
+`./build.sh` builds with `-strict-style`, `-vet-unused` and `-vet-shadowing`. Tabs indent. Fields
+and table values line up in columns, as `odinfmt` lines them.
 
 ## Accepted exceptions
 
-- `src/store.ts` reads `ONLYMUSE_DATA`, `src/perf.tsx` reads `ONLYMUSE_PERF` and `src/probe.ts` reads
-  `ONLYMUSE_PROBE` and `src/theme.ts` reads `ONLYMUSE_OPAQUE`, against rule 9.3. They exist for
-  `scripts/bench.ts`, which measures and does not test. A measurement must not change the saved state, and the
-  stall probe must run inside the app's own thread.
+- The `OM_` settings in `README.md`, such as `OM_DATA`, `OM_CAPTURE`, `OM_TYPE` and `OM_WINDOW`,
+  are read in `src/`, against rule 9.3. The window can only be seen and driven from outside the
+  process by a test that takes the screen, and a test must never take it.
+- The helper reads `GPUIX_BACKGROUND=1` to leave Music.app as it is when the app quits. The name is
+  older than the Odin app. Changing it means changing the helper and the app together.
 
 ## Where the four projects disagreed
 

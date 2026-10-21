@@ -1,6 +1,5 @@
-node_modules/
 *.har
 tokens/
 .build/
-dist/
+build/
 .DS_Store

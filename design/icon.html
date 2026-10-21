@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>onlymuse: app icon</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0c0c0e; color: #f2f2f4; font: 14px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; -webkit-font-smoothing: antialiased; }
+  .page { width: 1320px; margin: 0 auto; padding: 56px 0 100px; }
+  h1 { font-size: 40px; letter-spacing: -0.02em; margin: 0 0 6px; }
+  .lead { color: #9b9ba3; font-size: 16px; max-width: 860px; margin: 0 0 40px; }
+  .option { display: grid; grid-template-columns: 300px 1fr; gap: 36px; padding: 32px 0; border-top: 1px solid #2e2e33; }
+  .option h2 { font-size: 22px; margin: 0 0 4px; display: flex; align-items: center; gap: 10px; }
+  .option h2 .tag { font-size: 11px; font-weight: 700; color: #111; background: #ffd60a; border-radius: 5px; padding: 2px 7px; }
+  .option p { color: #9b9ba3; margin: 0 0 14px; max-width: 520px; }
+  .big { width: 300px; height: 300px; }
+  .scenes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .scene { border-radius: 14px; padding: 18px; display: flex; align-items: flex-end; gap: 22px; min-height: 150px; }
+  .scene.light { background: linear-gradient(135deg, #dfe6f2, #f6efe6); }
+  .scene.dark { background: linear-gradient(135deg, #1c2233, #2a1c2e); }
+  .scene .sizes { display: flex; align-items: flex-end; gap: 18px; }
+  .scene .sizes div { text-align: center; font-size: 11px; color: #6b6b73; }
+  .scene.dark .sizes div { color: #9b9ba3; }
+  .dock { margin-top: 16px; display: inline-flex; gap: 10px; padding: 8px 10px; border-radius: 22px; background: rgba(255,255,255,.22); box-shadow: inset 0 0 0 1px rgba(255,255,255,.35), 0 10px 30px rgba(0,0,0,.35); backdrop-filter: blur(20px); }
+  /* An icon's square fills 824 of its 1024 points, so a 64-point icon's square is 52 points, with 6 around it. */
+  .dock .app { width: 52px; height: 52px; margin: 6px; border-radius: 12px; }
+  .dock-wrap { margin-top: 16px; background: linear-gradient(120deg, #4b5d8a, #9a6f8f 55%, #d59b74); border-radius: 14px; padding: 40px 18px 14px; display: flex; justify-content: center; }
+  .finder { display: flex; gap: 6px; align-items: center; margin-top: 10px; font-size: 13px; color: #c9c9cf; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>onlymuse: app icon</h1>
+  <p class="lead">Four directions on macOS's icon grid: a 1024-point canvas with an 824-point rounded square. Each shows large, on a light and a dark desktop at the sizes Finder and the Dock use, and in a Dock between other apps. The colours are those the window takes from covers: lavender, pink and amber.</p>
+
+  <svg width="0" height="0" style="position:absolute">
+    <defs>
+      <clipPath id="squircle"><rect x="100" y="100" width="824" height="824" rx="185"/></clipPath>
+      <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="70"/></filter>
+      <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="22"/></filter>
+      <filter id="lift" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#000" flood-opacity=".45"/></filter>
+      <filter id="icon-shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000" flood-opacity=".35"/></filter>
+      <linearGradient id="night" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a2140"/><stop offset="1" stop-color="#0d0c14"/></linearGradient>
+      <linearGradient id="graphite" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2c2a33"/><stop offset="1" stop-color="#121216"/></linearGradient>
+      <linearGradient id="hues" x1="0.1" y1="0.1" x2="0.9" y2="0.9"><stop offset="0" stop-color="#a98be6"/><stop offset=".55" stop-color="#ff5d8f"/><stop offset="1" stop-color="#ffb057"/></linearGradient>
+      <linearGradient id="white" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e6defa"/></linearGradient>
+      <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/></linearGradient>
+      <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7c9dc"/><stop offset=".45" stop-color="#b59cf0"/><stop offset=".62" stop-color="#ffb57a"/><stop offset=".63" stop-color="#5a5aa8"/><stop offset="1" stop-color="#262a5e"/></linearGradient>
+
+      <!-- The rim and the sheen every option shares. -->
+      <g id="glass">
+        <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#sheen)"/>
+        <rect x="101.5" y="101.5" width="821" height="821" rx="183.5" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width="3"/>
+      </g>
+
+      <!-- A single eighth note, its head at the bottom left. -->
+      <g id="note">
+        <rect x="560" y="268" width="58" height="420" rx="29"/>
+        <ellipse cx="482" cy="690" rx="122" ry="94" transform="rotate(-22 482 690)"/>
+        <path d="M618 270 C 712 300 782 368 738 486 C 716 420 676 398 618 392 Z"/>
+      </g>
+
+      <symbol id="icon-a" viewBox="0 0 1024 1024">
+        <g filter="url(#icon-shadow)"><g clip-path="url(#squircle)">
+          <rect x="100" y="100" width="824" height="824" fill="url(#night)"/>
+          <g filter="url(#glow)">
+            <circle cx="330" cy="330" r="260" fill="#a98be6" opacity=".7"/>
+            <circle cx="720" cy="720" r="270" fill="#ff5d8f" opacity=".55"/>
+            <circle cx="740" cy="320" r="190" fill="#ffb057" opacity=".45"/>
+          </g>
+          <g fill="url(#white)" filter="url(#lift)"><use href="#note"/></g>
+          <use href="#glass"/>
+        </g></g>
+      </symbol>
+
+      <symbol id="icon-b" viewBox="0 0 1024 1024">
+        <g filter="url(#icon-shadow)"><g clip-path="url(#squircle)">
+          <rect x="100" y="100" width="824" height="824" fill="url(#graphite)"/>
+          <circle cx="512" cy="512" r="232" fill="none" stroke="url(#hues)" stroke-width="104" filter="url(#soft)" opacity=".55"/>
+          <circle cx="512" cy="512" r="232" fill="none" stroke="url(#hues)" stroke-width="96"/>
+          <circle cx="512" cy="512" r="30" fill="#f2f2f4"/>
+          <circle cx="676" cy="348" r="66" fill="#fff" filter="url(#lift)"/>
+          <use href="#glass"/>
+        </g></g>
+      </symbol>
+
+      <symbol id="icon-c" viewBox="0 0 1024 1024">
+        <g filter="url(#icon-shadow)"><g clip-path="url(#squircle)">
+          <rect x="100" y="100" width="824" height="824" fill="url(#night)"/>
+          <g filter="url(#glow)" opacity=".9">
+            <rect x="262" y="262" width="500" height="500" rx="60" fill="url(#hues)" transform="rotate(-8 512 512)"/>
+          </g>
+          <g transform="rotate(-8 512 512)" filter="url(#lift)">
+            <rect x="272" y="272" width="480" height="480" rx="44" fill="url(#sky)"/>
+            <circle cx="600" cy="560" r="44" fill="#ffe2b8" opacity=".9"/>
+            <rect x="272" y="572" width="480" height="8" fill="#ffd0a0" opacity=".5"/>
+            <rect x="272" y="272" width="480" height="480" rx="44" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="10"/>
+          </g>
+          <use href="#glass"/>
+        </g></g>
+      </symbol>
+
+      <symbol id="icon-d" viewBox="0 0 1024 1024">
+        <g filter="url(#icon-shadow)"><g clip-path="url(#squircle)">
+          <rect x="100" y="100" width="824" height="824" fill="url(#graphite)"/>
+          <circle cx="512" cy="512" r="262" fill="none" stroke="url(#hues)" stroke-width="64" filter="url(#soft)" opacity=".55"/>
+          <circle cx="512" cy="512" r="262" fill="none" stroke="url(#hues)" stroke-width="56"/>
+          <g fill="url(#white)" filter="url(#lift)" transform="translate(512 512) scale(.62) translate(-540 -480)"><use href="#note"/></g>
+          <use href="#glass"/>
+        </g></g>
+      </symbol>
+    </defs>
+  </svg>
+
+  <div id="options"></div>
+</div>
+<script>
+const options = [
+  { id: 'a', name: 'A. One note', text: 'One white note over a glow of cover colours. It says music at once, on dark it reads at every size, and the glow is the accent the window takes from each cover. It sits closest to Apple Music\'s own icon, which suits an Apple Music player, though it could pass for it at a glance.' },
+  { id: 'b', name: 'B. The ring', text: 'A lowercase o, for onlymuse, that also reads as a record. The one white dot on it is the playhead, and the only thing that moves. It looks like no other music app, and stays clear at 16 points. It does not say music as plainly as a note.' },
+  { id: 'c', name: 'C. The cover', text: 'An album cover, tilted, glowing in its own colours, as the window takes its accent from the cover playing. The most particular to onlymuse, but the busiest: under 32 points the cover\'s picture is lost.' },
+  { id: 'd', name: 'D. Note in the ring', text: 'The note of A inside the ring of B. Music and onlymuse\'s o at once, in the cover colours. It comes close to the old iTunes icon, which is odd for an app made to leave iTunes behind. The note is smaller, so it holds less at 16 points than A or B.' },
+]
+const icon = (id, size) => `<svg width="${size}" height="${size}" viewBox="0 0 1024 1024"><use href="#icon-${id}"/></svg>`
+const neighbours = ['#3a7bfd', '#34c759', '#ff9f0a', '#8e8e93']
+document.getElementById('options').innerHTML = options.map((option) => `
+  <div class="option">
+    <div class="big">${icon(option.id, 300)}</div>
+    <div>
+      <h2>${option.name}</h2>
+      <p>${option.text}</p>
+      <div class="scenes">
+        ${['light', 'dark'].map((tone) => `<div class="scene ${tone}"><div class="sizes">${[128, 64, 32, 16].map((size) => `<div>${icon(option.id, size)}${size}</div>`).join('')}</div></div>`).join('')}
+      </div>
+      <div class="dock-wrap"><div class="dock">${neighbours.slice(0, 2).map((color) => `<div class="app" style="background:linear-gradient(${color}, #222)"></div>`).join('')}${icon(option.id, 64)}${neighbours.slice(2).map((color) => `<div class="app" style="background:linear-gradient(${color}, #222)"></div>`).join('')}</div></div>
+      <div class="finder">${icon(option.id, 16)}onlymuse.app</div>
+    </div>
+  </div>`).join('')
+</script>
+</body>
+</html>

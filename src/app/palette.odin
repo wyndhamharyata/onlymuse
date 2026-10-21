@@ -453,6 +453,7 @@ clone_song_into :: proc(song: Catalog_Song, allocator := context.allocator) -> C
 	cloned.name = strings.clone(song.name, allocator)
 	cloned.artist_name = strings.clone(song.artist_name, allocator)
 	cloned.album_name = strings.clone(song.album_name, allocator)
+	cloned.youtube_id = strings.clone(song.youtube_id, allocator)
 	cloned.artwork = clone_artwork(song.artwork, allocator)
 
 	return cloned

@@ -66,6 +66,7 @@ clone_song :: proc(song: Catalog_Song) -> Catalog_Song {
 	cloned.name = strings.clone(song.name)
 	cloned.artist_name = strings.clone(song.artist_name)
 	cloned.album_name = strings.clone(song.album_name)
+	cloned.youtube_id = strings.clone(song.youtube_id)
 	cloned.artwork.url = strings.clone(song.artwork.url)
 	cloned.artwork.bg_color = strings.clone(song.artwork.bg_color)
 	cloned.artwork.text_color1 = strings.clone(song.artwork.text_color1)
@@ -78,6 +79,7 @@ delete_song :: proc(song: Catalog_Song) {
 	delete(song.name)
 	delete(song.artist_name)
 	delete(song.album_name)
+	delete(song.youtube_id)
 	delete(song.artwork.url)
 	delete(song.artwork.bg_color)
 	delete(song.artwork.text_color1)
@@ -101,7 +103,7 @@ build_song_menu :: proc() {
 		// A YouTube song Apple has acts as Apple's song.
 		song := to_playable(song_menu.song)
 		is_from_youtube := youtube.is_song_id(song.id)
-		is_matched := youtube.is_song_id(song_menu.song.id) && !is_from_youtube
+		is_matched := song.youtube_id != ""
 		page := current_page()
 		position := song_menu.position
 		main_width: f32 = 0
@@ -129,9 +131,14 @@ build_song_menu :: proc() {
 					is_closing = true
 				}
 
-				if is_matched && menu_item("play from youtube", "Play from YouTube Instead") {
-					reject_match(song_menu.song)
-					show_toast(fmt.tprintf("%s plays from YouTube from now on", song_menu.song.name))
+				if is_matched && menu_item("not on apple music", "Not on Apple Music") {
+					reject_match(to_youtube_song(song))
+					show_toast(fmt.tprintf("%s plays from YouTube from now on", song.name))
+					is_closing = true
+				}
+				if is_from_youtube && is_match_rejected(song) && menu_item("try apple music", "Try Apple Music Again") {
+					allow_match(song)
+					show_toast(fmt.tprintf("Looking for %s on Apple Music again", song.name))
 					is_closing = true
 				}
 

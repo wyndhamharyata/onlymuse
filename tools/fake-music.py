@@ -4,6 +4,7 @@
 # OM_FAKE_LOG      file that keeps every command the app sent
 # OM_FAKE_SPEED    how many song seconds pass in one real second, 1 by default
 # OM_FAKE_MISSING  a song name that is not in the library until it has been asked for 3 times
+# OM_FAKE_UNPLAYABLE a song name found in the library that never starts, as when Music.app has no file for it
 # OM_FAKE_TOKENS   a folder with the web player's tokens in dev and mut, sent as the real helper sends
 #                  them, so the app reads Apple's catalog. Without it, Apple is never asked. A file yt-cookie in
 #                  the folder is sent as the YouTube page's cookie, so the app reads YouTube Music signed in.
@@ -18,6 +19,7 @@ import zlib
 
 speed = float(os.environ.get("OM_FAKE_SPEED", "1"))
 missing_name = os.environ.get("OM_FAKE_MISSING", "")
+unplayable_name = os.environ.get("OM_FAKE_UNPLAYABLE", "")
 log = open(os.environ["OM_FAKE_LOG"], "a") if os.environ.get("OM_FAKE_LOG") else None
 lock = threading.Lock()
 asked = {}
@@ -83,7 +85,8 @@ def apply(command):
         if match["name"] == missing_name and asked[match["name"]] <= 3:
             send({"type": "playSongResult", "requestId": command["requestId"], "persistentID": None})
             return
-        start(match)
+        if match["name"] != unplayable_name or match.get("youtubeId"):
+            start(match)
         send({"type": "playSongResult", "requestId": command["requestId"], "persistentID": to_persistent_id(match)})
     elif kind == "setNext":
         handoff["after"] = command.get("afterPersistentID")

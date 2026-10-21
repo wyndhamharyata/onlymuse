@@ -22,6 +22,8 @@ Catalog_Song :: struct {
 	duration_seconds: f64 `json:"durationSeconds"`,
 	is_lossless:      bool `json:"isLossless"`,
 	artwork:          Artwork,
+	// The YouTube video an Apple song was matched from, so it can go back to YouTube. Empty for any other song.
+	youtube_id:       string `json:"youtubeId"`,
 }
 
 Card_Kind :: enum {

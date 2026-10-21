@@ -308,9 +308,12 @@ A song plays from Apple Music whenever Apple has it. YouTube Music adds what App
 - Bring Over lists your YouTube playlists. Open one to see what each song plays from, then click
   Bring Over. The new Apple Music playlist holds the songs Apple has. The others stay in it, in their
   places, and play from YouTube.
-- A YouTube song that plays from Apple has Play from YouTube Instead in its menu, for when Apple's
-  song turns out to be another one. It then always plays from YouTube, even after the matching rule
-  changes.
+- A YouTube song matches a song in your library first, with no request to Apple. Others are looked
+  up by album: one search per album, then the albums' songs, 20 albums to a request. A song no album
+  holds is searched alone. Each answer is saved, so a song is matched once.
+- When Music.app does not start Apple's song within 8 seconds, the song plays from YouTube, and
+  always will from then on. Not on Apple Music, in a matched song's menu, does the same by hand. Try
+  Apple Music Again, in the menu of such a song, undoes it.
 - Add to Playlist works for a song only on YouTube too. It stays in the playlist in onlymuse, as
   Apple's playlists hold Apple songs alone. Its menu offers Remove from Playlist.
 

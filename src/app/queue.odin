@@ -77,6 +77,8 @@ ADD_TIMEOUT_SECONDS :: 45.0
 END_TOLERANCE_SECONDS :: 3.0
 // Previous starts the song again past this point, as Music.app does.
 RESTART_AFTER_SECONDS :: 3.0
+// Music.app starts a library song within a second or two. One it has no file for shows a dialog and never starts.
+START_TIMEOUT_SECONDS :: 8.0
 // While a song plays, its position is saved this often, so a force quit loses at most this much.
 POSITION_SAVE_SECONDS :: 5.0
 
@@ -96,6 +98,8 @@ queue_state: struct {
 	added_play_count:  int,
 	add_mutex:         sync.Mutex,
 	poll_deadline_ms:  f64,
+	// When a song matched from YouTube must have started by. 0 when none is awaited.
+	start_deadline_ms: f64,
 	next_poll_ms:      f64,
 	is_polling:        bool,
 	last_resume_save:  f64,
@@ -173,6 +177,7 @@ play_at :: proc(index: int) {
 	queue_state.is_polling = false
 	queue.songs[index] = to_playable(queue.songs[index])
 	queue.index = index
+	queue_state.start_deadline_ms = 0
 	start_matches()
 	queue.is_adding = false
 	queue.playing_persistent_id = ""
@@ -203,6 +208,7 @@ apply_queue_answer :: proc(request_id: int, answered_id: string) {
 		if persistent_id != "" {
 			queue.playing_persistent_id = persistent_id
 			set_queue()
+			await_start()
 			return
 		}
 
@@ -214,10 +220,13 @@ apply_queue_answer :: proc(request_id: int, answered_id: string) {
 		if !is_current do return
 		if persistent_id != "" || helper.now_ms() > queue_state.poll_deadline_ms {
 			if persistent_id == "" do fmt.eprintfln("queue: %s did not reach the library of Music.app.", queue.songs[queue.index].name)
+			if persistent_id == "" && fall_back_to_youtube() do return
+
 			queue_state.is_polling = false
 			queue.is_adding = false
 			queue.playing_persistent_id = persistent_id
 			set_queue()
+			if persistent_id != "" do await_start()
 			return
 		}
 
@@ -259,6 +268,31 @@ start_adding :: proc(catalog_id: string, play_count: int) {
 	}, self_cleanup = true)
 }
 
+// A song matched from YouTube must start soon, or it goes back to YouTube.
+@(private = "file")
+await_start :: proc() {
+	if queue.songs[queue.index].youtube_id == "" do return
+
+	queue_state.start_deadline_ms = helper.now_ms() + START_TIMEOUT_SECONDS * 1000
+	platform.request_frame_after(START_TIMEOUT_SECONDS)
+}
+
+// Music.app could not play Apple's song, so the YouTube one plays, now and from now on. False for a song with no YouTube one.
+@(private = "file")
+fall_back_to_youtube :: proc() -> bool {
+	queue_state.start_deadline_ms = 0
+	song := queue.songs[queue.index]
+	if song.youtube_id == "" do return false
+
+	youtube_song := to_youtube_song(song)
+	reject_match(youtube_song)
+	queue.songs[queue.index] = youtube_song
+	show_toast(fmt.tprintf("Apple Music could not play %s, so it plays from YouTube", song.name))
+	play_at(queue.index)
+
+	return true
+}
+
 // Called each frame: starts polling once a song is added, and asks Music.app again when a poll is due.
 update_queue :: proc() {
 	added: int
@@ -281,6 +315,18 @@ update_queue :: proc() {
 		queue_state.next_poll_ms = 0
 		request_id := helper.request_play(to_song_match(queue.songs[queue.index]))
 		queue_state.requests[request_id] = {kind = .Poll, play_count = queue_state.play_count}
+	}
+
+	if queue_state.start_deadline_ms > 0 {
+		now_playing := app.now_playing
+		has_song := now_playing.playback == .Playing || now_playing.playback == .Paused
+		has_started := has_song && now_playing.song.persistent_id == queue.playing_persistent_id
+
+		if has_started {
+			queue_state.start_deadline_ms = 0
+		} else if now >= queue_state.start_deadline_ms {
+			fall_back_to_youtube()
+		}
 	}
 
 	// The resume point, every few seconds while a song plays.
@@ -542,6 +588,7 @@ apply_playing_song :: proc(now_playing: helper.Now_Playing, now_ms: f64) {
 		delete(queue_state.handoff_key)
 		queue_state.handoff_key = ""
 		queue.index = handoff.index
+		queue_state.start_deadline_ms = 0
 		queue.is_adding = false
 		queue.playing_persistent_id = handoff.persistent_id
 		set_queue()

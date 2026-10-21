@@ -579,7 +579,6 @@ find_catalog_id :: proc(name, artist, queue_id: string) -> (string, apple.Phase)
 }
 
 // Catalog IDs are digits. A song uploaded from a Mac has only a library ID.
-@(private = "file")
 is_catalog_id :: proc(id: string) -> bool {
 	if id == "" do return false
 	for character in id do if character < '0' || character > '9' do return false

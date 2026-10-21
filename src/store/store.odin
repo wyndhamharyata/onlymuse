@@ -197,6 +197,15 @@ save_rejected_match :: proc(youtube_id: string) {
 	mac.sqlite3_step(statement)
 }
 
+delete_rejected_match :: proc(youtube_id: string) {
+	statement, ok := prepare("delete from rejected_matches where youtube_id = ?1")
+	if !ok do return
+	defer mac.sqlite3_finalize(statement)
+
+	bind_text(statement, 1, youtube_id)
+	mac.sqlite3_step(statement)
+}
+
 // Every saved match goes, such as when the rule that makes them changes.
 delete_matches :: proc() {
 	run("delete from matches")

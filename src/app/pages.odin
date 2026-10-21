@@ -60,5 +60,7 @@ build_page :: proc(page: Page) {
 		build_youtube_mixes_page()
 	case .Bring_Over:
 		build_bring_over_page(page)
+	case .Console:
+		build_console_page()
 	}
 }

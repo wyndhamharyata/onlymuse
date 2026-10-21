@@ -11,6 +11,7 @@ import "core:strings"
 import "core:sync"
 import "core:thread"
 import "core:time"
+import "om:console"
 import MTL "vendor:darwin/Metal"
 import "om:mac"
 import "om:net"
@@ -278,7 +279,11 @@ load :: proc(task: thread.Task) {
 download :: proc(url, path: string) -> bool {
 	response := net.fetch(url, allocator = context.temp_allocator)
 
-	if response.status != 200 || !strings.has_prefix(response.content_type, "image/") do return false
+	if response.status != 200 {
+		console.add("Covers", "%s: %s", url, console.to_status_text(response.status))
+		return false
+	}
+	if !strings.has_prefix(response.content_type, "image/") do return false
 
 	// The file takes its name once complete, so a quit halfway never makes a broken image.
 	part_path := fmt.tprintf("%s.part", path)

@@ -8,6 +8,7 @@ import "core:strings"
 import "core:sync"
 import "core:thread"
 import "core:time"
+import "om:console"
 import "om:platform"
 
 Song :: struct {
@@ -103,7 +104,7 @@ start :: proc(is_background: bool) {
 	os.close(child_stdout)
 
 	if error != nil {
-		fmt.eprintfln("helper: cannot start %s: %v", path, error)
+		console.add("Helper", "Cannot start %s: %v", path, error)
 		return
 	}
 

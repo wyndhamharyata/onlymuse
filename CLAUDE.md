@@ -35,6 +35,7 @@ src/
                     main.odin opens the window and builds each frame. pages.odin picks the page.
   apple/            The one package that calls amp-api.music.apple.com, with its cache.
   youtube/          The one package that calls music.youtube.com. Its answers go through apple's cache.
+  console/          The errors and refused requests the Console page lists. Every package reports there.
   helper/           The helper process and its messages. The one package that talks to Music.app.
   lyrics/           Lyrics from Apple, read from TTML, with romaji and translations.
   library/          The library, read from Apple's saved answers.

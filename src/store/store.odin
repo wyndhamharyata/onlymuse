@@ -6,6 +6,7 @@ import "core:os"
 import "core:strings"
 import "core:sync"
 import "core:time"
+import "om:console"
 import "om:mac"
 
 Saved_Answer :: struct {
@@ -66,7 +67,7 @@ start :: proc() {
 
 	flags := i32(mac.SQLITE_OPEN_READWRITE | mac.SQLITE_OPEN_CREATE | mac.SQLITE_OPEN_FULLMUTEX)
 	if mac.sqlite3_open_v2(strings.clone_to_cstring(path, context.temp_allocator), &state.db, flags, nil) != mac.SQLITE_OK {
-		fmt.eprintfln("store: cannot open %s", path)
+		console.add("Store", "Cannot open %s", path)
 		return
 	}
 
@@ -78,7 +79,7 @@ start :: proc() {
 @(private)
 run :: proc(sql: cstring) {
 	error_text: cstring
-	if mac.sqlite3_exec(state.db, sql, nil, nil, &error_text) != mac.SQLITE_OK do fmt.eprintfln("store: %s", error_text)
+	if mac.sqlite3_exec(state.db, sql, nil, nil, &error_text) != mac.SQLITE_OK do console.add("Store", "%s", error_text)
 }
 
 @(private)

@@ -5,6 +5,7 @@ import "core:fmt"
 import "core:strings"
 import "core:sync"
 import "core:time"
+import "om:console"
 import "om:store"
 import "om:helper"
 import "om:net"
@@ -97,7 +98,10 @@ send_once :: proc(path: string, method: net.Method, allocator := context.allocat
 	header_count := 4
 	{
 		sync.guard(&state.mutex)
-		if state.developer_token == "" do return {}
+		if state.developer_token == "" {
+			console.add("Apple", "No token from the web player, so %s was not asked.", path)
+			return {}
+		}
 
 		headers = {
 			fmt.tprintf("Authorization: Bearer %s", state.developer_token),
@@ -113,6 +117,8 @@ send_once :: proc(path: string, method: net.Method, allocator := context.allocat
 	separator := "&" if strings.contains(path, "?") else "?"
 	url := fmt.tprintf("%s%s%sl=%s", BASE_URL, path, separator, LANGUAGE)
 	response := net.fetch(url, headers[:header_count], context.temp_allocator, method, body)
+	is_refused := response.status < 200 || response.status >= 300
+	if is_refused do console.add("Apple", "%s %s: %s", "POST" if method == .Post else "GET", path, console.to_status_text(response.status))
 
 	return {response.status, strings.clone(string(response.body), allocator)}
 }

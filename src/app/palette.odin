@@ -386,7 +386,7 @@ add_actions :: proc(results: ^[dynamic]Palette_Result, term: string, allocator :
 @(private = "file")
 add_pages :: proc(results: ^[dynamic]Palette_Result, term: string, playlists: []apple.Card, allocator := context.allocator) {
 	count := 0
-	for items in ([][]Sidebar_Item{apple_music_items, library_items}) {
+	for items in ([][]Sidebar_Item{apple_music_items, library_items, console_items}) {
 		for item in items {
 			if !matches(item.label, term) || count >= PALETTE_GROUP_LIMIT * 2 do continue
 			append(results, Palette_Result{group = "Pages", title = item.label, symbol = item.symbol, action = .Navigate, page = {kind = item.kind}})

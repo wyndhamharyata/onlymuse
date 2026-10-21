@@ -27,6 +27,8 @@ Page_Kind :: enum {
 	YouTube_Mixes,
 	// A YouTube playlist to bring over to Apple Music, or the list of them when id is empty.
 	Bring_Over,
+	// The errors since the app started.
+	Console,
 }
 
 Page :: struct {
@@ -135,6 +137,7 @@ page_ids := [Page_Kind]string {
 	.YouTube_Playlist    = "youtubePlaylist",
 	.YouTube_Mixes       = "youtubeMixes",
 	.Bring_Over          = "bringOver",
+	.Console             = "console",
 }
 
 @(private = "file")

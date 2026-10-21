@@ -7,6 +7,7 @@ import "core:slice"
 import "core:strconv"
 import "core:strings"
 import "core:time"
+import "om:console"
 import "om:apple"
 import "om:font"
 import "om:helper"
@@ -129,7 +130,7 @@ apply_helper_messages :: proc() {
 			apply_youtube_cookie(message)
 		case "error":
 			// Music.app has no current track while stopped, and the helper's next post says so.
-			if !strings.contains(message.text, "get current track") do fmt.eprintfln("helper: %s", message.text)
+			if !strings.contains(message.text, "get current track") do console.add("Helper", "%s", message.text)
 		case "trackInfo":
 			apply_track_info(message)
 		case "setFavoriteResult":

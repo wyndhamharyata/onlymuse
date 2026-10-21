@@ -317,6 +317,13 @@ A song plays from Apple Music whenever Apple has it. YouTube Music adds what App
 - Add to Playlist works for a song only on YouTube too. It stays in the playlist in onlymuse, as
   Apple's playlists hold Apple songs alone. Its menu offers Remove from Playlist.
 
+### 8. Console
+
+- Press ⌘K and open Console. It lists every error since onlymuse started, newest first: requests
+  Apple or YouTube refused or never answered, covers that did not download, and what the helper, the
+  queue and the store reported. Copy All copies them as text. Clear empties the list.
+- It keeps the last 500 and starts empty with each run. Each line also goes to the terminal.
+
 ## Development settings
 
 | Variable | Does |

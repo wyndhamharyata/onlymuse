@@ -5,6 +5,7 @@ import "core:fmt"
 import "core:strings"
 import "core:sync"
 import "core:thread"
+import "om:console"
 import "om:apple"
 import "om:helper"
 import "om:platform"
@@ -100,6 +101,8 @@ queue_state: struct {
 	poll_deadline_ms:  f64,
 	// When a song matched from YouTube must have started by. 0 when none is awaited.
 	start_deadline_ms: f64,
+	// The YouTube page has the queue's song and has not started it yet.
+	is_starting_youtube: bool,
 	next_poll_ms:      f64,
 	is_polling:        bool,
 	last_resume_save:  f64,
@@ -178,6 +181,7 @@ play_at :: proc(index: int) {
 	queue.songs[index] = to_playable(queue.songs[index])
 	queue.index = index
 	queue_state.start_deadline_ms = 0
+	queue_state.is_starting_youtube = false
 	start_matches()
 	queue.is_adding = false
 	queue.playing_persistent_id = ""
@@ -207,6 +211,7 @@ apply_queue_answer :: proc(request_id: int, answered_id: string) {
 		if !is_current do return
 		if persistent_id != "" {
 			queue.playing_persistent_id = persistent_id
+			queue_state.is_starting_youtube = youtube.is_song_id(persistent_id)
 			set_queue()
 			await_start()
 			return
@@ -219,7 +224,7 @@ apply_queue_answer :: proc(request_id: int, answered_id: string) {
 	case .Poll:
 		if !is_current do return
 		if persistent_id != "" || helper.now_ms() > queue_state.poll_deadline_ms {
-			if persistent_id == "" do fmt.eprintfln("queue: %s did not reach the library of Music.app.", queue.songs[queue.index].name)
+			if persistent_id == "" do console.add("Queue", "%s did not reach the library of Music.app.", queue.songs[queue.index].name)
 			if persistent_id == "" && fall_back_to_youtube() do return
 
 			queue_state.is_polling = false
@@ -260,7 +265,7 @@ start_adding :: proc(catalog_id: string, play_count: int) {
 		defer free_all(context.temp_allocator)
 
 		status := apple.post(fmt.tprintf("/v1/me/library?ids[songs]=%s", job.catalog_id)).status
-		if status != 202 && status != 200 do fmt.eprintfln("queue: Apple answered %d to adding a song", status)
+		if status != 202 && status != 200 do console.add("Queue", "Apple answered %s to adding a song to the library.", console.to_status_text(status))
 
 		sync.guard(&queue_state.add_mutex)
 		queue_state.added_play_count = job.play_count
@@ -288,6 +293,7 @@ fall_back_to_youtube :: proc() -> bool {
 	reject_match(youtube_song)
 	queue.songs[queue.index] = youtube_song
 	show_toast(fmt.tprintf("Apple Music could not play %s, so it plays from YouTube", song.name))
+	console.add("Queue", "Music.app did not start %s within %.0f s, so it plays from YouTube from now on.", song.name, START_TIMEOUT_SECONDS)
 	play_at(queue.index)
 
 	return true
@@ -315,6 +321,10 @@ update_queue :: proc() {
 		queue_state.next_poll_ms = 0
 		request_id := helper.request_play(to_song_match(queue.songs[queue.index]))
 		queue_state.requests[request_id] = {kind = .Poll, play_count = queue_state.play_count}
+	}
+
+	if queue_state.is_starting_youtube && app.now_playing.song.persistent_id == queue.playing_persistent_id {
+		queue_state.is_starting_youtube = false
 	}
 
 	if queue_state.start_deadline_ms > 0 {
@@ -526,6 +536,11 @@ skip_to_previous :: proc(position_seconds: f64) {
 	}
 
 	play_at(queue.index - 1)
+}
+
+// The YouTube page loads a song for some seconds before it plays, and the player says so meanwhile.
+is_starting_youtube_song :: proc() -> bool {
+	return queue_state.is_starting_youtube
 }
 
 // The queue's song when it is the one playing, for its artwork and its lossless badge.

@@ -173,7 +173,7 @@ sync_handoff :: proc() {
 
 	match: Maybe(helper.Song_Match)
 	if next_index >= 0 {
-		queue.songs[next_index] = to_playable(queue.songs[next_index])
+		set_playable(next_index)
 		match = to_song_match(queue.songs[next_index])
 	}
 
@@ -186,7 +186,7 @@ sync_handoff :: proc() {
 play_at :: proc(index: int) {
 	queue_state.play_count += 1
 	queue_state.is_polling = false
-	queue.songs[index] = to_playable(queue.songs[index])
+	set_playable(index)
 	queue.index = index
 	queue_state.start_deadline_ms = 0
 	queue_state.is_starting_youtube = false
@@ -298,11 +298,12 @@ fall_back_to_youtube :: proc() -> bool {
 	song := queue.songs[queue.index]
 	if song.youtube_id == "" do return false
 
-	youtube_song := to_youtube_song(song)
+	youtube_song := clone_song(to_youtube_song(song))
 	reject_match(youtube_song)
+	delete_song(queue.songs[queue.index])
 	queue.songs[queue.index] = youtube_song
-	show_toast(fmt.tprintf("Apple Music could not play %s, so it plays from YouTube", song.name))
-	console.add("Queue", "Music.app did not start %s within %.0f s, so it plays from YouTube from now on.", song.name, START_TIMEOUT_SECONDS)
+	show_toast(fmt.tprintf("Apple Music could not play %s, so it plays from YouTube", youtube_song.name))
+	console.add("Queue", "Music.app did not start %s within %.0f s, so it plays from YouTube from now on.", youtube_song.name, START_TIMEOUT_SECONDS)
 	play_at(queue.index)
 
 	return true
@@ -383,7 +384,7 @@ to_shuffled :: proc(songs: []Catalog_Song) -> []Catalog_Song {
 	return shuffle_by_rules(songs)
 }
 
-// With shuffle on, the chosen song plays first and the others follow in a random order.
+// With shuffle on, the chosen song plays first and the others follow in a random order. The songs are copies.
 @(private = "file")
 to_play_order :: proc(songs: []Catalog_Song, first_index: int) -> []Catalog_Song {
 	others := make([dynamic]Catalog_Song, context.temp_allocator)
@@ -392,16 +393,18 @@ to_play_order :: proc(songs: []Catalog_Song, first_index: int) -> []Catalog_Song
 	shuffled := to_shuffled(others[:])
 	defer delete(shuffled)
 	order := make([]Catalog_Song, len(songs))
-	order[0] = songs[first_index]
-	copy(order[1:], shuffled)
+	order[0] = clone_song(songs[first_index])
+	for song, index in shuffled do order[index + 1] = clone_song(song)
 
 	return order
 }
 
+// The queue owns its songs, text and all. A page's songs live in the page's memory, which is read again into
+// new memory whenever its answers or its phase change, so a queue that pointed there would read freed memory.
 @(private = "file")
 replace_songs :: proc(songs, original_songs: []Catalog_Song) {
-	delete(queue.songs)
-	delete(queue.original_songs)
+	delete_songs(queue.songs)
+	delete_songs(queue.original_songs)
 	queue.songs = songs
 	queue.original_songs = original_songs
 }
@@ -409,9 +412,26 @@ replace_songs :: proc(songs, original_songs: []Catalog_Song) {
 @(private = "file")
 clone_songs :: proc(songs: []Catalog_Song) -> []Catalog_Song {
 	cloned := make([]Catalog_Song, len(songs))
-	copy(cloned, songs)
+	for song, index in songs do cloned[index] = clone_song(song)
 
 	return cloned
+}
+
+@(private = "file")
+delete_songs :: proc(songs: []Catalog_Song) {
+	for song in songs do delete_song(song)
+	delete(songs)
+}
+
+// A YouTube song whose Apple song is known plays from Apple Music, and a copy of Apple's song takes its place.
+@(private = "file")
+set_playable :: proc(index: int) {
+	playable := to_playable(queue.songs[index])
+	if playable.id == queue.songs[index].id do return
+
+	cloned := clone_song(playable)
+	delete_song(queue.songs[index])
+	queue.songs[index] = cloned
 }
 
 // The queue's next YouTube songs are checked against Apple's catalog now, so they play from Apple when their
@@ -442,12 +462,15 @@ play_songs :: proc(songs: []Catalog_Song, index: int) {
 shuffle_songs :: proc(songs: []Catalog_Song) {
 	if len(songs) == 0 do return
 
-	replace_songs(to_shuffled(songs), clone_songs(songs))
+	shuffled := to_shuffled(songs)
+	defer delete(shuffled)
+
+	replace_songs(clone_songs(shuffled), clone_songs(songs))
 	queue.is_shuffled = true
 	play_at(0)
 }
 
-// Puts the song right after the one playing. With nothing queued, it plays now.
+// Puts the song right after the one playing. With nothing queued, it plays now. The queue takes song, a copy.
 play_next :: proc(song: Catalog_Song) {
 	if queue.index < 0 || len(queue.songs) == 0 {
 		play_songs([]Catalog_Song{song}, 0)
@@ -462,9 +485,13 @@ play_next :: proc(song: Catalog_Song) {
 
 	original := make([]Catalog_Song, len(queue.original_songs) + 1)
 	copy(original, queue.original_songs)
-	original[len(original) - 1] = song
+	original[len(original) - 1] = clone_song(song)
 
-	replace_songs(songs, original)
+	// The new lists hold the old songs themselves, so only the old lists go.
+	delete(queue.songs)
+	delete(queue.original_songs)
+	queue.songs = songs
+	queue.original_songs = original
 	sync_handoff()
 	save_queue()
 }
@@ -476,12 +503,14 @@ play_queue_at :: proc(index: int) {
 remove_from_queue :: proc(index: int) {
 	if index == queue.index do return
 
-	removed := queue.songs[index]
+	removed_id := strings.clone(queue.songs[index].id, context.temp_allocator)
+	delete_song(queue.songs[index])
 	ordered_remove_slice(&queue.songs, index)
 
 	for song, original_index in queue.original_songs {
-		if song.id != removed.id do continue
+		if song.id != removed_id do continue
 
+		delete_song(song)
 		ordered_remove_slice(&queue.original_songs, original_index)
 		break
 	}
@@ -503,22 +532,22 @@ toggle_shuffle :: proc() {
 		return
 	}
 
-	current := queue.songs[queue.index]
+	current_id := strings.clone(queue.songs[queue.index].id, context.temp_allocator)
 
 	if queue.is_shuffled {
 		queue.is_shuffled = false
-		delete(queue.songs)
+		delete_songs(queue.songs)
 		queue.songs = clone_songs(queue.original_songs)
 		queue.index = 0
-		for song, index in queue.songs do if song.id == current.id do queue.index = index
+		for song, index in queue.songs do if song.id == current_id do queue.index = index
 		set_queue()
 		return
 	}
 
 	original_index := 0
-	for song, index in queue.original_songs do if song.id == current.id do original_index = index
+	for song, index in queue.original_songs do if song.id == current_id do original_index = index
 
-	delete(queue.songs)
+	delete_songs(queue.songs)
 	queue.songs = to_play_order(queue.original_songs, original_index)
 	queue.index = 0
 	queue.is_shuffled = true

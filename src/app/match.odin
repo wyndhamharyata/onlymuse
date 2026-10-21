@@ -2,6 +2,8 @@ package app
 
 import "core:encoding/json"
 import "core:fmt"
+import "core:mem"
+import "core:mem/virtual"
 import "core:slice"
 import "core:strings"
 import "core:sync"
@@ -36,7 +38,8 @@ MATCH_BATCH_COUNT :: 20
 // Albums found for one YouTube album. A single and an album of the same name are both worth checking.
 MAX_FOUND_ALBUM_COUNT :: 3
 // Counts up whenever is_same_recording changes, so the matches saved under an older rule are made again.
-MATCH_RULE_VERSION :: "2"
+// 3 drops the matches an index pointing into freed memory made from garbage.
+MATCH_RULE_VERSION :: "3"
 
 @(private = "file")
 matcher: struct {
@@ -69,10 +72,13 @@ albums: struct {
 }
 
 // The library's songs under each of their title keys, made again when the library changes. Main thread only.
+// The library page's songs are read again into new memory whenever its phase changes, even with the same
+// signature, so the index keeps copies of its own, in its arena.
 @(private = "file")
 library_index: struct {
 	signature: int,
 	is_built:  bool,
+	arena:     virtual.Arena,
 	by_title:  map[string][dynamic]Catalog_Song,
 }
 
@@ -132,11 +138,11 @@ find_library_match :: proc(song: Catalog_Song) -> (Catalog_Song, bool, apple.Pha
 	if phase != .Ready do return {}, false, phase
 
 	if !library_index.is_built || signature != library_index.signature {
-		for key, list in library_index.by_title {
-			delete(key)
-			delete(list)
-		}
-		clear(&library_index.by_title)
+		virtual.arena_destroy(&library_index.arena)
+		library_index.by_title = {}
+		_ = virtual.arena_init_growing(&library_index.arena)
+		allocator := virtual.arena_allocator(&library_index.arena)
+		library_index.by_title = make(map[string][dynamic]Catalog_Song, allocator)
 		library_index.signature = signature
 		library_index.is_built = true
 
@@ -144,9 +150,11 @@ find_library_match :: proc(song: Catalog_Song) -> (Catalog_Song, bool, apple.Pha
 			// A song uploaded from a Mac has no catalog ID, and Apple's catalog has nothing to say of it.
 			if !is_catalog_id(library_song.id) do continue
 
+			copied := copy_song(library_song, allocator)
+
 			for key in list_title_keys(library_song.name) {
-				if key not_in library_index.by_title do library_index.by_title[strings.clone(key)] = {}
-				append(&library_index.by_title[key], library_song)
+				if key not_in library_index.by_title do library_index.by_title[strings.clone(key, allocator)] = make([dynamic]Catalog_Song, allocator)
+				append(&library_index.by_title[key], copied)
 			}
 		}
 	}
@@ -158,6 +166,20 @@ find_library_match :: proc(song: Catalog_Song) -> (Catalog_Song, bool, apple.Pha
 	best, is_found := find_closest(song, candidates[:])
 
 	return best, is_found, .Ready
+}
+
+@(private = "file")
+copy_song :: proc(song: Catalog_Song, allocator: mem.Allocator) -> Catalog_Song {
+	copied := song
+	copied.id = strings.clone(song.id, allocator)
+	copied.name = strings.clone(song.name, allocator)
+	copied.artist_name = strings.clone(song.artist_name, allocator)
+	copied.album_name = strings.clone(song.album_name, allocator)
+	copied.artwork.url = strings.clone(song.artwork.url, allocator)
+	copied.artwork.bg_color = strings.clone(song.artwork.bg_color, allocator)
+	copied.artwork.text_color1 = strings.clone(song.artwork.text_color1, allocator)
+
+	return copied
 }
 
 @(private = "file")
@@ -198,10 +220,10 @@ is_match_rejected :: proc(song: Catalog_Song) -> bool {
 	return video_id != "" && store.is_match_rejected(video_id)
 }
 
-// The YouTube song an Apple match was made from, to play when Apple's will not.
+// The YouTube song an Apple match was made from, to play when Apple's will not. Its ID lives for the frame.
 to_youtube_song :: proc(song: Catalog_Song) -> Catalog_Song {
 	youtube_song := song
-	youtube_song.id = fmt.aprintf("%s%s", youtube.SONG_ID_PREFIX, song.youtube_id)
+	youtube_song.id = fmt.tprintf("%s%s", youtube.SONG_ID_PREFIX, song.youtube_id)
 	youtube_song.youtube_id = ""
 	youtube_song.is_lossless = false
 

@@ -187,6 +187,12 @@ shape :: proc(text: string, font: Font, max_width_pixels: f32 = 0, overflow := O
 	}
 
 	cf_text := mac.to_cf_string(text)
+
+	// Text that is not UTF-8 makes no string, and draws as nothing rather than stop the app.
+	if cf_text == nil {
+		shaped.size = {0, font.line_height}
+		return shaped
+	}
 	defer mac.CFRelease(cf_text)
 	keys := []mac.Type_Ref{mac.Type_Ref(mac.kCTFontAttributeName)}
 	values := []mac.Type_Ref{mac.Type_Ref(font.ct_font)}

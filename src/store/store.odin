@@ -175,6 +175,11 @@ find_match :: proc(youtube_id: string, allocator := context.allocator) -> (strin
 	return column_text(statement, 0, allocator), true
 }
 
+// Every saved match goes, such as when the rule that makes them changes.
+delete_matches :: proc() {
+	run("delete from matches")
+}
+
 save_match :: proc(youtube_id, song_json: string) {
 	statement, ok := prepare("insert into matches (youtube_id, song, checked_at) values (?1, ?2, ?3) on conflict (youtube_id) do update set song = ?2, checked_at = ?3")
 	if !ok do return

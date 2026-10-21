@@ -22,10 +22,10 @@ Match_State :: enum {
 }
 
 // Two lengths this close are one recording. A remaster or a TV-size edit differs by more.
-MATCH_SECONDS :: 5
-// With different artist names, such as one in Japanese, the lengths must agree more closely.
-MATCH_SECONDS_WITHOUT_ARTIST :: 2
+MATCH_SECONDS :: 3
 MATCH_THREAD_COUNT :: 3
+// Counts up whenever is_same_recording changes, so the matches saved under an older rule are made again.
+MATCH_RULE_VERSION :: "2"
 
 @(private = "file")
 matcher: struct {
@@ -36,6 +36,7 @@ matcher: struct {
 	checking:   map[string]bool,
 	pool:       thread.Pool,
 	is_started: bool,
+	is_rule_checked: bool,
 	// Counts up with each answer, so a page that counts matches reads them again.
 	version:    int,
 }
@@ -46,6 +47,16 @@ find_match :: proc(song: Catalog_Song) -> (Catalog_Song, Match_State) {
 	if video_id == "" do return song, .Found
 
 	sync.guard(&matcher.mutex)
+
+	if !matcher.is_rule_checked {
+		matcher.is_rule_checked = true
+		saved_rule, _ := store.find_state("matchRule", context.temp_allocator)
+
+		if saved_rule != MATCH_RULE_VERSION {
+			store.delete_matches()
+			store.save_state("matchRule", MATCH_RULE_VERSION)
+		}
+	}
 
 	if found, ok := matcher.found[video_id]; ok do return found, .Found
 	if video_id in matcher.missing do return song, .Missing
@@ -194,7 +205,8 @@ find_best_match :: proc(song: Catalog_Song, body: string) -> (Catalog_Song, bool
 }
 
 // The same title once cleaned, by the same artist, and about as long. YouTube often writes a Japanese
-// title and its romaji as "追い風 - Oikaze", where Apple writes one of them, so either half matches.
+// title and its romaji as "追い風 - Oikaze", where Apple writes one of them, so either half matches. An
+// artist named another way on each, such as in Japanese on one, is no match: the song plays from YouTube.
 is_same_recording :: proc(youtube_song, apple_song: Catalog_Song) -> bool {
 	has_lengths := youtube_song.duration_seconds > 0 && apple_song.duration_seconds > 0
 	length_difference := abs(youtube_song.duration_seconds - apple_song.duration_seconds)
@@ -205,7 +217,7 @@ is_same_recording :: proc(youtube_song, apple_song: Catalog_Song) -> bool {
 	if !has_same_title(youtube_song.name, apple_song.name) do return false
 	if has_lengths && length_difference > MATCH_SECONDS do return false
 
-	return is_same_artist || (has_lengths && length_difference <= MATCH_SECONDS_WITHOUT_ARTIST)
+	return is_same_artist
 }
 
 @(private = "file")

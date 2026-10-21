@@ -99,6 +99,9 @@ fetch_lines :: proc(name, artist: string) -> ([]Line, []string, bool) {
 	song_id, ok := find_song_id(name, artist)
 	if !ok do return nil, nil, false
 
+	// A song from YouTube has the ID "yt:" and its video, which Apple's catalog has no lyrics for.
+	for character in song_id do if character < '0' || character > '9' do return nil, nil, false
+
 	answer := apple.fetch(fmt.tprintf("/v1/catalog/%s/songs/%s/syllable-lyrics%s", apple.STOREFRONT, song_id, LYRICS_QUERY), context.temp_allocator)
 	is_syllable := answer.status == 200
 

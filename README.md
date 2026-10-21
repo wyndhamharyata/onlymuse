@@ -314,6 +314,10 @@ A song plays from Apple Music whenever Apple has it. YouTube Music adds what App
 - When Music.app does not start Apple's song within 8 seconds, the song plays from YouTube, and
   always will from then on. Not on Apple Music, in a matched song's menu, does the same by hand. Try
   Apple Music Again, in the menu of such a song, undoes it.
+- A song only on YouTube has a heart too, after its YouTube mark. Favouriting it puts it at the end of
+  Favourite Songs in onlymuse, as Apple's playlist holds Apple songs alone, and likes it on YouTube,
+  so it shows in Liked Music. Removing the favourite does both the other way. A song liked on YouTube
+  shows as a favourite.
 - Add to Playlist works for a song only on YouTube too. It stays in the playlist in onlymuse, as
   Apple's playlists hold Apple songs alone. Its menu offers Remove from Playlist.
 

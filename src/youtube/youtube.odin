@@ -95,6 +95,16 @@ list_path :: proc(id: string) -> string {
 	return to_path("next", fmt.tprintf("{{%s,\"isAudioOnly\":true}}", to_json_field("playlistId", id)))
 }
 
+// Likes the video on the signed-in account, or takes the like back. Blocks. 200 when YouTube took it, 0 signed out.
+send_like :: proc(video_id: string, is_liked: bool) -> int {
+	if !is_signed_in() do return 0
+
+	endpoint := "like/like" if is_liked else "like/removelike"
+	body := fmt.tprintf("{{\"target\":{{%s}}}}", to_json_field("videoId", video_id))
+
+	return send_request(to_path(endpoint, body), context.temp_allocator).status
+}
+
 // A path for apple.watch, such as to_path("browse", `{"browseId":"FEmusic_home"}`).
 @(private)
 to_path :: proc(endpoint, body_json: string) -> string {

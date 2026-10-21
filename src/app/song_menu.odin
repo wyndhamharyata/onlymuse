@@ -144,7 +144,7 @@ build_song_menu :: proc() {
 
 				menu_separator()
 				is_on := is_favourite(song)
-				if !is_from_youtube && menu_item("favourite", "Remove from Favourites" if is_on else "Favourite", "⌘L" if is_playing_song(song) else "") {
+				if menu_item("favourite", "Remove from Favourites" if is_on else "Favourite", "⌘L" if is_playing_song(song) else "") {
 					toggle_favourite(song, app.now_playing.song.persistent_id if is_playing_song(song) else "")
 					is_closing = true
 				}

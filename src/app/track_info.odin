@@ -8,6 +8,7 @@ import "om:helper"
 import "om:platform"
 import "om:store"
 import "om:ui"
+import "om:youtube"
 
 // What Music.app knows of a song and Apple's API does not. Dates are Unix ms, 0 when it has none.
 Track_Info :: struct {
@@ -139,6 +140,7 @@ is_favourite :: proc(song: Catalog_Song, persistent_id := "") -> bool {
 		if info, ok := track_infos[persistent_id]; ok do return info.favorited
 	}
 	if changed, ok := favourite_changes[song.id]; ok do return changed
+	if youtube.is_song_id(song.id) do return is_youtube_favourite(song)
 
 	return favourite_ids()[song.id]
 }
@@ -146,6 +148,12 @@ is_favourite :: proc(song: Catalog_Song, persistent_id := "") -> bool {
 toggle_favourite :: proc(song: Catalog_Song, persistent_id := "") {
 	favorited := !is_favourite(song, persistent_id)
 	set_favourite_change(song.id, favorited)
+
+	if youtube.is_song_id(song.id) {
+		set_youtube_favourite(song, favorited)
+		show_toast("Added to Favourite Songs and liked on YouTube" if favorited else "Removed from Favourite Songs and unliked on YouTube")
+		return
+	}
 
 	if persistent_id != "" {
 		if info, ok := &track_infos[persistent_id]; ok do info.favorited = favorited

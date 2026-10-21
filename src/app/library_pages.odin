@@ -141,12 +141,10 @@ build_song_row :: proc(id: string, song: Catalog_Song, subtitle: string, is_curr
 build_row_heart :: proc(row: ^ui.Box, chosen: Catalog_Song, is_current: bool) {
 	song, state := find_match(chosen)
 
-	if state != .Found {
-		color := colors.youtube if state == .Missing else colors.faint
-		// The same padding as the heart's button, so the lengths after it line up.
-		icon_box("", YOUTUBE_SYMBOL, 13, color, {padding = {4, 4, 4, 4}})
-		return
-	}
+	// The same padding as the heart's button, so the lengths after it line up.
+	if state != .Found do icon_box("", YOUTUBE_SYMBOL, 13, colors.youtube if state == .Missing else colors.faint, {padding = {4, 4, 4, 4}})
+	// Until Apple's catalog is checked, the song may yet be Apple's, whose heart it would take.
+	if state == .Checking do return
 
 	persistent_id := app.now_playing.song.persistent_id if is_current else ""
 	is_on := is_favourite(song, persistent_id)

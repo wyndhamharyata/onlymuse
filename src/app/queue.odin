@@ -173,6 +173,7 @@ play_at :: proc(index: int) {
 	queue_state.is_polling = false
 	queue.songs[index] = to_playable(queue.songs[index])
 	queue.index = index
+	start_matches()
 	queue.is_adding = false
 	queue.playing_persistent_id = ""
 	set_queue()
@@ -325,16 +326,20 @@ clone_songs :: proc(songs: []Catalog_Song) -> []Catalog_Song {
 	return cloned
 }
 
-// Each YouTube song in the list is checked against Apple's catalog now, so it plays from Apple when its turn comes.
+// The queue's next YouTube songs are checked against Apple's catalog now, so they play from Apple when their
+// turn comes. Each later one is checked when it is next.
+MATCHED_AHEAD_COUNT :: 25
+
 @(private = "file")
-start_matches :: proc(songs: []Catalog_Song) {
-	for song in songs do if youtube.is_song_id(song.id) do find_match(song)
+start_matches :: proc() {
+	if queue.index < 0 do return
+
+	ahead := queue.songs[queue.index:min(len(queue.songs), queue.index + MATCHED_AHEAD_COUNT)]
+	for song in ahead do if youtube.is_song_id(song.id) do find_match(song)
 }
 
 play_songs :: proc(songs: []Catalog_Song, index: int) {
 	if len(songs) == 0 do return
-
-	start_matches(songs)
 
 	if !queue.is_shuffled {
 		replace_songs(clone_songs(songs), clone_songs(songs))
@@ -348,8 +353,6 @@ play_songs :: proc(songs: []Catalog_Song, index: int) {
 
 shuffle_songs :: proc(songs: []Catalog_Song) {
 	if len(songs) == 0 do return
-
-	start_matches(songs)
 
 	replace_songs(to_shuffled(songs), clone_songs(songs))
 	queue.is_shuffled = true

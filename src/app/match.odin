@@ -5,6 +5,7 @@ import "core:fmt"
 import "core:strings"
 import "core:sync"
 import "core:thread"
+import "core:time"
 import "core:unicode"
 import "om:apple"
 import "om:platform"
@@ -23,7 +24,10 @@ Match_State :: enum {
 
 // Two lengths this close are one recording. A remaster or a TV-size edit differs by more.
 MATCH_SECONDS :: 3
-MATCH_THREAD_COUNT :: 3
+// Apple refuses an account that searches too fast, with 429, for a while. So one search runs at a time, a
+// little apart, and a refusal stops matching for a minute.
+MATCH_GAP :: 300 * time.Millisecond
+REFUSED_PAUSE :: 60 * time.Second
 // Counts up whenever is_same_recording changes, so the matches saved under an older rule are made again.
 MATCH_RULE_VERSION :: "2"
 
@@ -34,6 +38,10 @@ matcher: struct {
 	found:      map[string]Catalog_Song,
 	missing:    map[string]bool,
 	checking:   map[string]bool,
+	// A song whose search got no answer, and when it may be checked again.
+	failed:     map[string]time.Tick,
+	// No search starts before this, after Apple refused one.
+	resume_at:  time.Tick,
 	pool:       thread.Pool,
 	is_started: bool,
 	is_rule_checked: bool,
@@ -61,6 +69,11 @@ find_match :: proc(song: Catalog_Song) -> (Catalog_Song, Match_State) {
 	if found, ok := matcher.found[video_id]; ok do return found, .Found
 	if video_id in matcher.missing do return song, .Missing
 	if video_id in matcher.checking do return song, .Checking
+
+	if retry_at, ok := matcher.failed[video_id]; ok {
+		if time.tick_diff(time.tick_now(), retry_at) > 0 do return song, .Checking
+		delete_key(&matcher.failed, video_id)
+	}
 
 	if saved, ok := store.find_match(video_id, context.temp_allocator); ok {
 		keep_match(video_id, saved)
@@ -125,7 +138,7 @@ Match_Job :: struct {
 @(private = "file")
 start_matching :: proc(song: Catalog_Song, video_id: string) {
 	if !matcher.is_started {
-		thread.pool_init(&matcher.pool, context.allocator, MATCH_THREAD_COUNT)
+		thread.pool_init(&matcher.pool, context.allocator, 1)
 		thread.pool_start(&matcher.pool)
 		matcher.is_started = true
 	}
@@ -136,11 +149,13 @@ start_matching :: proc(song: Catalog_Song, video_id: string) {
 	thread.pool_add_task(&matcher.pool, context.allocator, check_match, job)
 }
 
-// Runs on a worker. A search that gets no answer is not saved, so the song plays from YouTube until the next run checks again.
+// Runs on the one matching thread. A search that gets no answer is not saved, and the song is checked again later.
 @(private = "file")
 check_match :: proc(task: thread.Task) {
 	job := cast(^Match_Job)task.data
 	defer free_all(context.temp_allocator)
+
+	wait_to_search()
 
 	answer: apple.Answer
 	best: Catalog_Song
@@ -152,6 +167,8 @@ check_match :: proc(task: thread.Task) {
 		answer = apple.fetch(path, context.temp_allocator)
 		best, is_found = find_best_match(job.song, answer.body)
 		if is_found || answer.status != 200 do break
+
+		wait_to_search()
 	}
 
 	sync.guard(&matcher.mutex)
@@ -164,7 +181,9 @@ check_match :: proc(task: thread.Task) {
 	}
 
 	if answer.status != 200 {
-		matcher.missing[job.video_id] = true
+		pause := REFUSED_PAUSE if answer.status == 429 else MATCH_GAP
+		matcher.resume_at = time.tick_add(time.tick_now(), pause)
+		matcher.failed[job.video_id] = time.tick_add(time.tick_now(), REFUSED_PAUSE)
 		return
 	}
 
@@ -176,6 +195,19 @@ check_match :: proc(task: thread.Task) {
 	store.save_match(job.video_id, saved)
 	keep_match(job.video_id, saved)
 	delete(job.video_id)
+}
+
+// Sleeps until Apple may be asked again, then a little more.
+@(private = "file")
+wait_to_search :: proc() {
+	resume_at: time.Tick
+	{
+		sync.guard(&matcher.mutex)
+		resume_at = matcher.resume_at
+	}
+
+	if wait := time.tick_diff(time.tick_now(), resume_at); wait > 0 do time.sleep(wait)
+	time.sleep(MATCH_GAP)
 }
 
 // The closest in length of Apple's songs that are the same song.

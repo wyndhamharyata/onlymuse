@@ -115,6 +115,7 @@
   .song .n { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .song .d { font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .song .time { color: var(--faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .song .date { color: var(--faint); font-size: 12px; white-space: nowrap; }
   .dots { color: var(--faint); letter-spacing: 1px; text-align: right; }
 
   .tracks .tr { display: grid; grid-template-columns: 34px 1fr 90px 60px 36px; align-items: center; padding: 9px 10px; border-radius: 7px; font-size: 13px; }
@@ -330,7 +331,37 @@ function artistContent() {
       <div><div class="shelf-title">Top Songs <span class="more">›</span></div><div class="songs">${a.top.map((s) => `<div class="song"><img src="${s.art}"><div class="x"><div class="n">${esc(s.name)}</div><div class="d">${esc(s.album)}</div></div><span class="time">${time(s.dur)}</span><span class="dots">···</span></div>`).join('')}</div></div>
     </div>
     <div class="shelf"><div class="shelf-title">In Your Library <span class="pill ok">${ic('check', 12)}2 albums</span></div><div class="row">${[{ name: 'Amulet', art: amulet.art.replace('800x800', '400x400'), sub: 'Downloaded · Lossless' }, { name: 'Oikaze - EP', art: D.search.albums.find((x) => /Oikaze - EP/.test(x.name))?.art ?? a.albums[1].art, sub: 'Downloaded · Lossless' }].map((t) => tile(t)).join('')}</div></div>
-    <div class="shelf"><div class="shelf-title">Albums <span class="more">›</span></div><div class="row">${a.albums.map((t) => tile({ ...t, sub: t.year })).join('')}</div></div>`
+    <div class="shelf"><div class="shelf-title">Albums <span class="more">›</span></div><div class="row">${a.albums.map((t) => tile({ ...t, sub: t.year })).join('')}</div></div>
+    ${artistSongsShelf()}
+    ${artistSimilarShelf()}`
+}
+
+// The artist page scrolled down, so the rows under Albums are visible.
+function artistContentScrolled() {
+  const a = D.artist
+  return `<div class="shelf"><div class="shelf-title">Albums <span class="more">›</span></div><div class="row">${a.albums.map((t) => tile({ ...t, sub: t.year })).join('')}</div></div>
+    ${artistSongsShelf()}
+    ${artistSimilarShelf()}
+    <div class="shelf"><div class="shelf-title">About</div><p class="note" style="margin:0">SHE'S is a four-piece band from Osaka, formed in 2012. They mix post-rock builds with plainspoken Japanese lyrics.</p></div>`
+}
+
+function artistSongsShelf() {
+  const a = D.artist
+  return `<div class="shelf"><div class="shelf-title">Recent Songs <span class="more">›</span></div><div class="songs">${a.recentSongs.map((s) => `<div class="song"><img src="${s.art}"><div class="x"><div class="n">${esc(s.name)}</div><div class="d">${esc(s.album)}</div></div><span class="date">${esc(s.date)}</span><span class="time">${time(s.dur)}</span><span class="dots">···</span></div>`).join('')}</div></div>`
+}
+
+// The list that the Recent Songs chevron opens, in the same shape as the app's other song lists.
+function songListContent(title, songs) {
+  return `<div style="display:flex;align-items:flex-end;gap:10px;margin-bottom:16px">
+      <div style="flex:1"><div style="font-size:28px;font-weight:700;letter-spacing:-0.01em">${esc(title)}</div><div style="color:var(--dim);font-size:13px">${songs.length} songs</div></div>
+      <span class="btn">${ic('play', 13)}Play</span><span class="btn ghost">${ic('shuffle', 14)}Shuffle</span>
+    </div>
+    <div class="songs" style="grid-template-columns:1fr">${songs.map((s) => `<div class="song"><img src="${s.art}"><div class="x"><div class="n">${esc(s.name)}</div><div class="d">${esc(s.album)}</div></div><span class="date">${esc(s.date)}</span><span class="time">${time(s.dur)}</span><span class="dots">···</span></div>`).join('')}</div>`
+}
+
+function artistSimilarShelf() {
+  const a = D.artist
+  return `<div class="shelf"><div class="shelf-title">Similar Artists <span class="more">›</span></div><div class="row">${a.similar.map((t) => `<div class="tile round" style="width:130px"><img src="${t.photo}" style="width:130px;height:130px;border-radius:50%"><div class="n">${esc(t.name)}</div></div>`).join('')}</div></div>`
 }
 
 function albumContent() {
@@ -402,7 +433,17 @@ page.innerHTML = `
   <h2 id="artist">Artist</h2>
   <p class="note">This is where <b>Go to Artist</b> always leads. It's the full Apple Music artist page, with an <b>In Your Library</b> row added, so there's never a choice between the catalog page and the library page.</p>
   <div class="screen">${windowFrame({ active: null, content: artistContent() })}</div>
-  <p class="caption">The header uses the artist's photo. Where a photo is missing, it falls back to a gradient in the artwork's own <code>bgColor</code> from the API. GPUIX can't blur content, so there are no blurred backdrops anywhere. Below the albums come <b>Similar Artists</b> and <b>About</b>.</p>
+  <p class="caption">The header uses the artist's photo. Where a photo is missing, it falls back to a gradient in the artwork's own <code>bgColor</code> from the API. GPUIX can't blur content, so there are no blurred backdrops anywhere.</p>
+
+  <h3>The artist page, scrolled down</h3>
+  <p class="note">Under <b>Albums</b> comes <b>Recent Songs</b>, newest first. Its › opens the full list, in the same shape as <b>Top Songs</b>. Below that comes <b>Similar Artists</b>.</p>
+  <div class="screen">${windowFrame({ active: null, content: artistContentScrolled() })}</div>
+  <p class="caption">The <b>Recent Songs</b> row lists the artist's songs by release date, newest first. The date comes from the song's release date in Apple's API, so a single that came out after the last album still appears at the top. A song that has no date stays out of the row.</p>
+
+  <h3>Recent Songs, opened</h3>
+  <p class="note">The list the › opens. It has the same title, count, Play, Shuffle and rows as every other song list in the app.</p>
+  <div class="screen">${windowFrame({ active: null, content: songListContent('Recent Songs', D.artist.recentSongs) })}</div>
+  <p class="caption"><b>Play</b> queues the whole list from the top. <b>Shuffle</b> queues it in a random order. Clicking a row plays that song and queues the rest after it.</p>
 
   <h2 id="album">Album, with Up Next open</h2>
   <p class="note">Badges show quality, whether it's in your library and whether it's downloaded. Pressing Play queues the whole album in onlymuse, and the Up Next panel shows exactly that queue.</p>

@@ -60,6 +60,7 @@ vendor/             The patched gpuix binary and its patch. NOTES.md, Frame time
 | Library | The songs, albums and playlists added to the account. |
 | Storefront | The Apple Music country of the account. `id` for this one. |
 | Shelf | One named row on Home or New, such as Made for You. |
+| Recent Songs | The songs of an artist from their ten newest releases, newest first. |
 | Card | One tile on a shelf or a grid: an album, an artist, a playlist or a song. |
 | Download | A song Music.app keeps on the Mac, as a package in its download folder. |
 | Now playing | The song Music.app plays, its state, its position and the volume. |

@@ -37,6 +37,8 @@ The storefront is **`id`** (Indonesia), from `/v1/me/storefront`. Language is `l
 | `GET /v1/catalog/id/songs/{id}?relate=library` | The library ID of a catalog song, or none when it is not in the library. Each release is separate (the Oikaze EP is in the library, the Oikaze single is not) |
 | `GET /v1/catalog/id/songs/{id}` | `audioTraits`: `lossless`, `atmos`, `spatial`, `lossy-stereo` |
 | `GET /v1/catalog/id/artists/{id}?views=top-songs,similar-artists,latest-release,full-albums&extend=artistBio` | The full artist page, with photo and bio. This is the Go to Artist page |
+| `GET /v1/catalog/id/artists/{id}?views=singles,full-albums` | The releases of an artist, newest first. Each view holds ten and takes `offset` for the next ten. `limit` is refused |
+| `GET /v1/catalog/id/albums?ids=a,b,c&include=tracks` | The albums of those ids, each with its whole track list under `relationships.tracks.data`. The list has no `next`. A track carries its own `releaseDate`, which is the date of the song and not always the date of its album |
 | `GET /v1/catalog/id/songs/{id}/lyrics`, `/syllable-lyrics` | Lyrics as TTML. Syllable lyrics are word-synced |
 | `GET /v1/catalog/id/search?term=…&types=songs,artists,albums` | Catalog search |
 | `POST /v1/me/library?ids[songs]=…` or `ids[albums]=…` | Puts the songs or albums in the library. HTTP 202 |
@@ -143,6 +145,7 @@ the layout and the rules.
 | New | `/v1/editorial/{storefront}/groupings?platform=web&name=music`. A shelf with no name is a banner and is skipped. |
 | Search | `/v1/catalog/{storefront}/search` |
 | Artist | `/v1/catalog/{storefront}/artists/{id}?views=…`, and the library albums of the library artist with the same name |
+| Recent Songs | The `singles` and `full-albums` views of the artist, then `/v1/catalog/{storefront}/albums?ids=…&include=tracks` for their songs. The ten newest releases give the songs. A song on a single and on an album has the same name, so the newer release keeps it |
 | Album | `/v1/catalog/{storefront}/albums/{id}?include=artists&relate=library` |
 | Apple Music playlist | `/v1/catalog/{storefront}/playlists/{id}` and its `/tracks` |
 | Favourite Songs, playlists | `/v1/me/library/playlists/{id}/tracks` |

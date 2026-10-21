@@ -130,11 +130,13 @@ final class WebPlayer: NSObject, WKUIDelegate, NSWindowDelegate {
   private func finish() {
     isSigningIn = false
     hasAskedToAuthorize = false
+    closePage(webView)
     window?.delegate = nil
     window?.close()
     window = nil
     webView = nil
     for popup in popupWindows {
+      closePage(popup.contentView as? WKWebView)
       popup.delegate = nil
       popup.close()
     }
@@ -189,4 +191,17 @@ final class WebPlayer: NSObject, WKUIDelegate, NSWindowDelegate {
 
     if isSigningIn && popupWindows.isEmpty { window?.makeKeyAndOrderFront(nil) }
   }
+}
+
+// Letting go of a web view leaves its page's process running, with 150 MB or more. WebKit's _close ends the
+// page, and so the process. It is not public, so a WebKit without it only stops the page loading.
+@MainActor
+func closePage(_ view: WKWebView?) {
+  guard let view else { return }
+
+  view.stopLoading()
+
+  let close = NSSelectorFromString("_close")
+
+  if view.responds(to: close) { view.perform(close) }
 }

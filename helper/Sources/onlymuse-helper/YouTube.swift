@@ -27,6 +27,8 @@ final class YouTube: NSObject, WKNavigationDelegate {
     })()
     """
   private static let pollSeconds = 0.5
+  // The page goes this long after the last YouTube song, as it holds 200 MB or more. The next song loads it again.
+  private static let idleCloseSeconds = 5.0 * 60
   private static let positionSendSeconds = 2.0
   // The page's player states, as YT.PlayerState names them.
   private static let endedState = 0
@@ -39,6 +41,7 @@ final class YouTube: NSObject, WKNavigationDelegate {
   private var playerView: WKWebView?
   private var playerWindow: NSWindow?
   private var pollTimer: Timer?
+  private var idleTimer: Timer?
   private var song: SongMatch?
   private var videoID = ""
   private var isPageLoaded = false
@@ -101,6 +104,8 @@ final class YouTube: NSObject, WKNavigationDelegate {
 
   // Plays the song from YouTube. Answers its persistent ID, as Music.app's songs have.
   func play(_ match: SongMatch, videoID: String) -> String {
+    idleTimer?.invalidate()
+    idleTimer = nil
     isActive = true
     song = match
     self.videoID = videoID
@@ -130,6 +135,14 @@ final class YouTube: NSObject, WKNavigationDelegate {
     pollTimer?.invalidate()
     pollTimer = nil
     run("document.getElementById('movie_player')?.pauseVideo()")
+    idleTimer?.invalidate()
+    idleTimer = Timer.scheduledTimer(withTimeInterval: Self.idleCloseSeconds, repeats: false) { [weak self] _ in
+      MainActor.assumeIsolated {
+        guard let self, !self.isActive else { return }
+
+        self.resetPlayer()
+      }
+    }
   }
 
   func apply(_ command: Command) {
@@ -183,6 +196,9 @@ final class YouTube: NSObject, WKNavigationDelegate {
 
   private func resetPlayer() {
     stop()
+    idleTimer?.invalidate()
+    idleTimer = nil
+    closePage(playerView)
     playerWindow?.close()
     playerWindow = nil
     playerView = nil

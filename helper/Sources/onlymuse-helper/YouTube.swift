@@ -17,6 +17,12 @@ final class YouTube: NSObject, WKNavigationDelegate, NSWindowDelegate {
       if (player && window.onlymuseVideoID && player.getVideoData().video_id !== window.onlymuseVideoID) player.pauseVideo();
     }, true);
     """
+  // Passkeys work only in a browser, and Google's sign-in breaks after one fails, so the page sees no passkey
+  // support and asks for the password.
+  private static let noPasskeyScript = """
+    try { delete window.PublicKeyCredential } catch (error) {}
+    window.PublicKeyCredential = undefined;
+    """
   // A quiet run mutes each song before it makes a sound.
   private static let muteScript = """
     document.addEventListener("play", (event) => { event.target.muted = true }, true);
@@ -79,6 +85,7 @@ final class YouTube: NSObject, WKNavigationDelegate, NSWindowDelegate {
     let configuration = WKWebViewConfiguration()
 
     configuration.websiteDataStore = .default()
+    configuration.userContentController.addUserScript(WKUserScript(source: Self.noPasskeyScript, injectionTime: .atDocumentStart, forMainFrameOnly: false))
 
     let webView = WKWebView(frame: .zero, configuration: configuration)
 

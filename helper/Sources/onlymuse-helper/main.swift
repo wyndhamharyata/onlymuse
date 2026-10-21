@@ -107,7 +107,7 @@ startReadingCommands(onCommand: { command in
     youTube.isActive ? youTube.sendState() : send(music.readNowPlaying())
     youTube.sendCookie()
   case "signIn": webPlayer.signIn()
-  case "youtubeSignIn": youTube.signIn()
+  case "youtubeSignIn": youTube.sendCookie()
   case "playSong":
     guard let requestId = command.requestId, let song = command.song else { return }
     var persistentID: Any = NSNull()

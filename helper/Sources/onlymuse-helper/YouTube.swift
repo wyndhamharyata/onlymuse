@@ -2,13 +2,11 @@ import AppKit
 import WebKit
 
 // music.youtube.com in a page no one sees. It plays YouTube songs with the page's own player, audio and all, so
-// Premium's quality and its lack of ads apply. Google's sign-in shows in a window of its own, and WebKit keeps it.
+// Premium's quality and its lack of ads apply. It is signed in with Helium's YouTube cookies.
 @MainActor
-final class YouTube: NSObject, WKNavigationDelegate, NSWindowDelegate {
+final class YouTube: NSObject, WKNavigationDelegate {
   static let idPrefix = "yt:"
 
-  private static let homeURL = URL(string: "https://music.youtube.com/")!
-  private static let signInURL = URL(string: "https://accounts.google.com/ServiceLogin?service=youtube&continue=https%3A%2F%2Fmusic.youtube.com%2F")!
   // The page plays its own next song when one ends. Only the app's queue picks what plays, so any other song pauses.
   private static let pageScript = """
     window.onlymuseVideoID = "";
@@ -16,12 +14,6 @@ final class YouTube: NSObject, WKNavigationDelegate, NSWindowDelegate {
       const player = document.getElementById("movie_player");
       if (player && window.onlymuseVideoID && player.getVideoData().video_id !== window.onlymuseVideoID) player.pauseVideo();
     }, true);
-    """
-  // Passkeys work only in a browser, and Google's sign-in breaks after one fails, so the page sees no passkey
-  // support and asks for the password.
-  private static let noPasskeyScript = """
-    try { delete window.PublicKeyCredential } catch (error) {}
-    window.PublicKeyCredential = undefined;
     """
   // A quiet run mutes each song before it makes a sound.
   private static let muteScript = """
@@ -46,7 +38,6 @@ final class YouTube: NSObject, WKNavigationDelegate, NSWindowDelegate {
   private let isQuiet: Bool
   private var playerView: WKWebView?
   private var playerWindow: NSWindow?
-  private var signInWindow: NSWindow?
   private var pollTimer: Timer?
   private var song: SongMatch?
   private var videoID = ""
@@ -63,69 +54,49 @@ final class YouTube: NSObject, WKNavigationDelegate, NSWindowDelegate {
     self.isQuiet = isQuiet
   }
 
-  // Sends the cookie of music.youtube.com, empty when no account is signed in. src/youtube signs each request with it.
+  // Sends Helium's youtube.com cookies to the app, which signs each request with them, and gives them to the
+  // player's page. A quiet run never asks the Keychain, so a test shows no prompt, and it plays signed out.
   func sendCookie() {
-    WKWebsiteDataStore.default().httpCookieStore.getAllCookies { cookies in
-      let header = cookies
-        .filter { $0.domain.hasSuffix("youtube.com") }
-        .map { "\($0.name)=\($0.value)" }
-        .joined(separator: "; ")
+    guard !isQuiet else { return send(["type": "youtubeCookie", "cookie": ""]) }
 
-      send(["type": "youtubeCookie", "cookie": header])
+    DispatchQueue.global().async {
+      let result = HeliumCookies.readYouTubeCookies()
+
+      DispatchQueue.main.async {
+        MainActor.assumeIsolated { self.apply(result) }
+      }
     }
   }
 
-  func signIn() {
-    if let signInWindow {
-      signInWindow.makeKeyAndOrderFront(nil)
-      NSApp.activate()
-      return
+  private func apply(_ result: Result<[HeliumCookies.Cookie], HeliumCookies.Failure>) {
+    let cookies: [HeliumCookies.Cookie]
+
+    switch result {
+    case .success(let found): cookies = found
+    case .failure(.noKey): return send(["type": "youtubeCookie", "cookie": "", "problem": "keychain"])
+    case .failure(.noDatabase): return send(["type": "youtubeCookie", "cookie": "", "problem": "helium"])
     }
 
-    let configuration = WKWebViewConfiguration()
+    send(["type": "youtubeCookie", "cookie": cookies.map { "\($0.name)=\($0.value)" }.joined(separator: "; ")])
 
-    configuration.websiteDataStore = .default()
-    configuration.userContentController.addUserScript(WKUserScript(source: Self.noPasskeyScript, injectionTime: .atDocumentStart, forMainFrameOnly: false))
+    let store = WKWebsiteDataStore.default().httpCookieStore
 
-    let webView = WKWebView(frame: .zero, configuration: configuration)
+    for cookie in cookies {
+      var properties: [HTTPCookiePropertyKey: Any] = [.domain: cookie.host, .path: cookie.path, .name: cookie.name, .value: cookie.value]
+      if cookie.isSecure { properties[.secure] = "TRUE" }
+      if cookie.isHTTPOnly { properties[HTTPCookiePropertyKey("HttpOnly")] = "TRUE" }
+      if let httpCookie = HTTPCookie(properties: properties) { store.setCookie(httpCookie) }
+    }
 
-    webView.customUserAgent = WebPlayer.userAgent
-    webView.navigationDelegate = self
-    webView.load(URLRequest(url: Self.signInURL))
-
-    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 680), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
-
-    window.title = "Sign in to YouTube Music"
-    window.contentView = webView
-    window.isReleasedWhenClosed = false
-    window.delegate = self
-    window.center()
-    window.makeKeyAndOrderFront(nil)
-    NSApp.activate()
-    signInWindow = window
+    // A page loaded before holds the old sign-in.
+    if !isActive { resetPlayer() }
   }
 
-  // Google sends the window on to music.youtube.com once the sign-in is done.
   func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-    if webView === playerView {
-      isPageLoaded = true
-      run("window.onlymuseVideoID = \(quoted(videoID))")
-      return
-    }
+    guard webView === playerView else { return }
 
-    guard webView.url?.host == Self.homeURL.host else { return }
-
-    signInWindow?.delegate = nil
-    signInWindow?.close()
-    signInWindow = nil
-    // The player's page was loaded signed out, so it loads again with the new sign-in.
-    resetPlayer()
-    sendCookie()
-  }
-
-  func windowWillClose(_ notification: Notification) {
-    signInWindow = nil
-    sendCookie()
+    isPageLoaded = true
+    run("window.onlymuseVideoID = \(quoted(videoID))")
   }
 
   // Plays the song from YouTube. Answers its persistent ID, as Music.app's songs have.

@@ -33,8 +33,10 @@ Message :: struct {
 	developer_token:     string `json:"developerToken"`,
 	user_token:          string `json:"userToken"`,
 	text:                string,
-	// youtubeCookie: the cookie of music.youtube.com, empty when signed out.
+	// youtubeCookie: Helium's youtube.com cookies, empty when signed out. problem says why there are none:
+	// "keychain" when the Keychain refused the key, "helium" when Helium's cookies could not be read.
 	cookie:              string,
+	problem:             string,
 	request_id:          int `json:"requestId"`,
 	// trackInfo: what Music.app knows of a song. Dates are Unix ms, 0 when it has none.
 	is_in_library:       bool `json:"isInLibrary"`,

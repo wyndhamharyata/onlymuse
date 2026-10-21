@@ -137,9 +137,41 @@ build_youtube_sign_in_page :: proc(title, text: string) {
 	}
 }
 
+// Google refuses a sign-in inside an app, so onlymuse takes the one Helium has.
 build_youtube_sign_in_note :: proc(text: string) {
 	note(text)
-	if action_button("Sign In to YouTube Music", "person.crop.circle", true) do helper.send(`{"type":"youtubeSignIn"}`)
+	note("Sign in at music.youtube.com in Helium, then use its sign-in here. macOS asks once to let onlymuse read Helium's key. Choose Always Allow.")
+	if action_button("Use Helium's Sign-In", "person.crop.circle", true) {
+		is_reading_youtube_sign_in = true
+		helper.send(`{"type":"youtubeSignIn"}`)
+	}
+}
+
+// Set by the button, so the answer says how it went.
+@(private = "file")
+is_reading_youtube_sign_in: bool
+
+apply_youtube_cookie :: proc(message: helper.Message) {
+	was_signed_in := youtube.is_signed_in()
+	youtube.set_cookie(message.cookie)
+	is_signed_in := youtube.is_signed_in()
+
+	// Answers saved signed out, such as an empty Liked Music, are asked for again.
+	if is_signed_in != was_signed_in do apple.refresh_all(youtube.PATH_PREFIX)
+
+	if !is_reading_youtube_sign_in do return
+
+	is_reading_youtube_sign_in = false
+	switch {
+	case is_signed_in:
+		show_toast("Signed in to YouTube Music with Helium's sign-in")
+	case message.problem == "keychain":
+		show_toast("macOS did not let onlymuse read Helium's key")
+	case message.problem == "helium":
+		show_toast("Could not read Helium's cookies. Is Helium installed?")
+	case:
+		show_toast("Helium is not signed in to YouTube. Sign in at music.youtube.com first.")
+	}
 }
 
 // The YouTube playlists in the library, or one of them with what each song plays from.

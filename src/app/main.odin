@@ -126,7 +126,7 @@ apply_helper_messages :: proc() {
 		case "signInNeeded":
 			app.is_sign_in_needed = true
 		case "youtubeCookie":
-			youtube.set_cookie(message.cookie)
+			apply_youtube_cookie(message)
 		case "error":
 			// Music.app has no current track while stopped, and the helper's next post says so.
 			if !strings.contains(message.text, "get current track") do fmt.eprintfln("helper: %s", message.text)

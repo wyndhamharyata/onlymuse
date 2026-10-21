@@ -301,8 +301,10 @@ A song plays from Apple Music whenever Apple has it. YouTube Music adds what App
   have. A song Apple has shows Apple's heart and plays from Apple, in lossless where Apple has it.
 - The player shows YOUTUBE in place of LOSSLESS while a song plays from YouTube. Pause, seek and the
   volume act on YouTube's player, and the queue goes on to the next song, from either service.
-- Mixes, Liked Music and Bring Over, in the sidebar, need a sign-in. Their page offers Sign In to
-  YouTube Music, which opens Google's sign-in in a window of its own.
+- Mixes, Liked Music and Bring Over, in the sidebar, need a sign-in. Google refuses a sign-in inside an
+  app, so onlymuse uses the one the Helium browser has. Sign in at music.youtube.com in Helium, then
+  click Use Helium's Sign-In. macOS asks once to let the helper read Helium's key from the Keychain.
+  Choose Always Allow. The helper reads Helium's youtube.com cookies again at each start.
 - Bring Over lists your YouTube playlists. Open one to see what each song plays from, then click
   Bring Over. The new Apple Music playlist holds the songs Apple has. The others stay in it, in their
   places, and play from YouTube.

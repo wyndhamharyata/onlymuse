@@ -19,7 +19,8 @@ how to try each part of the app, and lists the development settings.
 - `helper/` holds the Swift helper, built with SwiftPM for macOS 26 and later, with no packages. It
   controls Music.app through `NSAppleScript`, sends Music.app's `playerInfo` posts, reads the system
   accent colour and reads the tokens from a hidden music.apple.com page. A second hidden page, on
-  music.youtube.com, plays YouTube songs and gives its sign-in cookie. WebKit keeps the
+  music.youtube.com, plays YouTube songs. Google refuses a sign-in inside an app, so the helper reads
+  the Helium browser's youtube.com cookies, with Helium's key from the Keychain. WebKit keeps the
   sign-in in its own storage, so onlymuse stores no token itself.
 - The app starts the helper and speaks JSON lines with it over its stdin and stdout.
   `src/helper/helper.odin` names every message.
@@ -264,8 +265,9 @@ and table values line up in columns, as `odinfmt` lines them.
   process by a test that takes the screen, and a test must never take it.
 - The helper reads `GPUIX_BACKGROUND=1` to leave Music.app as it is when the app quits. The name is
   older than the Odin app. Changing it means changing the helper and the app together.
-- With `GPUIX_BACKGROUND=1` the helper's YouTube page also plays muted, and never pauses Music.app. A
-  test of YouTube playback then makes no sound and leaves the person's music alone.
+- With `GPUIX_BACKGROUND=1` the helper's YouTube page also plays muted, never pauses Music.app and never
+  asks the Keychain for Helium's key. A test of YouTube playback then makes no sound, shows no prompt
+  and leaves the person's music alone.
 
 ## Where the four projects disagreed
 

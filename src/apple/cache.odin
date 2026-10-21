@@ -154,6 +154,17 @@ check :: proc(task: thread.Task) {
 	platform.wake()
 }
 
+// Asks again for every answer whose path starts with prefix, such as YouTube's after a sign-in.
+refresh_all :: proc(prefix: string) {
+	paths := make([dynamic]string, context.temp_allocator)
+	{
+		sync.guard(&cache.mutex)
+		for path in cache.entries do if strings.has_prefix(path, prefix) do append(&paths, path)
+	}
+
+	for path in paths do refresh(path)
+}
+
 // Asks Apple again, such as after adding to the library, keeping the saved answer until the new one comes.
 refresh :: proc(path: string) {
 	sync.guard(&cache.mutex)

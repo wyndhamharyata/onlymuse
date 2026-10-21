@@ -43,8 +43,9 @@ build_songs_page :: proc() {
 	build_song_list_page("Songs", "", songs, phase)
 }
 
-// Favourite Songs, Songs, Downloaded and every playlist.
-build_song_list_page :: proc(title, description: string, songs: []Catalog_Song, phase: apple.Phase) {
+// Favourite Songs, Songs, Downloaded, every playlist and an artist's Recent Songs. With dates, the
+// songs are one artist's, so each row shows its album and its date instead of the artist.
+build_song_list_page :: proc(title, description: string, songs: []Catalog_Song, phase: apple.Phase, dates: []string = nil) {
 	page := page_scroll("song list")
 	run_bench_scroll(page)
 
@@ -68,12 +69,12 @@ build_song_list_page :: proc(title, description: string, songs: []Catalog_Song, 
 		}
 
 		if phase == .Ready && len(songs) == 0 do note("Nothing here yet.")
-		if phase == .Ready do build_song_rows(page, songs)
+		if phase == .Ready do build_song_rows(page, songs, dates)
 	}
 }
 
 // Only the rows on screen are built. A click plays the list from that song.
-build_song_rows :: proc(page: ^ui.Box, songs: []Catalog_Song) {
+build_song_rows :: proc(page: ^ui.Box, songs: []Catalog_Song, dates: []string = nil) {
 	rows := ui.box("rows", {width = ui.fill(), height = ui.fit_children(), axis = .Y})
 	top := offset_in_page(page, rows)
 	first := max(0, int((page.scroll - top) / SONG_ROW_POINTS) - EXTRA_ROW_COUNT)
@@ -86,15 +87,17 @@ build_song_rows :: proc(page: ^ui.Box, songs: []Catalog_Song) {
 		for index in first ..= last {
 			song := songs[index]
 			is_current := is_playing && current.id == song.id
-			if build_song_row(fmt.tprintf("%d %s", index, song.id), song, fmt.tprintf("%s · %s", song.artist_name, song.album_name), is_current) do play_songs(songs, index)
+			subtitle := song.album_name if dates != nil else fmt.tprintf("%s · %s", song.artist_name, song.album_name)
+			date := to_date_text(dates[index]) if index < len(dates) else ""
+			if build_song_row(fmt.tprintf("%d %s", index, song.id), song, subtitle, is_current, date) do play_songs(songs, index)
 		}
 
 		if last < len(songs) - 1 do ui.box("", {width = ui.fill(), height = ui.points(f32(len(songs) - 1 - last) * SONG_ROW_POINTS)})
 	}
 }
 
-// Returns true when clicked.
-build_song_row :: proc(id: string, song: Catalog_Song, subtitle: string, is_current: bool) -> bool {
+// Returns true when clicked. A date, when given, sits before the heart.
+build_song_row :: proc(id: string, song: Catalog_Song, subtitle: string, is_current: bool, date := "") -> bool {
 	tint := to_accent_tint(app.accent)
 	row := ui.box(id, {
 		width            = ui.fill(),
@@ -120,6 +123,7 @@ build_song_row :: proc(id: string, song: Catalog_Song, subtitle: string, is_curr
 			text_box(subtitle, colors.dim, 12)
 		}
 
+		if date != "" do ui.box("", {width = ui.fit_text(), height = ui.fit_text(), text_color = colors.faint, font_size = 12}, date)
 		build_row_heart(row, song, is_current)
 		ui.box("", {width = ui.points(44), height = ui.fit_text(), text_align = .End, text_color = colors.faint, font_size = 12}, to_clock_text(song.duration_seconds))
 	}

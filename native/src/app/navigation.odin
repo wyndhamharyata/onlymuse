@@ -17,6 +17,8 @@ Page_Kind :: enum {
 	Catalog_Playlist,
 	Album,
 	Artist,
+	// The songs of an artist's newest releases. id is the artist's, title their name.
+	Artist_Recent_Songs,
 	Search,
 	// The song playing, whichever it is.
 	Now_Playing,
@@ -110,20 +112,21 @@ Saved_Navigation :: struct {
 
 @(private = "file")
 page_ids := [Page_Kind]string {
-	.Home             = "home",
-	.New              = "new",
-	.Favourite_Songs  = "favouriteSongs",
-	.Recently_Added   = "recentlyAdded",
-	.Artists          = "artists",
-	.Albums           = "albums",
-	.Songs            = "songs",
-	.Downloaded       = "downloaded",
-	.Playlist         = "playlist",
-	.Catalog_Playlist = "catalogPlaylist",
-	.Album            = "album",
-	.Artist           = "artist",
-	.Search           = "search",
-	.Now_Playing      = "nowPlaying",
+	.Home                = "home",
+	.New                 = "new",
+	.Favourite_Songs     = "favouriteSongs",
+	.Recently_Added      = "recentlyAdded",
+	.Artists             = "artists",
+	.Albums              = "albums",
+	.Songs               = "songs",
+	.Downloaded          = "downloaded",
+	.Playlist            = "playlist",
+	.Catalog_Playlist    = "catalogPlaylist",
+	.Album               = "album",
+	.Artist              = "artist",
+	.Artist_Recent_Songs = "artistRecentSongs",
+	.Search              = "search",
+	.Now_Playing         = "nowPlaying",
 }
 
 @(private = "file")
@@ -137,7 +140,7 @@ to_saved_page :: proc(page: Page) -> Saved_Page {
 		saved.playlist_id = page.id
 	case .Album:
 		saved.album_id = page.id
-	case .Artist:
+	case .Artist, .Artist_Recent_Songs:
 		saved.artist_id = page.id
 		saved.artist_name = page.title
 	case .Search:
@@ -161,7 +164,7 @@ to_page :: proc(saved: Saved_Page) -> (Page, bool) {
 			page.id = saved.playlist_id
 		case .Album:
 			page.id = saved.album_id
-		case .Artist:
+		case .Artist, .Artist_Recent_Songs:
 			page.id = saved.artist_id
 			page.title = saved.artist_name
 		case .Search:

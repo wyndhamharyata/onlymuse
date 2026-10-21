@@ -79,6 +79,7 @@ build_artist_page :: proc(page_id: string, name: string) {
 		if width > 0 {
 			build_card_row("library", "In Your Library", data.library_cards, fit_tile_size(width, ARTIST_ALBUM_POINTS, CARD_GAP_POINTS))
 			build_card_row("albums", "Albums", data.cards, fit_tile_size(width, ARTIST_ALBUM_POINTS, CARD_GAP_POINTS))
+			build_recent_songs_shelf(artist_id, data.title)
 			build_card_row("similar", "Similar Artists", data.similar, fit_tile_size(width, SIMILAR_ARTIST_POINTS, CARD_GAP_POINTS), true)
 		}
 	}
@@ -212,22 +213,7 @@ build_artist_middle :: proc(data: ^Page_Data) {
 		if ui.scope(top) {
 			ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = colors.text, font_size = 17, font_weight = .Bold}, "Top Songs")
 
-			// Two columns, filled row by row.
-			grid := ui.box("grid", {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 20})
-			current, is_playing := find_queue_song(app.now_playing.song.persistent_id)
-
-			if ui.scope(grid) {
-				for column in 0 ..< 2 {
-					column_box := ui.box(fmt.tprintf("column %d", column), {width = ui.fill(), height = ui.fit_children(), axis = .Y})
-
-					if ui.scope(column_box) {
-						for index := column; index < len(data.songs); index += 2 {
-							song := data.songs[index]
-							if build_song_row(fmt.tprintf("%d %s", index, song.id), song, song.album_name, is_playing && current.id == song.id) do play_songs(data.songs, index)
-						}
-					}
-				}
-			}
+			build_song_grid(data.songs, nil, data.songs)
 		}
 	}
 }

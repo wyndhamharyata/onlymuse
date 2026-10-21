@@ -20,6 +20,8 @@ Page_Data :: struct {
 	shelves:   []apple.Shelf,
 	cards:     []apple.Card,
 	songs:     []Catalog_Song,
+	// Each song's release date, beside songs, for an artist's Recent Songs.
+	dates:     []string,
 	badges:    []string,
 	link_id:   string,
 	is_in_library: bool,

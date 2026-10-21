@@ -272,6 +272,14 @@ Rebuild the helper first: `cd .. && bun run helper`.
   lightened when it would be too dark to read on the window.
 - A black and white cover, or no cover, keeps the accent chosen in System Settings.
 
+### 6i. Recent Songs
+
+- Open an artist. Under Albums, Recent Songs lists the newest songs of their ten newest releases,
+  newest first, each with its album and its date. A song's date is its own, not always its album's.
+- A song on a single and on a later album shows once, from the newer release.
+- Click "Recent Songs ›" for all of them, with Play and Shuffle, as the other song lists have.
+- In a narrow window the shelf takes one column and leaves out the dates.
+
 ## Development settings
 
 | Variable | Does |
@@ -285,6 +293,7 @@ Rebuild the helper first: `cd .. && bun run helper`.
 | `OM_FAKE_POSITION=<seconds>` | Where the fake helper's song starts. |
 | `OM_FAKE_NAME`, `OM_FAKE_ARTIST`, `OM_FAKE_ALBUM`, `OM_FAKE_DURATION` | The fake helper's song, soldier game by default. |
 | `OM_WINDOW=<width>x<height>` | Opens the window at this size in points. |
+| `OM_FAKE_TOKENS=<folder>` | With `tools/fake-music.py`: sends the web player's tokens from `dev` and `mut` in this folder, so a test reads Apple's catalog. `experiments/am.sh` reads the same files. |
 | `OM_TYPE=<text>` | Types this into the focused field a second after start, through the view's input context, as the keyboard would. |
 | `OM_PALETTE=<term>` | Opens the command palette with this term at start, as a test cannot type into a window behind the others. |
 | `OM_BACKGROUND=1` | For the tests. Opens the window behind the others, never focused and with no Dock icon, so AeroSpace leaves it floating. macOS stops a covered window's display link, so a timer runs its frames, which are captured but not shown. The helper leaves Music.app as it is when the app quits. Captures set it. The bench keeps its window in front, as it measures the screen. |

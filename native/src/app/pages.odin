@@ -48,6 +48,8 @@ build_page :: proc(page: Page) {
 		build_album_page(page.id)
 	case .Artist:
 		build_artist_page(page.id, page.title)
+	case .Artist_Recent_Songs:
+		build_artist_recent_songs_page(page.id, page.title)
 	case .Search:
 		build_search_page(page.id)
 	case .Now_Playing:

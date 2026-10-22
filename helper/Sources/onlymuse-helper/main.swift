@@ -1,4 +1,6 @@
 import AppKit
+import Network
+import WebKit
 
 // Speaks JSON lines with the app over stdin and stdout.
 
@@ -16,6 +18,17 @@ let pausesWhenAppEnds = ProcessInfo.processInfo.environment["GPUIX_BACKGROUND"] 
 let music = MusicApp()
 let youTube = YouTube(music: music, isQuiet: !pausesWhenAppEnds)
 let handoff = Handoff(music: music, youTube: youTube)
+
+// The helper's pages connect through it, so none uses HTTP/3.
+let localProxy = LocalProxy()
+
+localProxy.start { port in
+  DispatchQueue.main.async {
+    MainActor.assumeIsolated {
+      WKWebsiteDataStore.default().proxyConfigurations = [ProxyConfiguration(httpCONNECTProxy: .hostPort(host: "127.0.0.1", port: port))]
+    }
+  }
+}
 
 @MainActor
 func pauseWhenAppEnds() {

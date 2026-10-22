@@ -67,7 +67,7 @@ final class YouTube: NSObject, WKNavigationDelegate {
   private static let maxReloadCount = 2
   // A song starts about a second after the page has it. One not started this long after is asked for again, then
   // the page opens again with it.
-  private static let slowStartSeconds = 8.0
+  private static let slowStartSeconds = 4.0
   // Music.app's posts this soon after the helper paused it may still say it plays.
   private static let pauseSettleSeconds = 2.0
   // The page goes this long after the last YouTube song, as it holds 200 MB or more, unless the queue has more.
@@ -102,6 +102,8 @@ final class YouTube: NSObject, WKNavigationDelegate {
   private var reloadCount = 0
   private var startAskedAt = Date.distantPast
   private var startRetryCount = 0
+  // Where the song starts once the page opens again, after it stopped partway.
+  private var resumeSeconds = 0.0
   private var volumePercent = 100
 
   // True from a YouTube song's start until another source plays, so Music.app's posts leave the player as it is.
@@ -162,9 +164,11 @@ final class YouTube: NSObject, WKNavigationDelegate {
 
     isPageLoaded = true
     startAskedAt = Date()
+    stuckSince = nil
     // A song asked to play while its page still loaded ahead plays now.
     if isActive && preparedID == "" {
-      run(toPlayScript())
+      run(toPlayScript(forcesLoad: resumeSeconds > 0, startSeconds: resumeSeconds))
+      resumeSeconds = 0
     } else {
       run("window.onlymuseVideoID = \(quoted(videoID)); window.onlymuseIsPreparing = \(preparedID != "")")
     }
@@ -183,6 +187,7 @@ final class YouTube: NSObject, WKNavigationDelegate {
     reloadCount = 0
     startAskedAt = Date()
     startRetryCount = 0
+    resumeSeconds = 0
     if !isQuiet {
       music.pauseIfRunning()
       pausedMusicAt = Date()
@@ -276,8 +281,8 @@ final class YouTube: NSObject, WKNavigationDelegate {
   }
 
   // Plays the song, at once when it was loaded ahead, and with sound again after it waited muted.
-  // forcesLoad loads the song again even when the page already holds it.
-  private func toPlayScript(forcesLoad: Bool = false) -> String {
+  // forcesLoad loads the song again even when the page already holds it, from startSeconds.
+  private func toPlayScript(forcesLoad: Bool = false, startSeconds: Double = 0) -> String {
     let id = quoted(videoID)
     let unmute = isQuiet ? "" : "const video = document.querySelector('video'); if (video) video.muted = false; player?.unMute?.();"
 
@@ -292,7 +297,7 @@ final class YouTube: NSObject, WKNavigationDelegate {
           if (player.getCurrentTime() > 1) player.seekTo(0, true);
           player.playVideo();
         } else {
-          player.loadVideoById(\(id));
+          player.loadVideoById({ videoId: \(id), startSeconds: \(startSeconds) });
         }
       })()
       """
@@ -465,10 +470,23 @@ final class YouTube: NSObject, WKNavigationDelegate {
       sendError("The helper asks the YouTube page for \(name) again.")
       run(toPlayScript(forcesLoad: true))
     } else {
-      sendError("The helper opens the YouTube page again for \(name).")
-      isPageLoaded = false
-      playerView?.load(URLRequest(url: URL(string: "https://music.youtube.com/watch?v=\(videoID)")!))
+      reopenPage(startSeconds: 0)
     }
+  }
+
+  // WebKit's network process can keep a connection that sends nothing, as when the network allows only smaller
+  // packets than HTTP/3 sends, and each request on it hangs for two minutes. A new network process makes new
+  // connections, then the page opens again with the song from startSeconds.
+  private func reopenPage(startSeconds: Double) {
+    sendError("The helper starts its network connections again and opens the YouTube page again for \(song?.name ?? videoID).")
+    resumeSeconds = startSeconds
+    isPageLoaded = false
+
+    let store = WKWebsiteDataStore.default()
+    let terminate = NSSelectorFromString("_terminateNetworkProcess")
+    if store.responds(to: terminate) { store.perform(terminate) }
+
+    playerView?.load(URLRequest(url: URL(string: "https://music.youtube.com/watch?v=\(videoID)")!))
   }
 
   // The page stopped a song that played, by itself: it answers no state, or one neither playing nor paused. It
@@ -498,8 +516,10 @@ final class YouTube: NSObject, WKNavigationDelegate {
       return sendError("\(name) did not play again after \(Self.maxReloadCount) tries, so it shows as paused.")
     }
 
-    sendError("The helper loads \(name) again from where it stopped, try \(reloadCount) of \(Self.maxReloadCount).")
-    run("document.getElementById('movie_player').loadVideoById({ videoId: \(quoted(videoID)), startSeconds: \(playedSeconds) })")
+    guard reloadCount == 1 else { return reopenPage(startSeconds: playedSeconds) }
+
+    sendError("The helper loads \(name) again from where it stopped.")
+    run(toPlayScript(forcesLoad: true, startSeconds: playedSeconds))
   }
 
   private func toNowPlaying(state: String, positionSeconds: Double, durationSeconds: Double) -> [String: Any] {

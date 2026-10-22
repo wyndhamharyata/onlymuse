@@ -20,7 +20,7 @@ build_sidebar :: proc() {
 		},
 	)
 
-	// The parent is popped where the if ends, so the children stay inside its block.
+	// ui.scope pops the parent where the if ends, so the children stay inside its block.
 	if ui.scope(sidebar) {
 		build_search_field()
 
@@ -87,7 +87,7 @@ build_sidebar_item :: proc(
 	label, symbol: string,
 	symbol_color: [4]f32,
 	page: core.Page,
-	takes_songs := false,
+	can_take_songs := false,
 ) {
 	is_selected := core.current_page() == page
 	// The selected row takes the accent, as the playing song does.
@@ -111,7 +111,7 @@ build_sidebar_item :: proc(
 
 	if ui.signal(row).is_clicked do core.navigate(page)
 
-	if menus.take_song_drop(ui.signal(row).is_hovered, page.id, page.title, takes_songs) {
+	if menus.apply_song_drop(ui.signal(row).is_hovered, page.id, page.title, can_take_songs) {
 		row.style.background = kit.to_accent_tint(core.app.accent)
 		row.style.border_width = 1.5
 		row.style.border_color = core.app.accent

@@ -2,7 +2,7 @@ package ui
 
 import "om:platform"
 
-// A swipe's axis is picked once it has moved this far.
+// A swipe picks its axis once it moves this far.
 SWIPE_DECIDE_POINTS :: 4
 
 // A swipe goes sideways only when it goes this much more sideways than up or down.
@@ -10,14 +10,14 @@ SWIPE_SIDEWAYS_RATIO :: 1.5
 
 @(private)
 apply_events :: proc() {
-	for event in platform.list_events() {
-		switch e in event {
+	for item in platform.list_events() {
+		switch event in item {
 		case platform.Mouse_Move:
-			state.mouse = e.position / state.zoom
+			state.mouse = event.position / state.zoom
 		case platform.Mouse_Press:
-			state.mouse = e.position / state.zoom
+			state.mouse = event.position / state.zoom
 
-			if e.button == .Right || .Control in e.modifiers {
+			if event.button == .Right || .Control in event.modifiers {
 				state.right_clicked_key = state.hot_key
 				state.is_right_press = true
 				continue
@@ -26,7 +26,7 @@ apply_events :: proc() {
 			state.press_position = state.mouse
 			state.active_key = state.hot_key
 			state.pressed_key = state.hot_key
-			state.click_count = e.click_count
+			state.click_count = event.click_count
 		case platform.Mouse_Release:
 			if state.is_right_press {
 				state.is_right_press = false
@@ -41,14 +41,15 @@ apply_events :: proc() {
 		case platform.Mouse_Exit:
 			state.mouse = {-1, -1}
 		case platform.Scroll:
-			delta := e.delta / state.zoom if e.is_precise else e.delta * POINTS_PER_LINE
+			delta :=
+				event.delta / state.zoom if event.is_precise else event.delta * POINTS_PER_LINE
 
-			if e.is_start {
+			if event.is_start {
 				state.swipe_axis = nil
 				state.swipe_pending = {}
 			}
 
-			if e.is_precise {
+			if event.is_precise {
 				axis, is_known := state.swipe_axis.?
 
 				if !is_known {
@@ -70,8 +71,8 @@ apply_events :: proc() {
 				if !ok || delta[int(axis)] == 0 do continue
 
 				box.scroll_target -= delta[int(axis)]
-				// A trackpad already moves smoothly, and macOS adds the glide after a flick.
-				if e.is_precise do box.scroll = box.scroll_target
+				// A trackpad already moves smoothly. macOS puts in the glide after a flick.
+				if event.is_precise do box.scroll = box.scroll_target
 			}
 		case platform.Key_Press, platform.Text_Insert, platform.Text_Marked, platform.Text_Command:
 		}
@@ -92,7 +93,7 @@ is_inside :: proc(point: [2]f32, rect: [4]f32) -> bool {
 	return point.x >= rect.x && point.x < rect.z && point.y >= rect.y && point.y < rect.w
 }
 
-// The last box drawn under the mouse takes it, as it is drawn on top.
+// The last box drawn under the mouse takes it. That box shows on top.
 @(private)
 find_hot :: proc() {
 	state.hot_key = 0
@@ -103,8 +104,12 @@ find_hot :: proc() {
 		is_hot :=
 			box.key == state.hot_key && (state.active_key == 0 || state.active_key == box.key)
 
-		box.hot_t = approach(box.hot_t, 1 if is_hot else 0, HOT_RATE)
-		box.active_t = approach(box.active_t, 1 if box.key == state.active_key else 0, HOT_RATE)
+		box.hot_fraction = approach(box.hot_fraction, 1 if is_hot else 0, HOT_RATE)
+		box.active_fraction = approach(
+			box.active_fraction,
+			1 if box.key == state.active_key else 0,
+			HOT_RATE,
+		)
 	}
 }
 

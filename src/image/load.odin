@@ -14,9 +14,9 @@ import "om:platform"
 import "om:render"
 import MTL "vendor:darwin/Metal"
 
-// Runs on a worker thread.
+// This procedure runs on a worker thread.
 @(private)
-load :: proc(task: thread.Task) {
+fetch_image :: proc(task: thread.Task) {
 	job := cast(^Job)task.data
 
 	defer {
@@ -31,14 +31,14 @@ load :: proc(task: thread.Task) {
 
 	if !strings.has_prefix(path, "/") {
 		path = fmt.tprintf("%s/%x.jpg", state.folder, hash.fnv64a(transmute([]u8)job.url))
-		if !os.exists(path) && !download(job.url, path) do return
+		if !os.exists(path) && !fetch_to_file(job.url, path) do return
 	}
 
-	job.texture, job.color = decode(path, job.size_pixels, job.crop)
+	job.texture, job.color = read_texture(path, job.size_pixels, job.crop)
 }
 
 @(private)
-download :: proc(url, path: string) -> bool {
+fetch_to_file :: proc(url, path: string) -> bool {
 	response := net.fetch(url, allocator = context.temp_allocator)
 
 	if response.status != 200 {
@@ -47,7 +47,7 @@ download :: proc(url, path: string) -> bool {
 	}
 	if !strings.has_prefix(response.content_type, "image/") do return false
 
-	// The file takes its name once complete, so a quit halfway never makes a broken image.
+	// The file takes its name only when it is complete, so a quit halfway never makes a broken image.
 	part_path := fmt.tprintf("%s.part", path)
 	if os.write_entire_file(part_path, response.body) != nil do return false
 
@@ -55,7 +55,7 @@ download :: proc(url, path: string) -> bool {
 }
 
 @(private)
-decode :: proc(path: string, size_pixels: int, crop: Crop) -> (^MTL.Texture, Color) {
+read_texture :: proc(path: string, size_pixels: int, crop: Crop) -> (^MTL.Texture, Color) {
 	url := mac.CFURLCreateFromFileSystemRepresentation(nil, raw_data(path), len(path), false)
 	defer mac.CFRelease(url)
 
@@ -63,8 +63,8 @@ decode :: proc(path: string, size_pixels: int, crop: Crop) -> (^MTL.Texture, Col
 	if source == nil do return nil, {}
 	defer mac.CFRelease(source)
 
-	max_size := i32(size_pixels)
-	size_number := mac.CFNumberCreate(nil, mac.NUMBER_INT32, &max_size)
+	max_size_pixels := i32(size_pixels)
+	size_number := mac.CFNumberCreate(nil, mac.NUMBER_INT32, &max_size_pixels)
 	defer mac.CFRelease(size_number)
 
 	keys := []mac.Type_Ref {
@@ -76,7 +76,7 @@ decode :: proc(path: string, size_pixels: int, crop: Crop) -> (^MTL.Texture, Col
 	options := mac.make_dictionary(keys, values)
 	defer mac.CFRelease(options)
 
-	// ImageIO decodes straight to this size, so a large file never sits in memory whole.
+	// ImageIO decodes straight to this size, so a large file never stays whole in memory.
 	thumbnail := mac.CGImageSourceCreateThumbnailAtIndex(source, 0, options)
 	if thumbnail == nil do return nil, {}
 	defer mac.CGImageRelease(thumbnail)
@@ -91,7 +91,7 @@ decode :: proc(path: string, size_pixels: int, crop: Crop) -> (^MTL.Texture, Col
 	space := mac.CGColorSpaceCreateWithName(mac.kCGColorSpaceSRGB)
 	defer mac.CGColorSpaceRelease(space)
 	// BGRA with premultiplied alpha, as the shader and BGRA8Unorm expect.
-	ctx := mac.CGBitmapContextCreate(
+	bitmap_context := mac.CGBitmapContextCreate(
 		raw_data(pixels),
 		uint(width),
 		uint(height),
@@ -100,16 +100,16 @@ decode :: proc(path: string, size_pixels: int, crop: Crop) -> (^MTL.Texture, Col
 		space,
 		mac.IMAGE_ALPHA_PREMULTIPLIED_FIRST | mac.BITMAP_BYTE_ORDER_32_LITTLE,
 	)
-	defer mac.CGContextRelease(ctx)
-	mac.CGContextDrawImage(ctx, {{0, 0}, {f64(width), f64(height)}}, image)
+	defer mac.CGContextRelease(bitmap_context)
+	mac.CGContextDrawImage(bitmap_context, {{0, 0}, {f64(width), f64(height)}}, image)
 
 	texture := render.make_texture({width, height}, .BGRA8Unorm)
 	render.upload_texture(texture, {0, 0, width, height}, raw_data(pixels), width * 4)
 
-	return texture, guess_color(pixels)
+	return texture, to_color(pixels)
 }
 
-// The part of image of crop's shape, centred across and at focus_y down. image itself when it has that shape already.
+// The part of image with crop's aspect, centred across and at focus_y down. It returns image itself when image already has that aspect.
 @(private)
 to_cropped :: proc(image: mac.Image_Ref, crop: Crop) -> mac.Image_Ref {
 	width := f64(mac.CGImageGetWidth(image))

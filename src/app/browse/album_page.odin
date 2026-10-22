@@ -31,7 +31,7 @@ build_album_page :: proc(album_id: string) {
 
 			if ui.scope(page) {
 				kit.note(
-					kit.phase_note(link.phase) if link.phase != .Ready else "This album is only on the Mac, so Apple Music has no page for it.",
+					kit.to_phase_text(link.phase) if link.phase != .Ready else "This album is only on the Mac, so Apple Music has no page for it.",
 				)
 			}
 
@@ -55,7 +55,7 @@ build_album_page :: proc(album_id: string) {
 
 	if ui.scope(page) {
 		if watched.phase != .Ready || data.title == "" {
-			kit.note(kit.phase_note(watched.phase))
+			kit.note(kit.to_phase_text(watched.phase))
 			return
 		}
 
@@ -114,10 +114,10 @@ read_album :: proc(data: ^core.Page_Data, body: string) {
 	data.badges = badges[:]
 }
 
-// width is the page's from the last frame, 0 on the first.
+// width is the width of the page in the last frame, or 0 in the first frame.
 build_album_header :: proc(data: ^core.Page_Data, width: f32) {
 	cover_points: f32 = ALBUM_COVER_POINTS if width <= 0 else min(ALBUM_COVER_POINTS, width)
-	// The text goes under the cover when beside it, it would have too little room.
+	// The text goes under the cover when the room beside the cover is too small for it.
 	is_side_by_side :=
 		width <= 0 || width - cover_points - ALBUM_HEADER_GAP_POINTS >= MIN_ALBUM_INFO_POINTS
 
@@ -244,7 +244,7 @@ build_badge :: proc(label: string, color: [4]f32) {
 	)
 }
 
-// An album's songs, numbered. A click plays them from that song.
+// Builds the songs of an album with their numbers. A click plays them from that song.
 build_numbered_songs :: proc(songs: []core.Catalog_Song) {
 	list := ui.box("songs", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 1})
 	current, is_playing := playback.find_queue_song(core.app.now_playing.song.persistent_id)
@@ -294,7 +294,9 @@ build_numbered_songs :: proc(songs: []core.Catalog_Song) {
 				)
 			}
 
-			if menus.track_song_row(ui.signal(row), song) do playback.play_songs(songs, index)
+			if menus.apply_song_row_signal(ui.signal(row), song) {
+				playback.play_songs(songs, index)
+			}
 		}
 	}
 }

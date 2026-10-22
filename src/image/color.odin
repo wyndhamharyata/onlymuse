@@ -1,12 +1,12 @@
 package image
 
 
-// From premultiplied BGRA. The pixels go into buckets by hue, each counted by its saturation squared
-// times its brightness, so a grey wall or a black border counts little against a red coat. The colour
-// is the average of the heaviest hue and the two beside it: an average of every pixel would mix a
-// purple sky and an orange sun into brown.
+// to_color reads premultiplied BGRA. It puts the pixels into buckets by hue and weighs each pixel by
+// its saturation squared times its brightness. A grey wall or a black border then counts little against
+// a red coat. The colour is the average of the heaviest hue and the two beside it. An average of every
+// pixel would mix a purple sky and an orange sun into brown.
 @(private)
-guess_color :: proc(pixels: []u8) -> Color {
+to_color :: proc(pixels: []u8) -> Color {
 	HUE_BUCKETS :: 36
 	sums: [HUE_BUCKETS][3]f32
 	weights: [HUE_BUCKETS]f32
@@ -52,7 +52,7 @@ guess_color :: proc(pixels: []u8) -> Color {
 	return {sum / best_weight, weight_sum / f32(count)}
 }
 
-// In turns, from 0 to 1.
+// The hue in turns, from 0 to 1.
 @(private)
 to_hue :: proc(rgb: [3]f32, brightest, spread: f32) -> f32 {
 	hue: f32

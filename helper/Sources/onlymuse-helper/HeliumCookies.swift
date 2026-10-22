@@ -5,7 +5,7 @@ import SQLite3
 
 // The youtube.com cookies of the Helium browser. Google refuses a sign-in inside an app's own web page, so
 // onlymuse uses the sign-in Helium already has. Helium is Chromium, which encrypts each cookie with AES-128 and a
-// key made from a password it keeps in the Keychain. macOS asks the person once before the helper reads it.
+// key that it makes from a password it keeps in the Keychain. macOS asks the person once before the helper reads it.
 enum HeliumCookies {
   struct Cookie {
     let host: String
@@ -34,7 +34,7 @@ enum HeliumCookies {
     case noKey
   }
 
-  // Blocks while macOS asks for the Keychain, so it runs off the main thread.
+  // This blocks while macOS asks for the Keychain, so it runs off the main thread.
   static func readYouTubeCookies() -> Result<[Cookie], Failure> {
     guard let password = readKeychainPassword() else { return .failure(.noKey) }
     guard let rows = readRows() else { return .failure(.noDatabase) }

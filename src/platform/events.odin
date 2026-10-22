@@ -42,7 +42,7 @@ Mouse_Exit :: struct {
 
 Scroll :: struct {
 	position:    [2]f32,
-	// Points for a trackpad, lines for a mouse wheel.
+	// The delta is in points for a trackpad and in lines for a mouse wheel.
 	delta:       [2]f32,
 	is_precise:  bool,
 	is_momentum: bool,
@@ -52,19 +52,19 @@ Scroll :: struct {
 
 Key_Press :: struct {
 	key_code:   u16,
-	// Lives until the next frame.
+	// The string lives until the next frame.
 	characters: string,
 	modifiers:  Modifiers,
 	is_repeat:  bool,
 }
 
-// Finished text from the keyboard or an input method.
+// The finished text from the keyboard or an input method.
 Text_Insert :: struct {
-	// Lives until the next frame.
+	// The string lives until the next frame.
 	text: string,
 }
 
-// An input method's unfinished text, such as kana before it becomes kanji. Empty when it ends.
+// An input method's unfinished text, such as kana before it becomes kanji. The text is empty when it ends.
 Text_Marked :: struct {
 	text: string,
 }
@@ -110,7 +110,7 @@ to_position :: proc(event: ^NS.Event) -> [2]f32 {
 
 	// An event with no window, such as one sent to the process, gives its place on the screen.
 	if event->window() == nil {
-		location = msg_send(NS.Point, state.ns_window, "convertPointFromScreen:", location)
+		location = objc_send(NS.Point, state.ns_window, "convertPointFromScreen:", location)
 	}
 
 	return {f32(location.x), state.window.size_points.y - f32(location.y)}
@@ -144,9 +144,9 @@ take_event :: proc(event: ^NS.Event) -> bool {
 	case .MouseExited:
 		append(&state.events, Mouse_Exit{})
 	case .ScrollWheel:
-		momentum_phase := msg_send(NS.UInteger, event, "momentumPhase")
-		// NSEventPhaseBegan and NSEventPhaseMayBegin.
-		phase := msg_send(NS.UInteger, event, "phase")
+		momentum_phase := objc_send(NS.UInteger, event, "momentumPhase")
+		// The phases 1 and 32 are NSEventPhaseBegan and NSEventPhaseMayBegin.
+		phase := objc_send(NS.UInteger, event, "phase")
 
 		append(
 			&state.events,

@@ -69,7 +69,7 @@ find_attribute :: proc(attributes, name: string) -> string {
 }
 
 @(private)
-utf16_length :: proc(text: string) -> int {
+to_utf16_length :: proc(text: string) -> int {
 	count := 0
 	for character in text do count += 2 if character >= 0x10000 else 1
 
@@ -104,7 +104,7 @@ to_words :: proc(
 		content_end := strings.index_byte(content, '<')
 		rest = content
 
-		// A span holding other spans, such as background vocals, is read through its children.
+		// The loop reads a span that holds other spans, such as background vocals, through its children.
 		if content_end < 0 || !strings.has_prefix(content[content_end:], "</span>") do continue
 
 		word_text := to_plain_text(content[:content_end])
@@ -112,15 +112,15 @@ to_words :: proc(
 		has_space := len(rest) > 0 && (rest[0] == ' ' || rest[0] == '\n')
 		if has_space do word_text = fmt.tprintf("%s ", word_text)
 
-		length := utf16_length(word_text)
+		length := to_utf16_length(word_text)
 		append(&word_list, Word{to_seconds(begin), {utf16_index, utf16_index + length}})
 		strings.write_string(&builder, word_text)
 		utf16_index += length
 	}
 
 	if len(word_list) == 0 {
-		plain := to_plain_text(strip_tags(markup))
-		append(&word_list, Word{line_begin_seconds, {0, utf16_length(plain)}})
+		plain := to_plain_text(to_text_without_tags(markup))
+		append(&word_list, Word{line_begin_seconds, {0, to_utf16_length(plain)}})
 		strings.write_string(&builder, plain)
 	}
 
@@ -128,7 +128,7 @@ to_words :: proc(
 }
 
 @(private)
-strip_tags :: proc(markup: string) -> string {
+to_text_without_tags :: proc(markup: string) -> string {
 	builder := strings.builder_make(context.temp_allocator)
 	is_in_tag := false
 
@@ -146,7 +146,7 @@ strip_tags :: proc(markup: string) -> string {
 	return strings.to_string(builder)
 }
 
-// Letters only, so "You are KING" and its pronunciation "You are KING" count as the same.
+// This keeps only the letters, so "You are KING" and its pronunciation "You are KING" count as the same.
 @(private)
 to_letters :: proc(text: string) -> string {
 	builder := strings.builder_make(context.temp_allocator)
@@ -167,13 +167,13 @@ to_letters :: proc(text: string) -> string {
 	return strings.to_string(builder)
 }
 
-// The text of each line in a block of the lyrics' metadata, by the line's key, as "L1": the pronunciation
-// in Latin letters for "transliteration", the English for "translation".
+// The text of each line in a block of the lyrics' metadata, by the line's key, such as "L1".
+// The "transliteration" block holds the pronunciation in Latin letters. The "translation" block holds the English.
 @(private)
 to_line_texts :: proc(ttml: string, block_name: string) -> map[string]string {
-	pronunciations := make(map[string]string, context.temp_allocator)
+	line_texts := make(map[string]string, context.temp_allocator)
 	start := strings.index(ttml, fmt.tprintf("<%s ", block_name))
-	if start < 0 do return pronunciations
+	if start < 0 do return line_texts
 
 	block := ttml[start:]
 
@@ -190,11 +190,11 @@ to_line_texts :: proc(ttml: string, block_name: string) -> map[string]string {
 		text_end := strings.index(block, "</text>")
 		if tag_end < 0 || text_end < 0 do break
 
-		pronunciations[find_attribute(block[:tag_end], "for")] = block[tag_end + 1:text_end]
+		line_texts[find_attribute(block[:tag_end], "for")] = block[tag_end + 1:text_end]
 		block = block[text_end + len("</text>"):]
 	}
 
-	return pronunciations
+	return line_texts
 }
 
 @(private)

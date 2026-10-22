@@ -61,7 +61,7 @@ has_tokens :: proc() -> bool {
 	return state.developer_token != ""
 }
 
-// The saved answer when there is one, else Apple's, which is then saved. Safe on any thread, and it blocks. The body uses allocator.
+// The saved answer when there is one, else Apple's, which fetch then saves. It is safe on any thread. It blocks. The body uses allocator.
 fetch :: proc(path: string, allocator := context.allocator) -> Answer {
 	if saved, ok := store.find_answer(path, allocator); ok do return {200, saved.body}
 
@@ -71,17 +71,17 @@ fetch :: proc(path: string, allocator := context.allocator) -> Answer {
 	return answer
 }
 
-// Such as /v1/me/library?ids[songs]=1440857781, which puts a song in the library. Apple answers 202.
-// A JSON body goes with a playlist's new songs. Blocks, so it runs on a worker. The answer's body uses the temp allocator.
+// A path such as /v1/me/library?ids[songs]=1440857781 puts a song in the library. Apple answers 202.
+// A JSON body goes with a playlist's new songs. It blocks, so it runs on a worker. The answer's body uses the temp allocator.
 post :: proc(path: string, body := "") -> Answer {
 	return send_request(path, .Post, context.temp_allocator, body)
 }
 
-// The language of the answers. The saved path leaves it out, as every answer is in it.
+// The language of the answers. The saved path does not hold it, as every answer is in it.
 @(private)
 LANGUAGE :: "en-GB"
 
-// Apple answers 401 or 403 once a token expires. The helper reads new ones and the request goes again, once.
+// Apple answers 401 or 403 once a token expires. The helper then reads new ones. The request goes again, once.
 @(private)
 send_request :: proc(
 	path: string,
@@ -93,7 +93,7 @@ send_request :: proc(
 	answer := send_once(path, method, allocator, body)
 	if answer.status != 401 && answer.status != 403 do return answer
 
-	// Another request's refusal may have brought new tokens while this one waited. Those still hold.
+	// Another request's refusal may bring new tokens while this one waits. Those still hold.
 	is_refresh_needed := false
 
 	// sync.guard unlocks when its block ends, so these braces end the lock.

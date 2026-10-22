@@ -14,7 +14,7 @@ import "om:platform"
 @(private)
 update_results :: proc() {
 	term := strings.to_lower(
-		strings.trim_space(kit.field_text(&palette.field)),
+		strings.trim_space(kit.to_field_text(&palette.field)),
 		context.temp_allocator,
 	)
 	songs, song_signature, _ := core.list_library_songs()
@@ -22,9 +22,9 @@ update_results :: proc() {
 	artists, artist_signature, _ := core.list_library_artists()
 	playlists, _, _ := core.list_playlists()
 
-	// Apple Music once the typing rests.
+	// The palette searches Apple Music once the typing rests.
 	catalog: apple.Watched
-	is_settled := helper.now_ms() - palette.typed_at >= PALETTE_SETTLE_MS
+	is_settled := helper.now_ms() - palette.typed_at_ms >= PALETTE_SETTLE_MS
 	if term != "" && !is_settled do platform.request_frame_after(PALETTE_SETTLE_MS / 1000.0)
 
 	if term != "" && is_settled {
@@ -52,14 +52,14 @@ update_results :: proc() {
 	palette.built_signature = signature
 	results := make([dynamic]Palette_Result, allocator)
 
-	add_actions(&results, term, allocator)
-	add_pages(&results, term, playlists, allocator)
+	append_actions(&results, term, allocator)
+	append_pages(&results, term, playlists, allocator)
 
 	if term != "" {
 		names := make([]string, len(artists), context.temp_allocator)
 		for card, index in artists do names[index] = card.name
 
-		for index in find_best(names, nil, term) {
+		for index in list_best_indexes(names, nil, term) {
 			card := artists[index]
 			append(
 				&results,
@@ -77,7 +77,7 @@ update_results :: proc() {
 		names = make([]string, len(albums), context.temp_allocator)
 		for card, index in albums do names[index] = card.name
 
-		for index in find_best(names, nil, term) {
+		for index in list_best_indexes(names, nil, term) {
 			card := albums[index]
 			append(
 				&results,
@@ -93,14 +93,14 @@ update_results :: proc() {
 		}
 
 		names = make([]string, len(songs), context.temp_allocator)
-		others := make([]string, len(songs), context.temp_allocator)
+		artist_names := make([]string, len(songs), context.temp_allocator)
 
 		for song, index in songs {
 			names[index] = song.name
-			others[index] = song.artist_name
+			artist_names[index] = song.artist_name
 		}
 
-		for index in find_best(names, others, term) {
+		for index in list_best_indexes(names, artist_names, term) {
 			song := songs[index]
 			append(
 				&results,
@@ -116,21 +116,21 @@ update_results :: proc() {
 		}
 	}
 
-	if catalog.phase == .Ready do add_catalog(&results, catalog.body, allocator)
+	if catalog.phase == .Ready do append_catalog(&results, catalog.body, allocator)
 
 	palette.results = results[:]
-	palette.selected = min(palette.selected, max(0, len(results) - 1))
+	palette.selected_index = min(palette.selected_index, max(0, len(results) - 1))
 }
 
 // Case aside, the name holds the term.
 @(private = "file")
-matches :: proc(name, term: string) -> bool {
-	return to_match_score(name, term) >= 0
+has_term :: proc(name, term: string) -> bool {
+	return to_term_score(name, term) >= 0
 }
 
-// 0 when the name starts with the term, 1 when a word in it does, 2 when it holds it anywhere, -1 when not.
+// Returns 0 when the name starts with the term, 1 when a word in it does, 2 when it holds it anywhere, -1 when not.
 @(private = "file")
-to_match_score :: proc(name, term: string) -> int {
+to_term_score :: proc(name, term: string) -> int {
 	if term == "" do return 0
 
 	lower := strings.to_lower(name, context.temp_allocator)
@@ -149,24 +149,24 @@ to_match_score :: proc(name, term: string) -> int {
 	return 2
 }
 
-// The indexes of the best matches, best first, at most a group's worth. A second name, such as a song's
-// artist, counts one step lower than the first.
+// The indexes of the names that hold the term, best first, at most a group's worth. A second name,
+// such as a song's artist, counts one step lower than the first.
 @(private = "file")
-find_best :: proc(names, second_names: []string, term: string) -> []int {
-	Match :: struct {
+list_best_indexes :: proc(names, second_names: []string, term: string) -> []int {
+	Scored_Name :: struct {
 		index, score: int,
 	}
-	found := make([dynamic]Match, context.temp_allocator)
+	found := make([dynamic]Scored_Name, context.temp_allocator)
 
 	for name, index in names {
-		score := to_match_score(name, term)
-		second := to_match_score(second_names[index], term) if second_names != nil else -1
+		score := to_term_score(name, term)
+		second_score := to_term_score(second_names[index], term) if second_names != nil else -1
 
-		if second >= 0 && (score < 0 || second + 1 < score) do score = second + 1
-		if score >= 0 do append(&found, Match{index, score})
+		if second_score >= 0 && (score < 0 || second_score + 1 < score) do score = second_score + 1
+		if score >= 0 do append(&found, Scored_Name{index, score})
 	}
 
-	slice.stable_sort_by(found[:], proc(a, b: Match) -> bool {return a.score < b.score})
+	slice.stable_sort_by(found[:], proc(a, b: Scored_Name) -> bool {return a.score < b.score})
 
 	best := make([]int, min(len(found), PALETTE_GROUP_LIMIT), context.temp_allocator)
 	for &index, place in best do index = found[place].index
@@ -175,7 +175,7 @@ find_best :: proc(names, second_names: []string, term: string) -> []int {
 }
 
 @(private = "file")
-add_actions :: proc(
+append_actions :: proc(
 	results: ^[dynamic]Palette_Result,
 	term: string,
 	allocator := context.allocator,
@@ -200,7 +200,7 @@ add_actions :: proc(
 
 	for action in actions {
 		if action.action == .Favourite && !has_song do continue
-		if !matches(action.title, term) ||
+		if !has_term(action.title, term) ||
 		   count >= (len(actions) if term == "" else PALETTE_GROUP_LIMIT) {
 			continue
 		}
@@ -224,7 +224,7 @@ add_actions :: proc(
 }
 
 @(private = "file")
-add_pages :: proc(
+append_pages :: proc(
 	results: ^[dynamic]Palette_Result,
 	term: string,
 	playlists: []apple.Card,
@@ -238,7 +238,7 @@ add_pages :: proc(
 			core.console_items,
 		}) {
 		for item in items {
-			if !matches(item.label, term) || count >= PALETTE_GROUP_LIMIT * 2 do continue
+			if !has_term(item.label, term) || count >= PALETTE_GROUP_LIMIT * 2 do continue
 
 			append(
 				results,
@@ -256,7 +256,7 @@ add_pages :: proc(
 
 	count = 0
 	for playlist in playlists {
-		if term == "" || !matches(playlist.name, term) || count >= PALETTE_GROUP_LIMIT do continue
+		if term == "" || !has_term(playlist.name, term) || count >= PALETTE_GROUP_LIMIT do continue
 
 		name := strings.clone(playlist.name, allocator)
 		append(
@@ -278,7 +278,7 @@ add_pages :: proc(
 }
 
 @(private = "file")
-add_catalog :: proc(
+append_catalog :: proc(
 	results: ^[dynamic]Palette_Result,
 	body: string,
 	allocator := context.allocator,

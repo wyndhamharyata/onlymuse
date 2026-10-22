@@ -196,8 +196,8 @@ final class WebPlayer: NSObject, WKUIDelegate, NSWindowDelegate {
   }
 }
 
-// Letting go of a web view leaves its page's process running, with 150 MB or more. WebKit's _close ends the
-// page, and so the process. It is not public, so a WebKit without it only stops the page loading.
+// Letting go of a web view keeps its page's process running, with 150 MB or more. WebKit's _close ends the
+// page, and so the process. _close is not public, so a WebKit without it only stops the page loading.
 @MainActor
 func closePage(_ view: WKWebView?) {
   guard let view else { return }

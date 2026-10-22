@@ -7,7 +7,7 @@ import "om:render"
 
 @(private)
 Atlas_Entry :: struct {
-	// x, y, width, height in atlas pixels. Width 0 for a glyph with no ink, such as a space.
+	// x, y, width, height in atlas pixels. The width is 0 for a glyph with no ink, such as a space.
 	rect:   [4]int,
 	// From the pen position on the baseline to the top left of rect.
 	offset: [2]f32,
@@ -16,7 +16,7 @@ Atlas_Entry :: struct {
 @(private)
 ATLAS_SIZE :: 4096
 
-// The pen position is rounded to quarter pixels, so each glyph is drawn at most four times over.
+// draw rounds the pen position to quarter pixels, so the atlas holds each glyph at most four times.
 @(private)
 SUBPIXEL_STEPS :: 4
 
@@ -92,7 +92,7 @@ rasterize :: proc(ct_font: mac.Font_Ref, glyph: mac.Glyph, subpixel: int) -> Atl
 
 	if bounds.size.width <= 0 || bounds.size.height <= 0 do return {}
 
-	// One pixel of room on each side for antialiasing, and one more on the right for the subpixel shift.
+	// Each side gets one pixel of room for antialiasing. The right gets one more for the subpixel shift.
 	left := int(math.floor(bounds.origin.x)) - 1
 	bottom := int(math.floor(bounds.origin.y)) - 1
 	width := int(math.ceil(bounds.origin.x + bounds.size.width)) - left + 2
@@ -105,7 +105,7 @@ rasterize :: proc(ct_font: mac.Font_Ref, glyph: mac.Glyph, subpixel: int) -> Atl
 	pixels := make([]u8, width * height, context.temp_allocator)
 	gray := mac.CGColorSpaceCreateDeviceGray()
 	defer mac.CGColorSpaceRelease(gray)
-	ctx := mac.CGBitmapContextCreate(
+	bitmap_context := mac.CGBitmapContextCreate(
 		raw_data(pixels),
 		uint(width),
 		uint(height),
@@ -114,24 +114,24 @@ rasterize :: proc(ct_font: mac.Font_Ref, glyph: mac.Glyph, subpixel: int) -> Atl
 		gray,
 		mac.IMAGE_ALPHA_NONE,
 	)
-	defer mac.CGContextRelease(ctx)
+	defer mac.CGContextRelease(bitmap_context)
 
-	mac.CGContextSetAllowsFontSubpixelPositioning(ctx, true)
-	mac.CGContextSetShouldSubpixelPositionFonts(ctx, true)
-	mac.CGContextSetAllowsFontSubpixelQuantization(ctx, false)
-	mac.CGContextSetShouldSubpixelQuantizeFonts(ctx, false)
-	mac.CGContextSetGrayFillColor(ctx, 1, 1)
+	mac.CGContextSetAllowsFontSubpixelPositioning(bitmap_context, true)
+	mac.CGContextSetShouldSubpixelPositionFonts(bitmap_context, true)
+	mac.CGContextSetAllowsFontSubpixelQuantization(bitmap_context, false)
+	mac.CGContextSetShouldSubpixelQuantizeFonts(bitmap_context, false)
+	mac.CGContextSetGrayFillColor(bitmap_context, 1, 1)
 
 	position := mac.Point{f64(-left) + f64(subpixel) / SUBPIXEL_STEPS, f64(-bottom)}
 
-	mac.CTFontDrawGlyphs(ct_font, &glyph, &position, 1, ctx)
+	mac.CTFontDrawGlyphs(ct_font, &glyph, &position, 1, bitmap_context)
 	render.upload_texture(state.atlas, rect, raw_data(pixels), width)
 
 	// CoreGraphics counts y up from the bottom of the bitmap. The screen counts down from the top.
 	return Atlas_Entry{rect, {f32(left), -f32(height + bottom)}}
 }
 
-// Shelf packing: glyphs fill a row left to right, and a new row starts below the tallest one.
+// This is shelf packing. Glyphs fill a row from left to right. A new row starts below the tallest one.
 @(private)
 allocate :: proc(width, height: int) -> ([4]int, bool) {
 	if state.atlas_pen.x + width > ATLAS_SIZE {

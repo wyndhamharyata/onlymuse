@@ -35,7 +35,7 @@ sync_handoff :: proc() {
 	after := queue.playing_persistent_id
 	repeat_index := queue.index if queue.repeat == "one" else find_next_index()
 	next_index := repeat_index if after != "" else -1
-	next_id := matching.to_playable(queue.songs[next_index]).id if next_index >= 0 else ""
+	next_id := matching.find_playable(queue.songs[next_index]).id if next_index >= 0 else ""
 	keeps_youtube := has_youtube_song_ahead()
 	key := fmt.aprintf("%s|%d|%s|%v", after, next_index, next_id, keeps_youtube)
 
@@ -56,7 +56,7 @@ sync_handoff :: proc() {
 		match = to_song_match(queue.songs[next_index])
 	}
 
-	request_id := helper.request_set_next(after if next_index >= 0 else "", match, keeps_youtube)
+	request_id := helper.send_set_next(after if next_index >= 0 else "", match, keeps_youtube)
 	queue_state.requests[request_id] = {
 		kind            = .Set_Next,
 		handoff_version = queue_state.handoff_version,
@@ -71,7 +71,7 @@ has_youtube_song_ahead :: proc() -> bool {
 	start := 0 if queue.repeat == "all" else queue.index + 1
 
 	for song in queue.songs[max(start, 0):] {
-		if youtube.is_song_id(matching.to_playable(song).id) do return true
+		if youtube.is_song_id(matching.find_playable(song).id) do return true
 	}
 
 	return false
@@ -84,9 +84,9 @@ to_estimate_seconds :: proc(current: Tracking, now_ms: f64) -> f64 {
 	return current.position_seconds + (now_ms - current.received_at_ms) / 1000
 }
 
-// The helper's handoff, when this post shows its song starting. With repeat one it starts the same song from 0.
+// Whether this post shows the song of the helper's handoff starting. With repeat one, the helper starts the same song from 0.
 @(private = "file")
-find_handoff :: proc(now_playing: helper.Now_Playing, was_at_end: bool) -> bool {
+is_handoff_starting :: proc(now_playing: helper.Now_Playing, was_at_end: bool) -> bool {
 	persistent_id := now_playing.song.persistent_id
 	tracking := queue_state.tracking
 	is_same_song := queue_state.has_tracking && tracking.persistent_id == persistent_id
@@ -111,7 +111,7 @@ apply_playing_song :: proc(now_playing: helper.Now_Playing, now_ms: f64) {
 	was_at_end :=
 		has_tracking &&
 		to_estimate_seconds(tracking, now_ms) >= tracking.duration_seconds - END_TOLERANCE_SECONDS
-	is_handed_off := find_handoff(now_playing, was_at_end)
+	is_handed_off := is_handoff_starting(now_playing, was_at_end)
 	is_queue_song := has_tracking && tracking.persistent_id == queue.playing_persistent_id
 	has_queue_song_ended := !is_handed_off && !is_same_song && is_queue_song && was_at_end
 	estimate_seconds := to_estimate_seconds(tracking, now_ms) if is_same_song else 0
@@ -139,7 +139,7 @@ apply_playing_song :: proc(now_playing: helper.Now_Playing, now_ms: f64) {
 		queue_state.start_deadline_ms = 0
 		queue.is_adding = false
 		queue.playing_persistent_id = handoff.persistent_id
-		set_queue()
+		save_queue_and_handoff()
 	}
 
 	// Music.app's Autoplay can go on to a song of its own with no Stopped, so a switch at the end is the end.
@@ -189,7 +189,7 @@ apply_resume_point :: proc() {
 
 	if !has_song || !queue_state.has_tracking do return
 
-	queue_state.last_resume_save = helper.now_ms()
+	queue_state.last_resume_save_ms = helper.now_ms()
 
 	song := now_playing.song
 	old := queue.resume_point.song
@@ -243,29 +243,31 @@ restart_stalled_song :: proc(has_started: bool) {
 	queue_state.restart_count = restart_count
 }
 
-// Called each frame: starts polling once a song is added, and asks Music.app again when a poll is due.
+// Each frame, it starts polling once Apple's library takes the song. It asks Music.app again when a poll is due.
 update_queue :: proc() {
-	added: int
+	added_play_count: int
 
 	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&queue_state.add_mutex)
-		added = queue_state.added_play_count
+		added_play_count = queue_state.added_play_count
 		queue_state.added_play_count = 0
 	}
 
-	now := helper.now_ms()
+	now_ms := helper.now_ms()
 
-	if added != 0 && added == queue_state.play_count && queue.is_adding {
+	if added_play_count != 0 && added_play_count == queue_state.play_count && queue.is_adding {
 		queue_state.is_polling = true
-		queue_state.poll_deadline_ms = now + ADD_TIMEOUT_SECONDS * 1000
-		queue_state.next_poll_ms = now + ADD_POLL_SECONDS * 1000
+		queue_state.poll_deadline_ms = now_ms + ADD_TIMEOUT_SECONDS * 1000
+		queue_state.next_poll_ms = now_ms + ADD_POLL_SECONDS * 1000
 		platform.request_frame_after(ADD_POLL_SECONDS)
 	}
 
-	if queue_state.is_polling && queue_state.next_poll_ms > 0 && now >= queue_state.next_poll_ms {
+	if queue_state.is_polling &&
+	   queue_state.next_poll_ms > 0 &&
+	   now_ms >= queue_state.next_poll_ms {
 		queue_state.next_poll_ms = 0
-		request_id := helper.request_play(to_song_match(queue.songs[queue.index]))
+		request_id := helper.send_play(to_song_match(queue.songs[queue.index]))
 		queue_state.requests[request_id] = {
 			kind       = .Poll,
 			play_count = queue_state.play_count,
@@ -293,7 +295,7 @@ update_queue :: proc() {
 
 	has_song := now_playing.playback == .Playing || now_playing.playback == .Paused
 	has_started := has_song && now_playing.song.persistent_id == queue.playing_persistent_id
-	is_start_late := queue_state.start_deadline_ms > 0 && now >= queue_state.start_deadline_ms
+	is_start_late := queue_state.start_deadline_ms > 0 && now_ms >= queue_state.start_deadline_ms
 
 	// With no start awaited, the deadline is already 0.
 	if has_started {
@@ -304,7 +306,7 @@ update_queue :: proc() {
 
 	// The resume point, every few seconds while a song plays.
 	if core.app.now_playing.playback == .Playing &&
-	   now - queue_state.last_resume_save > POSITION_SAVE_SECONDS * 1000 {
+	   now_ms - queue_state.last_resume_save_ms > POSITION_SAVE_SECONDS * 1000 {
 		apply_resume_point()
 	}
 }

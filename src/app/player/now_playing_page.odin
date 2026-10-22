@@ -45,7 +45,7 @@ build_now_playing_page :: proc() {
 		details, has_details := song_details[path]
 
 		if !has_details || watched.phase != .Ready {
-			// Until Apple answers, what Music.app gave.
+			// Until Apple answers, the page shows what Music.app gave.
 			details = {
 				song = {
 					name = shown.name,
@@ -58,7 +58,7 @@ build_now_playing_page :: proc() {
 			if is_queue_song do details.song = queue_song
 		}
 
-		info, _ := playback.find_track_info(shown.persistent_id)
+		info, _ := playback.watch_song_info(shown.persistent_id)
 		width := page.size.x - page.style.padding.x - page.style.padding.z
 		if width <= 0 do return
 
@@ -72,7 +72,7 @@ build_now_playing_page :: proc() {
 			build_hero(details, info, shown, width)
 			if info.is_in_library do build_stats(details.song, info, width)
 			build_detail_cards(details, info, shown.persistent_id, width)
-			if watched.phase != .Ready do kit.note(kit.phase_note(watched.phase))
+			if watched.phase != .Ready do kit.note(kit.to_phase_text(watched.phase))
 			build_more_by(details)
 
 			if details.copyright != "" {
@@ -92,13 +92,13 @@ build_now_playing_page :: proc() {
 	}
 }
 
-// The line being sung, with its romaji, from the lyrics the panel loads.
+// The current line of the lyrics, with its romaji, from the lyrics the panel loads.
 @(private)
 build_current_lyric :: proc(shown: helper.Song) {
-	phase, lines := lyrics.find(shown.persistent_id, shown.name, shown.artist)
+	phase, lines := lyrics.watch(shown.persistent_id, shown.name, shown.artist)
 	if phase != .Ready || len(lines) == 0 do return
 
-	position := helper.position_seconds(core.app.now_playing) + f64(lyrics_state.lead_ms) / 1000
+	position := helper.to_position_seconds(core.app.now_playing) + f64(lyrics_state.lead_ms) / 1000
 	index := find_current_line(lines, position)
 
 	if next := find_next_change(lines, position); next >= 0 {

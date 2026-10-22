@@ -198,7 +198,7 @@ build_queue_row :: proc(index: int, row_points: f32) {
 			)
 		}
 
-		// The song playing stays. Another shows its remove button while hovered.
+		// The song playing stays. Any other song shows its remove button while the mouse is over it.
 		if !is_current && kit.is_mouse_in(row) {
 			is_removed = kit.icon_button("remove", "xmark", 11, kit.colors.dim)
 		}
@@ -206,7 +206,7 @@ build_queue_row :: proc(index: int, row_points: f32) {
 
 	if is_removed {
 		playback.remove_from_queue(index)
-	} else if menus.track_song_row(ui.signal(row), song) {
+	} else if menus.apply_song_row_signal(ui.signal(row), song) {
 		playback.play_queue_at(index)
 	}
 }

@@ -14,11 +14,11 @@ MATERIAL_SELECTION :: 4
 BLUR_ALWAYS_ACTIVE :: 1
 // NSViewWidthSizable | NSViewHeightSizable
 SIZE_WITH_SUPERVIEW :: 2 | 16
-// NSWindowCollectionBehaviorTransient | IgnoresCycle: no Spaces, Mission Control or Cmd ` for it.
+// NSWindowCollectionBehaviorTransient | IgnoresCycle. Spaces, Mission Control and Cmd ` skip the window.
 TRANSIENT_WINDOW :: 1 << 3 | 1 << 6
 
 // A background window, for the tests and the bench, opens behind the others and never takes focus.
-// Its app is an accessory, so a tiling window manager such as AeroSpace leaves it alone.
+// Its app is an accessory, so a tiling window manager such as AeroSpace ignores it.
 open_window :: proc(
 	title: string,
 	size_points, min_size_points: [2]f32,
@@ -31,7 +31,7 @@ open_window :: proc(
 
 	state.app = NS.Application.sharedApplication()
 	state.app->setActivationPolicy(.Accessory if is_background else .Regular)
-	msg_send(nil, state.app, "finishLaunching")
+	objc_send(nil, state.app, "finishLaunching")
 
 	content_rect := NS.Rect{{0, 0}, {NS.Float(size_points.x), NS.Float(size_points.y)}}
 	state.ns_window = make_ns_window(title, content_rect, min_size_points)
@@ -46,7 +46,7 @@ open_window :: proc(
 	state.input_view = make_input_view()
 	blur->addSubview(state.input_view)
 
-	state.target = msg_send(^Target, msg_send(^Target, Target, "alloc"), "init")
+	state.target = objc_send(^Target, objc_send(^Target, Target, "alloc"), "init")
 	state.ns_window->setDelegate(cast(^NS.WindowDelegate)state.target)
 	state.display_link = make_display_link(layer, state.target)
 
@@ -80,11 +80,11 @@ make_ns_window :: proc(
 	defer ns_title->release()
 	ns_window->setTitle(ns_title)
 	ns_window->setTitlebarAppearsTransparent(true)
-	msg_send(nil, ns_window, "setTitleVisibility:", NS.Integer(TITLE_HIDDEN))
+	objc_send(nil, ns_window, "setTitleVisibility:", NS.Integer(TITLE_HIDDEN))
 
-	msg_send(nil, ns_window, "setReleasedWhenClosed:", NS.BOOL(false))
-	msg_send(nil, ns_window, "setAcceptsMouseMovedEvents:", NS.BOOL(true))
-	msg_send(
+	objc_send(nil, ns_window, "setReleasedWhenClosed:", NS.BOOL(false))
+	objc_send(nil, ns_window, "setAcceptsMouseMovedEvents:", NS.BOOL(true))
+	objc_send(
 		nil,
 		ns_window,
 		"setContentMinSize:",
@@ -92,23 +92,23 @@ make_ns_window :: proc(
 	)
 
 	ns_window->setOpaque(false)
-	ns_window->setBackgroundColor(msg_send(^NS.Color, NS.Color, "clearColor"))
+	ns_window->setBackgroundColor(objc_send(^NS.Color, NS.Color, "clearColor"))
 
 	return ns_window
 }
 
-// What is behind the window, blurred. The Metal view and the input view sit in it.
+// The view shows what is behind the window, blurred. The Metal view and the input view are inside it.
 @(private = "file")
 make_blur_view :: proc(content_rect: NS.Rect) -> ^Blur_View {
-	blur := msg_send(
+	blur := objc_send(
 		^Blur_View,
-		msg_send(^Blur_View, Blur_View, "alloc"),
+		objc_send(^Blur_View, Blur_View, "alloc"),
 		"initWithFrame:",
 		content_rect,
 	)
 
-	msg_send(nil, blur, "setMaterial:", NS.Integer(MATERIAL_SELECTION))
-	msg_send(nil, blur, "setState:", NS.Integer(BLUR_ALWAYS_ACTIVE))
+	objc_send(nil, blur, "setMaterial:", NS.Integer(MATERIAL_SELECTION))
+	objc_send(nil, blur, "setState:", NS.Integer(BLUR_ALWAYS_ACTIVE))
 
 	return blur
 }
@@ -123,23 +123,23 @@ make_metal_layer :: proc(device: ^MTL.Device) -> ^CA.MetalLayer {
 
 	srgb := mac.CGColorSpaceCreateWithName(mac.kCGColorSpaceSRGB)
 	defer mac.CGColorSpaceRelease(srgb)
-	msg_send(nil, layer, "setColorspace:", rawptr(srgb))
+	objc_send(nil, layer, "setColorspace:", rawptr(srgb))
 
 	return layer
 }
 
 @(private = "file")
 make_metal_view :: proc(layer: ^CA.MetalLayer, content_rect: NS.Rect) -> ^NS.View {
-	view := msg_send(
+	view := objc_send(
 		^NS.View,
-		msg_send(^NS.View, NS.View, "alloc"),
+		objc_send(^NS.View, NS.View, "alloc"),
 		"initWithFrame:",
 		content_rect,
 	)
 
 	view->setLayer(layer)
 	view->setWantsLayer(true)
-	msg_send(nil, view, "setAutoresizingMask:", NS.UInteger(SIZE_WITH_SUPERVIEW))
+	objc_send(nil, view, "setAutoresizingMask:", NS.UInteger(SIZE_WITH_SUPERVIEW))
 
 	return view
 }
@@ -151,29 +151,29 @@ make_input_view :: proc() -> ^NS.View {
 	input_class := intrinsics.objc_find_class("OMInputView")
 	class_addProtocol(rawptr(input_class), objc_getProtocol("NSTextInputClient"))
 
-	return msg_send(
+	return objc_send(
 		^NS.View,
-		msg_send(^Text_View, Text_View, "alloc"),
+		objc_send(^Text_View, Text_View, "alloc"),
 		"initWithFrame:",
 		NS.Rect{{0, 0}, {1, 1}},
 	)
 }
 
-// Paused until request_frame. It calls Target_metalDisplayLink before each refresh of the screen.
+// The link stays paused until request_frame. It calls Target_metalDisplayLink before each screen refresh.
 @(private = "file")
 make_display_link :: proc(layer: ^CA.MetalLayer, target: ^Target) -> ^Display_Link {
-	link := msg_send(
+	link := objc_send(
 		^Display_Link,
-		msg_send(^Display_Link, Display_Link, "alloc"),
+		objc_send(^Display_Link, Display_Link, "alloc"),
 		"initWithMetalLayer:",
 		layer,
 	)
 
-	msg_send(nil, link, "setDelegate:", target)
-	// Frames queued ahead of the screen. 1 is the shortest wait from input to screen.
-	msg_send(nil, link, "setPreferredFrameLatency:", f32(1))
-	msg_send(nil, link, "addToRunLoop:forMode:", NS.RunLoop.mainRunLoop(), NS.RunLoopCommonModes)
-	msg_send(nil, link, "setPaused:", NS.BOOL(true))
+	objc_send(nil, link, "setDelegate:", target)
+	// The latency counts the frames queued ahead of the screen. 1 gives the shortest wait from input to screen.
+	objc_send(nil, link, "setPreferredFrameLatency:", f32(1))
+	objc_send(nil, link, "addToRunLoop:forMode:", NS.RunLoop.mainRunLoop(), NS.RunLoopCommonModes)
+	objc_send(nil, link, "setPaused:", NS.BOOL(true))
 
 	return link
 }
@@ -183,8 +183,8 @@ show_window :: proc(is_background: bool) {
 	state.ns_window->center()
 
 	if is_background {
-		msg_send(nil, state.ns_window, "setCollectionBehavior:", NS.UInteger(TRANSIENT_WINDOW))
-		msg_send(nil, state.ns_window, "orderBack:", rawptr(nil))
+		objc_send(nil, state.ns_window, "setCollectionBehavior:", NS.UInteger(TRANSIENT_WINDOW))
+		objc_send(nil, state.ns_window, "orderBack:", rawptr(nil))
 	} else {
 		state.ns_window->makeKeyAndOrderFront(nil)
 		state.app->activate()

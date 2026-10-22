@@ -5,7 +5,6 @@ import "core:time"
 import "om:platform"
 import "om:ui"
 
-// ---- The toast ----
 TOAST_SECONDS :: 2.5
 
 @(private = "file")

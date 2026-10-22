@@ -17,7 +17,7 @@ import "om:youtube"
 Write_Job :: struct {
 	path, body:             string,
 	done_text, failed_text: string,
-	// Asked again once the write is done, so the page shows it.
+	// The app asks for this path again after the write, so the page shows the change.
 	refresh_path:           string,
 }
 
@@ -25,7 +25,7 @@ Write_Job :: struct {
 Created_Playlist :: struct {
 	id, name, done_text: string,
 	youtube_songs:       []youtube_lists.Playlist_YouTube_Song,
-	opens_page:          bool,
+	should_open_page:    bool,
 }
 
 @(private = "file")
@@ -51,7 +51,7 @@ start_write :: proc(job: Write_Job) {
 	thread.create_and_start_with_data(copied, run_write, self_cleanup = true)
 }
 
-// Runs on a thread of its own, as the request blocks.
+// run_write runs on a thread of its own, as the request blocks.
 @(private = "file")
 run_write :: proc(data: rawptr) {
 	job := cast(^Write_Job)data
@@ -62,10 +62,10 @@ run_write :: proc(data: rawptr) {
 	{
 		sync.guard(&write_results.mutex)
 
-		failed :=
+		failure_text :=
 			fmt.aprintf("%s: no answer from Apple.", job.failed_text) if status == 0 else fmt.aprintf("%s: Apple answered %d.", job.failed_text, status)
-		append(&write_results.toasts, strings.clone(job.done_text) if is_done else failed)
-		if is_done do delete(failed)
+		append(&write_results.toasts, strings.clone(job.done_text) if is_done else failure_text)
+		if is_done do delete(failure_text)
 
 		if is_done && job.refresh_path != "" {
 			append(&write_results.refresh, strings.clone(job.refresh_path))
@@ -82,7 +82,7 @@ run_write :: proc(data: rawptr) {
 	free_all(context.temp_allocator)
 }
 
-// Once a frame: the notes and refreshes of finished writes.
+// apply_write_results runs once a frame. It shows the notes of finished writes and refreshes their paths.
 apply_write_results :: proc() {
 	sync.guard(&write_results.mutex)
 
@@ -104,7 +104,7 @@ apply_write_results :: proc() {
 		kit.show_toast(created.done_text)
 		apple.refresh(PLAYLISTS_PATH)
 
-		if created.opens_page {
+		if created.should_open_page {
 			core.navigate({kind = .Playlist, id = created.id, title = created.name})
 		}
 	}
@@ -122,7 +122,7 @@ Song_Reference :: struct {
 
 // A song only on YouTube stays in onlymuse's part of the playlist, as Apple's playlists hold Apple songs alone.
 add_to_playlist :: proc(playlist_id, playlist_name: string, chosen: core.Catalog_Song) {
-	song := matching.to_playable(chosen)
+	song := matching.find_playable(chosen)
 
 	if youtube.is_song_id(song.id) {
 		youtube_lists.add_playlist_youtube_songs(playlist_id, {{"", song}})
@@ -153,7 +153,7 @@ add_to_playlist :: proc(playlist_id, playlist_name: string, chosen: core.Catalog
 
 @(private)
 create_playlist_with :: proc(name: string, chosen: core.Catalog_Song) {
-	song := matching.to_playable(chosen)
+	song := matching.find_playable(chosen)
 	done_text := fmt.tprintf("Made %s with %s", name, song.name)
 
 	if youtube.is_song_id(song.id) {
@@ -170,16 +170,16 @@ PLAYLISTS_PATH :: "/v1/me/library/playlists?limit=100"
 Create_Job :: struct {
 	name, body, done_text: string,
 	youtube_songs:         []youtube_lists.Playlist_YouTube_Song,
-	opens_page:            bool,
+	should_open_page:      bool,
 }
 
-// A new library playlist of Apple songs, with songs only on YouTube kept beside it once Apple gives its ID.
+// Makes a library playlist of Apple songs. Once Apple gives its ID, onlymuse keeps the YouTube-only songs beside it.
 create_playlist :: proc(
 	name: string,
 	songs: []core.Catalog_Song,
 	youtube_songs: []youtube_lists.Playlist_YouTube_Song,
 	done_text: string,
-	opens_page := false,
+	should_open_page := false,
 ) {
 	Body :: struct {
 		attributes:    struct {
@@ -212,7 +212,7 @@ create_playlist :: proc(
 		strings.clone(string(body)),
 		strings.clone(done_text),
 		kept,
-		opens_page,
+		should_open_page,
 	}
 
 	// self_cleanup frees the thread when its procedure returns, so nothing waits for it.
@@ -252,7 +252,7 @@ run_create :: proc(data: rawptr) {
 			job.name,
 			job.done_text,
 			job.youtube_songs,
-			job.opens_page,
+			job.should_open_page,
 		},
 	)
 }

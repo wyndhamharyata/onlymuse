@@ -16,7 +16,6 @@ import "om:youtube"
 
 SHOWN_YOUTUBE_SONG_COUNT :: 6
 
-// ---- Pages ----
 build_youtube_playlist_page :: proc(page: core.Page) {
 	if page.id == youtube.LIKED_ID && !youtube.is_signed_in() {
 		build_youtube_sign_in_page(
@@ -26,7 +25,7 @@ build_youtube_playlist_page :: proc(page: core.Page) {
 		return
 	}
 
-	first, songs, phase := youtube_lists.watch_youtube_songs(youtube.list_path(page.id))
+	first, songs, phase := youtube_lists.watch_youtube_songs(youtube.to_list_path(page.id))
 	title := first.title if first.title != "" else page.title
 
 	lists.build_song_list_page(title, first.subtitle, songs, phase)
@@ -89,7 +88,7 @@ build_youtube_sign_in_note :: proc(text: string) {
 	}
 }
 
-// Set by the button, so the answer says how it went.
+// The button sets this, so the answer says how it went.
 @(private = "file")
 is_reading_youtube_sign_in: bool
 
@@ -98,7 +97,7 @@ apply_youtube_cookie :: proc(message: helper.Message) {
 	youtube.set_cookie(message.cookie)
 	is_signed_in := youtube.is_signed_in()
 
-	// Answers saved signed out, such as an empty Liked Music, are asked for again.
+	// apple.refresh_all asks again for the answers saved while signed out, such as an empty Liked Music.
 	if is_signed_in != was_signed_in do apple.refresh_all(youtube.PATH_PREFIX)
 
 	if !is_reading_youtube_sign_in do return
@@ -117,13 +116,13 @@ apply_youtube_cookie :: proc(message: helper.Message) {
 	}
 }
 
-// Songs Apple lacks, once its catalog has been checked for each, and YouTube's videos.
+// Shows the songs Apple lacks, after matching checked its catalog for each, and YouTube's videos.
 build_youtube_search_results :: proc(term: string, apple_songs: []core.Catalog_Song, width: f32) {
 	songs_list, _ := youtube_lists.watch_youtube_list(
-		youtube.search_path(term, youtube.SONGS_FILTER),
+		youtube.to_search_path(term, youtube.SONGS_FILTER),
 	)
 	videos_list, _ := youtube_lists.watch_youtube_list(
-		youtube.search_path(term, youtube.VIDEOS_FILTER),
+		youtube.to_search_path(term, youtube.VIDEOS_FILTER),
 	)
 	shown := make([dynamic]core.Catalog_Song, context.temp_allocator)
 

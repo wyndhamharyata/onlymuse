@@ -10,7 +10,7 @@ to_font :: proc(style: Style) -> font.Font {
 	return font.system_font(style.font_weight, size * state.scale)
 }
 
-// Sizes that need no parent, worked out from the leaves up.
+// Works out the sizes that need no parent, from the bottom of the tree up.
 @(private)
 measure :: proc(box: ^Box) {
 	for child := box.first; child != nil; child = child.next do measure(child)
@@ -61,9 +61,9 @@ children_extent :: proc(box: ^Box, axis: Axis) -> f32 {
 	return total
 }
 
-// Sizes that need the parent, from the root down. A box sized by its children grows to fit text that
-// wrapped below it, before anything is placed, so a box aligned to the end or the centre is placed by
-// its final size.
+// Works out the sizes that need the parent, from the root down. A box sized by its children grows to
+// fit the text that wrapped below it. It grows before place runs, so place aligns a box to the end or
+// the centre by its final size.
 @(private)
 resolve :: proc(box: ^Box) {
 	style := box.style
@@ -155,7 +155,7 @@ wrap_lines :: proc(box: ^Box, clip: ^[4]f32) -> f32 {
 	return line_top
 }
 
-// Positions, from the root down. clip is in points.
+// Places each box, from the root down. clip is in points.
 @(private)
 place :: proc(box: ^Box, origin: [2]f32, clip: [4]f32) {
 	box.rect = {origin.x, origin.y, origin.x + box.size.x, origin.y + box.size.y}
@@ -267,7 +267,7 @@ resolve_free_size :: proc(child: ^Box, inner: [2]f32) {
 	if child.style.height.kind == .Fill do child.size.y = inner.y
 }
 
-// Wrapped text needs its width before its height is known.
+// The height of wrapped text depends on its width.
 @(private)
 fit_text_to_width :: proc(box: ^Box) {
 	if box.text == "" do return

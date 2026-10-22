@@ -1,4 +1,4 @@
-// The app's SQLite file: Apple's answers, the play log and the saved state of the window.
+// This package keeps the app's SQLite file. It holds Apple's answers, the play log and the saved state of the window.
 package store
 
 import "core:fmt"
@@ -10,15 +10,15 @@ import "om:console"
 import "om:mac"
 
 Saved_Answer :: struct {
-	body:       string,
+	body:          string,
 	// Unix time in ms.
-	fetched_at: i64,
+	fetched_at_ms: i64,
 }
 
 @(private)
 state: struct {
-	db:    mac.Sqlite,
-	mutex: sync.Mutex,
+	database: mac.Sqlite,
+	mutex:    sync.Mutex,
 }
 
 @(private)
@@ -56,7 +56,7 @@ SCHEMA :: `
 
 
 // OM_DATA names the folder, for the tests.
-folder :: proc() -> string {
+read_folder :: proc() -> string {
 	if folder := os.get_env("OM_DATA", context.temp_allocator); folder != "" do return folder
 
 	return fmt.tprintf(
@@ -66,14 +66,14 @@ folder :: proc() -> string {
 }
 
 start :: proc() {
-	os.make_directory_all(folder())
-	path := fmt.tprintf("%s/onlymuse.sqlite", folder())
+	os.make_directory_all(read_folder())
+	path := fmt.tprintf("%s/onlymuse.sqlite", read_folder())
 
 	flags := i32(mac.SQLITE_OPEN_READWRITE | mac.SQLITE_OPEN_CREATE | mac.SQLITE_OPEN_FULLMUTEX)
 
 	if mac.sqlite3_open_v2(
 		   strings.clone_to_cstring(path, context.temp_allocator),
-		   &state.db,
+		   &state.database,
 		   flags,
 		   nil,
 	   ) !=
@@ -91,7 +91,7 @@ start :: proc() {
 run :: proc(sql: cstring) {
 	error_text: cstring
 
-	if mac.sqlite3_exec(state.db, sql, nil, nil, &error_text) != mac.SQLITE_OK {
+	if mac.sqlite3_exec(state.database, sql, nil, nil, &error_text) != mac.SQLITE_OK {
 		console.add("Store", "%s", error_text)
 	}
 }
@@ -109,7 +109,7 @@ bind_text :: proc(statement: mac.Sqlite_Statement, index: i32, text: string) {
 @(private)
 prepare :: proc(sql: cstring) -> (mac.Sqlite_Statement, bool) {
 	statement: mac.Sqlite_Statement
-	is_ready := mac.sqlite3_prepare_v2(state.db, sql, -1, &statement, nil) == mac.SQLITE_OK
+	is_ready := mac.sqlite3_prepare_v2(state.database, sql, -1, &statement, nil) == mac.SQLITE_OK
 
 	return statement, is_ready
 }
@@ -118,7 +118,7 @@ prepare :: proc(sql: cstring) -> (mac.Sqlite_Statement, bool) {
 @(private)
 step_write :: proc(statement: mac.Sqlite_Statement) {
 	if mac.sqlite3_step(statement) != mac.SQLITE_DONE {
-		console.add("Store", "%s", mac.sqlite3_errmsg(state.db))
+		console.add("Store", "%s", mac.sqlite3_errmsg(state.database))
 	}
 }
 
@@ -190,7 +190,7 @@ save_state :: proc(key, value: string) {
 	step_write(statement)
 }
 
-// The Apple Music song, as JSON, that a YouTube video is. Empty when Apple has no such song.
+// The Apple Music song, as JSON, that a YouTube song is. The JSON is empty when Apple has no such song.
 find_match :: proc(youtube_id: string, allocator := context.allocator) -> (string, bool) {
 	statement, ok := prepare("select song from matches where youtube_id = ?")
 	if !ok do return "", false
@@ -203,7 +203,7 @@ find_match :: proc(youtube_id: string, allocator := context.allocator) -> (strin
 	return column_text(statement, 0, allocator), true
 }
 
-// A match the person turned down. It stays through a change of the rule.
+// True for a match the person turned down. The rejection stays through a change of the rule.
 is_match_rejected :: proc(youtube_id: string) -> bool {
 	statement, ok := prepare("select 1 from rejected_matches where youtube_id = ?")
 	if !ok do return false
@@ -232,7 +232,7 @@ delete_rejected_match :: proc(youtube_id: string) {
 	step_write(statement)
 }
 
-// Every saved match goes, such as when the rule that makes them changes.
+// This deletes every saved match, such as when the rule that makes the matches changes.
 delete_matches :: proc() {
 	run("delete from matches")
 }
@@ -250,15 +250,15 @@ save_match :: proc(youtube_id, song_json: string) {
 	step_write(statement)
 }
 
-// A song heard to its middle, or left before it. Music.app keeps only a count and the last date.
+// A song that played to its middle, or that the person skipped before its middle. Music.app keeps only a count and the last date.
 Play :: struct {
-	catalog_id: string,
-	name:       string,
-	artist:     string,
-	album:      string,
-	is_skip:    bool,
-	// Unix ms.
-	played_at:  i64,
+	catalog_id:   string,
+	name:         string,
+	artist:       string,
+	album:        string,
+	is_skip:      bool,
+	// Unix time in ms.
+	played_at_ms: i64,
 }
 
 save_play :: proc(play: Play) {
@@ -273,7 +273,7 @@ save_play :: proc(play: Play) {
 	bind_text(statement, 3, play.artist)
 	bind_text(statement, 4, play.album)
 	mac.sqlite3_bind_int64(statement, 5, 1 if play.is_skip else 0)
-	mac.sqlite3_bind_int64(statement, 6, play.played_at if play.played_at > 0 else now_ms())
+	mac.sqlite3_bind_int64(statement, 6, play.played_at_ms if play.played_at_ms > 0 else now_ms())
 	step_write(statement)
 }
 
@@ -298,7 +298,7 @@ list_plays :: proc(since_ms: i64, allocator := context.allocator) -> []Play {
 				artist = column_text(statement, 2, allocator),
 				album = column_text(statement, 3, allocator),
 				is_skip = mac.sqlite3_column_int64(statement, 4) != 0,
-				played_at = mac.sqlite3_column_int64(statement, 5),
+				played_at_ms = mac.sqlite3_column_int64(statement, 5),
 			},
 		)
 	}

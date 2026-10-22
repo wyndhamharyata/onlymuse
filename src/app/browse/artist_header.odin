@@ -23,8 +23,8 @@ build_artist_header :: proc(data: ^core.Page_Data, detail: string, width: f32) {
 			photo_width :=
 				int(math.ceil(ui.to_pixels(width) / PHOTO_WIDTH_STEP_PIXELS)) *
 				PHOTO_WIDTH_STEP_PIXELS
-			// Apple fits the photo inside the size asked for, so a wide size gives a small photo. A square
-			// as wide as the header gives it whole, to be cropped.
+			// Apple fits the photo inside the size the app asks for, so a wide size gives a small photo.
+			// A square as wide as the header gives the whole photo for the box to crop.
 			photo := apple.to_artwork_url(data.artwork, photo_width, photo_width)
 			box := kit.artwork_rect_box(
 				photo,

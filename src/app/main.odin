@@ -24,7 +24,7 @@ import "om:store"
 import "om:ui"
 import "om:youtube"
 
-// Each frame's temp memory, of which a long page takes more than the 256 KB build.sh gives each thread.
+// The temp memory of each frame. A long page takes more than the 256 KB that build.sh gives each thread.
 MAIN_TEMP_BYTES :: 4 * 1024 * 1024
 
 main :: proc() {
@@ -37,7 +37,7 @@ main :: proc() {
 	start_app_state()
 	start_parts()
 
-	// A test or bench run opens behind the other windows and leaves Music.app as it is when it quits.
+	// A test or bench run opens behind the other windows. It keeps Music.app as it is when it quits.
 	is_background :=
 		core.app.capture_path != "" ||
 		core.app.is_bench ||
@@ -54,7 +54,7 @@ main :: proc() {
 	platform.run()
 }
 
-// The app's first state, and what the OM_ settings of a test or bench ask for.
+// Sets the app's first state, with what the OM_ settings of a test or bench ask for.
 start_app_state :: proc() {
 	core.app.zoom = 1
 	core.app.accent = kit.DEFAULT_ACCENT
@@ -79,7 +79,7 @@ start_app_state :: proc() {
 	core.app.started_at = time.tick_now()
 }
 
-// In this order, as the queue, navigation and the rest read what the store saved.
+// Starts each part in this order, as the queue, navigation and the rest read what the store saved.
 start_parts :: proc() {
 	store.start()
 	apple.start()
@@ -128,7 +128,7 @@ open_main_window :: proc(is_background: bool) {
 		core.app.zoom = zoom_steps[max(find_zoom_step() - 1, 0)]
 	}
 
-	apply_min_window_size()
+	set_min_window_size()
 }
 
 SIGN_IN_CARD_POINTS :: 380

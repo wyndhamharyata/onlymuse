@@ -47,7 +47,7 @@ build_search_page :: proc(term: string) {
 		kit.page_heading(fmt.tprintf("Results for \"%s\"", term))
 
 		if watched.phase != .Ready {
-			kit.note(kit.phase_note(watched.phase))
+			kit.note(kit.to_phase_text(watched.phase))
 			return
 		}
 
@@ -68,13 +68,13 @@ build_search_page :: proc(term: string) {
 			"albums",
 			"Albums",
 			data.cards,
-			lists.fit_tile_size(width, ARTIST_ALBUM_POINTS, lists.CARD_GAP_POINTS),
+			lists.to_tile_size(width, ARTIST_ALBUM_POINTS, lists.CARD_GAP_POINTS),
 		)
 		lists.build_card_row(
 			"artists",
 			"Artists",
 			data.similar,
-			lists.fit_tile_size(width, SIMILAR_ARTIST_POINTS, lists.CARD_GAP_POINTS),
+			lists.to_tile_size(width, SIMILAR_ARTIST_POINTS, lists.CARD_GAP_POINTS),
 			true,
 		)
 	}

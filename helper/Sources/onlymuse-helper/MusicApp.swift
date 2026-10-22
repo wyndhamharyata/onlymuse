@@ -1,6 +1,6 @@
 import AppKit
 
-// Music.app through AppleScript. Every script checks first that Music.app runs, so reading the state never opens it.
+// This class controls Music.app through AppleScript. Every script checks first that Music.app runs, so reading the state never opens it.
 @MainActor
 final class MusicApp {
   nonisolated static let bundleIdentifier = "com.apple.Music"
@@ -8,7 +8,7 @@ final class MusicApp {
   private let artworkFolder = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
     .appending(path: "onlymuse/artwork")
 
-  // The fields are joined by the unit separator, so a song name can hold any other character.
+  // The script joins the fields with the unit separator, so a song name can hold any other character.
   private let nowPlayingScript = NSAppleScript(source: """
     tell application "Music"
       set separator to character id 31
@@ -48,7 +48,7 @@ final class MusicApp {
     guard isRunning else { return ["type": "nowPlaying", "state": "closed"] }
     guard let text = run(nowPlayingScript)?.stringValue else { return ["type": "nowPlaying", "state": "closed"] }
 
-    // The artwork below can take a while, so the app counts the position on from when it was read.
+    // The artwork below can take a while, so the app counts the position on from when the helper read it.
     let positionReadAtMs = Self.nowMs()
 
     let fields = text.components(separatedBy: "\u{1F}")
@@ -70,7 +70,7 @@ final class MusicApp {
     ]
   }
 
-  // The position alone, read with no artwork, so the app's clock stays with Music.app's. nil unless it plays.
+  // This reads the position alone, with no artwork, so the app's clock stays with Music.app's. It returns nil unless Music.app plays.
   func readPosition() -> [String: Any]? {
     guard let playback = readPlayback() else { return nil }
 
@@ -107,7 +107,7 @@ final class MusicApp {
     }
   }
 
-  // Plays the library song closest in length to the match. nil when the library holds no such song yet.
+  // This plays the library song closest in length to the match. It returns nil when the library holds no such song yet.
   func playSong(_ match: SongMatch) -> String? {
     if !isRunning { launch() }
 
@@ -118,7 +118,7 @@ final class MusicApp {
     return persistentID
   }
 
-  // Pause, not play/pause, and only when Music.app runs, so it never starts music or opens Music.app.
+  // This sends pause, not play/pause, and only when Music.app runs. It then never starts music or opens Music.app.
   func pauseIfRunning() {
     guard isRunning else { return }
 
@@ -129,14 +129,14 @@ final class MusicApp {
     _ = run(NSAppleScript(source: "tell application \"Music\" to play (first track of library playlist 1 whose persistent ID is \"\(persistentID)\")")!)
   }
 
-  // What Music.app knows of a song and Apple's API does not: its plays, dates, favourite and file. Read only.
+  // This reads what Music.app knows of a song and Apple's API does not: its plays, dates, favourite and file. It changes nothing.
   // The current track comes first, so a streamed song not in the library still answers what it can.
   func readTrackInfo(persistentID: String) -> [String: Any] {
     var info: [String: Any] = ["type": "trackInfo", "persistentID": persistentID]
 
     guard isRunning, !persistentID.isEmpty else { return info }
 
-    // Each property in a try of its own, as a streamed song has some and not others.
+    // Each property gets a try of its own, as a streamed song has some and not others.
     let names = [
       "played count", "played date", "skipped count", "skipped date", "date added", "favorited", "rating",
       "bit rate", "sample rate", "kind", "bpm", "size",
@@ -181,13 +181,13 @@ final class MusicApp {
         info[key] = Int(item.int32Value)
       }
     }
-    // A song in the library has a date it was added.
+    // Only a song in the library has a date added.
     info["isInLibrary"] = info["dateAddedMs"] != nil
 
     return info
   }
 
-  // Sets Music.app's favourite, which also puts the song in Favourite Songs. The playing song or a library song.
+  // This sets Music.app's favourite, which also puts the song in Favourite Songs. It works on the playing song or a library song.
   func setFavorite(persistentID: String?, match: SongMatch?, favorited: Bool) -> String? {
     guard isRunning else { return nil }
 
@@ -258,7 +258,7 @@ final class MusicApp {
     end tell
     """)!
 
-  // The song Music.app plays and how far it is, read with no artwork, so it is quick. nil unless it plays.
+  // This reads the song Music.app plays and how far it is, with no artwork, so it is quick. It returns nil unless Music.app plays.
   func readPlayback() -> (persistentID: String, positionSeconds: Double, durationSeconds: Double)? {
     guard isRunning, let text = run(playbackScript)?.stringValue, !text.isEmpty else { return nil }
 
@@ -276,7 +276,7 @@ final class MusicApp {
     return "\"\(escaped)\""
   }
 
-  // nil when Music.app is not running.
+  // It returns nil when Music.app is not running.
   func readVolumePercent() -> Int? {
     guard isRunning else { return nil }
 
@@ -292,7 +292,7 @@ final class MusicApp {
     send(readNowPlaying())
   }
 
-  // Opens Music.app in the background, so it never comes in front of onlymuse.
+  // This opens Music.app in the background, so it never comes in front of onlymuse.
   private func launch() {
     guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.bundleIdentifier) else { return }
 
@@ -315,7 +315,7 @@ final class MusicApp {
     return result
   }
 
-  // The artwork of a song is saved once, under its persistent ID.
+  // The helper saves the artwork of a song once, under its persistent ID.
   private func readArtworkPath(persistentID: String) -> String? {
     let saved = try? FileManager.default.contentsOfDirectory(atPath: artworkFolder.path)
 

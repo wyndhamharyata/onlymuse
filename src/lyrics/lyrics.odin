@@ -1,4 +1,4 @@
-// The playing song's lyrics: found through Apple's API, read from its TTML.
+// This package finds the lyrics of the playing song through Apple's API and reads them from their TTML.
 package lyrics
 
 import "core:encoding/json"
@@ -53,14 +53,14 @@ state: struct {
 	lines:         []Line,
 	// Who wrote the words, as the lyrics name them.
 	songwriters:   []string,
-	// Holds lines and songwriters.
+	// The arena holds the lines and the songwriters.
 	arena:         virtual.Arena,
 	// The last song's lines, which the frame that asked for the new song may still show.
 	last_arena:    virtual.Arena,
 }
 
-// The lyrics of the song, loading them the first time it is asked for. Lines live until another song is asked for.
-find :: proc(persistent_id, name, artist: string) -> (Phase, []Line) {
+// The lyrics of the song. The first call for a song starts to load them. The lines live until a call asks for another song.
+watch :: proc(persistent_id, name, artist: string) -> (Phase, []Line) {
 	sync.guard(&state.mutex)
 
 	if persistent_id == state.persistent_id do return state.phase, state.lines
@@ -78,14 +78,14 @@ find :: proc(persistent_id, name, artist: string) -> (Phase, []Line) {
 	request := new(Request)
 	request^ = {strings.clone(persistent_id), strings.clone(name), strings.clone(artist)}
 	// self_cleanup frees the thread when its procedure returns, so nothing waits for it.
-	thread.create_and_start_with_data(request, load, self_cleanup = true)
+	thread.create_and_start_with_data(request, fetch_lyrics, self_cleanup = true)
 
 	return state.phase, nil
 }
 
-// Runs on a thread of its own.
+// This procedure runs on a thread of its own.
 @(private)
-load :: proc(data: rawptr) {
+fetch_lyrics :: proc(data: rawptr) {
 	request := cast(^Request)data
 
 	defer {
@@ -107,7 +107,7 @@ load :: proc(data: rawptr) {
 
 	sync.guard(&state.mutex)
 
-	// Another song started while these loaded.
+	// Another song started while these lines loaded.
 	if request.persistent_id != state.persistent_id {
 		virtual.arena_destroy(&arena)
 		return
@@ -128,7 +128,7 @@ fetch_lines :: proc(name, artist: string, allocator: mem.Allocator) -> ([]Line, 
 	song_id, ok := find_song_id(name, artist)
 	if !ok do return nil, nil, false
 
-	// A song from YouTube has the ID "yt:" and its video, which Apple's catalog has no lyrics for.
+	// A YouTube song has the ID "yt:" and its video ID. Apple's catalog has no lyrics for it.
 	for character in song_id do if character < '0' || character > '9' do return nil, nil, false
 
 	answer := apple.fetch(
@@ -175,14 +175,14 @@ fetch_lines :: proc(name, artist: string, allocator: mem.Allocator) -> ([]Line, 
 	return to_lines(ttml, allocator), to_songwriters(ttml, allocator), true
 }
 
-// The songwriters of the playing song's lyrics, once they have loaded.
+// The songwriters of the playing song's lyrics, after they load.
 find_songwriters :: proc(persistent_id: string) -> []string {
 	sync.guard(&state.mutex)
 
 	return state.songwriters if persistent_id == state.persistent_id else nil
 }
 
-// A song started outside onlymuse has no catalog ID yet. The queue knows some, the search the rest.
+// A song that starts outside onlymuse has no catalog ID yet. The queue knows some IDs. The search finds the rest.
 @(private)
 find_song_id :: proc(name, artist: string) -> (string, bool) {
 	if id, ok := find_queue_song_id(name, artist, context.temp_allocator); ok do return id, true
@@ -223,7 +223,7 @@ find_song_id :: proc(name, artist: string) -> (string, bool) {
 	return "", false
 }
 
-// The catalog ID of a song in the saved queue, found by its name and artist.
+// The catalog ID of a song in the saved queue with the same name and artist.
 @(private)
 find_queue_song_id :: proc(
 	name, artist: string,

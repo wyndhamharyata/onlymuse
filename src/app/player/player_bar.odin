@@ -43,7 +43,7 @@ build_player_bar :: proc() {
 	}
 }
 
-// The cover the player bar shows: Music.app's, or Apple's for a song of the queue.
+// Finds the cover the player bar shows. It is Music.app's, or Apple's for a song of the queue.
 find_player_artwork_source :: proc() -> string {
 	if playback.queue.is_adding || playback.is_starting_youtube_song() {
 		return apple.to_artwork_url(
@@ -69,7 +69,7 @@ build_song_info :: proc() {
 	now_playing := core.app.now_playing
 	song, is_song := playback.find_shown_song()
 	queue_song, is_queue_song := playback.find_queue_song(song.persistent_id)
-	// A song being added to the library, or loaded by the YouTube page, shows before Music.app or the page has it.
+	// A song on its way into the library, or that the YouTube page loads, shows before Music.app or the page has it.
 	is_waiting := playback.queue.is_adding || playback.is_starting_youtube_song()
 	adding_song := playback.queue.songs[playback.queue.index] if is_waiting else {}
 	info := ui.box(
@@ -113,7 +113,7 @@ build_song_info :: proc() {
 					width = ui.points(PLAYER_ARTWORK_POINTS),
 					height = ui.points(PLAYER_ARTWORK_POINTS),
 					corner_radius = 6,
-					background = {1, 1, 1, 0.12 * cover.hot_t},
+					background = {1, 1, 1, 0.12 * cover.hot_fraction},
 					position = {0, 0},
 					flags = {.Floating},
 				},
@@ -155,7 +155,7 @@ build_song_info :: proc() {
 						after_width: f32 = 22 + 7
 						if badge != "" do after_width += kit.measure_text(badge, 9.5, .Bold) + 8 + 7
 
-						// A point more than the text, as a box exactly as wide cuts a short name such as "If" to nothing.
+						// The name gets a point more than the text, as a box exactly as wide cuts a short name such as "If" to nothing.
 						name_width = ui.points(
 							min(
 								kit.measure_text(song.name, 13.5, .Semibold) + 1,
@@ -193,7 +193,7 @@ build_song_info :: proc() {
 
 					// Music.app knows nothing of a song the YouTube page plays.
 					playing, persistent_id, _ := playback.find_playing_song()
-					if !is_from_youtube do playback.find_track_info(persistent_id)
+					if !is_from_youtube do playback.watch_song_info(persistent_id)
 
 					if playback.favourite_button(
 						"favourite",
@@ -205,7 +205,7 @@ build_song_info :: proc() {
 				}
 
 				// Go to Artist always opens the Apple Music artist, never the library one.
-				// Music.app says it plays while it still loads a song. A position that has not moved by the first check says so.
+				// Music.app says it plays while it still loads a song. A position that did not move by the first check says so.
 				is_loading :=
 					now_playing.playback == .Playing &&
 					!now_playing.has_started &&

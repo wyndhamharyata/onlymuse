@@ -4,7 +4,7 @@ import "core:fmt"
 import "om:app/core"
 import "om:ui"
 
-MENU_ITEM_POINTS :: 26
+MENU_ITEM_HEIGHT_POINTS :: 26
 
 // A menu's panel, kept inside the window.
 menu_box :: proc(id: string, position: [2]f32, width: f32, window_size: [2]f32) -> ^ui.Box {
@@ -55,7 +55,7 @@ menu_item_signal :: proc(
 		id,
 		{
 			width = ui.fill(),
-			height = ui.points(MENU_ITEM_POINTS),
+			height = ui.points(MENU_ITEM_HEIGHT_POINTS),
 			axis = .X,
 			align = .Center,
 			padding = {9, 0, 9, 0},
@@ -67,7 +67,7 @@ menu_item_signal :: proc(
 	)
 
 	text_color := color if color.a > 0 else colors.text
-	if is_selected || item.hot_t > 0.5 do text_color = to_color(0xffffffff)
+	if is_selected || item.hot_fraction > 0.5 do text_color = to_color(0xffffffff)
 
 	if ui.scope(item) {
 		ui.box(

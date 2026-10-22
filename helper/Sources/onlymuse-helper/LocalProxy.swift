@@ -1,9 +1,9 @@
 import Foundation
 import Network
 
-// A proxy only this Mac can reach, for the helper's pages. Each of a page's connections goes through it as a TCP
-// tunnel, so none uses HTTP/3. Some networks, such as a phone's hotspot, allow IPv6 packets only up to 1280
-// bytes, which HTTP/3's are not, and WebKit then waits two minutes on each request before it gives up. The
+// A proxy that only this Mac can reach, for the helper's pages. Each connection of a page goes through it as a
+// TCP tunnel, so none uses HTTP/3. Some networks, such as a phone's hotspot, allow IPv6 packets only up to 1280
+// bytes. HTTP/3's packets are larger. WebKit then waits two minutes on each request before it gives up. The
 // tunnels carry the pages' TLS as it is, so the proxy reads none of it.
 final class LocalProxy: @unchecked Sendable {
   // The most a CONNECT request's head may be.
@@ -15,7 +15,7 @@ final class LocalProxy: @unchecked Sendable {
 
   var port: NWEndpoint.Port? { listener?.port }
 
-  // Starts listening on a free port of 127.0.0.1, and names it once it listens.
+  // start listens on a free port of 127.0.0.1. It gives the port to onReady once it listens.
   func start(onReady: @escaping @Sendable (NWEndpoint.Port) -> Void) {
     let parameters = NWParameters.tcp
     parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
@@ -39,7 +39,7 @@ final class LocalProxy: @unchecked Sendable {
     readHead(client, head: Data())
   }
 
-  // Reads the request's head: "CONNECT host:port HTTP/1.1", its headers, then an empty line.
+  // This reads the request's head: "CONNECT host:port HTTP/1.1", its headers, then an empty line.
   private func readHead(_ client: NWConnection, head: Data) {
     client.receive(minimumIncompleteLength: 1, maximumLength: Self.maxHeadBytes) { [weak self] data, _, isComplete, error in
       guard let self else { return }
@@ -93,7 +93,7 @@ final class LocalProxy: @unchecked Sendable {
     server.start(queue: queue)
   }
 
-  // Copies one side's bytes to the other until either side ends.
+  // This copies one side's bytes to the other until either side ends.
   private func pipe(from source: NWConnection, to destination: NWConnection) {
     source.receive(minimumIncompleteLength: 1, maximumLength: Self.chunkBytes) { [weak self] data, _, isComplete, error in
       if let data, !data.isEmpty {
@@ -133,7 +133,7 @@ final class LocalProxy: @unchecked Sendable {
   }
 }
 
-// Whether a CONNECT was answered. Only the proxy's queue reads and sets it.
+// Whether the proxy answered a CONNECT. Only the proxy's queue reads and sets it.
 private final class Answer: @unchecked Sendable {
   var isSent = false
 }

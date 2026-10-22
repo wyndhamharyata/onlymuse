@@ -34,7 +34,7 @@ build_shelves_page :: proc(title, path: string, is_new: bool) {
 		kit.page_heading(title)
 
 		if watched.phase != .Ready {
-			kit.note(kit.phase_note(watched.phase))
+			kit.note(kit.to_phase_text(watched.phase))
 			return
 		}
 
@@ -48,7 +48,7 @@ build_shelves_page :: proc(title, path: string, is_new: bool) {
 	}
 }
 
-// Catalog playlists come from shelves. Library ones from the sidebar.
+// Catalog playlists come from shelves. Library playlists come from the sidebar.
 build_playlist_page :: proc(page: core.Page) {
 	is_catalog := page.kind == .Catalog_Playlist
 	header_path :=

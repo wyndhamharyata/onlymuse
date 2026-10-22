@@ -20,17 +20,17 @@ Download :: struct {
 downloads: struct {
 	mutex:         sync.Mutex,
 	list:          []Download,
-	// Counts up with each finished scan.
+	// The version counts up with each finished scan.
 	version:       int,
 	is_scanning:   bool,
-	// The visit that started the last scan.
+	// scanned_index and scanned_visit name the visit that started the last scan.
 	scanned_index: int,
 	scanned_visit: int,
 }
 
 // Music.app keeps each downloaded Apple Music song as a package of its own, two folders down.
 @(private = "file")
-download_folder :: proc() -> string {
+read_download_folder :: proc() -> string {
 	return fmt.tprintf(
 		"%s/Music/Music/Media.localized/Apple Music",
 		os.get_env("HOME", context.temp_allocator),
@@ -50,14 +50,16 @@ read_download :: proc(boot_path: string) -> (Download, bool) {
 
 	for start >= 0 {
 		rest := boot[start + 2:]
-		digits := 0
-		for digits < len(rest) && rest[digits] >= '0' && rest[digits] <= '9' do digits += 1
+		digit_count := 0
+		for digit_count < len(rest) && rest[digit_count] >= '0' && rest[digit_count] <= '9' {
+			digit_count += 1
+		}
 
-		if digits > 0 && strings.has_prefix(rest[digits:], "_audio_") {
+		if digit_count > 0 && strings.has_prefix(rest[digit_count:], "_audio_") {
 			stream_end := strings.index(rest, ".m3u8\"")
 			is_lossless := stream_end > 0 && strings.has_suffix(rest[:stream_end], "_alac")
 
-			return {strings.clone(rest[:digits]), is_lossless}, true
+			return {strings.clone(rest[:digit_count]), is_lossless}, true
 		}
 
 		next := strings.index(rest, "_A")
@@ -70,10 +72,10 @@ read_download :: proc(boot_path: string) -> (Download, bool) {
 @(private = "file")
 scan_downloads :: proc() {
 	found := make([dynamic]Download)
-	artists, _ := os.read_all_directory_by_path(download_folder(), context.temp_allocator)
+	artists, _ := os.read_all_directory_by_path(read_download_folder(), context.temp_allocator)
 
 	for artist in artists {
-		// Frees this artist's temp memory when the pass ends, and keeps artists.
+		// This frees the temp memory of this artist at the end of the pass but keeps artists.
 		runtime.DEFAULT_TEMP_ALLOCATOR_TEMP_GUARD()
 		albums, _ := os.read_all_directory_by_path(artist.fullpath, context.temp_allocator)
 
@@ -106,7 +108,7 @@ build_downloaded_page :: proc() {
 	{
 		sync.guard(&downloads.mutex)
 
-		// Each visit scans again, so a song downloaded since shows.
+		// Each visit scans again, so the page shows a song that Music.app downloaded since the last visit.
 		is_new_visit :=
 			downloads.scanned_index != core.navigation.index ||
 			downloads.scanned_visit != core.navigation_visit
@@ -128,7 +130,7 @@ build_downloaded_page :: proc() {
 		return
 	}
 
-	// Answers in batches of 100 IDs, in the order of the IDs.
+	// Apple answers in batches of 100 IDs, in the order of the IDs.
 	signature := scan_version
 	phase := apple.Phase.Ready
 	bodies := make([dynamic]string, context.temp_allocator)

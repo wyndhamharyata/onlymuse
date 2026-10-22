@@ -156,8 +156,8 @@ draw_bar :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	)
 }
 
-// A thin track to click or drag along. Returns the ratio shown, which follows the mouse while held, and
-// is_set once the mouse is let go.
+// A thin track to click or drag along. Returns the ratio shown, which follows the mouse while the button
+// is down, and is_set once the person lets go of the mouse.
 bar :: proc(id: string, ratio: f32, width: ui.Size) -> (shown_ratio: f32, is_set: bool) {
 	box := ui.box(id, {width = width, height = ui.points(16), flags = {.Clickable}})
 	signal := ui.signal(box)
@@ -200,14 +200,14 @@ spacer :: proc() {
 // The text slides at this speed, so a long title takes longer to show in full.
 SLIDE_POINTS_PER_SECOND :: 40
 
-// A row that only passes under the pointer during a scroll is gone before this, and nothing slides.
+// A row that only passes under the pointer during a scroll is gone before this. Nothing then slides.
 SLIDE_REST_SECONDS :: 0.3
 
 @(private = "file")
-slides: map[string]f64
+slide_start_seconds: map[string]f64
 
 // One line that ends in "…" when it does not fit. Resting under the pointer, it slides to show the rest.
-// Inside a clickable row, the row's hover is passed in, so the text never takes the row's click.
+// Inside a clickable row, the caller passes in the row's hover, so the text never takes the row's click.
 scrolling_text :: proc(
 	id, text: string,
 	color: [4]f32,
@@ -238,20 +238,20 @@ scrolling_text :: proc(
 	defer delete(key)
 
 	if !(is_hovered.? or_else ui.signal(box).is_hovered) {
-		if key in slides {
-			delete_key_and_value(&slides, key)
+		if key in slide_start_seconds {
+			delete_key_and_value(&slide_start_seconds, key)
 		}
 
 		return box
 	}
 
-	now := f64(time.to_unix_nanoseconds(time.now())) / 1e9
-	if key not_in slides do slides[strings.clone(key)] = now
+	now_seconds := f64(time.to_unix_nanoseconds(time.now())) / 1e9
+	if key not_in slide_start_seconds do slide_start_seconds[strings.clone(key)] = now_seconds
 
-	rested := now - slides[key] - SLIDE_REST_SECONDS
+	rested_seconds := now_seconds - slide_start_seconds[key] - SLIDE_REST_SECONDS
 
-	if rested < 0 {
-		platform.request_frame_after(-rested)
+	if rested_seconds < 0 {
+		platform.request_frame_after(-rested_seconds)
 		return box
 	}
 
@@ -261,16 +261,16 @@ scrolling_text :: proc(
 	if overflow <= 0 do return box
 
 	box.style.flags -= {.Truncate_Text}
-	box.style.text_offset = min(overflow, f32(rested) * SLIDE_POINTS_PER_SECOND)
+	box.style.text_offset = min(overflow, f32(rested_seconds) * SLIDE_POINTS_PER_SECOND)
 	if box.style.text_offset < overflow do platform.request_frame()
 
 	return box
 }
 
 @(private = "file")
-delete_key_and_value :: proc(m: ^map[string]f64, key: string) {
+delete_key_and_value :: proc(from: ^map[string]f64, key: string) {
 	// delete_key hands back the map's own copy of the key, which is the one to free.
-	stored_key, _ := delete_key(m, key)
+	stored_key, _ := delete_key(from, key)
 	delete(stored_key)
 }
 

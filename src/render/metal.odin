@@ -8,7 +8,7 @@ import NS "core:sys/darwin/Foundation"
 import MTL "vendor:darwin/Metal"
 import CA "vendor:darwin/QuartzCore"
 
-msg_send :: intrinsics.objc_send
+objc_send :: intrinsics.objc_send
 
 Kind :: enum u32 {
 	Solid = 0,
@@ -16,7 +16,7 @@ Kind :: enum u32 {
 	Image = 2,
 }
 
-// Pixels from the top left of the drawable. Matches Instance in shaders.metal.
+// Rects are in pixels from the drawable's top left. The struct matches Instance in shaders.metal.
 Instance :: struct {
 	rect:          [4]f32,
 	uv:            [4]f32,
@@ -44,13 +44,13 @@ Batch :: struct {
 	count:       int,
 }
 
-// Frames the GPU may still be drawing while the next one is built.
+// The frames the GPU may still draw while the app builds the next one.
 @(private)
 FRAMES_IN_FLIGHT :: 3
 @(private)
 MAX_INSTANCE_COUNT :: 64 * 1024
-// Instances a buffer starts with. A frame that draws more grows its buffer, so a short page costs 1 MB a buffer, not 8.
-FIRST_INSTANCE_COUNT :: 8 * 1024
+// The instances a buffer starts with. A frame that draws more grows its buffer, so a short page costs 1 MB a buffer, not 8.
+INITIAL_INSTANCE_COUNT :: 8 * 1024
 
 @(private)
 state: struct {
@@ -93,7 +93,7 @@ start :: proc(device: ^MTL.Device, layer: ^CA.MetalLayer) {
 	descriptor->setVertexFunction(library->newFunctionWithName(NS.AT("vertex_main")))
 	descriptor->setFragmentFunction(library->newFunctionWithName(NS.AT("fragment_main")))
 
-	// Shaders return premultiplied colour.
+	// The shaders return premultiplied colour.
 	attachment := descriptor->colorAttachments()->object(0)
 	attachment->setPixelFormat(.BGRA8Unorm)
 	attachment->setBlendingEnabled(true)
@@ -116,7 +116,7 @@ start :: proc(device: ^MTL.Device, layer: ^CA.MetalLayer) {
 	state.sampler = device->newSamplerState(sampler_descriptor)
 
 	for &buffer in state.buffers {
-		buffer = device->newBufferWithLength(FIRST_INSTANCE_COUNT * size_of(Instance), {})
+		buffer = device->newBufferWithLength(INITIAL_INSTANCE_COUNT * size_of(Instance), {})
 	}
 
 	white := [4]u8{255, 255, 255, 255}
@@ -125,7 +125,7 @@ start :: proc(device: ^MTL.Device, layer: ^CA.MetalLayer) {
 }
 
 make_texture :: proc(size_pixels: [2]int, format: MTL.PixelFormat) -> ^MTL.Texture {
-	// The image threads have no autorelease pool of their own, and the descriptor is autoreleased.
+	// The image threads have no autorelease pool of their own. Metal autoreleases the descriptor.
 	pool := NS.AutoreleasePool.alloc()->init()
 	defer pool->drain()
 
@@ -174,7 +174,7 @@ push :: proc(instance: Instance, texture: ^MTL.Texture = nil) {
 	append(&state.instances, instance)
 }
 
-// The next frame is also saved to path as raw premultiplied BGRA pixels, for the development tests.
+// end_frame also saves the next frame to path as raw premultiplied BGRA pixels, for the development tests.
 request_capture :: proc(path: string) {
 	state.capture_path = path
 }
@@ -252,7 +252,7 @@ end_frame :: proc(drawable: ^CA.MetalDrawable) {
 	slot := state.frame_index % FRAMES_IN_FLIGHT
 	state.frame_index += 1
 
-	// The buffer is written again only once the GPU has drawn the frame that used it.
+	// The app writes the buffer again only after the GPU draws the frame that used it.
 	if previous := state.command_buffers[slot]; previous != nil {
 		previous->waitUntilCompleted()
 		previous->release()
@@ -279,7 +279,7 @@ end_frame :: proc(drawable: ^CA.MetalDrawable) {
 
 	if state.capture_path != "" do capture(buffer)
 
-	// A frame of a background window, timed by a timer, has no drawable and is only captured.
+	// A timer runs the frames of a background window. Such a frame has no drawable. Only capture uses it.
 	if drawable == nil do return
 
 	command_buffer := state.queue->commandBuffer()

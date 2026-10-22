@@ -1,4 +1,4 @@
-// SF Symbols, drawn by AppKit once per size into an atlas of masks, so any colour can fill them.
+// AppKit draws each SF Symbol once per size into an atlas of masks, so any colour can fill it.
 package icon
 
 import "base:intrinsics"
@@ -8,7 +8,7 @@ import "om:mac"
 import "om:render"
 import MTL "vendor:darwin/Metal"
 
-msg_send :: intrinsics.objc_send
+objc_send :: intrinsics.objc_send
 
 @(objc_class = "NSImageSymbolConfiguration")
 Symbol_Configuration :: struct {
@@ -22,7 +22,7 @@ Graphics_Context :: struct {
 
 @(private)
 Entry :: struct {
-	// x, y, width, height in atlas pixels. Width 0 when the symbol does not exist.
+	// x, y, width, height in atlas pixels. The width is 0 when the symbol does not exist.
 	rect: [4]int,
 }
 
@@ -41,20 +41,20 @@ state: struct {
 	entries:    map[[2]u64]Entry,
 	pen:        [2]int,
 	row_height: int,
-	// Set when a symbol found no room. The atlas starts over on the next frame.
+	// rasterize sets this when a symbol finds no room. The atlas starts over on the next frame.
 	is_full:    bool,
-	// The atlas started over this frame. Full again, it holds less than one frame needs, and asking
-	// for more frames would only repeat that.
+	// The atlas started over this frame. If it fills again, it holds less than one frame needs.
+	// A request for more frames would only repeat that.
 	is_fresh:   bool,
 }
 
-// True when a symbol went undrawn for want of room, so another frame draws it.
+// Returns true when a symbol went undrawn for want of room, so another frame draws it.
 is_redraw_needed :: proc() -> bool {
 	return state.is_full && !state.is_fresh
 }
 
-// Called once a frame before any symbol is drawn. A full atlas is emptied, and the symbols in use are
-// drawn into it again as they are asked for. Emptying it mid-frame would change what is already queued.
+// The app calls this once a frame, before it draws any symbol. It empties a full atlas. draw then puts
+// each symbol in use back as the app asks for it. Emptying it mid-frame would change the queued draws.
 begin_frame :: proc() {
 	state.is_fresh = state.is_full
 	if !state.is_full do return
@@ -107,7 +107,7 @@ find :: proc(name: string, size_pixels: f32) -> Entry {
 	if entry, ok := state.entries[key]; ok do return entry
 
 	entry := rasterize(name, size_pixels)
-	// A symbol with no room is tried again once the atlas starts over.
+	// find tries a symbol with no room again once the atlas starts over.
 	if !state.is_full do state.entries[key] = entry
 
 	return entry
@@ -126,7 +126,7 @@ rasterize :: proc(name: string, size_pixels: f32) -> Entry {
 	ns_name := NS.String.alloc()->initWithOdinString(name)
 	defer ns_name->release()
 
-	symbol := msg_send(
+	symbol := objc_send(
 		^NS.Image,
 		NS.Image,
 		"imageWithSystemSymbolName:accessibilityDescription:",
@@ -136,16 +136,16 @@ rasterize :: proc(name: string, size_pixels: f32) -> Entry {
 
 	if symbol == nil do return {}
 
-	configuration := msg_send(
+	configuration := objc_send(
 		^Symbol_Configuration,
 		Symbol_Configuration,
 		"configurationWithPointSize:weight:",
 		NS.Float(size_pixels),
 		NS.Float(SYMBOL_WEIGHT),
 	)
-	image := msg_send(^NS.Image, symbol, "imageWithSymbolConfiguration:", configuration)
+	image := objc_send(^NS.Image, symbol, "imageWithSymbolConfiguration:", configuration)
 
-	size := msg_send(NS.Size, image, "size")
+	size := objc_send(NS.Size, image, "size")
 	width := int(math.ceil(f64(size.width))) + 2
 	height := int(math.ceil(f64(size.height))) + 2
 	rect, ok := allocate(width, height)
@@ -159,7 +159,7 @@ rasterize :: proc(name: string, size_pixels: f32) -> Entry {
 	space := mac.CGColorSpaceCreateDeviceRGB()
 	defer mac.CGColorSpaceRelease(space)
 	// kCGImageAlphaPremultipliedLast.
-	ctx := mac.CGBitmapContextCreate(
+	bitmap_context := mac.CGBitmapContextCreate(
 		raw_data(pixels),
 		uint(width),
 		uint(height),
@@ -168,20 +168,20 @@ rasterize :: proc(name: string, size_pixels: f32) -> Entry {
 		space,
 		1,
 	)
-	defer mac.CGContextRelease(ctx)
+	defer mac.CGContextRelease(bitmap_context)
 
-	graphics := msg_send(
+	graphics := objc_send(
 		^Graphics_Context,
 		Graphics_Context,
 		"graphicsContextWithCGContext:flipped:",
-		rawptr(ctx),
+		rawptr(bitmap_context),
 		NS.BOOL(false),
 	)
 
-	msg_send(nil, Graphics_Context, "saveGraphicsState")
-	msg_send(nil, Graphics_Context, "setCurrentContext:", graphics)
+	objc_send(nil, Graphics_Context, "saveGraphicsState")
+	objc_send(nil, Graphics_Context, "setCurrentContext:", graphics)
 	target := NS.Rect{{1, 1}, size}
-	msg_send(
+	objc_send(
 		nil,
 		image,
 		"drawInRect:fromRect:operation:fraction:",
@@ -190,9 +190,9 @@ rasterize :: proc(name: string, size_pixels: f32) -> Entry {
 		NS.UInteger(SOURCE_OVER),
 		NS.Float(1),
 	)
-	msg_send(nil, Graphics_Context, "restoreGraphicsState")
+	objc_send(nil, Graphics_Context, "restoreGraphicsState")
 
-	// The symbol is drawn in black, so its alpha is the mask.
+	// AppKit draws the symbol in black, so its alpha is the mask.
 	mask := make([]u8, width * height, context.temp_allocator)
 	for index in 0 ..< width * height do mask[index] = pixels[index * 4 + 3]
 

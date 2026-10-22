@@ -53,7 +53,7 @@ build_controls :: proc() {
 			}
 
 			resume_seconds :=
-				playback.queue.resume_point.position_seconds if playback.is_resume_shown() else helper.position_seconds(now_playing)
+				playback.queue.resume_point.position_seconds if playback.is_resume_shown() else helper.to_position_seconds(now_playing)
 
 			if kit.icon_button("previous", "backward.fill", 17, kit.colors.text) {
 				playback.skip_to_previous(resume_seconds)
@@ -107,12 +107,12 @@ build_controls :: proc() {
 build_progress :: proc(is_playing_song: bool) {
 	now_playing := core.app.now_playing
 	shown, is_song := playback.find_shown_song()
-	// A song still being added or loaded shows at its start, with its own length, and the clock still.
+	// While a song is on its way into the library or the YouTube page loads it, the bar shows its start and its own length. The clock stays still.
 	is_waiting := playback.queue.is_adding || playback.is_starting_youtube_song()
 	duration_seconds :=
 		playback.queue.songs[playback.queue.index].duration_seconds if is_waiting else shown.duration_seconds if is_song else 0
 	position_seconds :=
-		0 if is_waiting else helper.position_seconds(now_playing) if is_playing_song else playback.queue.resume_point.position_seconds if is_song else 0
+		0 if is_waiting else helper.to_position_seconds(now_playing) if is_playing_song else playback.queue.resume_point.position_seconds if is_song else 0
 	ratio := f32(position_seconds / duration_seconds) if duration_seconds > 0 else 0
 	progress := ui.box(
 		"progress",
@@ -150,7 +150,7 @@ build_progress :: proc(is_playing_song: bool) {
 		}
 	}
 
-	// The clock turns over on each whole second while a song plays, and nothing else draws between.
+	// The clock turns over on each whole second while a song plays. Nothing else draws between those seconds.
 	if now_playing.playback == .Playing && !is_waiting {
 		platform.request_frame_after(1 - (position_seconds - math.floor(position_seconds)) + 0.005)
 	}

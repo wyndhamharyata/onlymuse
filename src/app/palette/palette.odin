@@ -18,7 +18,7 @@ PALETTE_ROW_POINTS :: 36
 
 PALETTE_LIST_POINTS :: 420
 
-// Apple Music is searched once typing rests this long, so each key press does not ask Apple.
+// The palette searches Apple Music once typing rests this long, so each key press does not ask Apple.
 PALETTE_SETTLE_MS :: 300
 
 // The most results each group shows.
@@ -58,18 +58,18 @@ Palette_Result :: struct {
 
 @(private)
 palette: struct {
-	is_open:         bool,
-	field:           kit.Text_Field,
-	selected:        int,
-	// The results, rebuilt into the arena when the term or the data under it changes.
-	arena:           virtual.Arena,
-	results:         []Palette_Result,
-	built_term:      string,
-	built_signature: int,
-	// When the term last changed, in ms.
-	typed_at:        f64,
-	opened_frame:    int,
-	last_mouse:      [2]f32,
+	is_open:             bool,
+	field:               kit.Text_Field,
+	selected_index:      int,
+	// update_results rebuilds the results into the arena when the term or the data under it changes.
+	arena:               virtual.Arena,
+	results:             []Palette_Result,
+	built_term:          string,
+	built_signature:     int,
+	// When the term last changed.
+	typed_at_ms:         f64,
+	opened_frame:        int,
+	last_mouse_position: [2]f32,
 }
 
 start_palette :: proc() {
@@ -78,7 +78,7 @@ start_palette :: proc() {
 	kit.register_text_field(&palette.field)
 }
 
-// Cmd K opens it, and again closes it.
+// Cmd K opens the palette. A second Cmd K closes it.
 toggle_palette :: proc() {
 	if palette.is_open {
 		close_palette()
@@ -86,14 +86,14 @@ toggle_palette :: proc() {
 	}
 
 	palette.is_open = true
-	palette.selected = 0
+	palette.selected_index = 0
 	palette.opened_frame = core.app.frame_count
 	palette.built_signature = -1
 	kit.set_field_text(&palette.field, "")
 	kit.focus_field(&palette.field)
 }
 
-// For the tests, which cannot type into a window behind the others: OM_PALETTE opens it with a term.
+// OM_PALETTE opens the palette with a term, as the tests cannot type into a window behind the others.
 open_palette_for_test :: proc(term: string) {
 	toggle_palette()
 	kit.set_field_text(&palette.field, term)
@@ -116,17 +116,20 @@ build_palette :: proc() {
 	}
 
 	if field.is_changed {
-		palette.typed_at = helper.now_ms()
-		palette.selected = 0
+		palette.typed_at_ms = helper.now_ms()
+		palette.selected_index = 0
 	}
 
 	update_results()
 
-	count := len(palette.results)
-	if count > 0 do palette.selected = (palette.selected + field.step + count) % count
+	result_count := len(palette.results)
+	if result_count > 0 {
+		palette.selected_index =
+			(palette.selected_index + field.step + result_count) % result_count
+	}
 
-	if field.is_submitted && count > 0 {
-		run_result(palette.results[palette.selected])
+	if field.is_submitted && result_count > 0 {
+		run_result(palette.results[palette.selected_index])
 		close_palette()
 		return
 	}
@@ -193,7 +196,7 @@ build_palette :: proc() {
 		}
 	}
 
-	palette.last_mouse = ui.mouse_position()
+	palette.last_mouse_position = ui.mouse_position()
 
 	if picked >= 0 {
 		run_result(palette.results[picked])
@@ -221,7 +224,7 @@ run_result :: proc(result: Palette_Result) {
 	case .Next:
 		playback.skip_to_next()
 	case .Previous:
-		playback.skip_to_previous(helper.position_seconds(core.app.now_playing))
+		playback.skip_to_previous(helper.to_position_seconds(core.app.now_playing))
 	case .Shuffle_All:
 		songs, _, _ := core.list_library_songs()
 		playback.shuffle_songs(songs)

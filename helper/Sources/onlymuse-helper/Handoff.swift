@@ -1,11 +1,11 @@
 import Foundation
 
-// Starts the queue's next song a moment before the one playing ends, so Music.app never picks a song of its own.
+// This class starts the queue's next song a moment before the one playing ends, so Music.app never picks a song of its own.
 @MainActor
 final class Handoff {
   // The next song starts this much before the end, which is less than Music.app's own switch takes.
   private let leadSeconds = 0.04
-  // The timer wakes this long before the end, and reads the position again, as a seek or a pause moves the end.
+  // The timer wakes this long before the end and reads the position again. A seek or a pause moves the end.
   private let checkSeconds = 0.4
   // A switch by Music.app this close to the end is its own pick, which the next song replaces.
   private let endToleranceSeconds = 3.0
@@ -23,7 +23,7 @@ final class Handoff {
     self.youTube = youTube
   }
 
-  // The song to play after afterID ends. nil clears the handoff. Answers with the next song's persistent ID.
+  // This sets the song to play after afterID ends. nil cancels the handoff. It answers with the next song's persistent ID.
   func set(afterID: String?, next: SongMatch?) -> String? {
     self.afterID = afterID
     self.next = next
@@ -38,8 +38,8 @@ final class Handoff {
 
     arm()
 
-    // A YouTube song after Music.app's loads ahead. An empty afterID ends the queue, and the page loaded ahead
-    // goes. After a YouTube song, afterID is nil and the page plays on.
+    // A YouTube song after Music.app's song loads ahead. An empty afterID ends the queue. The page that loaded
+    // ahead then goes. After a YouTube song, afterID is nil. The page then plays on.
     if afterID != nil { youTube.prepare(videoID: next?.youTubeVideoID ?? "") }
 
     return nextID

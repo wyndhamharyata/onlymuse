@@ -6,16 +6,16 @@ import "core:strings"
 import NS "core:sys/darwin/Foundation"
 import "core:unicode/utf8"
 
-// A 1-point view of its own, apart from the one that draws, that takes the keyboard while a text field is
-// focused, so an input method such as Japanese can compose text in it (NSTextInputClient). Made the
-// drawing view itself, it left the Metal layer with a 0 by 0 drawable once the window came in front.
+// A 1-point view of its own, apart from the view that draws, takes the keyboard while a text field has
+// focus. An input method such as Japanese can then compose text in it (NSTextInputClient). The drawing
+// view cannot take this role. Its Metal layer then gets a 0 by 0 drawable once the window comes in front.
 @(objc_class = "OMInputView", objc_superclass = NS.View, objc_implement)
 Text_View :: struct {
 	using _: NS.View,
 }
 
 @(objc_type = Text_View, objc_implement, objc_name = "acceptsFirstResponder")
-// Only while a field is focused, so AppKit never makes it first responder on its own when the window opens.
+// The view accepts only while a field has focus, so AppKit never makes it first responder on its own when the window opens.
 Text_View_acceptsFirstResponder :: proc "c" (self: ^Text_View) -> NS.BOOL {
 	return NS.BOOL(state.is_text_input)
 }
@@ -25,7 +25,7 @@ Text_View_keyDown :: proc "c" (self: ^Text_View, event: ^NS.Event) {
 	object := cast(^NS.Object)event
 	events := NS.Array.alloc()->initWithObjects(&object, 1)
 
-	msg_send(nil, self, "interpretKeyEvents:", events)
+	objc_send(nil, self, "interpretKeyEvents:", events)
 	events->release()
 }
 
@@ -35,8 +35,8 @@ to_odin_text :: proc "c" (text: ^NS.Object) -> string {
 	plain := text
 
 	// An input method may send an NSAttributedString.
-	if msg_send(NS.BOOL, text, "respondsToSelector:", intrinsics.objc_find_selector("string")) {
-		plain = msg_send(^NS.Object, text, "string")
+	if objc_send(NS.BOOL, text, "respondsToSelector:", intrinsics.objc_find_selector("string")) {
+		plain = objc_send(^NS.Object, text, "string")
 	}
 
 	return strings.clone(
@@ -107,7 +107,7 @@ Text_View_selectedRange :: proc "c" (self: ^Text_View) -> NS.Range {
 
 @(objc_type = Text_View, objc_implement, objc_name = "validAttributesForMarkedText")
 Text_View_validAttributesForMarkedText :: proc "c" (self: ^Text_View) -> ^NS.Array {
-	return msg_send(^NS.Array, NS.Array, "array")
+	return objc_send(^NS.Array, NS.Array, "array")
 }
 
 @(objc_type = Text_View, objc_implement, objc_name = "attributedSubstringForProposedRange", objc_selector = "attributedSubstringForProposedRange:actualRange:")
@@ -124,7 +124,7 @@ Text_View_characterIndexForPoint :: proc "c" (self: ^Text_View, point: NS.Point)
 	return NOT_FOUND
 }
 
-// Where the input method opens its list of candidates: under the caret, on the screen.
+// The input method opens its list of candidates at this rect, under the caret, on the screen.
 @(objc_type = Text_View, objc_implement, objc_name = "firstRectForCharacterRange", objc_selector = "firstRectForCharacterRange:actualRange:")
 Text_View_firstRectForCharacterRange :: proc "c" (
 	self: ^Text_View,
@@ -138,7 +138,7 @@ Text_View_firstRectForCharacterRange :: proc "c" (
 		{NS.Float(caret.z - caret.x), NS.Float(caret.w - caret.y)},
 	}
 
-	return msg_send(NS.Rect, state.ns_window, "convertRectToScreen:", in_window)
+	return objc_send(NS.Rect, state.ns_window, "convertRectToScreen:", in_window)
 }
 
 @(objc_type = Text_View, objc_implement, objc_name = "doCommandBySelector", objc_selector = "doCommandBySelector:")
@@ -166,24 +166,28 @@ set_text_input :: proc(is_on: bool, caret_rect: [4]f32 = {}) {
 	state.is_text_input = is_on
 
 	if is_on {
-		msg_send(NS.BOOL, state.ns_window, "makeFirstResponder:", state.input_view)
+		objc_send(NS.BOOL, state.ns_window, "makeFirstResponder:", state.input_view)
 	} else {
 		state.marked_length = 0
-		msg_send(nil, msg_send(^NS.Object, state.input_view, "inputContext"), "discardMarkedText")
-		msg_send(NS.BOOL, state.ns_window, "makeFirstResponder:", rawptr(nil))
+		objc_send(
+			nil,
+			objc_send(^NS.Object, state.input_view, "inputContext"),
+			"discardMarkedText",
+		)
+		objc_send(NS.BOOL, state.ns_window, "makeFirstResponder:", rawptr(nil))
 	}
 }
 
-// For the tests, which cannot type into a window behind the others: sends each character to the view as
-// a key press, as the keyboard would, through its input context. Reports whether it has one.
+// The tests use this, as they cannot type into a window behind the others. It sends each character to
+// the view as a key press through its input context, as the keyboard would. It reports whether the view has one.
 type_for_test :: proc(text: string) -> bool {
-	input_context := msg_send(^NS.Object, state.input_view, "inputContext")
+	input_context := objc_send(^NS.Object, state.input_view, "inputContext")
 	has_context := input_context != nil
 
 	// AppKit activates the context of the key window's first responder. A test window is never key.
-	if has_context do msg_send(nil, input_context, "activate")
+	if has_context do objc_send(nil, input_context, "activate")
 
-	window_number := msg_send(NS.Integer, state.ns_window, "windowNumber")
+	window_number := objc_send(NS.Integer, state.ns_window, "windowNumber")
 
 	for character in text {
 		buffer, size := utf8.encode_rune(character)
@@ -191,7 +195,7 @@ type_for_test :: proc(text: string) -> bool {
 		defer ns_character->release()
 
 		// NSEventTypeKeyDown is 10.
-		event := msg_send(
+		event := objc_send(
 			^NS.Event,
 			NS.Event,
 			"keyEventWithType:location:modifierFlags:timestamp:windowNumber:context:characters:charactersIgnoringModifiers:isARepeat:keyCode:",
@@ -207,7 +211,7 @@ type_for_test :: proc(text: string) -> bool {
 			u16(0),
 		)
 
-		msg_send(nil, state.input_view, "keyDown:", event)
+		objc_send(nil, state.input_view, "keyDown:", event)
 	}
 
 	return has_context

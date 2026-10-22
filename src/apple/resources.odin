@@ -6,11 +6,11 @@ import "core:slice"
 import "core:strings"
 
 Artwork :: struct {
-	// Has {w}, {h} and {f} in place of the size and format.
+	// It has {w}, {h} and {f} in place of the size and the format.
 	url:         string,
-	// Hex, as "2a2a2f", the colour behind the picture. Catalog artwork has it, library artwork does not.
+	// The colour behind the picture, in hex, as "2a2a2f". Catalog artwork has it. Library artwork does not.
 	bg_color:    string `json:"bgColor"`,
-	// The colour of text that would sit on the picture, its strongest other colour.
+	// The colour for text on the picture, which is its strongest other colour.
 	text_color1: string `json:"textColor1"`,
 }
 
@@ -22,7 +22,7 @@ Catalog_Song :: struct {
 	duration_seconds: f64 `json:"durationSeconds"`,
 	is_lossless:      bool `json:"isLossless"`,
 	artwork:          Artwork,
-	// The YouTube video an Apple song was matched from, so it can go back to YouTube. Empty for any other song.
+	// The YouTube video behind an Apple song's match, so the song can go back to YouTube. Empty for any other song.
 	youtube_id:       string `json:"youtubeId"`,
 }
 
@@ -46,7 +46,7 @@ Card :: struct {
 	name:     string,
 	subtitle: string,
 	artwork:  Artwork,
-	// Set on a song card, so the shelf can play its songs in order.
+	// to_card sets it on a song card, so the shelf can play its songs in order.
 	song:     Catalog_Song,
 	// A library playlist the person made, which takes new songs.
 	can_edit: bool,

@@ -9,15 +9,15 @@ import "om:app/lists"
 import "om:apple"
 import "om:ui"
 
-// The releases whose songs make an artist's Recent Songs.
+// The number of releases whose songs make up an artist's Recent Songs.
 RECENT_RELEASE_COUNT :: 10
 
-// The songs the artist page shows. The › opens all of them.
-RECENT_SONGS_SHOWN :: 10
+// The number of recent songs the artist page shows. The › opens all of them.
+SHOWN_RECENT_SONG_COUNT :: 10
 
 // The songs of the artist's ten newest releases, newest first by each song's own date, which is not
-// always its album's. A song on a single and on a later album appears once, from the newer release.
-// dates[i] is songs[i]'s, as Apple writes it, such as "2026-09-02".
+// always the date of its album. A song on a single and on a later album appears once, from the newer
+// release. dates[i] is the date of songs[i] as Apple writes it, such as "2026-09-02".
 list_recent_songs :: proc(
 	artist_id: string,
 ) -> (
@@ -87,7 +87,7 @@ read_recent_songs :: proc(data: ^core.Page_Data, body: string, ids: string) {
 	dated := make([dynamic]Dated_Song, context.temp_allocator)
 	seen_names := make(map[string]bool, allocator = context.temp_allocator)
 
-	// Newest release first, so the newer release keeps a song the two share.
+	// The IDs come newest release first, so the newer release keeps a song that two releases share.
 	for id in strings.split(ids, ",", context.temp_allocator) {
 		for album in albums {
 			if album.id != id do continue
@@ -113,7 +113,7 @@ read_recent_songs :: proc(data: ^core.Page_Data, body: string, ids: string) {
 	}
 }
 
-// Under Albums on the artist page: the newest songs in two columns, and a title whose › opens them all.
+// Under Albums, the artist page shows the newest songs in two columns under a title whose › opens them all.
 build_recent_songs_shelf :: proc(artist_id, artist_name: string) {
 	songs, dates, phase := list_recent_songs(artist_id)
 	if phase != .Ready || len(songs) == 0 do return
@@ -135,7 +135,7 @@ build_recent_songs_shelf :: proc(artist_id, artist_name: string) {
 				flags = {.Clickable},
 			},
 		)
-		dim := 1 - 0.3 * title.hot_t
+		dim := 1 - 0.3 * title.hot_fraction
 
 		if ui.scope(title) {
 			ui.box(
@@ -156,12 +156,12 @@ build_recent_songs_shelf :: proc(artist_id, artist_name: string) {
 			core.navigate({kind = .Artist_Recent_Songs, id = artist_id, title = artist_name})
 		}
 
-		shown := min(len(songs), RECENT_SONGS_SHOWN)
+		shown := min(len(songs), SHOWN_RECENT_SONG_COUNT)
 		lists.build_song_grid(songs[:shown], dates[:shown], songs)
 	}
 }
 
-// The › page: every recent song, as the other song lists show theirs.
+// The › opens this page. It shows every recent song the way the other song lists show their songs.
 build_artist_recent_songs_page :: proc(artist_id, artist_name: string) {
 	songs, dates, phase := list_recent_songs(artist_id)
 	lists.build_song_list_page("Recent Songs", artist_name, songs, phase, dates)

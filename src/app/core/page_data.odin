@@ -14,7 +14,7 @@ unmarshal_text :: proc(text: string, value: ^$T) -> json.Unmarshal_Error {
 // What a page shows, read from its answers once per answer version into an arena of its own.
 Page_Data :: struct {
 	arena:         virtual.Arena,
-	// The versions of the answers it was read from. Another sum reads them again.
+	// A sum of the versions of the answers behind the data. Another sum means the page reads them again.
 	signature:     int,
 	phase:         apple.Phase,
 	title:         string,
@@ -30,7 +30,7 @@ Page_Data :: struct {
 	link_id:       string,
 	is_in_library: bool,
 	// Unix ms of the last frame that asked for it.
-	used_at:       i64,
+	used_at_ms:    i64,
 	// The artist page's other shelves.
 	latest:        []apple.Card,
 	library_cards: []apple.Card,
@@ -39,7 +39,7 @@ Page_Data :: struct {
 
 page_data: map[string]^Page_Data
 
-// The data under key, made again by read when the answers' signature changes.
+// The data under key. It starts empty again for the caller to read when the answers' signature or phase changes.
 find_page_data :: proc(
 	key: string,
 	signature: int,
@@ -55,7 +55,7 @@ find_page_data :: proc(
 		page_data[strings.clone(key)] = data
 	}
 
-	data.used_at = now_ms()
+	data.used_at_ms = now_ms()
 	is_stale = data.signature != signature || data.phase != phase
 	if !is_stale do return data, false
 
@@ -64,13 +64,13 @@ find_page_data :: proc(
 	_ = virtual.arena_init_growing(&data.arena)
 	data.signature = signature
 	data.phase = phase
-	data.used_at = now_ms()
+	data.used_at_ms = now_ms()
 
 	return data, true
 }
 
-// A frame's boxes point at the text they show, and draw it when the frame ends. An arena read again during a
-// frame, as an answer can arrive while the frame is built, is freed only when the next frame starts.
+// A frame's boxes point at the text they show. They draw it when the frame ends. An answer can arrive while
+// the frame builds, so free_retired_memory frees an arena read again during a frame only when the next starts.
 @(private = "file")
 retired_arenas: [dynamic]virtual.Arena
 
@@ -78,10 +78,10 @@ retire_arena :: proc(arena: virtual.Arena) {
 	append(&retired_arenas, arena)
 }
 
-// A page not shown for this long leaves memory. Its answers stay saved, so it comes back at once.
+// free_retired_memory frees a page that the window did not show for this long. Its answers stay saved, so it comes back at once.
 UNUSED_PAGE_MS :: 5 * 60 * 1000
 
-// Called first in each frame, before any box points at anything.
+// The app calls this first in each frame, before any box points at anything.
 free_retired_memory :: proc() {
 	for &arena in retired_arenas do virtual.arena_destroy(&arena)
 	clear(&retired_arenas)
@@ -89,13 +89,13 @@ free_retired_memory :: proc() {
 
 	now := now_ms()
 	unused := make([dynamic]string, context.temp_allocator)
-	for key, data in page_data do if now - data.used_at > UNUSED_PAGE_MS do append(&unused, key)
+	for key, data in page_data do if now - data.used_at_ms > UNUSED_PAGE_MS do append(&unused, key)
 
 	for key in unused {
 		data := page_data[key]
 		// delete_key hands back the map's own copy of the key, which is the one to free.
 		stored_key, _ := delete_key(&page_data, key)
-		// Its arena goes with the next frame, as this one has yet to start.
+		// The next frame frees its arena, as this frame has yet to start.
 		retire_arena(data.arena)
 		free(data)
 		delete(stored_key)

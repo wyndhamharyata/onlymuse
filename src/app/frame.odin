@@ -25,7 +25,7 @@ import "om:ui"
 
 // Returns true while it wants another frame.
 draw_frame :: proc() -> bool {
-	start, dt_seconds := begin_frame()
+	start, frame_seconds := begin_frame()
 	apply_input()
 
 	window := core.app.window
@@ -33,8 +33,8 @@ draw_frame :: proc() -> bool {
 	font.begin_frame()
 	image.begin_frame()
 	icon.begin_frame()
-	ui.begin_frame(window.size_points, window.pixels_per_point, core.app.zoom, dt_seconds)
-	kit.update_accent(dt_seconds, player.find_player_artwork_source())
+	ui.begin_frame(window.size_points, window.pixels_per_point, core.app.zoom, frame_seconds)
+	kit.update_accent(frame_seconds, player.find_player_artwork_source())
 
 	root := ui.current_parent()
 	root.style.axis = .Y
@@ -74,25 +74,25 @@ draw_frame :: proc() -> bool {
 	)
 }
 
-// Frees what the last frame let go of, and times this one.
-begin_frame :: proc() -> (start: time.Tick, dt_seconds: f32) {
-	// Temp memory lives for one frame. The last frame has been drawn, so its temp memory goes now.
+// Frees what the last frame let go of. It also times this frame.
+begin_frame :: proc() -> (start: time.Tick, frame_seconds: f32) {
+	// Temp memory lives for one frame. Render drew the last frame, so its temp memory goes now.
 	free_all(context.temp_allocator)
 	core.free_retired_memory()
 	playback.free_retired_songs()
 	youtube_lists.free_unused_youtube_lists()
 
 	start = time.tick_now()
-	dt_seconds = f32(time.duration_seconds(time.tick_diff(core.app.last_frame, start)))
+	frame_seconds = f32(time.duration_seconds(time.tick_diff(core.app.last_frame, start)))
 	core.app.last_frame = start
 	if core.app.is_bench do append(&core.app.frame_starts, start)
 
-	return start, dt_seconds
+	return start, frame_seconds
 }
 
 // What changed since the last frame: the helper's messages, the queue, finished writes, typing and keys.
 apply_input :: proc() {
-	// Before the frame reads its events, so the typed keys are among them.
+	// This runs before the frame reads its events, so the typed keys are among them.
 	if core.app.test_typing != "" &&
 	   time.duration_seconds(time.tick_since(core.app.started_at)) > 1 {
 		has_context := platform.type_for_test(core.app.test_typing)
@@ -108,9 +108,9 @@ apply_input :: proc() {
 	apply_keys()
 }
 
-// Saves a scroll that has settled, sends the frame to the screen, and runs the capture and the bench.
+// Saves a scroll that came to rest. Then it sends the frame to the screen and runs the capture and the bench.
 finish_frame :: proc(start: time.Tick) {
-	// A scroll that has come to rest is saved, once.
+	// Navigation saves a scroll once, after it comes to rest.
 	if core.is_scroll_changed && !ui.is_animating() {
 		core.is_scroll_changed = false
 		core.save_navigation()
@@ -148,7 +148,7 @@ apply_helper_messages :: proc() {
 		case "youtubeCookie":
 			youtube_pages.apply_youtube_cookie(message)
 		case "error":
-			// Music.app has no current track while stopped, and the helper's next post says so.
+			// Music.app has no current song while nothing plays. The helper's next post says so.
 			if !strings.contains(message.text, "get current track") {
 				console.add("Helper", "%s", message.text)
 			}
@@ -166,8 +166,8 @@ apply_helper_messages :: proc() {
 
 apply_keys :: proc() {
 	for event in platform.list_events() {
-		key, ok := event.(platform.Key_Press)
-		if !ok || .Command not_in key.modifiers do continue
+		key, is_key := event.(platform.Key_Press)
+		if !is_key || .Command not_in key.modifiers do continue
 
 		player.apply_lead_key(key)
 

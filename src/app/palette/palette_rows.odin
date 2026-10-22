@@ -7,7 +7,7 @@ import "om:app/kit"
 import "om:apple"
 import "om:ui"
 
-// Groups with a title each. Returns the index of a clicked result, or -1.
+// Builds the results in groups with a title each. Returns the index of a clicked result, or -1.
 @(private)
 build_results :: proc() -> int {
 	if len(palette.results) == 0 {
@@ -64,23 +64,23 @@ build_results :: proc() -> int {
 
 @(private = "file")
 palette_list_height :: proc() -> f32 {
-	groups := 0
+	group_count := 0
 	group := ""
 
 	for result in palette.results {
 		if result.group != group {
 			group = result.group
-			groups += 1
+			group_count += 1
 		}
 	}
 
-	return f32(len(palette.results)) * PALETTE_ROW_POINTS + f32(groups) * 27
+	return f32(len(palette.results)) * PALETTE_ROW_POINTS + f32(group_count) * 27
 }
 
-// Returns true when clicked. The pointer over a row selects it.
+// Returns true when the person clicks the row. The pointer over a row selects it.
 @(private = "file")
 build_result_row :: proc(result: Palette_Result, index: int) -> bool {
-	is_selected := index == palette.selected
+	is_selected := index == palette.selected_index
 	row := ui.box(
 		fmt.tprintf("result %d", index),
 		{
@@ -97,8 +97,10 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 	)
 	signal := ui.signal(row)
 
-	// The pointer selects only when it moves, so a row under a still pointer leaves the arrow keys' choice.
-	if signal.is_hovered && ui.mouse_position() != palette.last_mouse do palette.selected = index
+	// The pointer selects only when it moves, so a row under a still pointer keeps the arrow keys' choice.
+	if signal.is_hovered && ui.mouse_position() != palette.last_mouse_position {
+		palette.selected_index = index
+	}
 
 	if ui.scope(row) {
 		if result.artwork.url != "" {

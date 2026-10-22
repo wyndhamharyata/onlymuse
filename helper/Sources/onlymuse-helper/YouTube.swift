@@ -1,8 +1,8 @@
 import AppKit
 import WebKit
 
-// music.youtube.com in a page no one sees. It plays YouTube songs with the page's own player, audio and all, so
-// Premium's quality and its lack of ads apply. It is signed in with Helium's YouTube cookies.
+// This class keeps music.youtube.com in a page that no one sees. It plays YouTube songs with the page's own player,
+// audio and all, so Premium's quality and its lack of ads apply. Helium's YouTube cookies sign the page in.
 @MainActor
 final class YouTube: NSObject, WKNavigationDelegate {
   static let idPrefix = "yt:"
@@ -13,10 +13,10 @@ final class YouTube: NSObject, WKNavigationDelegate {
   // A song that stops by itself for this long after it played loads again where it stopped, at most maxReloadCount times.
   static let stuckSeconds = 10.0
   static let maxReloadCount = 2
-  // A song starts about a second after the page has it. One not started this long after is asked for again, then
-  // the page opens again with it.
+  // A song starts about a second after the page has it. The helper asks again for a song that did not start this
+  // long after, then opens the page again with it.
   static let slowStartSeconds = 4.0
-  // Asks again once, then opens the page again once, then gives up.
+  // The helper asks again once, then opens the page again once, then gives up.
   static let maxStartRetryCount = 2
   // Music.app's posts this soon after the helper paused it may still say it plays.
   private static let pauseSettleSeconds = 2.0
@@ -25,7 +25,7 @@ final class YouTube: NSObject, WKNavigationDelegate {
   private static let idleCloseSeconds = 5.0 * 60
   static let positionSendSeconds = 2.0
   private let music: MusicApp
-  // A test or bench run plays YouTube muted, and leaves Music.app playing.
+  // A test or bench run plays YouTube muted. It never pauses Music.app.
   let isQuiet: Bool
   var playerView: WKWebView?
   private var playerWindow: NSWindow?
@@ -34,7 +34,7 @@ final class YouTube: NSObject, WKNavigationDelegate {
   private var idleTimer: Timer?
   var song: SongMatch?
   var videoID = ""
-  // The song loaded ahead, to play next.
+  // The song that loads ahead, to play next.
   private var preparedID = ""
   var isPageLoaded = false
   private var pausedMusicAt = Date.distantPast
@@ -49,7 +49,7 @@ final class YouTube: NSObject, WKNavigationDelegate {
   var resumeSeconds = 0.0
   var volumePercent = 100
 
-  // True from a YouTube song's start until another source plays, so Music.app's posts leave the player as it is.
+  // True from a YouTube song's start until another source plays, so Music.app's posts do not change the player.
   private(set) var isActive = false
 
   // The queue plays a YouTube song later, so the page stays open, as loading it again takes 10 s or more.
@@ -64,8 +64,8 @@ final class YouTube: NSObject, WKNavigationDelegate {
     self.isQuiet = isQuiet
   }
 
-  // Sends Helium's youtube.com cookies to the app, which signs each request with them, and gives them to the
-  // player's page. A quiet run never asks the Keychain, so a test shows no prompt, and it plays signed out.
+  // This sends Helium's youtube.com cookies to the app, which signs each request with them. It also gives them to
+  // the player's page. A quiet run never asks the Keychain, so a test shows no prompt. The page then plays signed out.
   func sendCookie() {
     guard !isQuiet else { return send(["type": "youtubeCookie", "cookie": ""]) }
 
@@ -98,7 +98,7 @@ final class YouTube: NSObject, WKNavigationDelegate {
       if let httpCookie = HTTPCookie(properties: properties) { store.setCookie(httpCookie) }
     }
 
-    // A page loaded before holds the old sign-in.
+    // A page that loaded before holds the old sign-in.
     if !isActive { resetPlayer() }
   }
 
@@ -108,7 +108,7 @@ final class YouTube: NSObject, WKNavigationDelegate {
     isPageLoaded = true
     startAskedAt = Date()
     stuckSince = nil
-    // A song asked to play while its page still loaded ahead plays now.
+    // A song that the app asked to play while its page still loaded ahead plays now.
     if isActive && preparedID == "" {
       run(toPlayScript(forcesLoad: resumeSeconds > 0, startSeconds: resumeSeconds))
       resumeSeconds = 0
@@ -117,7 +117,7 @@ final class YouTube: NSObject, WKNavigationDelegate {
     }
   }
 
-  // Plays the song from YouTube. Answers its persistent ID, as Music.app's songs have.
+  // This plays the song from YouTube. It answers with the song's persistent ID, as Music.app's songs have one.
   func play(_ match: SongMatch, videoID: String) -> String {
     idleTimer?.invalidate()
     idleTimer = nil
@@ -157,8 +157,8 @@ final class YouTube: NSObject, WKNavigationDelegate {
     return Self.idPrefix + videoID
   }
 
-  // Loads the song to play after Music.app's, muted and paused, so it starts at once when its turn comes. Only
-  // while no YouTube song plays, as the page has one player. An empty ID lets the page go when it is idle.
+  // This loads the song to play after Music.app's, muted and paused, so it starts at once when its turn comes. It
+  // works only while no YouTube song plays, as the page has one player. An empty ID lets the page go when it is idle.
   func prepare(videoID: String) {
     guard !isActive, videoID != preparedID else { return }
 
@@ -258,8 +258,8 @@ final class YouTube: NSObject, WKNavigationDelegate {
     view.navigationDelegate = self
 
     // WebKit plays a page's media only while it is in a window. The window is on screen for WebKit, but clear,
-    // far off every display and out of Mission Control. A hidden page is slowed once its sound pauses, and
-    // YouTube's player, which resets itself now and then, then never started again.
+    // far off every display and out of Mission Control. WebKit slows a hidden page once its sound pauses. YouTube's
+    // player, which resets itself now and then, then never starts again.
     let window = NSWindow(contentRect: view.frame, styleMask: [.borderless], backing: .buffered, defer: false)
 
     window.contentView = view

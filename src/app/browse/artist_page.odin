@@ -16,7 +16,7 @@ ARTIST_ALBUM_POINTS :: 150
 
 SIMILAR_ARTIST_POINTS :: 130
 
-// Text read from an answer, kept until the answer's version changes, as the page asks for it every frame.
+// Read_Text keeps text from an answer until the answer's version changes, as the page asks for it every frame.
 @(private = "file")
 Read_Text :: struct {
 	key:     string,
@@ -32,7 +32,7 @@ find_read_text :: proc(read: ^Read_Text, key: string, version: int) -> (string, 
 	return read.text, read.key == key && read.version == version
 }
 
-// Runs before the frame builds anything with the old text.
+// This frees the old text. Call it before the frame builds anything with the old text.
 @(private = "file")
 save_read_text :: proc(read: ^Read_Text, key: string, version: int, text: string) -> string {
 	delete(read.key)
@@ -71,7 +71,7 @@ find_artist_id :: proc(artist_name: string) -> (string, apple.Phase) {
 	return save_read_text(&artist_id_by_name, artist_name, watched.version, id), .Ready
 }
 
-// An artist page opened by name, from the player bar, finds its ID first.
+// When the player bar opens an artist page by name, the page finds the artist's ID first.
 build_artist_page :: proc(page_id: string, name: string) {
 	artist_id := page_id
 
@@ -83,7 +83,7 @@ build_artist_page :: proc(page_id: string, name: string) {
 
 			if ui.scope(page) {
 				kit.note(
-					kit.phase_note(phase) if phase != .Ready else fmt.tprintf("Apple Music has no artist named %s.", name),
+					kit.to_phase_text(phase) if phase != .Ready else fmt.tprintf("Apple Music has no artist named %s.", name),
 				)
 			}
 
@@ -126,7 +126,7 @@ build_artist_page :: proc(page_id: string, name: string) {
 
 	if ui.scope(page) {
 		if watched.phase != .Ready || data.title == "" {
-			kit.note(kit.phase_note(watched.phase))
+			kit.note(kit.to_phase_text(watched.phase))
 			return
 		}
 
@@ -147,13 +147,13 @@ build_artist_page :: proc(page_id: string, name: string) {
 			"library",
 			"In Your Library",
 			data.library_cards,
-			lists.fit_tile_size(width, ARTIST_ALBUM_POINTS, lists.CARD_GAP_POINTS),
+			lists.to_tile_size(width, ARTIST_ALBUM_POINTS, lists.CARD_GAP_POINTS),
 		)
 		lists.build_card_row(
 			"albums",
 			"Albums",
 			data.cards,
-			lists.fit_tile_size(width, ARTIST_ALBUM_POINTS, lists.CARD_GAP_POINTS),
+			lists.to_tile_size(width, ARTIST_ALBUM_POINTS, lists.CARD_GAP_POINTS),
 		)
 
 		for shelf, index in channel.shelves {
@@ -167,13 +167,13 @@ build_artist_page :: proc(page_id: string, name: string) {
 			"similar",
 			"Similar Artists",
 			data.similar,
-			lists.fit_tile_size(width, SIMILAR_ARTIST_POINTS, lists.CARD_GAP_POINTS),
+			lists.to_tile_size(width, SIMILAR_ARTIST_POINTS, lists.CARD_GAP_POINTS),
 			true,
 		)
 	}
 }
 
-// Library search misses a term with an apostrophe, so it searches the longest word and checks the full name.
+// Library search misses a term with an apostrophe. This searches for the longest word and checks the full name.
 @(private = "file")
 watch_library_albums_of :: proc(artist_name: string) -> apple.Watched {
 	if artist_name == "" do return {phase = .Loading}
@@ -182,10 +182,10 @@ watch_library_albums_of :: proc(artist_name: string) -> apple.Watched {
 	word_start := -1
 
 	for character, index in artist_name {
-		is_letter := unicode.is_letter(character) || unicode.is_digit(character)
-		if is_letter && word_start < 0 do word_start = index
+		is_word_character := unicode.is_letter(character) || unicode.is_digit(character)
+		if is_word_character && word_start < 0 do word_start = index
 
-		if !is_letter && word_start >= 0 {
+		if !is_word_character && word_start >= 0 {
 			if index - word_start > len(longest) do longest = artist_name[word_start:index]
 			word_start = -1
 		}
@@ -222,7 +222,7 @@ watch_library_albums_of :: proc(artist_name: string) -> apple.Watched {
 	return albums
 }
 
-// The library artist with exactly this name, empty when there is none.
+// Returns the ID of the library artist with exactly this name, or empty when there is none.
 @(private = "file")
 find_library_artist_id :: proc(body, artist_name: string) -> string {
 	Search_Answer :: struct {
@@ -274,7 +274,7 @@ read_artist :: proc(data: ^core.Page_Data, body: string, library_albums: apple.W
 	}
 }
 
-// The channel's videos, live performances and playlists. Its albums, singles and similar artists are Apple's already.
+// The channel's videos, live performances and playlists. Apple already gives its albums, singles and similar artists.
 @(private = "file")
 is_youtube_only_shelf :: proc(shelf: apple.Shelf) -> bool {
 	return shelf.is_wide || (len(shelf.cards) > 0 && strings.has_prefix(shelf.cards[0].id, "VL"))

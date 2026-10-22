@@ -1,6 +1,6 @@
 import Foundation
 
-// A message from the app, as Outgoing in src/helper.ts names it.
+// A message from the app, as send in src/helper/requests.odin writes it.
 struct Command: Decodable {
   let type: String
   let requestId: Int?
@@ -11,7 +11,7 @@ struct Command: Decodable {
   // trackInfo and setFavorite name a song by its persistent ID, or by a match when the app has none.
   let persistentID: String?
   let favorited: Bool?
-  // setNext: a YouTube song plays later in the queue.
+  // In setNext, keepsYouTube says that a YouTube song plays later in the queue.
   let keepsYouTube: Bool?
 }
 
@@ -21,7 +21,7 @@ struct SongMatch: Decodable {
   let artistName: String
   let albumName: String
   let durationSeconds: Double
-  // Set for a song that plays from YouTube, which the helper plays in its YouTube page.
+  // Only a song that plays from YouTube has a youtubeId. The helper plays it in its YouTube page.
   let youtubeId: String?
 
   var youTubeVideoID: String? {
@@ -31,8 +31,8 @@ struct SongMatch: Decodable {
   }
 }
 
-// Writes one JSON line to the app, as Message in src/helper/helper.odin names it. A write after the app ended
-// fails here, and the reader thread's onAppGone still pauses Music.app.
+// send writes one JSON line to the app, as Message in src/helper/helper.odin names it. A write after the app
+// ended fails here. The reader thread's onAppGone still pauses Music.app.
 func send(_ message: [String: Any]) {
   guard let data = try? JSONSerialization.data(withJSONObject: message) else { return }
 
@@ -43,7 +43,7 @@ func sendError(_ text: String) {
   send(["type": "error", "text": text])
 }
 
-// Reads the app's lines on a thread of their own. The pipe closes however the app ends, even on kill -9, so onAppGone runs.
+// This reads the app's lines on a thread of their own. The pipe closes however the app ends, even on kill -9, so onAppGone runs.
 func startReadingCommands(
   onCommand: @escaping @MainActor @Sendable (Command) -> Void,
   onAppGone: @escaping @MainActor @Sendable () -> Void
@@ -60,7 +60,7 @@ func startReadingCommands(
       DispatchQueue.main.async { MainActor.assumeIsolated { onCommand(command) } }
     }
 
-    // The app closed its end of the pipe, so it has quit.
+    // The app closed its end of the pipe, so it quit.
     DispatchQueue.main.sync { MainActor.assumeIsolated { onAppGone() } }
     exit(0)
   }

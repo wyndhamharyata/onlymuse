@@ -1,4 +1,4 @@
-// The Swift helper in ../helper, which controls Music.app. It speaks JSON lines over stdin and stdout.
+// This package runs the Swift helper in ../helper, which controls Music.app. The helper speaks JSON lines over stdin and stdout.
 package helper
 
 import "core:encoding/json"
@@ -18,7 +18,7 @@ Song :: struct {
 	album:            string,
 	persistent_id:    string `json:"persistentID"`,
 	duration_seconds: f64 `json:"durationSeconds"`,
-	// Music.app's artwork, saved by the helper.
+	// The file where the helper saves Music.app's artwork.
 	artwork_path:     string `json:"artworkPath"`,
 }
 
@@ -31,19 +31,19 @@ Message :: struct {
 	position_read_at_ms: f64 `json:"positionReadAtMs"`,
 	persistent_id:       string `json:"persistentID"`,
 	song:                Song,
-	// nowPlaying from the YouTube page: is_loading while it loads the song, has_started once it plays it.
+	// In nowPlaying from the YouTube page, is_loading holds while the page loads the song. has_started holds once it plays it.
 	is_loading:          bool `json:"isLoading"`,
 	has_started:         bool `json:"hasStarted"`,
 	color:               string,
 	developer_token:     string `json:"developerToken"`,
 	user_token:          string `json:"userToken"`,
 	text:                string,
-	// youtubeCookie: Helium's youtube.com cookies, empty when signed out. problem says why there are none:
-	// "keychain" when the Keychain refused the key, "helium" when Helium's cookies could not be read.
+	// In youtubeCookie, cookie holds Helium's youtube.com cookies and stays empty when Helium is signed out. problem says
+	// why there are none. It is "keychain" when the Keychain refused the key, "helium" when the helper could not read Helium's cookies.
 	cookie:              string,
 	problem:             string,
 	request_id:          int `json:"requestId"`,
-	// trackInfo: what Music.app knows of a song. Dates are Unix ms, 0 when it has none.
+	// The trackInfo fields say what Music.app knows of a song. Each date is Unix time in ms, or 0 when Music.app has none.
 	is_in_library:       bool `json:"isInLibrary"`,
 	favorited:           bool,
 	played_count:        int `json:"playedCount"`,
@@ -72,16 +72,16 @@ Now_Playing :: struct {
 	position_seconds:    f64,
 	// Unix time in ms when the helper read the position.
 	position_read_at_ms: f64,
-	// Positions in a row that had not moved on while Music.app said it played. Music.app does that while it
-	// waits for a song it cannot load, and the clock then stays still.
+	// The count of positions in a row that did not move on while Music.app said it played. Music.app does that
+	// while it waits for a song it cannot load. The clock then stays still.
 	stall_count:         int,
-	// The position has moved since the song began. Music.app says it plays a song while it still loads it.
+	// The position moved on after the song began. Music.app says it plays a song while it still loads it.
 	has_started:         bool,
-	// The YouTube page loads the song and plays nothing yet. Music.app is paused by then.
+	// The YouTube page loads the song and plays nothing yet. The helper paused Music.app before then.
 	is_loading:          bool,
 }
 
-// A position this far past the last one has moved on. The helper sends one every 2 s.
+// A position this far past the last one counts as moved on. The helper sends one every 2 s.
 MIN_PROGRESS_SECONDS :: 0.5
 
 @(private)
@@ -92,7 +92,7 @@ state: struct {
 	reader:      ^thread.Thread,
 	mutex:       sync.Mutex,
 	write_mutex: sync.Mutex,
-	// Lines read and not yet taken by the main thread.
+	// The lines that read_lines read and the main thread did not take yet.
 	lines:       [dynamic]string,
 	is_started:  bool,
 }
@@ -103,27 +103,27 @@ start :: proc(is_background: bool) {
 
 	if path == "" {
 		executable_folder, _ := os.get_executable_directory(context.temp_allocator)
-		// onlymuse.app holds the helper in Contents/Helpers. build/onlymuse runs the one SwiftPM built.
+		// onlymuse.app holds the helper in Contents/Helpers. build/onlymuse runs the one that SwiftPM built.
 		bundled := fmt.tprintf("%s/../Helpers/onlymuse-helper", executable_folder)
 		path =
 			bundled if os.exists(bundled) else fmt.tprintf("%s/../helper/.build/release/onlymuse-helper", executable_folder)
 	}
 
-	// A write to a helper that has ended then fails, instead of ending onlymuse.
+	// A write to a helper that ended then fails, instead of ending onlymuse.
 	posix.signal(.SIGPIPE, auto_cast posix.SIG_IGN)
 
 	child_stdin, to_helper, _ := os.pipe()
 	from_helper, child_stdout, _ := os.pipe()
 
 	environment, _ := os.environ(context.temp_allocator)
-	env := make([dynamic]string, context.temp_allocator)
-	append(&env, ..environment)
-	if is_background do append(&env, "GPUIX_BACKGROUND=1")
+	child_environment := make([dynamic]string, context.temp_allocator)
+	append(&child_environment, ..environment)
+	if is_background do append(&child_environment, "GPUIX_BACKGROUND=1")
 
 	process, error := os.process_start(
 		{
 			command = {path},
-			env = env[:],
+			env = child_environment[:],
 			stdin = child_stdin,
 			stdout = child_stdout,
 			stderr = os.stderr,
@@ -202,7 +202,7 @@ take_messages :: proc() -> []Message {
 	return messages[:]
 }
 
-// Takes in one message from the helper.
+// apply takes in one message from the helper.
 apply :: proc(now_playing: ^Now_Playing, message: Message) {
 	switch message.type {
 	case "volume":
@@ -271,7 +271,7 @@ now_ms :: proc() -> f64 {
 }
 
 // Music.app posts only on a change, so the position moves on here between its posts.
-position_seconds :: proc(now_playing: Now_Playing) -> f64 {
+to_position_seconds :: proc(now_playing: Now_Playing) -> f64 {
 	#partial switch now_playing.playback {
 	case .Paused:
 		return now_playing.position_seconds

@@ -5,19 +5,13 @@ import "om:app/matching"
 import "om:helper"
 import "om:youtube"
 
-// The shuffle rules in shuffle.odin order it.
-@(private = "file")
-to_shuffled :: proc(songs: []core.Catalog_Song) -> []core.Catalog_Song {
-	return shuffle_by_rules(songs)
-}
-
 // With shuffle on, the chosen song plays first and the others follow in a random order. The songs are copies.
 @(private = "file")
-to_play_order :: proc(songs: []core.Catalog_Song, first_index: int) -> []core.Catalog_Song {
+list_play_order :: proc(songs: []core.Catalog_Song, first_index: int) -> []core.Catalog_Song {
 	others := make([dynamic]core.Catalog_Song, context.temp_allocator)
 	for song, index in songs do if index != first_index do append(&others, song)
 
-	shuffled := to_shuffled(others[:])
+	shuffled := shuffle_by_rules(others[:])
 	defer delete(shuffled)
 
 	order := make([]core.Catalog_Song, len(songs))
@@ -27,12 +21,12 @@ to_play_order :: proc(songs: []core.Catalog_Song, first_index: int) -> []core.Ca
 	return order
 }
 
-// The queue owns its songs, text and all. A page's songs live in the page's memory, which is read again into
-// new memory whenever its answers or its phase change, so a queue that pointed there would read freed memory.
+// The queue owns its songs, text and all. A page reads its songs again into new memory whenever its
+// answers or its phase change. A queue that pointed at the old memory would read freed memory.
 @(private = "file")
 replace_songs :: proc(songs, original_songs: []core.Catalog_Song) {
-	delete_songs(queue.songs)
-	delete_songs(queue.original_songs)
+	retire_songs(queue.songs)
+	retire_songs(queue.original_songs)
 	queue.songs = songs
 	queue.original_songs = original_songs
 }
@@ -46,13 +40,13 @@ clone_songs :: proc(songs: []core.Catalog_Song) -> []core.Catalog_Song {
 }
 
 @(private = "file")
-delete_songs :: proc(songs: []core.Catalog_Song) {
+retire_songs :: proc(songs: []core.Catalog_Song) {
 	for song in songs do retire_song(song)
 	append(&retired.lists, songs)
 }
 
-// Songs and lists the queue let go of, freed when the next frame starts, as Up Next and the player may
-// already show them in this one. See free_retired_memory.
+// Songs and lists the queue let go of. free_retired_songs frees them when the next frame starts, as Up
+// Next and the player may already show them in this one.
 @(private = "file")
 retired: struct {
 	songs: [dynamic]core.Catalog_Song,
@@ -71,10 +65,10 @@ free_retired_songs :: proc() {
 	clear(&retired.lists)
 }
 
-// A YouTube song whose Apple song is known plays from Apple Music, and a copy of Apple's song takes its place.
+// A YouTube song with a match plays from Apple Music. A copy of the match takes its place.
 @(private)
 set_playable :: proc(index: int) {
-	playable := matching.to_playable(queue.songs[index])
+	playable := matching.find_playable(queue.songs[index])
 	if playable.id == queue.songs[index].id do return
 
 	cloned := core.copy_song(playable)
@@ -82,8 +76,8 @@ set_playable :: proc(index: int) {
 	queue.songs[index] = cloned
 }
 
-// The queue's next YouTube songs are checked against Apple's catalog now, so they play from Apple when their
-// turn comes. Each later one is checked when it is next.
+// start_matches checks the queue's next YouTube songs against Apple's catalog now, so they play from Apple
+// when their turn comes. It checks each later one when it is next.
 MATCHED_AHEAD_COUNT :: 25
 
 @(private)
@@ -103,14 +97,14 @@ play_songs :: proc(songs: []core.Catalog_Song, index: int) {
 		return
 	}
 
-	replace_songs(to_play_order(songs, index), clone_songs(songs))
+	replace_songs(list_play_order(songs, index), clone_songs(songs))
 	play_at(0)
 }
 
 shuffle_songs :: proc(songs: []core.Catalog_Song) {
 	if len(songs) == 0 do return
 
-	shuffled := to_shuffled(songs)
+	shuffled := shuffle_by_rules(songs)
 	defer delete(shuffled)
 
 	replace_songs(clone_songs(shuffled), clone_songs(songs))
@@ -165,7 +159,7 @@ remove_from_queue :: proc(index: int) {
 	}
 
 	if index < queue.index do queue.index -= 1
-	set_queue()
+	save_queue_and_handoff()
 }
 
 @(private = "file")
@@ -177,7 +171,7 @@ ordered_remove_slice :: proc(songs: ^[]core.Catalog_Song, index: int) {
 toggle_shuffle :: proc() {
 	if queue.index < 0 || queue.index >= len(queue.songs) {
 		queue.is_shuffled = !queue.is_shuffled
-		set_queue()
+		save_queue_and_handoff()
 		return
 	}
 
@@ -193,18 +187,18 @@ toggle_shuffle :: proc() {
 
 	if queue.is_shuffled {
 		queue.is_shuffled = false
-		delete_songs(queue.songs)
+		retire_songs(queue.songs)
 		queue.songs = clone_songs(queue.original_songs)
 		queue.index = original_index
-		set_queue()
+		save_queue_and_handoff()
 		return
 	}
 
-	delete_songs(queue.songs)
-	queue.songs = to_play_order(queue.original_songs, original_index)
+	retire_songs(queue.songs)
+	queue.songs = list_play_order(queue.original_songs, original_index)
 	queue.index = 0
 	queue.is_shuffled = true
-	set_queue()
+	save_queue_and_handoff()
 }
 
 cycle_repeat :: proc() {
@@ -217,7 +211,7 @@ cycle_repeat :: proc() {
 		queue.repeat = "off"
 	}
 
-	set_queue()
+	save_queue_and_handoff()
 }
 
 // The queue leads only while Music.app plays the song it started. Otherwise Music.app's own order applies.

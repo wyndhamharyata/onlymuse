@@ -41,35 +41,35 @@ LEAD_NOTE_SECONDS :: 2
 WORD_TIMER_SLACK_SECONDS :: 0.005
 
 lyrics_state: struct {
-	lead_ms:           int,
-	lead_changed_tick: f64,
-	// The lyrics' time, in song seconds, for the frame being built.
-	position_seconds:  f64,
-	current_index:     int,
-	lines:             []lyrics.Line,
-	// What shows under each line, when the song has it. Saved.
-	shows_romaji:      bool,
-	shows_translation: bool,
+	lead_ms:                int,
+	lead_changed_ms:        f64,
+	// The lyrics' time, in song seconds, for the frame in progress.
+	position_seconds:       f64,
+	current_index:          int,
+	lines:                  []lyrics.Line,
+	// What shows under each line, when the song has it. The store saves both.
+	is_showing_romaji:      bool,
+	is_showing_translation: bool,
 }
 
 TRANSLATION_FONT_SIZE :: 13
 
-// The saved lead and the lyrics' switches.
+// Reads the saved lead and the lyrics' switches.
 start_lyrics :: proc() {
 	lyrics_state.lead_ms = DEFAULT_LEAD_MS
-	lyrics_state.shows_romaji =
+	lyrics_state.is_showing_romaji =
 		(store.find_state("lyricsRomaji", context.temp_allocator) or_else "true") == "true"
-	lyrics_state.shows_translation =
+	lyrics_state.is_showing_translation =
 		(store.find_state("lyricsTranslation", context.temp_allocator) or_else "false") == "true"
 
-	text, ok := store.find_state("lyricLeadMs", context.temp_allocator)
-	if !ok do return
+	text, has_lead := store.find_state("lyricLeadMs", context.temp_allocator)
+	if !has_lead do return
 
 	lead_ms, is_number := strconv.parse_int(text)
 	if is_number && abs(lead_ms) <= MAX_LEAD_MS do lyrics_state.lead_ms = lead_ms
 }
 
-// Cmd ] runs the lyrics 50 ms earlier, Cmd [ 50 ms later.
+// Cmd ] runs the lyrics 50 ms earlier. Cmd [ runs them 50 ms later.
 apply_lead_key :: proc(key: platform.Key_Press) {
 	step := 0
 
@@ -84,11 +84,11 @@ apply_lead_key :: proc(key: platform.Key_Press) {
 	if step == 0 || abs(next) > MAX_LEAD_MS do return
 
 	lyrics_state.lead_ms = next
-	lyrics_state.lead_changed_tick = helper.now_ms()
+	lyrics_state.lead_changed_ms = helper.now_ms()
 	store.save_state("lyricLeadMs", fmt.tprintf("%d", next))
 }
 
-// The line being sung is the last one that has begun.
+// The current line is the last one that began.
 find_current_line :: proc(lines: []lyrics.Line, position_seconds: f64) -> int {
 	current := -1
 
@@ -99,7 +99,7 @@ find_current_line :: proc(lines: []lyrics.Line, position_seconds: f64) -> int {
 	return current
 }
 
-// The next moment the lyrics change after now, or -1 when none is left.
+// Finds the next moment the lyrics change after now, or -1 when no change remains.
 find_next_change :: proc(lines: []lyrics.Line, position_seconds: f64) -> f64 {
 	next := -1.0
 
@@ -118,7 +118,7 @@ find_next_change :: proc(lines: []lyrics.Line, position_seconds: f64) -> f64 {
 	return next
 }
 
-// True while a word or line still fades. Else it sets a timer for the next word, so no frame is drawn between words.
+// Returns true while a word or line still fades. Else it sets a timer for the next word, so the app draws no frame between words.
 schedule_lyrics :: proc(lines: []lyrics.Line) -> bool {
 	if core.app.now_playing.playback != .Playing do return false
 
@@ -176,7 +176,7 @@ build_lyrics :: proc() -> bool {
 		song.artist,
 	)
 
-	phase, lines := lyrics.find(song.persistent_id, song.name, song.artist)
+	phase, lines := lyrics.watch(song.persistent_id, song.name, song.artist)
 
 	switch phase {
 	case .None, .Loading:
@@ -191,7 +191,7 @@ build_lyrics :: proc() -> bool {
 	build_lyric_toggles(lines)
 
 	lead_seconds := f64(lyrics_state.lead_ms) / 1000
-	lyrics_state.position_seconds = helper.position_seconds(now_playing) + lead_seconds
+	lyrics_state.position_seconds = helper.to_position_seconds(now_playing) + lead_seconds
 	lyrics_state.current_index = find_current_line(lines, lyrics_state.position_seconds)
 	lyrics_state.lines = lines
 
@@ -200,7 +200,7 @@ build_lyrics :: proc() -> bool {
 		{width = ui.fill(), height = ui.fill(), padding = {8, 10, 8, 0}, flags = {.Clip}},
 	)
 
-	// The top of the line three before the current one, from last frame's layout.
+	// The column slides to the top of the line three before the current one, in last frame's layout.
 	first_shown := max(0, lyrics_state.current_index - LINES_BEFORE_CURRENT)
 	target_offset: f32
 	column := ui.find_box("column", view)
@@ -272,16 +272,16 @@ build_lyric_toggles :: proc(lines: []lyrics.Line) {
 	)
 
 	if ui.scope(toggles) {
-		if has_romaji && kit.toggle_chip("Romaji", lyrics_state.shows_romaji) {
-			lyrics_state.shows_romaji = !lyrics_state.shows_romaji
-			store.save_state("lyricsRomaji", "true" if lyrics_state.shows_romaji else "false")
+		if has_romaji && kit.toggle_chip("Romaji", lyrics_state.is_showing_romaji) {
+			lyrics_state.is_showing_romaji = !lyrics_state.is_showing_romaji
+			store.save_state("lyricsRomaji", "true" if lyrics_state.is_showing_romaji else "false")
 		}
 
-		if has_translation && kit.toggle_chip("Translation", lyrics_state.shows_translation) {
-			lyrics_state.shows_translation = !lyrics_state.shows_translation
+		if has_translation && kit.toggle_chip("Translation", lyrics_state.is_showing_translation) {
+			lyrics_state.is_showing_translation = !lyrics_state.is_showing_translation
 			store.save_state(
 				"lyricsTranslation",
-				"true" if lyrics_state.shows_translation else "false",
+				"true" if lyrics_state.is_showing_translation else "false",
 			)
 		}
 	}

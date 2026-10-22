@@ -37,7 +37,7 @@ start :: proc() {
 	apple.add_source(PATH_PREFIX, send_request)
 }
 
-// The helper reads the cookie from its YouTube web page at start and after a sign-in. Empty when signed out.
+// The helper reads the cookie from its YouTube web page at start and after a sign-in. It is empty without a sign-in.
 set_cookie :: proc(cookie: string) {
 	sync.guard(&state.mutex)
 	delete(state.cookie)
@@ -52,7 +52,7 @@ is_signed_in :: proc() -> bool {
 	return find_cookie_value(state.cookie, "SAPISID") != ""
 }
 
-// Until the helper has answered, the app cannot tell signed in from signed out.
+// Until the helper answers, the app cannot tell signed in from signed out.
 has_cookie_answer :: proc() -> bool {
 	sync.guard(&state.mutex)
 
@@ -68,11 +68,11 @@ SONGS_FILTER :: "EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D"
 VIDEOS_FILTER :: "EgWKAQIQAWoKEAkQChAFEAMQBA%3D%3D"
 ARTISTS_FILTER :: "EgWKAQIgAWoKEAMQBBAJEAoQBQ%3D%3D"
 
-browse_path :: proc(browse_id: string) -> string {
+to_browse_path :: proc(browse_id: string) -> string {
 	return to_path("browse", fmt.tprintf("{{%s}}", to_json_field("browseId", browse_id)))
 }
 
-search_path :: proc(query, filter: string) -> string {
+to_search_path :: proc(query, filter: string) -> string {
 	return to_path(
 		"search",
 		fmt.tprintf("{{%s,%s}}", to_json_field("query", query), to_json_field("params", filter)),
@@ -80,20 +80,20 @@ search_path :: proc(query, filter: string) -> string {
 }
 
 // The next part of a long list, which a List names by its continuation.
-continuation_path :: proc(token: string) -> string {
+to_continuation_path :: proc(token: string) -> string {
 	return to_path("browse", fmt.tprintf("{{%s}}", to_json_field("continuation", token)))
 }
 
 // The next shelves of a page. YouTube takes this token in the address, as its web player sends it.
-section_continuation_path :: proc(token: string) -> string {
+to_section_continuation_path :: proc(token: string) -> string {
 	return to_path("browse", fmt.tprintf("{{%s}}", to_json_field("ctoken", token)))
 }
 
-// An album, a playlist or the liked songs open by browse ID. A mix or a radio is a playlist ID, such as
+// An album, a playlist or the liked songs open by browse ID. A mix or a radio has a playlist ID, such as
 // "RDTMAK5uy_…", which only the next endpoint answers.
-list_path :: proc(id: string) -> string {
+to_list_path :: proc(id: string) -> string {
 	browse_prefixes := []string{"VL", "MPREb_", "FE", "UC"}
-	for prefix in browse_prefixes do if strings.has_prefix(id, prefix) do return browse_path(id)
+	for prefix in browse_prefixes do if strings.has_prefix(id, prefix) do return to_browse_path(id)
 
 	return to_path(
 		"next",
@@ -101,7 +101,7 @@ list_path :: proc(id: string) -> string {
 	)
 }
 
-// Likes the video on the signed-in account, or takes the like back. Blocks. 200 when YouTube took it, 0 signed out.
+// Likes the video on the signed-in account, or takes the like back. It blocks. It returns 200 when YouTube took it, 0 without a sign-in.
 send_like :: proc(video_id: string, is_liked: bool) -> int {
 	if !is_signed_in() do return 0
 

@@ -95,7 +95,7 @@ to_panel_song :: proc(reader: ^Reader, value: json.Value) -> (apple.Card, bool) 
 		true
 }
 
-// A tile on a shelf. A video plays, the rest open their page.
+// A tile on a shelf. A video plays. The rest open their page.
 @(private)
 to_tile :: proc(reader: ^Reader, value: json.Value) -> (apple.Card, bool) {
 	name := to_text(child(value, "title"))
@@ -169,7 +169,7 @@ to_browse_card :: proc(
 		true
 }
 
-// The byline names the artists and the album with links to them, and holds the length as "4:23".
+// The byline names the artists and the album with links to them. It holds the length as "4:23".
 @(private)
 to_song_card :: proc(
 	reader: ^Reader,

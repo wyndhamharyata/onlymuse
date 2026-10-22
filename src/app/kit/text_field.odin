@@ -10,7 +10,7 @@ import "om:ui"
 
 TEXT_FIELD_FONT_SIZE :: 13
 
-// One line of text to type in, in any script. Only one field is focused at a time.
+// One line of text to type in, in any script. Only one field has the focus at a time.
 Text_Field :: struct {
 	text:            [dynamic]u8,
 	// A byte index into text.
@@ -21,11 +21,11 @@ Text_Field :: struct {
 	// After Cmd A, the next key replaces the whole text.
 	is_all_selected: bool,
 	is_hovered:      bool,
-	// A field in an overlay keeps the keyboard when a click lands elsewhere; the overlay closes it.
+	// A field in an overlay keeps the keyboard when a click goes elsewhere. The overlay closes it.
 	keeps_focus:     bool,
 	// Up and Down move a list's selection instead of the cursor.
 	takes_up_down:   bool,
-	// Set for the frame of the event, then cleared.
+	// apply_text_events turns these on for the frame of the event, then off on the next frame.
 	is_changed:      bool,
 	is_submitted:    bool,
 	is_cancelled:    bool,
@@ -33,11 +33,11 @@ Text_Field :: struct {
 	step:            int,
 }
 
-// The fields there are, so the keyboard reaches the focused one.
+// Every field from register_text_field, so the keyboard reaches the focused one.
 @(private = "file")
 text_fields: [dynamic]^Text_Field
 
-// Where the focused field's caret was drawn, in window points, for the input method.
+// Where build_caret drew the focused field's caret, in window points, for the input method.
 @(private = "file")
 caret_rect: [4]f32
 
@@ -45,7 +45,7 @@ register_text_field :: proc(field: ^Text_Field) {
 	append(&text_fields, field)
 }
 
-field_text :: proc(field: ^Text_Field) -> string {
+to_field_text :: proc(field: ^Text_Field) -> string {
 	return string(field.text[:])
 }
 
@@ -168,7 +168,7 @@ apply_text_events :: proc() {
 	}
 
 	for event in platform.list_events() {
-		#partial switch e in event {
+		#partial switch input in event {
 		case platform.Mouse_Press:
 			for field in text_fields {
 				if field.is_hovered {
@@ -182,20 +182,20 @@ apply_text_events :: proc() {
 			delete(field.marked)
 			field.marked = ""
 			// Return comes as a command, never as text.
-			if e.text != "\r" && e.text != "\n" do insert_text(field, e.text)
+			if input.text != "\r" && input.text != "\n" do insert_text(field, input.text)
 		case platform.Text_Marked:
 			field := find_focused_field() or_continue
 			replace_all_if_selected(field)
 			delete(field.marked)
-			field.marked = strings.clone(e.text)
+			field.marked = strings.clone(input.text)
 		case platform.Text_Command:
 			field := find_focused_field() or_continue
-			apply_command(field, e.name)
+			apply_command(field, input.name)
 		case platform.Key_Press:
 			field := find_focused_field() or_continue
-			if .Command not_in e.modifiers do continue
+			if .Command not_in input.modifiers do continue
 
-			switch e.characters {
+			switch input.characters {
 			case "a":
 				field.is_all_selected = true
 			case "v":
@@ -214,7 +214,7 @@ find_focused_field :: proc() -> (^Text_Field, bool) {
 	return nil, false
 }
 
-// After the frame is built: the keyboard goes to the focused field's input method, or back to shortcuts.
+// Once the frame has its boxes, the keyboard goes to the focused field's input method or back to shortcuts.
 finish_text_fields :: proc() {
 	_, is_focused := find_focused_field()
 	platform.set_text_input(is_focused, caret_rect)
@@ -251,7 +251,7 @@ build_text_field :: proc(
 	if ui.scope(box) {
 		if symbol != "" do icon_box("", symbol, font_size, colors.faint)
 
-		text := field_text(field)
+		text := to_field_text(field)
 		cursor := field.cursor
 		shown := fmt.tprintf("%s%s%s", text[:cursor], field.marked, text[cursor:])
 		is_empty := shown == ""

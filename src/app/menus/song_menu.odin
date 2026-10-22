@@ -26,7 +26,7 @@ song_menu: struct {
 	is_open:           bool,
 	song:              core.Catalog_Song,
 	position:          [2]f32,
-	// Opened from Add to Playlist, it shows the playlists alone.
+	// When Add to Playlist opens the menu, the menu shows the playlists alone.
 	is_playlists_only: bool,
 	is_playlists_open: bool,
 	is_naming:         bool,
@@ -41,7 +41,7 @@ start_song_menu :: proc() {
 	kit.register_text_field(&playlist_name_field)
 }
 
-// Right-click on a song, or Now Playing's Add to Playlist. position is in window points.
+// A right-click on a song or Now Playing's Add to Playlist opens the menu. position is in window points.
 open_song_menu :: proc(song: core.Catalog_Song, position: [2]f32, is_playlists_only := false) {
 	close_song_menu()
 	song_menu = {
@@ -63,7 +63,7 @@ close_song_menu :: proc() {
 	kit.set_field_text(&playlist_name_field, "")
 }
 
-// Over everything, with a cover that closes it on a click outside.
+// The menu shows over everything. A cover closes it on a click outside.
 build_song_menu :: proc() {
 	if !song_menu.is_open do return
 
@@ -82,7 +82,7 @@ build_song_menu :: proc() {
 		(ui.signal(cover).is_clicked || ui.signal(cover).is_right_clicked) &&
 		core.app.frame_count > song_menu.opened_frame + 1
 
-	// Escape closes it, unless the playlist name field takes it.
+	// Escape closes the menu, unless the playlist name field takes the key.
 	for event in platform.list_events() {
 		if key, ok := event.(platform.Key_Press); ok && key.key_code == ESCAPE_KEY_CODE {
 			is_closing = true
@@ -90,8 +90,8 @@ build_song_menu :: proc() {
 	}
 
 	if ui.scope(cover) {
-		// A YouTube song Apple has acts as Apple's song.
-		song := matching.to_playable(song_menu.song)
+		// A YouTube song with a match acts as its match.
+		song := matching.find_playable(song_menu.song)
 		is_from_youtube := youtube.is_song_id(song.id)
 		is_matched := song.youtube_id != ""
 		page := core.current_page()
@@ -145,11 +145,11 @@ build_song_menu :: proc() {
 
 				kit.menu_separator()
 
-				is_on := playback.is_favourite(song)
+				is_favourite := playback.is_favourite(song)
 
 				if kit.menu_item(
 					"favourite",
-					"Remove from Favourites" if is_on else "Favourite",
+					"Remove from Favourites" if is_favourite else "Favourite",
 					"⌘L" if is_playing_song(song) else "",
 				) {
 					playback.toggle_favourite(
@@ -190,7 +190,7 @@ build_song_menu :: proc() {
 	if is_closing do close_song_menu()
 }
 
-// Returns true when a playlist was picked or made.
+// Returns true when the person picks or makes a playlist.
 @(private = "file")
 build_playlist_menu :: proc(
 	song: core.Catalog_Song,
@@ -204,7 +204,7 @@ build_playlist_menu :: proc(
 		if song_menu.is_naming {
 			if playlist_name_field.is_cancelled do song_menu.is_naming = false
 
-			name := strings.trim_space(kit.field_text(&playlist_name_field))
+			name := strings.trim_space(kit.to_field_text(&playlist_name_field))
 
 			if playlist_name_field.is_submitted && name != "" {
 				create_playlist_with(name, song)
@@ -231,11 +231,14 @@ build_playlist_menu :: proc(
 		kit.menu_separator()
 
 		playlists, _, phase := core.list_playlists()
-		editable := 0
-		for playlist in playlists do if playlist.can_edit do editable += 1
+		editable_count := 0
+		for playlist in playlists do if playlist.can_edit do editable_count += 1
 
 		// A long list scrolls inside the menu.
-		list_height := min(f32(editable) * (kit.MENU_ITEM_POINTS + 1), MAX_PLAYLIST_LIST_POINTS)
+		list_height := min(
+			f32(editable_count) * (kit.MENU_ITEM_HEIGHT_POINTS + 1),
+			MAX_PLAYLIST_LIST_POINTS,
+		)
 		list := ui.box(
 			"playlists",
 			{
@@ -246,13 +249,13 @@ build_playlist_menu :: proc(
 				flags = {.Scroll, .Clip},
 			},
 		)
-		shown := 0
+		shown_count := 0
 
 		if ui.scope(list) {
 			for playlist in playlists {
 				if !playlist.can_edit do continue
 
-				shown += 1
+				shown_count += 1
 
 				if kit.menu_item(fmt.tprintf("playlist %s", playlist.id), playlist.name) {
 					add_to_playlist(playlist.id, playlist.name, song)
@@ -261,7 +264,7 @@ build_playlist_menu :: proc(
 			}
 		}
 
-		if shown == 0 {
+		if shown_count == 0 {
 			ui.box(
 				"",
 				{
@@ -271,7 +274,7 @@ build_playlist_menu :: proc(
 					font_size = 12,
 					padding = {8, 4, 8, 4},
 				},
-				kit.phase_note(phase) if phase != .Ready else "No playlists of yours yet.",
+				kit.to_phase_text(phase) if phase != .Ready else "No playlists of yours yet.",
 			)
 		}
 	}

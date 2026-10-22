@@ -34,9 +34,9 @@ find_closest :: proc(
 	return best, is_found
 }
 
-// The same title once cleaned, by the same artist, and about as long. YouTube often writes a Japanese
-// title and its romaji as "追い風 - Oikaze", where Apple writes one of them, so either half matches. An
-// artist named another way on each, such as in Japanese on one, is no match: the song plays from YouTube.
+// One recording has the same cleaned title, the same artist and about the same length. YouTube often writes
+// a Japanese title and its romaji as "追い風 - Oikaze", where Apple writes one of them, so either half matches.
+// An artist with another name on each, such as a Japanese name on one, is no match. The song then plays from YouTube.
 is_same_recording :: proc(youtube_song, apple_song: core.Catalog_Song) -> bool {
 	has_lengths := youtube_song.duration_seconds > 0 && apple_song.duration_seconds > 0
 	length_difference := abs(youtube_song.duration_seconds - apple_song.duration_seconds)
@@ -90,8 +90,8 @@ list_title_keys :: proc(name: string) -> []string {
 	return keys[:]
 }
 
-// Lowercase letters and digits only. Parts in brackets, such as "(Official Video)" or "【MV】", and
-// "feat." with what follows are dropped. A name that is all brackets keeps them.
+// Lowercase letters and digits only. It drops parts in brackets, such as "(Official Video)" or "【MV】", and
+// "feat." with what follows. A name that is all brackets keeps them.
 to_match_key :: proc(text: string) -> string {
 	lower := strings.to_lower(text, context.temp_allocator)
 

@@ -13,8 +13,8 @@ import "om:platform"
 import "om:store"
 import "om:youtube"
 
-// The play queue. Music.app keeps no queue of its own after a song
-// started by AppleScript, so the app plays each next song itself, and the helper hands off at each end.
+// Music.app keeps no queue of its own after a song that AppleScript started. So the app plays each
+// next song of the play queue itself. The helper hands off at each end.
 Resume_Point :: struct {
 	song:             helper.Song,
 	position_seconds: f64 `json:"positionSeconds"`,
@@ -29,11 +29,11 @@ Queue_State :: struct {
 	is_shuffled:           bool `json:"isShuffled"`,
 	repeat:                string,
 	is_adding:             bool `json:"isAdding"`,
-	// Empty when the queue's song is not playing.
+	// The ID is empty when the queue's song is not playing.
 	playing_persistent_id: string `json:"playingPersistentID"`,
-	// The last song Music.app played and where it was. The player shows it when Music.app has stopped.
-	// Its song's persistent ID is empty when there is none. Saved under its own key, "resumePoint", as it
-	// changes every few seconds and the queue can hold thousands of songs.
+	// The last song Music.app played and where it was. The player shows it when Music.app neither plays
+	// nor pauses. Its song's persistent ID is empty when there is none. save_resume_point saves it under
+	// its own key, "resumePoint", as it changes every few seconds and the queue can hold thousands of songs.
 	resume_point:          Resume_Point `json:"-"`,
 }
 
@@ -49,7 +49,7 @@ Request_Kind :: enum {
 Request :: struct {
 	kind:            Request_Kind,
 	play_count:      int,
-	// The handoff_version it was sent for. A number, as the key it was sent for is freed when the next replaces it.
+	// The handoff_version of the request. It is a number, as sync_handoff frees the old key when the next one replaces it.
 	handoff_version: int,
 	index:           int,
 	after:           string,
@@ -63,7 +63,7 @@ RESTART_AFTER_SECONDS :: 3.0
 // Music.app starts a library song within a second or two. One it has no file for shows a dialog and never starts.
 START_TIMEOUT_SECONDS :: 8.0
 
-// Music.app can play a song just added to the library for a few seconds, then wait on it for good. Two
+// Music.app can play a song new to the library for a few seconds, then wait on it for good. Two
 // positions in a row that stand still, about 4 s, start the song again, as playing another song and back does.
 STALLED_POSITION_COUNT :: 2
 
@@ -72,7 +72,7 @@ UNSTARTED_POSITION_COUNT :: 8
 
 MAX_RESTART_COUNT :: 2
 
-// While a song plays, its position is saved this often, so a force quit loses at most this much.
+// While a song plays, the queue saves its position this often, so a force quit loses at most this much.
 POSITION_SAVE_SECONDS :: 5.0
 
 queue: Queue_State
@@ -88,19 +88,19 @@ queue_state: struct {
 	// Each new play counts up, so an older play that is still adding a song knows to stop.
 	play_count:          int,
 	requests:            map[int]Request,
-	// Set by the thread that adds a song to the library, to the play count it added for.
+	// The thread that adds a song to the library sets this to the play count it added for.
 	added_play_count:    int,
 	add_mutex:           sync.Mutex,
 	poll_deadline_ms:    f64,
-	// When a song matched from YouTube must have started by. 0 when none is awaited.
+	// The time by which a song matched from YouTube must start. It is 0 when the queue awaits none.
 	start_deadline_ms:   f64,
-	// The YouTube page has the queue's song and has not started it yet.
+	// The YouTube page has the queue's song but did not start it yet.
 	is_starting_youtube: bool,
-	// Times the song playing was started again after Music.app stopped on it.
+	// How many times the queue started the playing song again after Music.app stopped on it.
 	restart_count:       int,
 	next_poll_ms:        f64,
 	is_polling:          bool,
-	last_resume_save:    f64,
+	last_resume_save_ms: f64,
 }
 
 start_queue :: proc() {
@@ -112,7 +112,7 @@ start_queue :: proc() {
 		_ = json.unmarshal_string(text, &queue.resume_point)
 	}
 
-	// A song that was being added when the app quit is not being added any more.
+	// If the app quit while it added a song, that add is over now.
 	queue.is_adding = false
 	if queue.repeat == "" do queue.repeat = "off"
 	if queue.index >= len(queue.songs) do queue.index = len(queue.songs) - 1
@@ -130,9 +130,8 @@ save_resume_point :: proc() {
 	if error == nil do store.save_state("resumePoint", string(bytes))
 }
 
-// Saves the queue and tells the helper its next song, as setState did.
 @(private)
-set_queue :: proc() {
+save_queue_and_handoff :: proc() {
 	save_queue()
 	sync_handoff()
 }
@@ -147,7 +146,7 @@ to_song_match :: proc(song: core.Catalog_Song) -> helper.Song_Match {
 	}
 }
 
-// Repeat all goes from the last song back to the first. -1 when the queue is over.
+// Repeat all goes from the last song back to the first. It returns -1 when the queue is over.
 @(private)
 find_next_index :: proc() -> int {
 	if queue.index + 1 < len(queue.songs) do return queue.index + 1
@@ -156,7 +155,7 @@ find_next_index :: proc() -> int {
 	return -1
 }
 
-// A YouTube song whose Apple song is known plays from Apple Music, and takes its place in the queue.
+// A YouTube song with a match plays from Apple Music. The match takes its place in the queue.
 @(private)
 play_at :: proc(index: int) {
 	queue_state.play_count += 1
@@ -169,9 +168,9 @@ play_at :: proc(index: int) {
 	start_matches()
 	queue.is_adding = false
 	queue.playing_persistent_id = ""
-	set_queue()
+	save_queue_and_handoff()
 
-	request_id := helper.request_play(to_song_match(queue.songs[index]))
+	request_id := helper.send_play(to_song_match(queue.songs[index]))
 	queue_state.requests[request_id] = {
 		kind       = .Play,
 		play_count = queue_state.play_count,
@@ -183,7 +182,7 @@ apply_queue_answer :: proc(request_id: int, answered_id: string) {
 	request, ok := queue_state.requests[request_id]
 	if !ok do return
 
-	// The message lives for one frame, and the queue keeps the ID.
+	// The message lives for one frame. The queue keeps the ID.
 	persistent_id := strings.clone(answered_id)
 
 	delete_key(&queue_state.requests, request_id)
@@ -205,14 +204,14 @@ apply_queue_answer :: proc(request_id: int, answered_id: string) {
 		if persistent_id != "" {
 			queue.playing_persistent_id = persistent_id
 			queue_state.is_starting_youtube = youtube.is_song_id(persistent_id)
-			set_queue()
+			save_queue_and_handoff()
 			await_start()
 			return
 		}
 
-		// Music.app shows a song added to the library after a few seconds, about 6 in the tests.
+		// Music.app shows a song new to the library after a few seconds, about 6 in the tests.
 		queue.is_adding = true
-		set_queue()
+		save_queue_and_handoff()
 		start_adding(queue.songs[queue.index].id, queue_state.play_count)
 	case .Poll:
 		if !is_current do return
@@ -238,14 +237,14 @@ apply_queue_answer :: proc(request_id: int, answered_id: string) {
 		queue_state.is_polling = false
 		queue.is_adding = false
 		queue.playing_persistent_id = persistent_id
-		set_queue()
+		save_queue_and_handoff()
 		if persistent_id != "" do await_start()
 	case .Resume:
 		if persistent_id == "" do return
 
 		if request.after == "queue" {
 			queue.playing_persistent_id = persistent_id
-			set_queue()
+			save_queue_and_handoff()
 		}
 
 		helper.send(
@@ -257,7 +256,7 @@ apply_queue_answer :: proc(request_id: int, answered_id: string) {
 	}
 }
 
-// The YouTube page loads a song for some seconds before it plays, and the player says so meanwhile.
+// The YouTube page loads a song for some seconds before it plays. The player says so meanwhile.
 is_starting_youtube_song :: proc() -> bool {
 	now_playing := core.app.now_playing
 	is_loading :=
@@ -284,7 +283,7 @@ resume_last_song :: proc() {
 	queue_state.play_count += 1
 
 	is_queue_song := resume.song.persistent_id == queue.playing_persistent_id
-	request_id := helper.request_play(
+	request_id := helper.send_play(
 		{
 			resume.song.name,
 			resume.song.artist,

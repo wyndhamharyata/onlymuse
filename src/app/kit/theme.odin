@@ -30,7 +30,7 @@ colors := struct {
 	sidebar  = to_color(0xffffff08),
 	player   = to_color(0xffffff06),
 	panel    = to_color(0xffffff06),
-	// Solid, for marks drawn on white, such as the play icon.
+	// A solid colour for marks on white, such as the play icon.
 	ink      = to_color(0x1b1b1eff),
 	line     = to_color(0x2e2e33ff),
 	card     = to_color(0x2a2a2fff),
@@ -58,7 +58,7 @@ SIDEBAR_WIDTH_POINTS :: 228
 
 PLAYER_HEIGHT_POINTS :: 70
 
-// As tall as the traffic lights' strip.
+// The toolbar is as tall as the traffic lights' strip.
 TOOLBAR_HEIGHT_POINTS :: 44
 
 PAGE_PADDING_POINTS :: 20
@@ -121,18 +121,18 @@ COVER_ACCENT_SATURATION :: [2]f32{0.55, 0.9}
 
 COVER_ACCENT_LIGHTNESS :: [2]f32{0.5, 0.65}
 
-// Blue and purple look darker than orange at the same lightness, so the accent is lightened, up to
-// MAX_COVER_ACCENT_LIGHTNESS, until it is at least as bright as the system blue, #0A84FF.
+// Blue and purple look darker than orange at the same lightness. to_cover_accent raises the lightness,
+// up to MAX_COVER_ACCENT_LIGHTNESS, until the accent is at least as bright as the system blue, #0A84FF.
 MIN_ACCENT_LUMINANCE :: 0.24
 
 MAX_COVER_ACCENT_LIGHTNESS :: 0.8
 
-// How fast the accent turns to a new cover's, per second.
-ACCENT_RATE :: 8
+// How fast the accent turns to a new cover's colour.
+ACCENT_RATE_PER_SECOND :: 8
 
 // Turns app.accent toward the playing cover's colour, or the system accent without one.
 // artwork_source is the player's cover, empty when it has none.
-update_accent :: proc(dt_seconds: f32, artwork_source: string) {
+update_accent :: proc(frame_seconds: f32, artwork_source: string) {
 	target := core.app.system_accent
 	color: image.Color
 	has_color := false
@@ -140,8 +140,8 @@ update_accent :: proc(dt_seconds: f32, artwork_source: string) {
 	if artwork_source != "" do color, has_color = image.find_color(artwork_source)
 	if has_color && color.vividness >= MIN_COVER_VIVIDNESS do target = to_cover_accent(color.rgb)
 
-	t := 1 - math.exp(-ACCENT_RATE * min(dt_seconds, 0.1))
-	core.app.accent += (target - core.app.accent) * t
+	amount := 1 - math.exp(-ACCENT_RATE_PER_SECOND * min(frame_seconds, 0.1))
+	core.app.accent += (target - core.app.accent) * amount
 
 	if abs(target.r - core.app.accent.r) +
 		   abs(target.g - core.app.accent.g) +
@@ -157,11 +157,11 @@ to_cover_accent :: proc(rgb: [3]f32) -> [4]f32 {
 	hue, saturation, lightness := to_hsl(rgb)
 	saturation = clamp(saturation, COVER_ACCENT_SATURATION[0], COVER_ACCENT_SATURATION[1])
 	lightness = clamp(lightness, COVER_ACCENT_LIGHTNESS[0], COVER_ACCENT_LIGHTNESS[1])
-	color := from_hsl(hue, saturation, lightness)
+	color := to_rgb_from_hsl(hue, saturation, lightness)
 
 	for to_luminance(color) < MIN_ACCENT_LUMINANCE && lightness < MAX_COVER_ACCENT_LIGHTNESS {
 		lightness += 0.02
-		color = from_hsl(hue, saturation, lightness)
+		color = to_rgb_from_hsl(hue, saturation, lightness)
 	}
 
 	return {color.r, color.g, color.b, 1}
@@ -205,6 +205,6 @@ to_hsl :: proc(rgb: [3]f32) -> (hue, saturation, lightness: f32) {
 
 // Hue in turns, from 0 to 1.
 @(private = "file")
-from_hsl :: proc(hue, saturation, lightness: f32) -> [3]f32 {
+to_rgb_from_hsl :: proc(hue, saturation, lightness: f32) -> [3]f32 {
 	return to_color_from_hsl(hue * 360, saturation, lightness).rgb
 }

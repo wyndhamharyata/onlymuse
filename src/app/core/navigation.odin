@@ -18,7 +18,7 @@ Page_Kind :: enum {
 	Catalog_Playlist,
 	Album,
 	Artist,
-	// The songs of an artist's newest releases. id is the artist's, title their name.
+	// The songs of an artist's newest releases. id holds the artist's ID. title holds their name.
 	Artist_Recent_Songs,
 	Search,
 	// The song playing, whichever it is.
@@ -43,7 +43,7 @@ MAX_PAGE_COUNT :: 50
 
 navigation: struct {
 	pages:   [dynamic]Page,
-	// Where each page in the history was scrolled to, in points, so Back, Forward and the next run return there.
+	// The scroll of each page in the history, in points. Back, Forward and the next run return there.
 	scrolls: [dynamic]f32,
 	index:   int,
 }
@@ -52,11 +52,11 @@ current_page :: proc() -> Page {
 	return navigation.pages[navigation.index]
 }
 
-// Counts up each time a page is shown anew, by opening, Back or Forward.
+// Counts up each time the window shows a page anew, by opening, Back or Forward.
 navigation_visit: int
 
-// Opens a page after the current one. Pages after the current one, from Back, are dropped. The history keeps
-// its own copy of the page's ID and title, as a card's live in its page's memory, which is read again.
+// Opens a page after the current one. It drops the pages after the current one, from Back. The history keeps
+// its own copy of the page's ID and title. A card's copy lives in its page's memory, which the app reads again.
 navigate :: proc(chosen: Page) {
 	if len(navigation.pages) > 0 && current_page() == chosen do return
 
@@ -102,7 +102,7 @@ go_forward :: proc() {
 	save_navigation()
 }
 
-// The saved form, under "navigation".
+// The saved form of a page, under the state key "navigation".
 @(private = "file")
 Saved_Page :: struct {
 	id:          string,
@@ -110,7 +110,7 @@ Saved_Page :: struct {
 	artist_id:   string `json:"artistId"`,
 	playlist_id: string `json:"playlistId"`,
 	term:        string,
-	// The native app's own, for an artist opened by name from the player bar.
+	// The native app's own field, for an artist that the person opens by name from the player bar.
 	artist_name: string `json:"artistName"`,
 	playlist:    struct {
 		id:   string,
@@ -212,7 +212,7 @@ save_navigation :: proc() {
 	if error == nil do store.save_state("navigation", string(bytes))
 }
 
-// The pages of the last run, with Back and Forward as they were. Albums when there are none.
+// The pages of the last run, with Back and Forward as they were. Home when there are none.
 start_navigation :: proc() {
 	text, has_text := store.find_state("navigation")
 	saved: Saved_Navigation
@@ -239,8 +239,8 @@ start_navigation :: proc() {
 	navigation_visit = 1
 }
 
-// A page's scroll box takes back its saved place each time it is shown anew. Its content may still be
-// loading, so the place is applied again until the content is tall enough or 2 s have passed.
+// A page's scroll box takes back its saved place each time the window shows the page anew. Its content may
+// still be loading, so keep_scroll sets the place again until the content is tall enough or 2 s pass.
 keep_scroll :: proc(page_box: ^ui.Box) {
 	index := navigation.index
 	if index >= len(navigation.scrolls) do return
@@ -287,5 +287,5 @@ restore: struct {
 	frames_left: int,
 }
 
-// The scroll is saved once it rests, not on every frame of a scroll.
+// The app saves the scroll once it rests, not on every frame of a scroll.
 is_scroll_changed: bool

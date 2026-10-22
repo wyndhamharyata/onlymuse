@@ -1,5 +1,5 @@
-// Artwork from Apple's image server: saved on disk once, decoded at the size drawn, kept on the GPU
-// while it is recent.
+// This package fetches artwork from Apple's image server and saves it on disk once. It decodes each
+// picture at the size the window draws and keeps it on the GPU while it is recent.
 package image
 
 import "core:hash"
@@ -13,13 +13,13 @@ import "core:time"
 import "om:net"
 import MTL "vendor:darwin/Metal"
 
-// The covers kept on the GPU, in bytes. One drawn in the last frame is never unloaded, so a page with more keeps them all.
+// The most bytes of covers that the GPU keeps. unload_extra never unloads a cover that the last frame drew, so a page with more keeps them all.
 MAX_IMAGE_BYTES :: 64 * 1024 * 1024
 
-// Downloads and decodes at once, on their own threads.
+// The count of downloads and decodes that run at once, each on its own thread.
 WORKER_COUNT :: 6
 
-// A failed image is asked for again this much later.
+// watch asks for a failed image again this much later.
 RETRY_LATER :: 30 * time.Second
 
 FADE_IN_SECONDS :: 0.25
@@ -41,7 +41,7 @@ Entry :: struct {
 	last_drawn_frame: int,
 	ready_time:       time.Tick,
 	failed_time:      time.Tick,
-	// The same picture at any size. Apple's URLs differ only in the last part, the size.
+	// Every size of one picture has the same family. Apple's URLs differ only in the last part, the size.
 	family:           u64,
 	// Another size stood in until this one loaded, so it shows at once, with no fade.
 	had_stand_in:     bool,
@@ -50,15 +50,15 @@ Entry :: struct {
 	bytes:            int,
 }
 
-// The shape a picture is cut to before it goes to the GPU, width over height, kept around focus_y from its top.
-// An aspect of 0 keeps the whole picture. A picture shown cut then costs only the part shown.
+// The crop of a picture before it goes to the GPU. aspect is width over height. The crop stays around focus_y from the top.
+// An aspect of 0 keeps the whole picture. A cropped picture then costs only the part that the window shows.
 Crop :: struct {
 	aspect:  f32,
 	focus_y: f32,
 }
 
-// A guess at a picture's colour: the average of its pixels, the vivid and bright ones counting most.
-// vividness, from 0 to 1, is how colourful the picture is overall. A black and white one is near 0.
+// A guess at the colour of a picture. rgb is the average of its pixels. The vivid and bright pixels count most.
+// vividness, from 0 to 1, is how colourful the picture is overall. A black and white picture is near 0.
 Color :: struct {
 	rgb:       [3]f32,
 	vividness: f32,
@@ -78,13 +78,13 @@ Job :: struct {
 state: struct {
 	folder:        string,
 	entries:       map[u64]^Entry,
-	// Newest last, so the covers asked for most recently load first.
+	// The newest key comes last, so the covers that the window asked for most recently load first.
 	waiting:       [dynamic]u64,
 	loading_count: int,
 	pool:          thread.Pool,
 	mutex:         sync.Mutex,
 	finished:      [dynamic]^Job,
-	// The entry of each family last loaded, to stand in for a size still loading.
+	// The entry of each family that loaded last, to stand in for a size that still loads.
 	families:      map[u64]u64,
 	frame_index:   int,
 	is_fading:     bool,
@@ -103,13 +103,13 @@ start :: proc() {
 	thread.pool_start(&state.pool)
 }
 
-// Called once a frame before any image is drawn. Takes in finished loads and starts waiting ones.
+// The app calls this once a frame before it draws any image. It takes in finished loads and starts waiting ones.
 begin_frame :: proc() {
 	state.frame_index += 1
 	state.is_fading = false
 
 	take_finished()
-	// A thread pool keeps each finished task until it is taken.
+	// A thread pool keeps each finished task until pool_pop_done takes it.
 	for _ in thread.pool_pop_done(&state.pool) {}
 	start_waiting()
 	unload_extra()
@@ -120,8 +120,8 @@ is_animating :: proc() -> bool {
 	return state.is_fading
 }
 
-// The texture for url, or a file path, at size_pixels, or nil until it is loaded. opacity fades a new image in.
-find :: proc(
+// The texture for url, or a file path, at size_pixels, or nil until it loads. opacity fades a new image in.
+watch :: proc(
 	url: string,
 	size_pixels: int,
 	crop := Crop{},
@@ -183,8 +183,8 @@ to_family :: proc(url: string) -> u64 {
 		slash := strings.last_index_byte(url, '/')
 		equals := strings.last_index_byte(url, '=')
 
-		// Apple puts the size after the last slash. YouTube's googleusercontent.com puts it after "=", and the
-		// picture's ID before it, so the slash would make every YouTube picture one family.
+		// Apple puts the size after the last slash. YouTube's googleusercontent.com puts it after "=" and puts
+		// the picture's ID before it. The slash would then make every YouTube picture one family.
 		if equals > slash {
 			family = url[:equals]
 		} else if slash > 0 {
@@ -197,7 +197,7 @@ to_family :: proc(url: string) -> u64 {
 
 @(private)
 // Only a size of the same crop stands in. The same picture cropped square for a song row would show zoomed
-// in a wide tile, then jump when the tile's own loads.
+// in a wide tile, then jump when the tile's own picture loads.
 find_stand_in :: proc(family, key: u64, crop: Crop) -> (^Entry, bool) {
 	stand_in_key, ok := state.families[family]
 	if !ok || stand_in_key == key do return nil, false
@@ -210,7 +210,7 @@ find_stand_in :: proc(family, key: u64, crop: Crop) -> (^Entry, bool) {
 
 @(private)
 start_waiting :: proc() {
-	// Last frame's requests. A cover scrolled past before it started is not loaded.
+	// state.waiting holds the requests of the last frame. This loop skips a cover that scrolled out of view before its load started.
 	#reverse for key in state.waiting {
 		if state.loading_count >= WORKER_COUNT do break
 
@@ -231,7 +231,7 @@ start_waiting :: proc() {
 			size_pixels = entry.size_pixels,
 			crop        = entry.crop,
 		}
-		thread.pool_add_task(&state.pool, context.allocator, load, job)
+		thread.pool_add_task(&state.pool, context.allocator, fetch_image, job)
 	}
 
 	clear(&state.waiting)
@@ -309,14 +309,14 @@ unload_extra :: proc() {
 	}
 }
 
-// Counts for the bench.
+// The count of ready images and of all images, for the bench.
 count :: proc() -> (ready, total: int) {
 	for _, entry in state.entries do if entry.phase == .Ready do ready += 1
 
 	return ready, len(state.entries)
 }
 
-// The colour of the picture at url at whichever size loaded, false until one has.
+// The colour of the picture at url at whichever size loaded. It returns false until one size loads.
 find_color :: proc(url: string) -> (Color, bool) {
 	key, ok := state.families[to_family(url)]
 	if !ok do return {}, false

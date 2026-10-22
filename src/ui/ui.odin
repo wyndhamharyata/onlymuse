@@ -1,5 +1,5 @@
-// Immediate mode UI after Ryan Fleury's: the app builds a tree of boxes every frame, and a cache keyed by
-// each box's ID keeps its state from one frame to the next.
+// An immediate mode UI after Ryan Fleury's. The app builds a tree of boxes every frame. A cache keyed
+// by the ID of each box keeps its state from one frame to the next.
 package ui
 
 import "core:hash"
@@ -13,13 +13,13 @@ Axis :: enum {
 
 Size_Kind :: enum {
 	Points,
-	// The text and the padding.
+	// The size of the text and the padding.
 	Text,
 	// A share of the parent, without its padding.
 	Percent,
 	// The children laid along the axis, or the largest one across it.
 	Children,
-	// What is left in the parent along its axis, shared by weight. Across it, the whole parent.
+	// The space that remains in the parent along its axis, shared by weight. Across it, the whole parent.
 	Fill,
 }
 
@@ -45,17 +45,17 @@ Align :: enum {
 }
 
 Flag :: enum {
-	// Takes hover, press and click.
+	// The box takes hover, press and click.
 	Clickable,
-	// Takes hover only, such as a title that slides to show the rest.
+	// The box takes hover only, such as a title that slides to show the rest.
 	Hoverable,
-	// Scrolls its children along its axis.
+	// The box scrolls its children along its axis.
 	Scroll,
-	// Hides children outside its rect.
+	// The box hides the children outside its rect.
 	Clip,
-	// Placed at style.position in its parent, out of the flow.
+	// The parent places the box at style.position, out of the flow.
 	Floating,
-	// Glides to a new place instead of jumping.
+	// The box glides to a new place instead of jumping.
 	Animate_Position,
 	Wrap_Text,
 	// One line that ends in an ellipsis when it is too long.
@@ -72,10 +72,10 @@ Style :: struct {
 	// Left, top, right, bottom.
 	padding:          [4]f32,
 	gap:              f32,
-	// Of the children across the axis.
+	// The alignment of the children across the axis.
 	align:            Align,
 	text_align:       Align,
-	// Moves the text left by this many points, inside its clip.
+	// The text moves left by this many points, inside its clip.
 	text_offset:      f32,
 	background:       [4]f32,
 	// How far the edge blurs, in points, for a shadow.
@@ -97,7 +97,7 @@ Style :: struct {
 	flags:            Flags,
 }
 
-// Draws what a style cannot, such as an image. Rects are in pixels.
+// A Draw_Proc draws what a style cannot, such as an image. Its rects are in pixels.
 Draw_Proc :: proc(box: ^Box, rect, clip: [4]f32, opacity: f32)
 
 Box :: struct {
@@ -108,19 +108,19 @@ Box :: struct {
 	style:            Style,
 	text:             string,
 	draw:             Draw_Proc,
-	// Colours the text per character instead of style.text_color.
+	// The proc colours the text per character instead of style.text_color.
 	color_of:         font.Color_Proc,
 	data:             rawptr,
 	last_built_frame: int,
-	// Layout, in points from the top left of the window.
+	// The layout sets these, in points from the top left of the window.
 	size:             [2]f32,
 	rect:             [4]f32,
 	clip:             [4]f32,
 	content_size:     [2]f32,
 	shaped:           ^font.Shaped_Text,
-	// Kept between frames.
-	hot_t:            f32,
-	active_t:         f32,
+	// The cache keeps these between frames.
+	hot_fraction:     f32,
+	active_fraction:  f32,
 	scroll:           f32,
 	scroll_target:    f32,
 	shown_rect:       [4]f32,
@@ -146,7 +146,7 @@ Animated_Value :: struct {
 // Hover and press fade in at this rate, per second.
 HOT_RATE :: 20
 
-// Points a mouse wheel moves per line.
+// The points that a mouse wheel moves per line.
 POINTS_PER_LINE :: 40
 
 @(private)
@@ -161,7 +161,7 @@ state: struct {
 	frame_index:       int,
 	scale:             f32,
 	zoom:              f32,
-	dt_seconds:        f32,
+	frame_seconds:     f32,
 	mouse:             [2]f32,
 	hot_key:           u64,
 	active_key:        u64,
@@ -169,11 +169,11 @@ state: struct {
 	scroll_keys:       [Axis]u64,
 	// A trackpad swipe and its glide move along one axis, the one its first points went most along.
 	swipe_axis:        Maybe(Axis),
-	// The swipe's points before its axis is known.
+	// The points the swipe moves before it has an axis.
 	swipe_pending:     [2]f32,
 	clicked_key:       u64,
 	right_clicked_key: u64,
-	// The button down is a right click's, so its release clicks nothing.
+	// The held button belongs to a right click, so its release clicks nothing.
 	is_right_press:    bool,
 	// Where the left button went down, for a drag.
 	press_position:    [2]f32,
@@ -183,11 +183,11 @@ state: struct {
 }
 
 // Points are window points divided by zoom. scale turns points into pixels.
-begin_frame :: proc(window_size_points: [2]f32, pixels_per_point, zoom, dt_seconds: f32) {
+begin_frame :: proc(window_size_points: [2]f32, pixels_per_point, zoom, frame_seconds: f32) {
 	state.frame_index += 1
 	state.zoom = zoom
 	state.scale = pixels_per_point * zoom
-	state.dt_seconds = min(dt_seconds, 1.0 / 30)
+	state.frame_seconds = min(frame_seconds, 1.0 / 30)
 	state.clicked_key = 0
 	state.right_clicked_key = 0
 	state.pressed_key = 0
@@ -316,7 +316,7 @@ animate :: proc(id: string, target: f32, rate: f32 = HOT_RATE) -> f32 {
 
 @(private)
 approach :: proc(value, target, rate: f32) -> f32 {
-	next := value + (target - value) * (1 - math.exp(-state.dt_seconds * rate))
+	next := value + (target - value) * (1 - math.exp(-state.frame_seconds * rate))
 
 	if abs(target - next) < SETTLED * max(1, abs(target)) do return target
 

@@ -23,43 +23,43 @@ Blur_View :: struct {
 Blur_View_updateLayer :: proc "c" (self: ^Blur_View) {
 	super := Objc_Super{self, NS.Class(intrinsics.objc_find_class("NSVisualEffectView"))}
 	objc_msgSendSuper(&super, NS.SEL(intrinsics.objc_find_selector("updateLayer")))
-	remove_layer_background(msg_send(^Layer, self, "layer"))
+	remove_layer_background(objc_send(^Layer, self, "layer"))
 }
 
 @(private)
 remove_layer_background :: proc "c" (layer: ^Layer) {
 	if layer == nil do return
 
-	msg_send(nil, layer, "setBackgroundColor:", rawptr(nil))
+	objc_send(nil, layer, "setBackgroundColor:", rawptr(nil))
 
-	class_name := msg_send(^NS.String, layer, "className")
+	class_name := objc_send(^NS.String, layer, "className")
 
 	// CAChameleonLayer tints the blur with the desktop colour.
-	if msg_send(NS.BOOL, class_name, "isEqualToString:", NS.AT("CAChameleonLayer")) {
-		msg_send(nil, layer, "setHidden:", NS.BOOL(true))
+	if objc_send(NS.BOOL, class_name, "isEqualToString:", NS.AT("CAChameleonLayer")) {
+		objc_send(nil, layer, "setHidden:", NS.BOOL(true))
 		return
 	}
 
-	filters := msg_send(^NS.Array, layer, "filters")
+	filters := objc_send(^NS.Array, layer, "filters")
 
 	if filters != nil {
 		kept := NS.MutableArray.alloc()->init()
 
 		for index in 0 ..< filters->count() {
 			filter := filters->object(index)
-			description := msg_send(^NS.String, filter, "description")
+			description := objc_send(^NS.String, filter, "description")
 
 			// The blur raises saturation with a filter named "colorSaturate".
-			if msg_send(NS.BOOL, description, "containsString:", NS.AT("Saturat")) do continue
+			if objc_send(NS.BOOL, description, "containsString:", NS.AT("Saturat")) do continue
 
-			msg_send(nil, kept, "addObject:", filter)
+			objc_send(nil, kept, "addObject:", filter)
 		}
 
-		msg_send(nil, layer, "setFilters:", kept)
+		objc_send(nil, layer, "setFilters:", kept)
 		kept->release()
 	}
 
-	sublayers := msg_send(^NS.Array, layer, "sublayers")
+	sublayers := objc_send(^NS.Array, layer, "sublayers")
 
 	if sublayers == nil do return
 

@@ -5,10 +5,10 @@ import "om:font"
 import "om:render"
 
 @(private)
-mix :: proc(a, b: [4]f32, t: f32) -> [4]f32 {
+mix :: proc(a, b: [4]f32, fraction: f32) -> [4]f32 {
 	if b.a == 0 do return a
 
-	return a + (b - a) * t
+	return a + (b - a) * fraction
 }
 
 @(private)
@@ -27,9 +27,9 @@ draw :: proc(box: ^Box, clip: [4]f32, parent_opacity: f32) {
 	if is_outside && .Clip in style.flags do return
 
 	background := mix(
-		mix(style.background, style.hover_background, box.hot_t),
+		mix(style.background, style.hover_background, box.hot_fraction),
 		style.press_background,
-		box.active_t,
+		box.active_fraction,
 	)
 
 	has_gradient := style.gradient.y > style.gradient.x

@@ -20,7 +20,7 @@ List :: struct {
 	cards:                []apple.Card,
 	// The token for the next part of a long list. Empty at its end.
 	continuation:         string,
-	// The token for the next shelves of a page such as home, which continuation_path cannot ask for.
+	// The token for the next shelves of a page such as home, which to_continuation_path cannot ask for.
 	section_continuation: string,
 }
 
@@ -46,7 +46,7 @@ Reader :: struct {
 	section_continuation: string,
 }
 
-// Reads any answer of browse, search or next. The JSON is read in the temp allocator, and what is kept is copied into allocator.
+// Reads any answer of browse, search or next. It parses the JSON in the temp allocator. It copies what it keeps into allocator.
 to_list :: proc(body: string, allocator := context.allocator) -> List {
 	value, error := json.parse_string(body, allocator = context.temp_allocator)
 	if error != nil do return {}

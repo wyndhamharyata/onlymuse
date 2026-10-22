@@ -10,14 +10,14 @@ import "om:image"
 import "om:platform"
 import "om:ui"
 
-// The first frames open the window and load fonts, so the bench leaves them out.
+// The first frames open the window and load fonts, so the bench skips them.
 BENCH_SKIPPED_FRAME_COUNT :: 10
 
 build_frame_time :: proc() {
 	count := len(core.app.build_durations)
 	if count == 0 || !core.app.is_showing_frames do return
 
-	last := time.duration_milliseconds(core.app.build_durations[count - 1])
+	last_ms := time.duration_milliseconds(core.app.build_durations[count - 1])
 	root := ui.current_parent()
 
 	ui.box(
@@ -31,7 +31,7 @@ build_frame_time :: proc() {
 			font_size = 11,
 			flags = {.Floating},
 		},
-		fmt.tprintf("frame %.2f ms", last),
+		fmt.tprintf("frame %.2f ms", last_ms),
 	)
 }
 

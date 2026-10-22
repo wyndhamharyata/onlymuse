@@ -87,13 +87,13 @@ foreign core_graphics {
 	CGColorSpaceCreateDeviceRGB :: proc() -> Color_Space_Ref ---
 	CGColorSpaceRelease :: proc(space: Color_Space_Ref) ---
 	CGBitmapContextCreate :: proc(data: rawptr, width, height, bits_per_component, bytes_per_row: uint, space: Color_Space_Ref, bitmap_info: u32) -> Context_Ref ---
-	CGContextRelease :: proc(ctx: Context_Ref) ---
-	CGContextSetGrayFillColor :: proc(ctx: Context_Ref, gray, alpha: f64) ---
-	CGContextSetAllowsFontSubpixelPositioning :: proc(ctx: Context_Ref, allows: b8) ---
-	CGContextSetShouldSubpixelPositionFonts :: proc(ctx: Context_Ref, should: b8) ---
-	CGContextSetAllowsFontSubpixelQuantization :: proc(ctx: Context_Ref, allows: b8) ---
-	CGContextSetShouldSubpixelQuantizeFonts :: proc(ctx: Context_Ref, should: b8) ---
-	CGContextDrawImage :: proc(ctx: Context_Ref, rect: Rect, image: Image_Ref) ---
+	CGContextRelease :: proc(graphics_context: Context_Ref) ---
+	CGContextSetGrayFillColor :: proc(graphics_context: Context_Ref, gray, alpha: f64) ---
+	CGContextSetAllowsFontSubpixelPositioning :: proc(graphics_context: Context_Ref, allows: b8) ---
+	CGContextSetShouldSubpixelPositionFonts :: proc(graphics_context: Context_Ref, should: b8) ---
+	CGContextSetAllowsFontSubpixelQuantization :: proc(graphics_context: Context_Ref, allows: b8) ---
+	CGContextSetShouldSubpixelQuantizeFonts :: proc(graphics_context: Context_Ref, should: b8) ---
+	CGContextDrawImage :: proc(graphics_context: Context_Ref, rect: Rect, image: Image_Ref) ---
 	CGImageGetWidth :: proc(image: Image_Ref) -> uint ---
 	CGImageGetHeight :: proc(image: Image_Ref) -> uint ---
 	CGImageRelease :: proc(image: Image_Ref) ---
@@ -109,7 +109,7 @@ foreign core_text {
 	CTFontGetDescent :: proc(font: Font_Ref) -> f64 ---
 	CTFontGetLeading :: proc(font: Font_Ref) -> f64 ---
 	CTFontGetBoundingRectsForGlyphs :: proc(font: Font_Ref, orientation: u32, glyphs: [^]Glyph, rects: [^]Rect, count: Index) -> Rect ---
-	CTFontDrawGlyphs :: proc(font: Font_Ref, glyphs: [^]Glyph, positions: [^]Point, count: uint, ctx: Context_Ref) ---
+	CTFontDrawGlyphs :: proc(font: Font_Ref, glyphs: [^]Glyph, positions: [^]Point, count: uint, graphics_context: Context_Ref) ---
 	CTLineCreateWithAttributedString :: proc(text: Attributed_String_Ref) -> Line_Ref ---
 	CTLineGetGlyphRuns :: proc(line: Line_Ref) -> Array_Ref ---
 	CTLineGetTypographicBounds :: proc(line: Line_Ref, ascent, descent, leading: ^f64) -> f64 ---

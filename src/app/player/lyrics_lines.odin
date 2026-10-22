@@ -8,7 +8,7 @@ import "om:lyrics"
 import "om:platform"
 import "om:ui"
 
-// How far a moment's fade has gone, from 0 when it starts to 1 once WORD_FADE_SECONDS have passed.
+// Returns how far a moment's fade went, from 0 when it starts to 1 after WORD_FADE_SECONDS.
 to_fade :: proc(begin_seconds: f64) -> f32 {
 	return f32(clamp((lyrics_state.position_seconds - begin_seconds) / WORD_FADE_SECONDS, 0, 1))
 }
@@ -71,7 +71,7 @@ build_lyric_line :: proc(line: ^lyrics.Line, index: int) {
 		text.color_of = color_lyric_glyph
 		text.data = paint
 
-		if line.pronunciation != "" && lyrics_state.shows_romaji {
+		if line.pronunciation != "" && lyrics_state.is_showing_romaji {
 			pronunciation_paint := new(Line_Paint, context.temp_allocator)
 			pronunciation_paint^ = {index, line.pronunciation_words}
 
@@ -91,7 +91,7 @@ build_lyric_line :: proc(line: ^lyrics.Line, index: int) {
 			pronunciation.data = pronunciation_paint
 		}
 
-		if line.translation != "" && lyrics_state.shows_translation {
+		if line.translation != "" && lyrics_state.is_showing_translation {
 			ui.box(
 				"translation",
 				{
@@ -107,11 +107,11 @@ build_lyric_line :: proc(line: ^lyrics.Line, index: int) {
 	}
 }
 
-// After Cmd [ or Cmd ], the new lead for a moment, so the change can be heard against a number.
+// After Cmd [ or Cmd ], this shows the new lead for a moment, so the person hears the change against a number.
 build_lead_note :: proc() {
-	if lyrics_state.lead_changed_tick == 0 do return
+	if lyrics_state.lead_changed_ms == 0 do return
 
-	shown_seconds := (helper.now_ms() - lyrics_state.lead_changed_tick) / 1000
+	shown_seconds := (helper.now_ms() - lyrics_state.lead_changed_ms) / 1000
 	if shown_seconds > LEAD_NOTE_SECONDS do return
 
 	platform.request_frame_after(LEAD_NOTE_SECONDS - shown_seconds + 0.01)

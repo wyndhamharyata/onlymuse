@@ -1,4 +1,4 @@
-// HTTP through libcurl. Each thread keeps its own handle, so connections are reused.
+// This package sends HTTP requests through libcurl. Each thread keeps its own handle, so curl reuses its connections.
 package net
 
 import "base:runtime"
@@ -17,7 +17,7 @@ Response :: struct {
 // A Safari User-Agent. Apple's servers reset more connections without one.
 USER_AGENT :: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15"
 TIMEOUT_MS :: 15_000
-// Apple's image server resets a connection now and then, and answers 429 or 5xx when busy. Those are tried again.
+// Apple's image server resets a connection now and then. It answers 429 or 5xx when it is busy. fetch tries those again.
 @(private)
 retry_delays := [?]time.Duration {
 	250 * time.Millisecond,
@@ -34,7 +34,7 @@ start :: proc() {
 
 @(private)
 append_body :: proc "c" (data: [^]u8, size, count: c.size_t, user: rawptr) -> c.size_t {
-	// curl calls this from C, with no Odin context, and append needs one for its allocator.
+	// curl calls this from C with no Odin context. append needs a context for its allocator.
 	context = runtime.default_context()
 	body := cast(^[dynamic]u8)user
 	append(body, ..data[:size * count])
@@ -44,12 +44,12 @@ append_body :: proc "c" (data: [^]u8, size, count: c.size_t, user: rawptr) -> c.
 
 Method :: enum {
 	Get,
-	// With a JSON body, or an empty one, as Apple's library additions take.
+	// A POST carries a JSON body, or an empty one, as the requests that write to Apple's library take.
 	Post,
 }
 
-// Blocks the thread until the answer comes. The body and content type use allocator.
-// A POST is never sent twice: a second try after a lost answer could add a song twice.
+// fetch blocks the thread until the answer comes. The body and the content type use allocator.
+// fetch never sends a POST twice. A second try after a lost answer could put a song in the library twice.
 fetch :: proc(
 	url: string,
 	headers: []string = nil,
@@ -61,9 +61,9 @@ fetch :: proc(
 		response := fetch_once(url, headers, method, allocator, body)
 		if method == .Post do return response
 
-		is_passing := response.status == 0 || response.status == 429 || response.status >= 500
+		is_retryable := response.status == 0 || response.status == 429 || response.status >= 500
 
-		if !is_passing || attempt >= len(retry_delays) do return response
+		if !is_retryable || attempt >= len(retry_delays) do return response
 
 		delete(response.body, allocator)
 		time.sleep(retry_delays[attempt])

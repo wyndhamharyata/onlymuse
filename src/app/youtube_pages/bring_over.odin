@@ -11,7 +11,7 @@ import "om:apple"
 import "om:ui"
 import "om:youtube"
 
-// The YouTube playlists in the library, or one of them with what each song plays from.
+// Shows the YouTube playlists in the library, or one of them with what each song plays from.
 build_bring_over_page :: proc(page: core.Page) {
 	if !youtube.is_signed_in() {
 		build_youtube_sign_in_page(
@@ -23,7 +23,7 @@ build_bring_over_page :: proc(page: core.Page) {
 
 	if page.id == "" {
 		list, watched := youtube_lists.watch_youtube_list(
-			youtube.browse_path(youtube.LIBRARY_PLAYLISTS_ID),
+			youtube.to_browse_path(youtube.LIBRARY_PLAYLISTS_ID),
 		)
 		playlists := make([dynamic]apple.Card, context.temp_allocator)
 
@@ -43,9 +43,9 @@ build_bring_over_page :: proc(page: core.Page) {
 		return
 	}
 
-	first, songs, phase := youtube_lists.watch_youtube_songs(youtube.list_path(page.id))
+	first, songs, phase := youtube_lists.watch_youtube_songs(youtube.to_list_path(page.id))
 	title := first.title if first.title != "" else page.title
-	counts := count_matches(songs)
+	counts := list_match_counts(songs)
 	scroll := kit.page_scroll("bring over")
 
 	if ui.scope(scroll) {
@@ -63,7 +63,7 @@ build_bring_over_page :: proc(page: core.Page) {
 			if ui.scope(heading) {
 				kit.page_heading(title)
 				kit.text_box(
-					to_match_summary(counts, len(songs)) if phase == .Ready else youtube_lists.youtube_phase_note(phase),
+					to_match_summary(counts, len(songs)) if phase == .Ready else youtube_lists.to_youtube_phase_note(phase),
 					kit.colors.dim,
 				)
 			}
@@ -85,7 +85,7 @@ build_bring_over_page :: proc(page: core.Page) {
 }
 
 @(private = "file")
-count_matches :: proc(songs: []core.Catalog_Song) -> [matching.Match_State]int {
+list_match_counts :: proc(songs: []core.Catalog_Song) -> [matching.Match_State]int {
 	counts: [matching.Match_State]int
 
 	for song in songs {
@@ -110,7 +110,7 @@ to_match_summary :: proc(counts: [matching.Match_State]int, total: int) -> strin
 	return text
 }
 
-// The Apple songs make the new playlist. A song only on YouTube is kept after the Apple song before it.
+// The Apple songs make the new playlist. It keeps a song only on YouTube after the Apple song before it.
 @(private = "file")
 bring_over :: proc(name: string, songs: []core.Catalog_Song) {
 	apple_songs := make([dynamic]core.Catalog_Song, context.temp_allocator)
@@ -118,7 +118,7 @@ bring_over :: proc(name: string, songs: []core.Catalog_Song) {
 	after := youtube_lists.PLAYLIST_START
 
 	for song in songs {
-		playable := matching.to_playable(song)
+		playable := matching.find_playable(song)
 
 		if youtube.is_song_id(playable.id) {
 			append(&extra, youtube_lists.Playlist_YouTube_Song{after, playable})

@@ -30,7 +30,7 @@ is_resume_shown :: proc() -> bool {
 }
 
 // What Music.app knows of a song and Apple's API does not. Dates are Unix ms, 0 when it has none.
-Track_Info :: struct {
+Song_Info :: struct {
 	is_in_library:   bool,
 	favorited:       bool,
 	played_count:    int,
@@ -46,39 +46,39 @@ Track_Info :: struct {
 }
 
 // Music.app's answers, by persistent ID.
-track_infos: map[string]Track_Info
+song_infos: map[string]Song_Info
 
-// When each persistent ID was last asked about, so a page built every frame asks once a minute.
+// When the app last asked Music.app about each persistent ID, so a page that builds every frame asks once a minute.
 @(private = "file")
-asked_at: map[string]f64
+asked_at_ms: map[string]f64
 
-TRACK_INFO_REFRESH_MS :: 60_000
+SONG_INFO_REFRESH_MS :: 60_000
 
-// The answer so far, asking Music.app when it has not been asked lately.
-find_track_info :: proc(persistent_id: string) -> (Track_Info, bool) {
+// The answer so far. It asks Music.app when the app did not ask within SONG_INFO_REFRESH_MS.
+watch_song_info :: proc(persistent_id: string) -> (Song_Info, bool) {
 	if persistent_id == "" do return {}, false
 
-	now := helper.now_ms()
-	last, was_asked := asked_at[persistent_id]
-	is_fresh := was_asked && now - last <= TRACK_INFO_REFRESH_MS
+	now_ms := helper.now_ms()
+	last_asked_ms, was_asked := asked_at_ms[persistent_id]
+	is_fresh := was_asked && now_ms - last_asked_ms <= SONG_INFO_REFRESH_MS
 
-	if is_fresh do return track_infos[persistent_id]
+	if is_fresh do return song_infos[persistent_id]
 
 	if was_asked {
-		asked_at[persistent_id] = now
+		asked_at_ms[persistent_id] = now_ms
 	} else {
-		asked_at[strings.clone(persistent_id)] = now
+		asked_at_ms[strings.clone(persistent_id)] = now_ms
 	}
 
-	helper.request_track_info(persistent_id)
+	helper.send_song_info_request(persistent_id)
 
-	return track_infos[persistent_id]
+	return song_infos[persistent_id]
 }
 
 apply_track_info :: proc(message: helper.Message) {
 	if message.persistent_id == "" do return
 
-	info := Track_Info {
+	info := Song_Info {
 		is_in_library   = message.is_in_library,
 		favorited       = message.favorited,
 		played_count    = message.played_count,
@@ -93,11 +93,11 @@ apply_track_info :: proc(message: helper.Message) {
 		size            = message.size,
 	}
 
-	if old, ok := track_infos[message.persistent_id]; ok {
+	if old, ok := song_infos[message.persistent_id]; ok {
 		delete(old.kind)
-		track_infos[message.persistent_id] = info
+		song_infos[message.persistent_id] = info
 	} else {
-		track_infos[strings.clone(message.persistent_id)] = info
+		song_infos[strings.clone(message.persistent_id)] = info
 	}
 }
 
@@ -120,7 +120,7 @@ find_playing_song :: proc() -> (song: core.Catalog_Song, persistent_id: string, 
 		true
 }
 
-// A toggle since the Favourite Songs playlist was last read, by catalog ID, so a row shows it at once.
+// A toggle since the app last read the Favourite Songs playlist, by catalog ID, so a row shows it at once.
 @(private = "file")
 favourite_changes: map[string]bool
 
@@ -144,7 +144,7 @@ favourite_set: struct {
 
 // The catalog IDs in Favourite Songs, read again when its answers change.
 @(private = "file")
-favourite_ids :: proc() -> map[string]bool {
+watch_favourite_ids :: proc() -> map[string]bool {
 	if favourite_set.checked_frame == core.app.frame_count + 1 do return favourite_set.ids
 
 	favourite_set.checked_frame = core.app.frame_count + 1
@@ -173,11 +173,11 @@ favourite_ids :: proc() -> map[string]bool {
 
 // Music.app's answer for the playing song, else this session's toggle, else Favourite Songs.
 is_favourite :: proc(song: core.Catalog_Song, persistent_id := "") -> bool {
-	if info, ok := track_infos[persistent_id]; ok && persistent_id != "" do return info.favorited
+	if info, ok := song_infos[persistent_id]; ok && persistent_id != "" do return info.favorited
 	if changed, ok := favourite_changes[song.id]; ok do return changed
 	if youtube.is_song_id(song.id) do return youtube_lists.is_youtube_favourite(song)
 
-	return favourite_ids()[song.id]
+	return watch_favourite_ids()[song.id]
 }
 
 toggle_favourite :: proc(song: core.Catalog_Song, persistent_id := "") {
@@ -192,11 +192,11 @@ toggle_favourite :: proc(song: core.Catalog_Song, persistent_id := "") {
 		return
 	}
 
-	if info, ok := &track_infos[persistent_id]; ok && persistent_id != "" {
+	if info, ok := &song_infos[persistent_id]; ok && persistent_id != "" {
 		info.favorited = favorited
 	}
 
-	request_id := helper.request_set_favorite(persistent_id, to_song_match(song), favorited)
+	request_id := helper.send_set_favorite(persistent_id, to_song_match(song), favorited)
 	favourite_requests[request_id] = {strings.clone(song.id), favorited}
 	kit.show_toast("Added to Favourite Songs" if favorited else "Removed from Favourite Songs")
 }

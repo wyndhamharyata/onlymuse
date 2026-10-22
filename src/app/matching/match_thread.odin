@@ -12,7 +12,7 @@ import "om:apple"
 import "om:platform"
 
 // Apple refuses an account that searches too fast, with 429, for a while. So one search runs at a time, a
-// little apart, and a refusal stops matching for a minute.
+// little apart. A refusal stops matching for a minute.
 MATCH_GAP :: 300 * time.Millisecond
 
 REFUSED_PAUSE :: 60 * time.Second
@@ -26,11 +26,11 @@ MATCH_BATCH_COUNT :: 20
 // Albums found for one YouTube album. A single and an album of the same name are both worth checking.
 MAX_FOUND_ALBUM_COUNT :: 3
 
-// Kept by the matching thread alone, so it needs no mutex.
+// Only the matching thread uses this, so it needs no mutex.
 albums: struct {
 	// Apple's album IDs for a YouTube album, by to_album_key.
 	found_ids: map[string][]string,
-	// The songs of each album fetched, by Apple's album ID. Empty for an album Apple did not send.
+	// The songs of each album fetched, by Apple's album ID. It is empty for an album that Apple did not send.
 	songs:     map[string][]core.Catalog_Song,
 }
 
@@ -40,7 +40,7 @@ Match_Job :: struct {
 	video_id: string,
 }
 
-// Holds the matcher's mutex.
+// The caller holds the matcher's mutex.
 @(private)
 start_matching :: proc(song: core.Catalog_Song, video_id: string) {
 	if !matcher.is_started {
@@ -54,15 +54,15 @@ start_matching :: proc(song: core.Catalog_Song, video_id: string) {
 	matcher.checking[job.video_id] = true
 	append(&matcher.pending, job)
 
-	// Each task takes a batch, so a task that comes after its songs were taken finds none and ends.
-	// The pool keeps each finished task until it is taken.
+	// Each task takes a batch, so a task that comes after another task took its songs finds none and ends.
+	// The pool keeps each finished task until pool_pop_done takes it.
 	for _ in thread.pool_pop_done(&matcher.pool) {}
 	thread.pool_add_task(&matcher.pool, context.allocator, check_matches, nil)
 }
 
 // Runs on the one matching thread. The albums the batch names come first, as one album answers for each of its
-// songs. A song no album answers for is searched alone. An answer that does not come is not saved, and its song
-// is checked again later.
+// songs. It searches alone for a song that no album answers for. It saves nothing when an answer does not come.
+// It then checks that song again later.
 @(private = "file")
 check_matches :: proc(task: thread.Task) {
 	defer free_all(context.temp_allocator)
@@ -77,7 +77,7 @@ check_matches :: proc(task: thread.Task) {
 		remove_range(&matcher.pending, 0, count)
 	}
 
-	status := find_albums(jobs[:])
+	status := fetch_job_albums(jobs[:])
 
 	for job in jobs {
 		best: core.Catalog_Song
@@ -130,7 +130,7 @@ finish_job :: proc(job: ^Match_Job, best: core.Catalog_Song, is_found: bool, sta
 
 // Searches Apple once for each album the jobs name, then fetches the albums found with their songs, 20 to a request.
 @(private = "file")
-find_albums :: proc(jobs: []^Match_Job) -> int {
+fetch_job_albums :: proc(jobs: []^Match_Job) -> int {
 	wanted := make([dynamic]string, context.temp_allocator)
 
 	for job in jobs {
@@ -223,7 +223,7 @@ fetch_albums :: proc(ids: []string) -> int {
 		if album.id not_in albums.songs do albums.songs[strings.clone(album.id)] = songs[:]
 	}
 
-	// An album Apple did not send is not asked for again.
+	// A nil entry stops a second request for an album that Apple did not send.
 	for id in ids do if id not_in albums.songs do albums.songs[strings.clone(id)] = nil
 
 	return 200
@@ -242,7 +242,7 @@ find_in_albums :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, bool) {
 	return find_closest(song, candidates[:])
 }
 
-// Apple's search for the song itself. When its album was not found, the album's name goes in the term too.
+// Apple's search for the song itself. When the album search found no album, the album's name goes in the term too.
 @(private = "file")
 search_song :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, bool, int) {
 	has_album_ids := len(albums.found_ids[to_album_key(song)] or_else nil) > 0
@@ -272,7 +272,7 @@ to_album_key :: proc(song: core.Catalog_Song) -> string {
 	return fmt.tprintf("%s|%s", to_match_key(song.album_name), to_match_key(song.artist_name))
 }
 
-// Sleeps until Apple may be asked again, then a little more.
+// Sleeps until the matcher may ask Apple again, then a little more.
 @(private = "file")
 wait_to_search :: proc() {
 	resume_at: time.Tick

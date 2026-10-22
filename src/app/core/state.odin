@@ -16,7 +16,7 @@ Panel :: enum {
 app: struct {
 	window:            ^platform.Window,
 	zoom:              f32,
-	// The playing song's cover's colour, or system_accent when it has none to give.
+	// The colour of the playing song's cover, or system_accent when the cover has none to give.
 	accent:            [4]f32,
 	// The accent chosen in System Settings, as the helper reports it.
 	system_accent:     [4]f32,
@@ -25,7 +25,7 @@ app: struct {
 	// The tab the panel opens on.
 	last_panel:        Panel,
 	is_sign_in_needed: bool,
-	// OM_TYPE: text typed into the focused field a second in, for the tests.
+	// OM_TYPE types this text into the focused field a second after the start, for the tests.
 	test_typing:       string,
 	started_at:        time.Tick,
 	is_sign_in_open:   bool,

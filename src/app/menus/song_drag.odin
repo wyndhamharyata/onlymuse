@@ -16,8 +16,8 @@ drag: struct {
 	ended_frame: int,
 }
 
-// A row reports its signal each frame. Returns true when the row was clicked, and not dragged.
-track_song_row :: proc(signal: ui.Signal, song: core.Catalog_Song) -> bool {
+// A row reports its signal each frame. Returns true when the person clicks the row without a drag.
+apply_song_row_signal :: proc(signal: ui.Signal, song: core.Catalog_Song) -> bool {
 	if signal.is_right_clicked do open_song_menu(song, ui.mouse_position())
 
 	press, is_down := ui.press_position()
@@ -37,8 +37,8 @@ track_song_row :: proc(signal: ui.Signal, song: core.Catalog_Song) -> bool {
 	return signal.is_clicked && drag.ended_frame != core.app.frame_count
 }
 
-// A sidebar playlist under a dragged song lights up, and takes it on release.
-take_song_drop :: proc(
+// A sidebar playlist under a dragged song lights up. It takes the song on release.
+apply_song_drop :: proc(
 	is_hovered: bool,
 	playlist_id, playlist_name: string,
 	can_edit: bool,
@@ -61,7 +61,7 @@ is_mouse_released :: proc() -> bool {
 	return false
 }
 
-// The song's name follows the pointer while it is dragged.
+// The song's name follows the pointer while the person drags the song.
 build_drag_ghost :: proc() {
 	if !drag.is_dragging do return
 

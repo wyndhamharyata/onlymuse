@@ -14,7 +14,7 @@ import "om:lyrics"
 import "om:platform"
 import "om:ui"
 
-// A release this recent is marked NEW.
+// A release this recent shows as NEW.
 NEW_RELEASE_DAYS :: 30
 
 @(private = "file")
@@ -45,7 +45,7 @@ song_details: map[string]Song_Details
 @(private)
 build_detail_cards :: proc(
 	details: Song_Details,
-	info: playback.Track_Info,
+	info: playback.Song_Info,
 	persistent_id: string,
 	width: f32,
 ) {
@@ -112,7 +112,7 @@ build_detail_cards :: proc(
 
 // Music.app names a streamed song "HLS media", so Apple's traits say what it streams.
 @(private = "file")
-to_format :: proc(details: Song_Details, info: playback.Track_Info) -> string {
+to_format :: proc(details: Song_Details, info: playback.Song_Info) -> string {
 	is_lossless := slice.contains(details.traits, "lossless")
 
 	switch {
@@ -207,8 +207,8 @@ to_release_note :: proc(date: string, now_day: int, allocator := context.allocat
 	year, _ := strconv.parse_int(date[:4])
 	month, _ := strconv.parse_int(date[5:7])
 	day, _ := strconv.parse_int(date[8:10])
-	release, ok := time.datetime_to_time(year, month, day, 0, 0, 0)
-	if !ok do return date[:4]
+	release, is_date := time.datetime_to_time(year, month, day, 0, 0, 0)
+	if !is_date do return date[:4]
 
 	release_day := int(time.to_unix_seconds(release) / 86_400)
 	if now_day - release_day <= NEW_RELEASE_DAYS && now_day >= release_day {
@@ -222,7 +222,7 @@ to_release_note :: proc(date: string, now_day: int, allocator := context.allocat
 	return strings.clone(date[:4], allocator)
 }
 
-// A queue song brings its catalog ID. Any other is found by its name and artist, as Music.app gives only those.
+// A queue song brings its catalog ID. A search finds any other by its name and artist, as Music.app gives only those.
 @(private)
 find_catalog_id :: proc(name, artist, queue_id: string) -> (string, apple.Phase) {
 	if matching.is_catalog_id(queue_id) do return queue_id, .Ready
@@ -292,7 +292,7 @@ read_song_details :: proc(path: string, data: ^core.Page_Data, body: string) {
 		is_explicit       = attributes.content_rating == "explicit",
 	}
 
-	// The artist page asks for these views, so the answer is shared.
+	// The artist page asks for these views, so both pages share the answer.
 	if artist_id != "" {
 		details.artist_path = fmt.aprintf(
 			"/v1/catalog/%s/artists/%s?views=top-songs,latest-release,full-albums,similar-artists",
@@ -302,7 +302,7 @@ read_song_details :: proc(path: string, data: ^core.Page_Data, body: string) {
 		)
 	}
 
-	// Keyed by the page's path, which names the song. The strings live in the page's arena, read again with it.
+	// The page's path names the song and keys the map. The strings live in the page's arena. Each read makes them again.
 	if path in song_details {
 		song_details[path] = details
 	} else {
@@ -329,14 +329,14 @@ to_date_text :: proc(date: string, allocator := context.allocator) -> string {
 		"December",
 	}
 
-	month, month_ok := strconv.parse_int(date[5:7])
-	day, day_ok := strconv.parse_int(date[8:10])
-	if !month_ok || !day_ok || month < 1 || month > 12 do return date
+	month, is_month_number := strconv.parse_int(date[5:7])
+	day, is_day_number := strconv.parse_int(date[8:10])
+	if !is_month_number || !is_day_number || month < 1 || month > 12 do return date
 
 	return fmt.aprintf("%d %s %s", day, month_names[month - 1], date[:4], allocator = allocator)
 }
 
-// Apple's locale codes, as "ja" or "en-US", named for the languages in this library. Others show as the code.
+// Names Apple's locale codes, as "ja" or "en-US", for the languages in this library. Others show as the code.
 @(private = "file")
 to_language_name :: proc(locale: string) -> string {
 	names := [][2]string {

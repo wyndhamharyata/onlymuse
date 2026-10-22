@@ -12,7 +12,7 @@ Playlist_YouTube_Song :: struct {
 	song:  core.Catalog_Song,
 }
 
-// after for a song before every Apple song. An empty after puts it at the end.
+// The value of after for a song before every Apple song. An empty after puts the song at the end.
 PLAYLIST_START :: "start"
 
 // By library playlist ID, under the state key "playlistYouTubeSongs".

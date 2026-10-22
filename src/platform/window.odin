@@ -7,7 +7,7 @@ import NS "core:sys/darwin/Foundation"
 import MTL "vendor:darwin/Metal"
 import CA "vendor:darwin/QuartzCore"
 
-msg_send :: intrinsics.objc_send
+objc_send :: intrinsics.objc_send
 
 // The 2026-10 compiler builds a message send only once the program looks up a class directly (odin-lang/Odin#7793).
 @(init, private = "file")
@@ -36,11 +36,11 @@ state: struct {
 	display_link:       ^Display_Link,
 	target:             ^Target,
 	timer:              ^NS.Timer,
-	// A background window is covered, and macOS stops its display link, so a timer runs its frames.
+	// Other windows cover a background window. macOS then stops its display link, so a timer runs its frames.
 	is_background:      bool,
 	frame_timer:        ^NS.Timer,
 	is_link_running:    bool,
-	// Set by request_frame while a frame is drawn, so the link keeps running for the next one.
+	// request_frame sets this while run_frame draws a frame, so the link keeps running for the next one.
 	is_frame_requested: bool,
 	is_closed:          bool,
 	on_frame:           Frame_Proc,
@@ -48,7 +48,7 @@ state: struct {
 	events:             [dynamic]Event,
 	event_arena:        [2]runtime.Arena,
 	event_arena_index:  int,
-	// While a text field is focused, key presses go through the view's input method.
+	// While a text field has focus, key presses go through the view's input method.
 	is_text_input:      bool,
 	marked_length:      int,
 	// The caret of the focused field, in window points from the top left, for the input method.
@@ -71,7 +71,7 @@ Target :: struct {
 @(objc_type = Target, objc_implement, objc_name = "metalDisplayLink", objc_selector = "metalDisplayLink:needsUpdate:")
 Target_metalDisplayLink :: proc "c" (self: ^Target, link: NS.id, update: ^NS.Object) {
 	context = state.odin_context
-	state.window.drawable = msg_send(^CA.MetalDrawable, update, "drawable")
+	state.window.drawable = objc_send(^CA.MetalDrawable, update, "drawable")
 	run_frame()
 	state.window.drawable = nil
 }
@@ -132,7 +132,7 @@ update_window_size :: proc() {
 			bounds.size.height * NS.Float(pixels_per_point),
 		},
 	)
-	msg_send(nil, window.layer, "setContentsScale:", NS.Float(pixels_per_point))
+	objc_send(nil, window.layer, "setContentsScale:", NS.Float(pixels_per_point))
 }
 
 // Wakes the display link, which calls the frame proc on the next refresh of the screen.
@@ -143,13 +143,13 @@ request_frame :: proc "contextless" () {
 	state.is_link_running = true
 
 	if !state.is_background {
-		msg_send(nil, state.display_link, "setPaused:", NS.BOOL(false))
+		objc_send(nil, state.display_link, "setPaused:", NS.BOOL(false))
 		return
 	}
 
 	FRAME_SECONDS :: 1.0 / 60
 
-	state.frame_timer = msg_send(
+	state.frame_timer = objc_send(
 		^NS.Timer,
 		NS.Timer,
 		"scheduledTimerWithTimeInterval:target:selector:userInfo:repeats:",
@@ -159,16 +159,16 @@ request_frame :: proc "contextless" () {
 		rawptr(nil),
 		NS.BOOL(true),
 	)
-	msg_send(
+	objc_send(
 		nil,
-		msg_send(^NS.RunLoop, NS.RunLoop, "mainRunLoop"),
+		objc_send(^NS.RunLoop, NS.RunLoop, "mainRunLoop"),
 		"addTimer:forMode:",
 		state.frame_timer,
 		NS.RunLoopCommonModes,
 	)
 }
 
-// Runs the app's frame proc with the window's current size, and pauses the display link once it wants no more.
+// Runs the app's frame proc with the window's current size. It pauses the display link once the app wants no more.
 @(private)
 run_frame :: proc() {
 	pool := NS.AutoreleasePool.alloc()->init()
@@ -188,10 +188,10 @@ run_frame :: proc() {
 	state.is_link_running = false
 
 	if state.is_background {
-		msg_send(nil, state.frame_timer, "invalidate")
+		objc_send(nil, state.frame_timer, "invalidate")
 		state.frame_timer = nil
 	} else {
-		msg_send(nil, state.display_link, "setPaused:", NS.BOOL(true))
+		objc_send(nil, state.display_link, "setPaused:", NS.BOOL(true))
 	}
 }
 
@@ -214,7 +214,7 @@ run :: proc() {
 
 // Draws a frame after this many seconds, such as when the next lyric word starts.
 request_frame_after :: proc(seconds: f64) {
-	fire_date := msg_send(
+	fire_date := objc_send(
 		^NS.Date,
 		NS.Date,
 		"dateWithTimeIntervalSinceNow:",
@@ -223,14 +223,14 @@ request_frame_after :: proc(seconds: f64) {
 
 	// An earlier timer stays. The frame it draws asks again for the later one.
 	if state.timer != nil {
-		pending := msg_send(^NS.Date, state.timer, "fireDate")
+		pending := objc_send(^NS.Date, state.timer, "fireDate")
 
-		if msg_send(NS.TimeInterval, pending, "timeIntervalSinceDate:", fire_date) <= 0 do return
+		if objc_send(NS.TimeInterval, pending, "timeIntervalSinceDate:", fire_date) <= 0 do return
 
-		msg_send(nil, state.timer, "invalidate")
+		objc_send(nil, state.timer, "invalidate")
 	}
 
-	state.timer = msg_send(
+	state.timer = objc_send(
 		^NS.Timer,
 		NS.Timer,
 		"scheduledTimerWithTimeInterval:target:selector:userInfo:repeats:",
@@ -240,8 +240,8 @@ request_frame_after :: proc(seconds: f64) {
 		rawptr(nil),
 		NS.BOOL(false),
 	)
-	// The timer also fires while a window is resized or a menu is open.
-	msg_send(
+	// The timer also fires while the person resizes a window or a menu is open.
+	objc_send(
 		nil,
 		NS.RunLoop.mainRunLoop(),
 		"addTimer:forMode:",
@@ -252,7 +252,7 @@ request_frame_after :: proc(seconds: f64) {
 
 // Wakes the event loop from any thread, so it sees a change made outside an event.
 wake :: proc "contextless" () {
-	// Worker threads call this, and they have no autorelease pool for the event.
+	// Worker threads call this. They have no autorelease pool for the event.
 	pool := NS.AutoreleasePool.alloc()->init()
 	defer pool->drain()
 
@@ -260,7 +260,7 @@ wake :: proc "contextless" () {
 	state.app->postEvent(event, true)
 }
 
-// The most the window can be on its screen, in points: the screen less the menu bar and the Dock.
+// The largest size of the window on its screen, in points. That is the screen less the menu bar and the Dock.
 screen_size_points :: proc() -> [2]f32 {
 	visible := find_visible_frame()
 
@@ -272,7 +272,7 @@ screen_size_points :: proc() -> [2]f32 {
 set_min_size :: proc(min_size_points: [2]f32) {
 	min_size := NS.Size{NS.Float(min_size_points.x), NS.Float(min_size_points.y)}
 
-	msg_send(nil, state.ns_window, "setContentMinSize:", min_size)
+	objc_send(nil, state.ns_window, "setContentMinSize:", min_size)
 
 	// The content fills the window, title bar included.
 	frame := state.ns_window->frame()
@@ -294,7 +294,7 @@ set_min_size :: proc(min_size_points: [2]f32) {
 		min(origin.y, visible.origin.y + visible.size.height - size.height),
 	)
 
-	msg_send(
+	objc_send(
 		nil,
 		state.ns_window,
 		"setFrame:display:animate:",
@@ -306,7 +306,7 @@ set_min_size :: proc(min_size_points: [2]f32) {
 
 @(private)
 find_visible_frame :: proc() -> NS.Rect {
-	screen := msg_send(^NS.Screen, state.ns_window, "screen")
+	screen := objc_send(^NS.Screen, state.ns_window, "screen")
 	if screen == nil do screen = NS.Screen.mainScreen()
 
 	return screen->visibleFrame()

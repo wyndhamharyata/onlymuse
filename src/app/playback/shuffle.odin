@@ -21,7 +21,7 @@ FAVOURITE_WEIGHT :: 2.5
 RECENT_HOUR_CHOICES :: [?]int{0, 2, 6, 24}
 
 Shuffle_Rules :: struct {
-	// Songs played this many hours ago or since go last. 0 leaves them.
+	// Songs played this many hours ago or since go last. 0 keeps them in place.
 	recent_hours:     int `json:"recentHours"`,
 	skipped_go_last:  bool `json:"skippedGoLast"`,
 	albums_apart:     bool `json:"albumsApart"`,
@@ -34,7 +34,7 @@ shuffle_rules := Shuffle_Rules {
 	albums_apart    = true,
 }
 
-// What the last shuffle did, for Up Next. Empty when the rules changed nothing.
+// What the last shuffle did, for Up Next. It is empty when the rules changed nothing.
 shuffle_note: string
 
 start_shuffle_rules :: proc() {
@@ -56,7 +56,7 @@ shuffle_by_rules :: proc(songs: []core.Catalog_Song) -> []core.Catalog_Song {
 	copy(shuffled, songs)
 
 	if shuffle_rules.favourites_first {
-		// Efraimidis and Spirakis: each song draws u^(1/weight) and the largest go first.
+		// Each song draws u^(1/weight) and the largest keys go first, after Efraimidis and Spirakis.
 		Keyed :: struct {
 			key:  f64,
 			song: core.Catalog_Song,
@@ -74,7 +74,7 @@ shuffle_by_rules :: proc(songs: []core.Catalog_Song) -> []core.Catalog_Song {
 		rand.shuffle(shuffled)
 	}
 
-	recent, skipped := find_song_history()
+	recent, skipped := list_song_history()
 	recent_count, skipped_count := 0, 0
 	kept := make([dynamic]core.Catalog_Song, context.temp_allocator)
 	later := make([dynamic]core.Catalog_Song, context.temp_allocator)
@@ -94,7 +94,7 @@ shuffle_by_rules :: proc(songs: []core.Catalog_Song) -> []core.Catalog_Song {
 		}
 	}
 
-	// All of them recent or skipped, and the order stays as drawn.
+	// When all of them are recent or skipped, the order stays as drawn.
 	if len(kept) > 0 {
 		copy(shuffled, kept[:])
 		copy(shuffled[len(kept):], later[:])
@@ -102,7 +102,7 @@ shuffle_by_rules :: proc(songs: []core.Catalog_Song) -> []core.Catalog_Song {
 
 	apart_count := 0
 
-	// Each part on its own, so a song that plays last never moves ahead.
+	// keep_albums_apart works on each part on its own, so a song that plays last never moves ahead.
 	if shuffle_rules.albums_apart {
 		apart_count =
 			keep_albums_apart(shuffled[:len(kept)]) + keep_albums_apart(shuffled[len(kept):])
@@ -121,10 +121,10 @@ to_song_key :: proc(song: core.Catalog_Song) -> string {
 
 // Songs played within the rule's hours, and songs skipped often, by key.
 @(private = "file")
-find_song_history :: proc() -> (recent, skipped: map[string]bool) {
+list_song_history :: proc() -> (recent, skipped: map[string]bool) {
 	recent = make(map[string]bool, context.temp_allocator)
 	skipped = make(map[string]bool, context.temp_allocator)
-	since := i64(helper.now_ms()) - i64(shuffle_rules.recent_hours) * 3_600_000
+	since_ms := i64(helper.now_ms()) - i64(shuffle_rules.recent_hours) * 3_600_000
 	plays := make(map[string]int, context.temp_allocator)
 	skips := make(map[string]int, context.temp_allocator)
 
@@ -135,7 +135,7 @@ find_song_history :: proc() -> (recent, skipped: map[string]bool) {
 			skips[key] += 1
 		} else {
 			plays[key] += 1
-			if play.played_at >= since do recent[key] = true
+			if play.played_at_ms >= since_ms do recent[key] = true
 		}
 	}
 

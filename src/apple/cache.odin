@@ -11,7 +11,7 @@ import "om:store"
 Phase :: enum {
 	Loading,
 	Ready,
-	// Apple refused or could not be reached, and nothing was saved.
+	// Apple refused, or the app could not reach it. The store holds no saved answer either.
 	Failed,
 }
 
@@ -29,17 +29,17 @@ Entry :: struct {
 	using watched: Watched,
 	path:          string,
 	is_checking:   bool,
-	// Unix ms of the last watch, so an answer no page has asked for in a while leaves memory.
-	used_at:       i64,
+	// Unix ms of the last watch, so free_retired_bodies can free an answer that no page asked for in a while.
+	used_at_ms:    i64,
 	// Unix ms of the last failed check.
-	failed_at:     i64,
+	failed_at_ms:  i64,
 }
 
-// A failed answer is asked for again when a page watches it this long after, such as once the network is back.
+// watch asks again for a failed answer when a page watches it this long after, such as once the network is back.
 @(private)
 FAILED_RETRY_MS :: 30 * 1000
 
-// An answer no page has watched for this long leaves memory. It stays saved, so a page asking again finds it at once.
+// free_retired_bodies frees an answer that no page watched for this long. It stays saved, so a page asking again finds it at once.
 @(private)
 UNUSED_ANSWER_MS :: 5 * 60 * 1000
 
@@ -52,19 +52,19 @@ cache: struct {
 	mutex:        sync.Mutex,
 	entries:      map[string]^Entry,
 	pool:         thread.Pool,
-	// Each new body takes the next number as its version. A version is never used twice, so a page that read an
-	// answer let go of earlier never takes a new one for the same.
+	// Each new body takes the next number as its version. The cache never uses a version twice, so a page that
+	// read an answer before the cache let it go never takes a new one for the same.
 	last_version: int,
 	is_started:   bool,
 }
 
-// Another package that answers the paths starting with its prefix, such as src/youtube. It blocks, and its body uses allocator.
+// Another package that answers the paths starting with its prefix, such as src/youtube. It blocks. Its body uses allocator.
 Source :: proc(path: string, allocator: mem.Allocator) -> Answer
 
 @(private)
 sources: map[string]Source
 
-// Called once at start, before any watch.
+// A package calls this once at start, before any watch.
 add_source :: proc(prefix: string, source: Source) {
 	sources[prefix] = source
 }
@@ -113,17 +113,17 @@ to_fresh_duration :: proc(path: string) -> time.Duration {
 @(private)
 CHECK_THREAD_COUNT :: 4
 
-// The answer for path as it stands, without waiting. A saved answer shows at once, and a stale one is
-// checked with Apple meanwhile. The body lives until the version changes.
+// The answer for path as it stands, without waiting. A saved answer shows at once. watch checks a stale one
+// with Apple meanwhile. The body lives until the version changes.
 watch :: proc(path: string) -> Watched {
 	sync.guard(&cache.mutex)
 
 	if entry, ok := cache.entries[path]; ok {
-		entry.used_at = now_ms()
+		entry.used_at_ms = now_ms()
 		can_retry :=
 			entry.phase == .Failed &&
 			!entry.is_checking &&
-			entry.used_at - entry.failed_at > FAILED_RETRY_MS
+			entry.used_at_ms - entry.failed_at_ms > FAILED_RETRY_MS
 
 		if can_retry {
 			entry.is_checking = true
@@ -141,7 +141,7 @@ watch :: proc(path: string) -> Watched {
 
 	entry := new(Entry)
 	entry.path = strings.clone(path)
-	entry.used_at = now_ms()
+	entry.used_at_ms = now_ms()
 	cache.entries[entry.path] = entry
 
 	saved, is_saved := store.find_answer(path)
@@ -152,7 +152,7 @@ watch :: proc(path: string) -> Watched {
 		cache.last_version += 1
 		entry.version = cache.last_version
 
-		age := time.Duration((now_ms() - saved.fetched_at) * i64(time.Millisecond))
+		age := time.Duration((now_ms() - saved.fetched_at_ms) * i64(time.Millisecond))
 		if age < to_fresh_duration(path) do return entry.watched
 	}
 
@@ -190,7 +190,7 @@ check :: proc(task: thread.Task) {
 		entry.phase = .Ready
 	case answer.status != 200 && entry.phase != .Ready:
 		entry.phase = .Failed
-		entry.failed_at = now_ms()
+		entry.failed_at_ms = now_ms()
 		delete(answer.body)
 	case:
 		delete(answer.body)
@@ -222,21 +222,21 @@ refresh :: proc(path: string) {
 	thread.pool_add_task(&cache.pool, context.allocator, check, entry)
 }
 
-// Called first in each frame. Frees the bodies replaced since the last, and lets go of answers no page has watched lately.
+// core calls this first in each frame. It frees the bodies replaced since the last frame. It lets go of answers that no page watched lately.
 free_retired_bodies :: proc() {
 	sync.guard(&cache.mutex)
 
 	for body in retired_bodies do delete(body)
 	clear(&retired_bodies)
 
-	// A thread pool keeps each finished task until it is taken.
+	// A thread pool keeps each finished task until pool_pop_done takes it.
 	for _ in thread.pool_pop_done(&cache.pool) {}
 
 	now := now_ms()
 	unused := make([dynamic]string, context.temp_allocator)
 
 	for path, entry in cache.entries {
-		if !entry.is_checking && now - entry.used_at > UNUSED_ANSWER_MS {
+		if !entry.is_checking && now - entry.used_at_ms > UNUSED_ANSWER_MS {
 			append(&unused, path)
 		}
 	}
@@ -244,7 +244,7 @@ free_retired_bodies :: proc() {
 	for path in unused {
 		entry := cache.entries[path]
 		delete_key(&cache.entries, path)
-		// A page may have read it in this frame, which has not started, so it goes with the next.
+		// A page may read it in this frame, which did not start yet. So the next frame frees it.
 		if entry.body != "" do append(&retired_bodies, entry.body)
 		delete(entry.path)
 		free(entry)

@@ -6,7 +6,7 @@ import "core:strings"
 import "om:apple"
 
 // A Google photo URL ends in its size, as "=w120-h120-l90-rj" or "=s576", which becomes {w} and {h} as in Apple's.
-// A video's thumbnail is its plain hqdefault.jpg, which shows it in 16:9 between black bars, cropped away.
+// A video's thumbnail is its plain hqdefault.jpg. It shows the video in 16:9 between black bars, which the app crops away.
 @(private)
 to_artwork :: proc(reader: ^Reader, url, video_id: string) -> apple.Artwork {
 	if strings.contains(url, "i.ytimg.com/vi/") && video_id != "" {

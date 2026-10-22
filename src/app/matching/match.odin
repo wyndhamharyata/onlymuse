@@ -22,8 +22,8 @@ Match_State :: enum {
 	Missing,
 }
 
-// Counts up whenever is_same_recording changes, so the matches saved under an older rule are made again.
-// 3 drops the matches an index pointing into freed memory made from garbage.
+// Counts up whenever is_same_recording changes, so find_match drops the matches of an older rule and makes them again.
+// 3 drops the matches that an index into freed memory made from garbage.
 MATCH_RULE_VERSION :: "3"
 
 @(private)
@@ -33,7 +33,7 @@ matcher: struct {
 	found:           map[string]core.Catalog_Song,
 	missing:         map[string]bool,
 	checking:        map[string]bool,
-	// A song whose search got no answer, and when it may be checked again.
+	// A song whose search got no answer, and when the matcher may check it again.
 	failed:          map[string]time.Tick,
 	// No search starts before this, after Apple refused one.
 	resume_at:       time.Tick,
@@ -45,9 +45,9 @@ matcher: struct {
 	is_rule_checked: bool,
 }
 
-// The library's songs under each of their title keys, made again when the library changes. Main thread only.
-// The library page's songs are read again into new memory whenever its phase changes, even with the same
-// signature, so the index keeps copies of its own, in its arena.
+// The library's songs under each of their title keys, made again when the library changes. Only the main thread
+// uses it. core reads the library page's songs again into new memory whenever its phase changes, even with the
+// same signature. So the index keeps copies of its own, in its arena.
 @(private = "file")
 library_index: struct {
 	signature: int,
@@ -123,7 +123,7 @@ find_library_match :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, bool,
 		library_index.is_built = true
 
 		for library_song in songs {
-			// A song uploaded from a Mac has no catalog ID, and Apple's catalog has nothing to say of it.
+			// A song uploaded from a Mac has no catalog ID. Apple's catalog has nothing to say of it.
 			if !is_catalog_id(library_song.id) do continue
 
 			copied := core.copy_song(library_song, allocator)
@@ -179,7 +179,7 @@ reject_match :: proc(song: core.Catalog_Song) {
 	if video_id not_in matcher.missing do matcher.missing[strings.clone(video_id)] = true
 }
 
-// Undoes reject_match. The song is checked against Apple's catalog again.
+// Undoes reject_match. find_match then checks the song against Apple's catalog again.
 allow_match :: proc(song: core.Catalog_Song) {
 	video_id := youtube.to_video_id(song.id)
 	store.delete_rejected_match(video_id)
@@ -194,7 +194,7 @@ is_match_rejected :: proc(song: core.Catalog_Song) -> bool {
 	return video_id != "" && store.is_match_rejected(video_id)
 }
 
-// The YouTube song an Apple match was made from, to play when Apple's will not. Its ID lives for the frame.
+// The YouTube song behind an Apple match, to play when Apple's will not play. Its ID lives for the frame.
 to_youtube_song :: proc(song: core.Catalog_Song) -> core.Catalog_Song {
 	youtube_song := song
 	youtube_song.id = fmt.tprintf("%s%s", youtube.SONG_ID_PREFIX, song.youtube_id)
@@ -204,8 +204,8 @@ to_youtube_song :: proc(song: core.Catalog_Song) -> core.Catalog_Song {
 	return youtube_song
 }
 
-// The song to play: Apple's when it has it, else the YouTube one.
-to_playable :: proc(song: core.Catalog_Song) -> core.Catalog_Song {
+// The song to play, which is Apple's when Apple has it, else the YouTube one.
+find_playable :: proc(song: core.Catalog_Song) -> core.Catalog_Song {
 	found, state := find_match(song)
 
 	return found if state == .Found else song
@@ -213,10 +213,10 @@ to_playable :: proc(song: core.Catalog_Song) -> core.Catalog_Song {
 
 // A YouTube song in a list is the queue's song when the queue plays Apple's match of it.
 is_same_queue_song :: proc(queue_song, song: core.Catalog_Song) -> bool {
-	return queue_song.id == song.id || queue_song.id == to_playable(song).id
+	return queue_song.id == song.id || queue_song.id == find_playable(song).id
 }
 
-// Holds the matcher's mutex. saved is the song as JSON, empty when Apple has none.
+// The caller holds the matcher's mutex. saved is the song as JSON, empty when Apple has none.
 @(private = "file")
 keep_match :: proc(video_id, saved: string) {
 	key := strings.clone(video_id)
@@ -237,7 +237,7 @@ keep_match :: proc(video_id, saved: string) {
 	matcher.found[key] = song
 }
 
-// Saves an answer, so the song is matched once. A found song is copied out of the answer it came in.
+// Saves an answer, so the matcher matches the song once. keep_match copies a found song out of the answer it came in.
 @(private)
 save_found_match :: proc(video_id: string, song: core.Catalog_Song, is_found: bool) {
 	saved := ""

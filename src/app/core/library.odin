@@ -6,7 +6,7 @@ import "core:strings"
 import "om:apple"
 import "om:ui"
 
-// Where a box inside a scrolling page starts, in the page's content, as of last frame.
+// Where a box inside a scrolling page starts, in the page's content, as of the last frame.
 offset_in_page :: proc(page, box: ^ui.Box) -> f32 {
 	return box.rect.y - page.rect.y - page.style.padding.y + page.scroll
 }
@@ -59,7 +59,7 @@ list_library_artists :: proc() -> (cards: []apple.Card, signature: int, phase: a
 	return data.cards, signature, phase
 }
 
-// Favourite Songs is the one library playlist a person can neither edit nor delete. The sidebar leaves it out.
+// Favourite Songs is the one library playlist a person can neither edit nor delete. The sidebar does not show it.
 list_playlists :: proc(
 ) -> (
 	playlists: []apple.Card,
@@ -91,7 +91,7 @@ list_playlists :: proc(
 	return data.cards, data.link_id, watched.phase
 }
 
-// Every page of a library list. The link to the next page keeps only its offset.
+// Every page of a library list. Of each link to the next page, it keeps only the offset.
 watch_all_pages :: proc(path: string) -> (bodies: []string, signature: int, phase: apple.Phase) {
 	list := make([dynamic]string, context.temp_allocator)
 	separator := "&" if strings.contains(path, "?") else "?"
@@ -101,7 +101,7 @@ watch_all_pages :: proc(path: string) -> (bodies: []string, signature: int, phas
 		watched := apple.watch(fmt.tprintf("%s%slimit=100&offset=%s", path, separator, offset))
 		signature = signature * 31 + watched.version
 
-		// A saved page can name a next page that is gone, as after songs left a playlist. The list ends there.
+		// A saved page can name a next page that is gone, as after a person removed songs from a playlist. The list ends there.
 		is_past_end := watched.phase == .Failed && watched.status == 404 && offset != "0"
 		if is_past_end do break
 		if watched.phase != .Ready do return list[:], signature, watched.phase

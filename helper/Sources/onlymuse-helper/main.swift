@@ -2,9 +2,9 @@ import AppKit
 import Network
 import WebKit
 
-// Speaks JSON lines with the app over stdin and stdout.
+// The helper speaks JSON lines with the app over stdin and stdout.
 
-func toAccentMessage() -> [String: Any] {
+func readAccentMessage() -> [String: Any] {
   let color = NSColor.controlAccentColor.usingColorSpace(.sRGB) ?? .systemBlue
   let hex = String(format: "#%02X%02X%02X", Int(color.redComponent * 255), Int(color.greenComponent * 255), Int(color.blueComponent * 255))
 
@@ -13,13 +13,13 @@ func toAccentMessage() -> [String: Any] {
 
 // The helper is an app with no Dock icon, so AppKit tells it when the accent colour changes.
 let application = NSApplication.shared
-// A window behind the others is a bench or test run, which must leave the music as it is when it ends.
+// A window behind the others is a bench or test run, which must keep the music as it is when it ends.
 let pausesWhenAppEnds = ProcessInfo.processInfo.environment["GPUIX_BACKGROUND"] != "1"
 let music = MusicApp()
 let youTube = YouTube(music: music, isQuiet: !pausesWhenAppEnds)
 let handoff = Handoff(music: music, youTube: youTube)
 
-// A write to an app that has ended then fails, instead of ending the helper before it pauses Music.app.
+// A write to an app that ended then fails, instead of ending the helper before it pauses Music.app.
 signal(SIGPIPE, SIG_IGN)
 
 // The helper's pages connect through it, so none uses HTTP/3.
@@ -29,7 +29,7 @@ let proxyReady = DispatchSemaphore(value: 0)
 
 localProxy.start { _ in proxyReady.signal() }
 
-// The first pages load below, and must not start before the proxy is set. Listening takes milliseconds.
+// The first pages load below. They must not start before the helper sets the proxy. Listening takes milliseconds.
 if proxyReady.wait(timeout: .now() + 2) == .success, let port = localProxy.port {
   WKWebsiteDataStore.default().proxyConfigurations = [ProxyConfiguration(httpCONNECTProxy: .hostPort(host: "127.0.0.1", port: port))]
 }
@@ -82,7 +82,7 @@ DistributedNotificationCenter.default().addObserver(forName: .init("com.apple.Mu
 }
 
 NotificationCenter.default.addObserver(forName: NSColor.systemColorsDidChangeNotification, object: nil, queue: .main) { _ in
-  MainActor.assumeIsolated { send(toAccentMessage()) }
+  MainActor.assumeIsolated { send(readAccentMessage()) }
 }
 
 let workspaceNotifications = [NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification]
@@ -105,7 +105,7 @@ Timer.scheduledTimer(withTimeInterval: volumeCheckSeconds, repeats: true) { _ in
   }
 }
 
-// Music.app posts no position as a song plays, so the helper sends it, and the app's clock follows a seek made in Music.app.
+// Music.app posts no position as a song plays, so the helper sends it. The app's clock then follows a seek in Music.app.
 let positionCheckSeconds = 2.0
 
 Timer.scheduledTimer(withTimeInterval: positionCheckSeconds, repeats: true) { _ in
@@ -154,7 +154,7 @@ startReadingCommands(onCommand: { command in
     guard !youTube.isActive else { return youTube.apply(command) }
 
     music.apply(command)
-    // A seek moves the end, and Music.app posts nothing for it.
+    // A seek moves the end. Music.app posts nothing for it.
     if command.type == "seek" { handoff.arm() }
   default:
     music.apply(command)
@@ -177,7 +177,7 @@ for signalNumber in [SIGINT, SIGTERM, SIGHUP] {
   signalSources.append(source)
 }
 
-send(toAccentMessage())
+send(readAccentMessage())
 send(music.readNowPlaying())
 youTube.sendCookie()
 webPlayer.refreshTokens()

@@ -61,7 +61,7 @@ await_start :: proc() {
 	platform.request_frame_after(START_TIMEOUT_SECONDS)
 }
 
-// Music.app could not play Apple's song, so the YouTube one plays, now and from now on. False for a song with no YouTube one.
+// Music.app could not play Apple's song, so the YouTube one plays, now and from now on. It returns false for a song with no YouTube one.
 @(private)
 fall_back_to_youtube :: proc() -> bool {
 	queue_state.start_deadline_ms = 0

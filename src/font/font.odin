@@ -1,4 +1,4 @@
-// Text shaped by CoreText and drawn from a glyph atlas.
+// CoreText shapes the text. This package draws it from a glyph atlas.
 package font
 
 import "base:intrinsics"
@@ -9,7 +9,7 @@ import "om:mac"
 import "om:render"
 import MTL "vendor:darwin/Metal"
 
-msg_send :: intrinsics.objc_send
+objc_send :: intrinsics.objc_send
 
 @(objc_class = "NSFont")
 NS_Font :: struct {
@@ -41,18 +41,18 @@ Font :: struct {
 }
 
 Placed_Glyph :: struct {
-	// Into state.fonts. CoreText picks another font for a character the first one lacks.
+	// The index into state.fonts. CoreText picks another font for a character the first one lacks.
 	font_index:  u16,
 	glyph:       mac.Glyph,
 	x:           f32,
-	// UTF-16 index into the text, as CoreText counts.
+	// The UTF-16 index into the text, as CoreText counts.
 	utf16_index: int,
 }
 
 Shaped_Line :: struct {
 	glyphs:      []Placed_Glyph,
 	width:       f32,
-	// From the top of the text.
+	// The distance from the top of the text.
 	baseline_y:  f32,
 	utf16_range: [2]int,
 }
@@ -63,7 +63,7 @@ Shaped_Text :: struct {
 	last_used_frame: int,
 }
 
-// A shaped text not drawn for this many frames is dropped.
+// begin_frame drops a shaped text that no frame drew for this many frames.
 @(private)
 UNUSED_FRAME_COUNT :: 120
 
@@ -91,7 +91,7 @@ system_font :: proc(weight: Weight, size_pixels: f32) -> Font {
 
 	if font, ok := state.system_fonts[key]; ok do return font
 
-	ns_font := msg_send(
+	ns_font := objc_send(
 		^NS_Font,
 		NS_Font,
 		"systemFontOfSize:weight:",
@@ -125,7 +125,7 @@ intern_font :: proc(ct_font: mac.Font_Ref) -> u16 {
 	return index
 }
 
-// Called once a frame, before any text is shaped or drawn.
+// The app calls this once a frame, before it shapes or draws any text.
 begin_frame :: proc() {
 	state.frame_index += 1
 	state.is_atlas_reset = false
@@ -140,7 +140,7 @@ begin_frame :: proc() {
 	}
 }
 
-// True when the atlas filled and started over during this frame, so glyphs drawn earlier in it are wrong.
+// Returns true when the atlas filled and started over during this frame, so glyphs drawn earlier in it are wrong.
 is_redraw_needed :: proc() -> bool {
 	return state.is_atlas_reset
 }
@@ -153,9 +153,9 @@ free_shaped :: proc(shaped: ^Shaped_Text) {
 }
 
 Overflow :: enum {
-	// Breaks into more lines.
+	// The text breaks into more lines.
 	Wrap,
-	// Stays on one line and ends in an ellipsis.
+	// The text stays on one line and ends in an ellipsis.
 	Truncate,
 }
 
@@ -163,7 +163,7 @@ Overflow :: enum {
 @(private)
 TRUNCATE_END :: 1
 
-// Shapes text once and keeps it while it is drawn. max_width_pixels 0 keeps it on one line, whole.
+// Shapes text once and keeps it while frames draw it. max_width_pixels 0 keeps it on one line, whole.
 shape :: proc(
 	text: string,
 	font: Font,
@@ -192,7 +192,7 @@ shape :: proc(
 
 	cf_text := mac.to_cf_string(text)
 
-	// Text that is not UTF-8 makes no string, and draws as nothing rather than stop the app.
+	// Text that is not UTF-8 makes no string. It draws as nothing rather than stop the app.
 	if cf_text == nil {
 		shaped.size = {0, font.line_height}
 		return shaped
@@ -222,7 +222,7 @@ shape :: proc(
 		ellipsis_line := mac.CTLineCreateWithAttributedString(ellipsis_attributed)
 		defer mac.CFRelease(ellipsis_line)
 
-		// Nil when even the ellipsis does not fit.
+		// CoreText returns nil when even the ellipsis does not fit.
 		truncated := mac.CTLineCreateTruncatedLine(
 			ct_line,
 			f64(max_width_pixels),

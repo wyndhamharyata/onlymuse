@@ -15,7 +15,7 @@ STAGE_COVER_POINTS :: 280
 
 SMALL_STAGE_COVER_POINTS :: 220
 
-// Narrower than this, the details go under the cover.
+// On a page narrower than this, the two detail cards stack.
 SIDE_BY_SIDE_POINTS :: 560
 
 HERO_GAP_POINTS :: 26
@@ -26,7 +26,7 @@ MIN_INFO_POINTS :: 360
 @(private)
 build_hero :: proc(
 	details: Song_Details,
-	info: playback.Track_Info,
+	info: playback.Song_Info,
 	shown: helper.Song,
 	width: f32,
 ) {
@@ -154,7 +154,7 @@ to_title_size :: proc(info_width: f32) -> f32 {
 }
 
 @(private = "file")
-build_pills :: proc(details: Song_Details, info: playback.Track_Info) {
+build_pills :: proc(details: Song_Details, info: playback.Song_Info) {
 	pills := make([dynamic]string, context.temp_allocator)
 	rate := fmt.tprintf("%.1f kHz", f64(info.sample_rate) / 1000) if info.sample_rate > 0 else ""
 	quality := ""

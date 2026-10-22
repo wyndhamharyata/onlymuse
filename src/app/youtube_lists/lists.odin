@@ -17,14 +17,14 @@ MAX_HOME_PART_COUNT :: 6
 
 @(private = "file")
 Parsed_List :: struct {
-	arena:   virtual.Arena,
-	version: int,
-	list:    youtube.List,
+	arena:      virtual.Arena,
+	version:    int,
+	list:       youtube.List,
 	// Unix ms of the last frame that asked for it.
-	used_at: i64,
+	used_at_ms: i64,
 }
 
-// Each answer read once per version, as reading a large one takes milliseconds.
+// watch_youtube_list reads each answer once per version, as reading a large one takes milliseconds.
 @(private = "file")
 parsed_lists: map[string]^Parsed_List
 
@@ -48,18 +48,18 @@ watch_youtube_list :: proc(path: string) -> (youtube.List, apple.Watched) {
 		parsed.list = youtube.to_list(watched.body, virtual.arena_allocator(&parsed.arena))
 	}
 
-	parsed.used_at = core.now_ms()
+	parsed.used_at_ms = core.now_ms()
 
 	return parsed.list, watched
 }
 
-// Called first in each frame. A list not asked for in a while leaves memory, as a page does.
+// The app calls this first in each frame. It frees a list that no frame asked for in a while, as core does for a page.
 free_unused_youtube_lists :: proc() {
 	now := core.now_ms()
 	unused := make([dynamic]string, context.temp_allocator)
 
 	for path, parsed in parsed_lists {
-		if now - parsed.used_at > core.UNUSED_PAGE_MS {
+		if now - parsed.used_at_ms > core.UNUSED_PAGE_MS {
 			append(&unused, path)
 		}
 	}
@@ -92,7 +92,7 @@ watch_youtube_songs :: proc(
 
 	for token := first.continuation;
 	    phase == .Ready && token != "" && len(parts) < MAX_YOUTUBE_PART_COUNT; {
-		part, part_watched := watch_youtube_list(youtube.continuation_path(token))
+		part, part_watched := watch_youtube_list(youtube.to_continuation_path(token))
 		signature = signature * 31 + part_watched.version
 
 		if part_watched.phase == .Loading do phase = .Loading
@@ -120,7 +120,7 @@ watch_youtube_songs :: proc(
 
 // The shelves of every part of YouTube's home.
 watch_youtube_home :: proc() -> (shelves: []apple.Shelf, signature: int, phase: apple.Phase) {
-	first, watched := watch_youtube_list(youtube.browse_path(youtube.HOME_ID))
+	first, watched := watch_youtube_list(youtube.to_browse_path(youtube.HOME_ID))
 	signature = watched.version
 	if watched.phase != .Ready do return nil, signature, watched.phase
 
@@ -129,7 +129,7 @@ watch_youtube_home :: proc() -> (shelves: []apple.Shelf, signature: int, phase: 
 	token := first.section_continuation
 
 	for part_count := 1; token != "" && part_count < MAX_HOME_PART_COUNT; part_count += 1 {
-		part, part_watched := watch_youtube_list(youtube.section_continuation_path(token))
+		part, part_watched := watch_youtube_list(youtube.to_section_continuation_path(token))
 		signature = signature * 31 + part_watched.version
 		if part_watched.phase != .Ready do break
 
@@ -140,7 +140,7 @@ watch_youtube_home :: proc() -> (shelves: []apple.Shelf, signature: int, phase: 
 	return all[:], signature, .Ready
 }
 
-youtube_phase_note :: proc(phase: apple.Phase) -> string {
+to_youtube_phase_note :: proc(phase: apple.Phase) -> string {
 	return "YouTube Music could not be reached." if phase == .Failed else "Loading…"
 }
 
@@ -172,13 +172,13 @@ merge_youtube_shelves :: proc(
 watch_youtube_artist :: proc(name: string) -> youtube.List {
 	if name == "" do return {}
 
-	search, _ := watch_youtube_list(youtube.search_path(name, youtube.ARTISTS_FILTER))
+	search, _ := watch_youtube_list(youtube.to_search_path(name, youtube.ARTISTS_FILTER))
 	key := matching.to_match_key(name)
 
 	for card in search.cards {
 		if card.kind != .YouTube_Artist || matching.to_match_key(card.name) != key do continue
 
-		channel, _ := watch_youtube_list(youtube.browse_path(card.id))
+		channel, _ := watch_youtube_list(youtube.to_browse_path(card.id))
 
 		return channel
 	}

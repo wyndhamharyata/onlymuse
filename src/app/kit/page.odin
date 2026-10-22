@@ -45,7 +45,7 @@ note :: proc(text: string) {
 	)
 }
 
-// Returns true when clicked. The primary button is filled with the accent.
+// Returns true when clicked. The accent fills the primary button.
 action_button :: proc(label, symbol: string, is_primary: bool, symbol_color: [4]f32 = {}) -> bool {
 	background := core.app.accent if is_primary else colors.field
 	hover := background
@@ -101,6 +101,6 @@ run_bench_scroll :: proc(list: ^ui.Box) {
 	ui.set_scroll(list, list.scroll + BENCH_POINTS_PER_FRAME * core.app.bench_direction)
 }
 
-phase_note :: proc(phase: apple.Phase) -> string {
+to_phase_text :: proc(phase: apple.Phase) -> string {
 	return "Apple Music could not be reached." if phase == .Failed else "Loading…"
 }

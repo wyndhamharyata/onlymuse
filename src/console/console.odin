@@ -1,4 +1,4 @@
-// The app's errors and refused requests, kept for the Console page. Safe on any thread.
+// The app's errors and refused requests, which the Console page lists. Any thread can call this package.
 package console
 
 import "core:fmt"
@@ -9,23 +9,23 @@ import "om:platform"
 
 Entry :: struct {
 	at:     time.Time,
-	// Who reported it, such as "Apple" or "Helper".
+	// The part of the app that reported the entry, such as "Apple" or "Helper".
 	source: string,
 	text:   string,
 }
 
-// The oldest entries go once there are more.
+// Past this count, each new entry deletes the oldest one.
 MAX_ENTRY_COUNT :: 500
 
 @(private)
 state: struct {
 	mutex:   sync.Mutex,
 	entries: [dynamic]Entry,
-	// Counts up with each change, so the page knows it has something new.
+	// The version counts up with each change, so the page knows that it has something new.
 	version: int,
 }
 
-// Also writes to stderr, as the errors did before there was a Console. source is a constant, such as "Apple".
+// add also writes each entry to stderr. source is a constant, such as "Apple".
 add :: proc(source: string, format: string, args: ..any) {
 	text := fmt.aprintf(format, ..args)
 	fmt.eprintfln("%s: %s", source, text)

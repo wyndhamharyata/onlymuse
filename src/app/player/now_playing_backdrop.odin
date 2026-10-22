@@ -9,7 +9,7 @@ import "om:ui"
 
 BACKDROP_POINTS :: 520
 
-// The cover is drawn this small and stretched for the backdrop: a blur with no blur.
+// The backdrop draws the cover this small and stretches it, which blurs it with no blur.
 BACKDROP_PIXELS :: 24
 
 @(private = "file")
@@ -20,10 +20,10 @@ Backdrop_Paint :: struct {
 @(private = "file")
 draw_backdrop :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	paint := cast(^Backdrop_Paint)box.data
-	texture, image_opacity := image.find(paint.source, BACKDROP_PIXELS)
+	texture, image_opacity := image.watch(paint.source, BACKDROP_PIXELS)
 	if texture == nil do return
 
-	// The square cover covers the wide box: the middle band of it shows.
+	// The square cover fills the wide box, so only its middle band shows.
 	aspect := (rect.w - rect.y) / max(1, rect.z - rect.x)
 	uv := [4]f32{0, 0.5 - aspect / 2, 1, 0.5 + aspect / 2}
 	alpha := 0.6 * opacity * image_opacity
@@ -41,7 +41,7 @@ draw_backdrop :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	)
 }
 
-// The cover the page area spreads behind its toolbar and the page, as of the last frame Now Playing was built.
+// The cover the page area spreads behind its toolbar and the page, as of the last frame that built Now Playing.
 @(private = "file")
 backdrop_source: string
 
@@ -55,7 +55,7 @@ set_backdrop :: proc(artwork: apple.Artwork, artwork_path: string) {
 	backdrop_source = strings.clone(source)
 }
 
-// Called by the page area before its toolbar, so the toolbar sits on it too. It stays as the page scrolls.
+// The page area calls this before its toolbar, so the backdrop shows behind the toolbar too. It stays as the page scrolls.
 build_page_backdrop :: proc() {
 	if core.current_page().kind != .Now_Playing || backdrop_source == "" do return
 

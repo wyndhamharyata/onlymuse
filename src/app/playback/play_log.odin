@@ -19,11 +19,11 @@ listening: struct {
 }
 
 start_play_log :: proc() {
-	since := core.now_ms() - PLAY_LOG_DAYS * 86_400_000
-	for play in store.list_plays(since) do append(&play_log, play)
+	since_ms := core.now_ms() - PLAY_LOG_DAYS * 86_400_000
+	for play in store.list_plays(since_ms) do append(&play_log, play)
 }
 
-// Once a frame: how far the playing song got, and a play or skip when it changes.
+// Each frame, it keeps how far the playing song got and logs a play or a skip when the song changes.
 update_play_log :: proc() {
 	now_playing := core.app.now_playing
 	has_song := now_playing.playback == .Playing || now_playing.playback == .Paused
@@ -47,7 +47,7 @@ update_play_log :: proc() {
 		}
 	}
 
-	position := helper.position_seconds(now_playing)
+	position := helper.to_position_seconds(now_playing)
 
 	listening.furthest_seconds = max(
 		listening.furthest_seconds,
@@ -66,7 +66,7 @@ finish_listening :: proc() {
 	if is_play || furthest >= SKIP_MIN_SECONDS {
 		play := listening.song
 		play.is_skip = !is_play
-		play.played_at = core.now_ms()
+		play.played_at_ms = core.now_ms()
 		store.save_play(play)
 		// The log keeps the strings.
 		append(&play_log, play)

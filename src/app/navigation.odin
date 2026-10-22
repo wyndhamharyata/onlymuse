@@ -1,6 +1,7 @@
 package app
 
 import "core:encoding/json"
+import "core:strings"
 import "om:store"
 import "om:ui"
 
@@ -54,9 +55,12 @@ current_page :: proc() -> Page {
 // Counts up each time a page is shown anew, by opening, Back or Forward.
 navigation_visit: int
 
-// Opens a page after the current one. Pages after the current one, from Back, are dropped.
-navigate :: proc(page: Page) {
-	if len(navigation.pages) > 0 && current_page() == page do return
+// Opens a page after the current one. Pages after the current one, from Back, are dropped. The history keeps
+// its own copy of the page's ID and title, as a card's live in its page's memory, which is read again.
+navigate :: proc(chosen: Page) {
+	if len(navigation.pages) > 0 && current_page() == chosen do return
+
+	page := Page{kind = chosen.kind, id = strings.clone(chosen.id), title = strings.clone(chosen.title)}
 
 	kept := navigation.index + 1 if len(navigation.pages) > 0 else 0
 	resize(&navigation.pages, kept)

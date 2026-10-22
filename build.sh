@@ -40,7 +40,8 @@ flags="-collection:om=src -vet-unused -vet-shadowing -strict-style -minimum-os-v
 
 if [ "$mode" = release ]; then
 	# A single-module build drops the input view's Objective-C methods, so no key ever reaches a text field.
-	flags="$flags -o:speed -use-separate-modules"
+	# -debug keeps the line of each frame in a crash report, at the same speed.
+	flags="$flags -o:speed -use-separate-modules -debug"
 else
 	flags="$flags -debug"
 fi

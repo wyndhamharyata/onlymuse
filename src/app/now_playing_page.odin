@@ -581,7 +581,7 @@ to_release_note :: proc(date: string, now_day: int, allocator := context.allocat
 find_catalog_id :: proc(name, artist, queue_id: string) -> (string, apple.Phase) {
 	if is_catalog_id(queue_id) do return queue_id, .Ready
 
-	term := to_query_text(fmt.tprintf("%s %s", name, artist))
+	term := apple.to_query_text(fmt.tprintf("%s %s", name, artist))
 	watched := apple.watch(fmt.tprintf("/v1/catalog/%s/search?term=%s&types=songs&limit=10", apple.STOREFRONT, term))
 	if watched.phase != .Ready do return "", watched.phase
 

@@ -57,8 +57,6 @@ matcher: struct {
 	pool:       thread.Pool,
 	is_started: bool,
 	is_rule_checked: bool,
-	// Counts up with each answer, so a page that counts matches reads them again.
-	version:    int,
 }
 
 // Kept by the matching thread alone, so it needs no mutex.
@@ -187,7 +185,6 @@ reject_match :: proc(song: Catalog_Song) {
 	sync.guard(&matcher.mutex)
 	delete_key(&matcher.found, video_id)
 	if video_id not_in matcher.missing do matcher.missing[strings.clone(video_id)] = true
-	matcher.version += 1
 }
 
 // Undoes reject_match. The song is checked against Apple's catalog again.
@@ -197,7 +194,6 @@ allow_match :: proc(song: Catalog_Song) {
 
 	sync.guard(&matcher.mutex)
 	delete_key(&matcher.missing, video_id)
-	matcher.version += 1
 }
 
 is_match_rejected :: proc(song: Catalog_Song) -> bool {
@@ -226,12 +222,6 @@ to_playable :: proc(song: Catalog_Song) -> Catalog_Song {
 // A YouTube song in a list is the queue's song when the queue plays Apple's match of it.
 is_same_queue_song :: proc(queue_song, song: Catalog_Song) -> bool {
 	return queue_song.id == song.id || queue_song.id == to_playable(song).id
-}
-
-match_version :: proc() -> int {
-	sync.guard(&matcher.mutex)
-
-	return matcher.version
 }
 
 // Holds the matcher's mutex. saved is the song as JSON, empty when Apple has none.
@@ -281,7 +271,7 @@ start_matching :: proc(song: Catalog_Song, video_id: string) {
 	}
 
 	job := new(Match_Job)
-	job^ = {clone_song(song), strings.clone(video_id)}
+	job^ = {copy_song(song), strings.clone(video_id)}
 	matcher.checking[job.video_id] = true
 	append(&matcher.pending, job)
 	// Each task takes a batch, so a task that comes after its songs were taken finds none and ends.
@@ -325,7 +315,6 @@ finish_job :: proc(job: ^Match_Job, best: Catalog_Song, is_found: bool, status: 
 	defer {
 		delete_song(job.song)
 		free(job)
-		matcher.version += 1
 		platform.wake()
 	}
 
@@ -387,7 +376,7 @@ search_albums :: proc(song: Catalog_Song) -> ([]string, int) {
 	wait_to_search()
 
 	term := fmt.tprintf("%s %s", to_plain_text(song.album_name), to_plain_text(song.artist_name))
-	answer := apple.fetch(fmt.tprintf("/v1/catalog/%s/search?term=%s&types=albums&limit=10", apple.STOREFRONT, to_query_text(term)), context.temp_allocator)
+	answer := apple.fetch(fmt.tprintf("/v1/catalog/%s/search?term=%s&types=albums&limit=10", apple.STOREFRONT, apple.to_query_text(term)), context.temp_allocator)
 	if answer.status != 200 do return nil, answer.status
 
 	Search_Answer :: struct {
@@ -417,7 +406,7 @@ fetch_albums :: proc(ids: []string) -> int {
 
 	for album in apple.to_resources(answer.body, context.temp_allocator) {
 		songs := make([dynamic]Catalog_Song)
-		for track in apple.list_related(album, "tracks") do if track.type == "songs" do append(&songs, clone_song(apple.to_catalog_song(track)))
+		for track in apple.list_related(album, "tracks") do if track.type == "songs" do append(&songs, copy_song(apple.to_catalog_song(track)))
 		if album.id not_in albums.songs do albums.songs[strings.clone(album.id)] = songs[:]
 	}
 
@@ -448,7 +437,7 @@ search_song :: proc(song: Catalog_Song) -> (Catalog_Song, bool, int) {
 	for album in album_terms {
 		wait_to_search()
 
-		path := fmt.tprintf("/v1/catalog/%s/search?term=%s&types=songs&limit=10", apple.STOREFRONT, to_query_text(to_search_term(song, album)))
+		path := fmt.tprintf("/v1/catalog/%s/search?term=%s&types=songs&limit=10", apple.STOREFRONT, apple.to_query_text(to_search_term(song, album)))
 		answer := apple.fetch(path, context.temp_allocator)
 		if answer.status != 200 do return {}, false, answer.status
 

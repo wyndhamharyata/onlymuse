@@ -45,7 +45,6 @@ Rect :: struct {
 }
 
 STRING_ENCODING_UTF8 :: 0x08000100
-NUMBER_FLOAT64 :: 6
 NUMBER_INT32 :: 3
 
 // CGImageAlphaInfo and CGBitmapInfo values.
@@ -79,7 +78,6 @@ foreign core_foundation {
 	CFDictionaryGetValue :: proc(dictionary: Dictionary_Ref, key: Type_Ref) -> Type_Ref ---
 	CFAttributedStringCreate :: proc(allocator: rawptr, text: String_Ref, attributes: Dictionary_Ref) -> Attributed_String_Ref ---
 	CFNumberCreate :: proc(allocator: rawptr, kind: Index, value: rawptr) -> Number_Ref ---
-	CFDataCreate :: proc(allocator: rawptr, bytes: [^]u8, count: Index) -> Data_Ref ---
 	CFURLCreateFromFileSystemRepresentation :: proc(allocator: rawptr, path: [^]u8, count: Index, is_directory: b8) -> Url_Ref ---
 }
 
@@ -91,14 +89,11 @@ foreign core_graphics {
 	CGBitmapContextCreate :: proc(data: rawptr, width, height, bits_per_component, bytes_per_row: uint, space: Color_Space_Ref, bitmap_info: u32) -> Context_Ref ---
 	CGContextRelease :: proc(ctx: Context_Ref) ---
 	CGContextSetGrayFillColor :: proc(ctx: Context_Ref, gray, alpha: f64) ---
-	CGContextSetAllowsFontSmoothing :: proc(ctx: Context_Ref, allows: b8) ---
-	CGContextSetShouldSmoothFonts :: proc(ctx: Context_Ref, should: b8) ---
 	CGContextSetAllowsFontSubpixelPositioning :: proc(ctx: Context_Ref, allows: b8) ---
 	CGContextSetShouldSubpixelPositionFonts :: proc(ctx: Context_Ref, should: b8) ---
 	CGContextSetAllowsFontSubpixelQuantization :: proc(ctx: Context_Ref, allows: b8) ---
 	CGContextSetShouldSubpixelQuantizeFonts :: proc(ctx: Context_Ref, should: b8) ---
 	CGContextDrawImage :: proc(ctx: Context_Ref, rect: Rect, image: Image_Ref) ---
-	CGContextSetInterpolationQuality :: proc(ctx: Context_Ref, quality: i32) ---
 	CGImageGetWidth :: proc(image: Image_Ref) -> uint ---
 	CGImageGetHeight :: proc(image: Image_Ref) -> uint ---
 	CGImageRelease :: proc(image: Image_Ref) ---
@@ -109,13 +104,10 @@ foreign core_graphics {
 @(default_calling_convention = "c")
 foreign core_text {
 	kCTFontAttributeName:  String_Ref
-	kCTKernAttributeName:  String_Ref
 
-	CTFontCreateCopyWithAttributes :: proc(font: Font_Ref, size: f64, transform: rawptr, attributes: Type_Ref) -> Font_Ref ---
 	CTFontGetAscent :: proc(font: Font_Ref) -> f64 ---
 	CTFontGetDescent :: proc(font: Font_Ref) -> f64 ---
 	CTFontGetLeading :: proc(font: Font_Ref) -> f64 ---
-	CTFontGetSize :: proc(font: Font_Ref) -> f64 ---
 	CTFontGetBoundingRectsForGlyphs :: proc(font: Font_Ref, orientation: u32, glyphs: [^]Glyph, rects: [^]Rect, count: Index) -> Rect ---
 	CTFontDrawGlyphs :: proc(font: Font_Ref, glyphs: [^]Glyph, positions: [^]Point, count: uint, ctx: Context_Ref) ---
 	CTLineCreateWithAttributedString :: proc(text: Attributed_String_Ref) -> Line_Ref ---
@@ -138,7 +130,6 @@ foreign image_io {
 	kCGImageSourceCreateThumbnailFromImageAlways: String_Ref
 	kCGImageSourceThumbnailMaxPixelSize:          String_Ref
 	kCGImageSourceCreateThumbnailWithTransform:   String_Ref
-	kCGImageSourceShouldCacheImmediately:         String_Ref
 
 	CGImageSourceCreateWithURL :: proc(url: Url_Ref, options: Dictionary_Ref) -> Image_Source_Ref ---
 	CGImageSourceCreateThumbnailAtIndex :: proc(source: Image_Source_Ref, index: uint, options: Dictionary_Ref) -> Image_Ref ---

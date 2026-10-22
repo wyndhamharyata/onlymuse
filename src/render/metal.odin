@@ -3,7 +3,6 @@ package render
 import "base:intrinsics"
 import "core:fmt"
 import "core:os"
-import "core:time"
 import NS "core:sys/darwin/Foundation"
 import MTL "vendor:darwin/Metal"
 import CA "vendor:darwin/QuartzCore"
@@ -67,8 +66,6 @@ state: struct {
 	batches:         [dynamic]Batch,
 	size_pixels:     [2]f32,
 	capture_path:    string,
-	// How long the last frame waited for the GPU to finish with its buffer.
-	buffer_wait:     time.Duration,
 }
 
 @(private)
@@ -130,18 +127,10 @@ upload_texture :: proc(texture: ^MTL.Texture, rect: [4]int, pixels: rawptr, byte
 	texture->replaceRegion(region, 0, pixels, NS.UInteger(bytes_per_row))
 }
 
-last_buffer_wait :: proc() -> time.Duration {
-	return state.buffer_wait
-}
-
 begin_frame :: proc(size_pixels: [2]f32) {
 	state.size_pixels = size_pixels
 	clear(&state.instances)
 	clear(&state.batches)
-}
-
-size_pixels :: proc() -> [2]f32 {
-	return state.size_pixels
 }
 
 push :: proc(instance: Instance, texture: ^MTL.Texture = nil) {
@@ -218,14 +207,11 @@ end_frame :: proc(drawable: ^CA.MetalDrawable) {
 	state.frame_index += 1
 
 	// The buffer is written again only once the GPU has drawn the frame that used it.
-	wait_start := time.tick_now()
 	if previous := state.command_buffers[slot]; previous != nil {
 		previous->waitUntilCompleted()
 		previous->release()
 		state.command_buffers[slot] = nil
 	}
-
-	state.buffer_wait = time.tick_since(wait_start)
 
 	buffer := state.buffers[slot]
 	needed_bytes := len(state.instances) * size_of(Instance)

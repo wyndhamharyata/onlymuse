@@ -10,8 +10,8 @@ import "core:strings"
 import "core:sync"
 import "core:thread"
 import "om:apple"
-import "om:library"
 import "om:platform"
+import "om:store"
 
 Word :: struct {
 	begin_seconds: f64,
@@ -179,9 +179,9 @@ to_songwriters :: proc(ttml: string, allocator: mem.Allocator) -> []string {
 // A song started outside onlymuse has no catalog ID yet. The queue knows some, the search the rest.
 @(private)
 find_song_id :: proc(name, artist: string) -> (string, bool) {
-	if id, ok := library.find_queue_song_id(name, artist, context.temp_allocator); ok do return id, true
+	if id, ok := find_queue_song_id(name, artist, context.temp_allocator); ok do return id, true
 
-	term := to_query_text(fmt.tprintf("%s %s", name, artist))
+	term := apple.to_query_text(fmt.tprintf("%s %s", name, artist))
 	answer := apple.fetch(fmt.tprintf("/v1/catalog/%s/search?term=%s&types=songs&limit=25", apple.STOREFRONT, term), context.temp_allocator)
 	if answer.status != 200 do return "", false
 
@@ -207,23 +207,6 @@ find_song_id :: proc(name, artist: string) -> (string, bool) {
 	}
 
 	return "", false
-}
-
-@(private)
-to_query_text :: proc(text: string) -> string {
-	builder := strings.builder_make(context.temp_allocator)
-
-	for byte_value in transmute([]u8)text {
-		is_plain := (byte_value >= 'a' && byte_value <= 'z') || (byte_value >= 'A' && byte_value <= 'Z') || (byte_value >= '0' && byte_value <= '9') || byte_value == '-' || byte_value == '.' || byte_value == '_'
-
-		if is_plain {
-			strings.write_byte(&builder, byte_value)
-		} else {
-			fmt.sbprintf(&builder, "%%%02X", byte_value)
-		}
-	}
-
-	return strings.to_string(builder)
 }
 
 // TTML writes a time as seconds, as "3:22.434", or as "1:03:22.434".
@@ -412,4 +395,28 @@ to_lines :: proc(ttml: string, allocator: mem.Allocator) -> []Line {
 	}
 
 	return lines[:]
+}
+
+// The catalog ID of a song in the saved queue, found by its name and artist.
+@(private)
+find_queue_song_id :: proc(name, artist: string, allocator := context.allocator) -> (string, bool) {
+	Queue :: struct {
+		songs: []struct {
+			id:          string,
+			name:        string,
+			artist_name: string `json:"artistName"`,
+		},
+	}
+
+	text, ok := store.find_state("queue", context.temp_allocator)
+	if !ok do return "", false
+
+	queue: Queue
+	if json.unmarshal_string(text, &queue, allocator = context.temp_allocator) != nil do return "", false
+
+	for song in queue.songs {
+		if song.name == name && song.artist_name == artist do return strings.clone(song.id, allocator), true
+	}
+
+	return "", false
 }

@@ -38,7 +38,6 @@ src/
   console/          The errors and refused requests the Console page lists. Every package reports there.
   helper/           The helper process and its messages. The one package that talks to Music.app.
   lyrics/           Lyrics from Apple, read from TTML, with romaji and translations.
-  library/          The library, read from Apple's saved answers.
   store/            The SQLite file: Apple's answers, the play log and the saved state of the window.
   ui/               The boxes, their layout, hover and scroll.
   font/ icon/ image/  Text, SF Symbols and covers, each in its own atlas or textures.

@@ -16,7 +16,7 @@ SIMILAR_ARTIST_POINTS :: 130
 
 // Music.app gives a song's artist only as a name. The catalog artist with that exact name is the one.
 find_artist_id :: proc(artist_name: string) -> (string, apple.Phase) {
-	watched := apple.watch(fmt.tprintf("/v1/catalog/%s/search?term=%s&types=artists&limit=12", apple.STOREFRONT, to_query_text(artist_name)))
+	watched := apple.watch(fmt.tprintf("/v1/catalog/%s/search?term=%s&types=artists&limit=12", apple.STOREFRONT, apple.to_query_text(artist_name)))
 	if watched.phase != .Ready do return "", watched.phase
 
 	Search_Answer :: struct {
@@ -111,7 +111,7 @@ watch_library_albums_of :: proc(artist_name: string) -> apple.Watched {
 	}
 	if word_start >= 0 && len(artist_name) - word_start > len(longest) do longest = artist_name[word_start:]
 
-	search := apple.watch(fmt.tprintf("/v1/me/library/search?term=%s&types=library-artists&limit=25", to_query_text(longest)))
+	search := apple.watch(fmt.tprintf("/v1/me/library/search?term=%s&types=library-artists&limit=25", apple.to_query_text(longest)))
 	if search.phase != .Ready do return {phase = search.phase, version = search.version}
 
 	Search_Answer :: struct {
@@ -170,7 +170,7 @@ is_youtube_only_shelf :: proc(shelf: apple.Shelf) -> bool {
 
 @(private = "file")
 build_artist_header :: proc(data: ^Page_Data, detail: string, width: f32) {
-	fallback := to_color_from_hex(fmt.tprintf("#%s", data.artwork.bg_color)) if len(data.artwork.bg_color) == 6 else colors.card
+	fallback := parse_hex_color(data.artwork.bg_color) or_else colors.card
 	header := ui.box("header", {width = ui.fill(), height = ui.points(ARTIST_HEADER_POINTS)})
 
 	if ui.scope(header) {
@@ -234,20 +234,4 @@ build_artist_middle :: proc(data: ^Page_Data) {
 			build_song_grid(data.songs, nil, data.songs)
 		}
 	}
-}
-
-to_query_text :: proc(text: string) -> string {
-	builder := strings.builder_make(context.temp_allocator)
-
-	for byte_value in transmute([]u8)text {
-		is_plain := (byte_value >= 'a' && byte_value <= 'z') || (byte_value >= 'A' && byte_value <= 'Z') || (byte_value >= '0' && byte_value <= '9') || byte_value == '-' || byte_value == '.' || byte_value == '_'
-
-		if is_plain {
-			strings.write_byte(&builder, byte_value)
-		} else {
-			fmt.sbprintf(&builder, "%%%02X", byte_value)
-		}
-	}
-
-	return strings.to_string(builder)
 }

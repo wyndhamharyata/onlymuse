@@ -324,11 +324,6 @@ final class YouTube: NSObject, WKNavigationDelegate {
     }
   }
 
-  func sendState() {
-    lastState = ""
-    poll()
-  }
-
   private func readPlayerView() -> WKWebView {
     if let playerView { return playerView }
 

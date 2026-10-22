@@ -158,7 +158,7 @@ SHOWN_SEARCH_SONG_COUNT :: 6
 TOP_RESULT_POINTS :: 180
 
 build_search_page :: proc(term: string) {
-	path := fmt.tprintf("/v1/catalog/%s/search?term=%s&types=songs,albums,artists&limit=12", apple.STOREFRONT, to_query_text(term))
+	path := fmt.tprintf("/v1/catalog/%s/search?term=%s&types=songs,albums,artists&limit=12", apple.STOREFRONT, apple.to_query_text(term))
 	watched := apple.watch(path)
 	data, is_stale := find_page_data(path, watched.version, watched.phase)
 

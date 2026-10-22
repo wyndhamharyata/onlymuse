@@ -43,7 +43,7 @@ open_song_menu :: proc(song: Catalog_Song, position: [2]f32, is_playlists_only :
 	close_song_menu()
 	song_menu = {
 		is_open           = true,
-		song              = clone_song(song),
+		song              = copy_song(song),
 		position          = position,
 		is_playlists_only = is_playlists_only,
 		is_playlists_open = is_playlists_only,
@@ -58,20 +58,6 @@ close_song_menu :: proc() {
 	song_menu = {}
 	playlist_name_field.is_focused = false
 	set_field_text(&playlist_name_field, "")
-}
-
-clone_song :: proc(song: Catalog_Song) -> Catalog_Song {
-	cloned := song
-	cloned.id = strings.clone(song.id)
-	cloned.name = strings.clone(song.name)
-	cloned.artist_name = strings.clone(song.artist_name)
-	cloned.album_name = strings.clone(song.album_name)
-	cloned.youtube_id = strings.clone(song.youtube_id)
-	cloned.artwork.url = strings.clone(song.artwork.url)
-	cloned.artwork.bg_color = strings.clone(song.artwork.bg_color)
-	cloned.artwork.text_color1 = strings.clone(song.artwork.text_color1)
-
-	return cloned
 }
 
 delete_song :: proc(song: Catalog_Song) {
@@ -115,7 +101,7 @@ build_song_menu :: proc() {
 			if ui.scope(menu) {
 				if menu_item("play next", "Play Next") {
 					// The queue keeps the song after the menu frees its own copy.
-					play_next(clone_song(song))
+					play_next(copy_song(song))
 					show_toast(fmt.tprintf("%s plays next", song.name))
 					is_closing = true
 				}
@@ -436,7 +422,7 @@ create_playlist :: proc(name: string, songs: []Catalog_Song, youtube_songs: []Pl
 	body, _ := json.marshal(value, allocator = context.temp_allocator)
 
 	kept := make([]Playlist_YouTube_Song, len(youtube_songs))
-	for song, index in youtube_songs do kept[index] = {strings.clone(song.after), clone_song(song.song)}
+	for song, index in youtube_songs do kept[index] = {strings.clone(song.after), copy_song(song.song)}
 
 	job := new(Create_Job)
 	job^ = {strings.clone(name), strings.clone(string(body)), strings.clone(done_text), kept, opens_page}
@@ -484,14 +470,10 @@ track_song_row :: proc(signal: ui.Signal, song: Catalog_Song) -> bool {
 	press, is_down := ui.press_position()
 	moved := ui.mouse_position() - press
 	if signal.is_held && is_down && !drag.is_dragging && moved.x * moved.x + moved.y * moved.y > DRAG_START_POINTS * DRAG_START_POINTS && song.id != "" {
-		drag = {is_dragging = true, song = clone_song(song)}
+		drag = {is_dragging = true, song = copy_song(song)}
 	}
 
 	return signal.is_clicked && drag.ended_frame != app.frame_count
-}
-
-is_dragging_song :: proc() -> bool {
-	return drag.is_dragging
 }
 
 // A sidebar playlist under a dragged song lights up, and takes it on release.

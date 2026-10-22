@@ -136,19 +136,6 @@ save_answer :: proc(path, body: string) {
 	step_write(statement)
 }
 
-// The bodies of every saved path that starts with prefix, ordered by the number after "offset=".
-list_answers :: proc(prefix: string, allocator := context.allocator) -> []string {
-	statement, ok := prepare("select body from responses where substr(path, 1, length(?1)) = ?1 order by cast(substr(path, instr(path, 'offset=') + 7) as integer)")
-	if !ok do return nil
-	defer mac.sqlite3_finalize(statement)
-	bind_text(statement, 1, prefix)
-
-	bodies := make([dynamic]string, allocator)
-	for mac.sqlite3_step(statement) == mac.SQLITE_ROW do append(&bodies, column_text(statement, 0, allocator))
-
-	return bodies[:]
-}
-
 // A saved value, as JSON.
 find_state :: proc(key: string, allocator := context.allocator) -> (string, bool) {
 	statement, ok := prepare("select value from state where key = ?")

@@ -93,14 +93,13 @@ free_retired_memory :: proc() {
 	}
 }
 
-@(private = "file")
 now_ms :: proc() -> i64 {
 	return time.to_unix_nanoseconds(time.now()) / 1_000_000
 }
 
 // A song or a card kept in a page's arena, from another arena that lives on its own terms, such as a parsed
 // YouTube answer. A page that kept only pointers into one would read freed memory once it was read again.
-copy_song :: proc(song: Catalog_Song, allocator: mem.Allocator) -> Catalog_Song {
+copy_song :: proc(song: Catalog_Song, allocator := context.allocator) -> Catalog_Song {
 	copied := song
 	copied.id = strings.clone(song.id, allocator)
 	copied.name = strings.clone(song.name, allocator)

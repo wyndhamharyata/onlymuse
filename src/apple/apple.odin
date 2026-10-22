@@ -138,3 +138,20 @@ send_once :: proc(path: string, method: net.Method, allocator := context.allocat
 
 	return {response.status, strings.clone(string(response.body), allocator)}
 }
+
+// Text for a URL's query, with every byte but letters, digits and -._ written as %XX.
+to_query_text :: proc(text: string) -> string {
+	builder := strings.builder_make(context.temp_allocator)
+
+	for byte_value in transmute([]u8)text {
+		is_plain := (byte_value >= 'a' && byte_value <= 'z') || (byte_value >= 'A' && byte_value <= 'Z') || (byte_value >= '0' && byte_value <= '9') || byte_value == '-' || byte_value == '.' || byte_value == '_'
+
+		if is_plain {
+			strings.write_byte(&builder, byte_value)
+		} else {
+			fmt.sbprintf(&builder, "%%%02X", byte_value)
+		}
+	}
+
+	return strings.to_string(builder)
+}

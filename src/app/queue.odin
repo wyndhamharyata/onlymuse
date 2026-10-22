@@ -326,7 +326,7 @@ fall_back_to_youtube :: proc() -> bool {
 	song := queue.songs[queue.index]
 	if song.youtube_id == "" do return false
 
-	youtube_song := clone_song(to_youtube_song(song))
+	youtube_song := copy_song(to_youtube_song(song))
 	reject_match(youtube_song)
 	retire_song(queue.songs[queue.index])
 	queue.songs[queue.index] = youtube_song
@@ -421,8 +421,8 @@ to_play_order :: proc(songs: []Catalog_Song, first_index: int) -> []Catalog_Song
 	shuffled := to_shuffled(others[:])
 	defer delete(shuffled)
 	order := make([]Catalog_Song, len(songs))
-	order[0] = clone_song(songs[first_index])
-	for song, index in shuffled do order[index + 1] = clone_song(song)
+	order[0] = copy_song(songs[first_index])
+	for song, index in shuffled do order[index + 1] = copy_song(song)
 
 	return order
 }
@@ -440,7 +440,7 @@ replace_songs :: proc(songs, original_songs: []Catalog_Song) {
 @(private = "file")
 clone_songs :: proc(songs: []Catalog_Song) -> []Catalog_Song {
 	cloned := make([]Catalog_Song, len(songs))
-	for song, index in songs do cloned[index] = clone_song(song)
+	for song, index in songs do cloned[index] = copy_song(song)
 
 	return cloned
 }
@@ -477,7 +477,7 @@ set_playable :: proc(index: int) {
 	playable := to_playable(queue.songs[index])
 	if playable.id == queue.songs[index].id do return
 
-	cloned := clone_song(playable)
+	cloned := copy_song(playable)
 	retire_song(queue.songs[index])
 	queue.songs[index] = cloned
 }
@@ -533,7 +533,7 @@ play_next :: proc(song: Catalog_Song) {
 
 	original := make([]Catalog_Song, len(queue.original_songs) + 1)
 	copy(original, queue.original_songs)
-	original[len(original) - 1] = clone_song(song)
+	original[len(original) - 1] = copy_song(song)
 
 	// The new lists hold the old songs themselves, so only the old lists go.
 	append(&retired.lists, queue.songs, queue.original_songs)

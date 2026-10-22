@@ -13,10 +13,7 @@ to_color :: proc "contextless" (hex: u32) -> [4]f32 {
 to_color_from_hex :: proc(hex: string) -> [4]f32 {
 	if len(hex) != 7 || hex[0] != '#' do return DEFAULT_ACCENT
 
-	value, ok := strconv.parse_u64_of_base(hex[1:], 16)
-	if !ok do return DEFAULT_ACCENT
-
-	return to_color(u32(value << 8) | 0xff)
+	return parse_hex_color(hex[1:]) or_else DEFAULT_ACCENT
 }
 
 // The colours of the design's mock. The window blurs what is behind it and tints it at 85%.
@@ -172,27 +169,8 @@ to_hsl :: proc(rgb: [3]f32) -> (hue, saturation, lightness: f32) {
 	return
 }
 
+// Hue in turns, from 0 to 1.
 @(private = "file")
 from_hsl :: proc(hue, saturation, lightness: f32) -> [3]f32 {
-	chroma := (1 - abs(2 * lightness - 1)) * saturation
-	sector := hue * 6
-	second := chroma * (1 - abs(math.mod(sector, 2) - 1))
-	rgb: [3]f32
-
-	switch {
-	case sector < 1:
-		rgb = {chroma, second, 0}
-	case sector < 2:
-		rgb = {second, chroma, 0}
-	case sector < 3:
-		rgb = {0, chroma, second}
-	case sector < 4:
-		rgb = {0, second, chroma}
-	case sector < 5:
-		rgb = {second, 0, chroma}
-	case:
-		rgb = {chroma, 0, second}
-	}
-
-	return rgb + (lightness - chroma / 2)
+	return to_color_from_hsl(hue * 360, saturation, lightness).rgb
 }

@@ -251,7 +251,7 @@ update_results :: proc() {
 	is_settled := helper.now_ms() - palette.typed_at >= PALETTE_SETTLE_MS
 	if term != "" && !is_settled do platform.request_frame_after(PALETTE_SETTLE_MS / 1000.0)
 	if term != "" && is_settled {
-		catalog = apple.watch(fmt.tprintf("/v1/catalog/%s/search?term=%s&types=songs,albums,artists&limit=4", apple.STOREFRONT, to_query_text(term)))
+		catalog = apple.watch(fmt.tprintf("/v1/catalog/%s/search?term=%s&types=songs,albums,artists&limit=4", apple.STOREFRONT, apple.to_query_text(term)))
 	}
 
 	signature := ((song_signature * 31 + album_signature) * 31 + artist_signature) * 31 + catalog.version + len(playlists) * 7
@@ -273,14 +273,14 @@ update_results :: proc() {
 		for card, index in artists do names[index] = card.name
 		for index in find_best(names, nil, term) {
 			card := artists[index]
-			append(&results, Palette_Result{group = "Artists", title = strings.clone(card.name, allocator), artwork = clone_artwork(card.artwork, allocator), is_round = true, action = .Open_Card, card = clone_card(card, allocator)})
+			append(&results, Palette_Result{group = "Artists", title = strings.clone(card.name, allocator), artwork = clone_artwork(card.artwork, allocator), is_round = true, action = .Open_Card, card = copy_card(card, allocator)})
 		}
 
 		names = make([]string, len(albums), context.temp_allocator)
 		for card, index in albums do names[index] = card.name
 		for index in find_best(names, nil, term) {
 			card := albums[index]
-			append(&results, Palette_Result{group = "Albums", title = strings.clone(card.name, allocator), subtitle = strings.clone(card.subtitle, allocator), artwork = clone_artwork(card.artwork, allocator), action = .Open_Card, card = clone_card(card, allocator)})
+			append(&results, Palette_Result{group = "Albums", title = strings.clone(card.name, allocator), subtitle = strings.clone(card.subtitle, allocator), artwork = clone_artwork(card.artwork, allocator), action = .Open_Card, card = copy_card(card, allocator)})
 		}
 
 		names = make([]string, len(songs), context.temp_allocator)
@@ -418,15 +418,15 @@ add_catalog :: proc(results: ^[dynamic]Palette_Result, body: string, allocator :
 
 	for artist in answer.results.artists.data[:min(2, len(answer.results.artists.data))] {
 		card := apple.to_card(artist)
-		append(results, Palette_Result{group = "Apple Music", title = strings.clone(card.name, allocator), subtitle = "Artist", artwork = clone_artwork(card.artwork, allocator), is_round = true, action = .Open_Card, card = clone_card(card, allocator)})
+		append(results, Palette_Result{group = "Apple Music", title = strings.clone(card.name, allocator), subtitle = "Artist", artwork = clone_artwork(card.artwork, allocator), is_round = true, action = .Open_Card, card = copy_card(card, allocator)})
 	}
 	for album in answer.results.albums.data[:min(2, len(answer.results.albums.data))] {
 		card := apple.to_card(album)
-		append(results, Palette_Result{group = "Apple Music", title = strings.clone(card.name, allocator), subtitle = fmt.aprintf("Album · %s", card.subtitle, allocator = allocator), artwork = clone_artwork(card.artwork, allocator), action = .Open_Card, card = clone_card(card, allocator)})
+		append(results, Palette_Result{group = "Apple Music", title = strings.clone(card.name, allocator), subtitle = fmt.aprintf("Album · %s", card.subtitle, allocator = allocator), artwork = clone_artwork(card.artwork, allocator), action = .Open_Card, card = copy_card(card, allocator)})
 	}
 	for resource in answer.results.songs.data[:min(4, len(answer.results.songs.data))] {
 		song := apple.to_catalog_song(resource)
-		append(results, Palette_Result{group = "Apple Music", title = strings.clone(song.name, allocator), subtitle = fmt.aprintf("Song · %s", song.artist_name, allocator = allocator), artwork = clone_artwork(song.artwork, allocator), action = .Play_Song, song = clone_song_into(song, allocator)})
+		append(results, Palette_Result{group = "Apple Music", title = strings.clone(song.name, allocator), subtitle = fmt.aprintf("Song · %s", song.artist_name, allocator = allocator), artwork = clone_artwork(song.artwork, allocator), action = .Play_Song, song = copy_song(song, allocator)})
 	}
 }
 
@@ -435,50 +435,21 @@ clone_artwork :: proc(artwork: apple.Artwork, allocator := context.allocator) ->
 	return {strings.clone(artwork.url, allocator), strings.clone(artwork.bg_color, allocator), strings.clone(artwork.text_color1, allocator)}
 }
 
-@(private = "file")
-clone_card :: proc(card: apple.Card, allocator := context.allocator) -> apple.Card {
-	cloned := card
-	cloned.id = strings.clone(card.id, allocator)
-	cloned.name = strings.clone(card.name, allocator)
-	cloned.subtitle = strings.clone(card.subtitle, allocator)
-	cloned.artwork = clone_artwork(card.artwork, allocator)
-	cloned.song = {}
-
-	return cloned
-}
-
-@(private = "file")
-clone_song_into :: proc(song: Catalog_Song, allocator := context.allocator) -> Catalog_Song {
-	cloned := song
-	cloned.id = strings.clone(song.id, allocator)
-	cloned.name = strings.clone(song.name, allocator)
-	cloned.artist_name = strings.clone(song.artist_name, allocator)
-	cloned.album_name = strings.clone(song.album_name, allocator)
-	cloned.youtube_id = strings.clone(song.youtube_id, allocator)
-	cloned.artwork = clone_artwork(song.artwork, allocator)
-
-	return cloned
-}
-
 // ---- Doing it ----
 
 @(private = "file")
 run_result :: proc(result: Palette_Result) {
 	switch result.action {
+	// navigate, play_songs and open_card keep their own copies, so the results' memory can go.
 	case .Navigate:
-		page := result.page
-		page.id = strings.clone(page.id)
-		page.title = strings.clone(page.title)
-		navigate(page)
+		navigate(result.page)
 	case .Play_Library_Song:
 		songs, _, _ := list_library_songs()
 		if result.index < len(songs) do play_songs(songs, result.index)
 	case .Play_Song:
-		// The queue keeps the song after the palette's results go.
-		play_songs([]Catalog_Song{clone_song(result.song)}, 0)
+		play_songs([]Catalog_Song{result.song}, 0)
 	case .Open_Card:
-		card := clone_card(result.card)
-		open_card([]apple.Card{card}, 0)
+		open_card([]apple.Card{result.card}, 0)
 	case .Play_Pause:
 		helper.send(`{"type":"playPause"}`)
 	case .Next:

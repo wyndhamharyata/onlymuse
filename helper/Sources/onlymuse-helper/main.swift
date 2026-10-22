@@ -119,11 +119,6 @@ let webPlayer = WebPlayer()
 startReadingCommands(onCommand: { command in
   switch command.type {
   case "refreshTokens": webPlayer.refreshTokens()
-  // The app reloaded its code and keeps this helper, so it asks for what the helper sent at start.
-  case "sendState":
-    send(toAccentMessage())
-    youTube.isActive ? youTube.sendState() : send(music.readNowPlaying())
-    youTube.sendCookie()
   case "signIn": webPlayer.signIn()
   case "youtubeSignIn": youTube.sendCookie()
   case "playSong":

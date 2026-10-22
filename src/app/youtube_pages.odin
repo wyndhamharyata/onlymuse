@@ -5,7 +5,6 @@ import "core:fmt"
 import "core:mem/virtual"
 import "core:strings"
 import "core:thread"
-import "core:time"
 import "om:apple"
 import "om:helper"
 import "om:store"
@@ -53,14 +52,14 @@ watch_youtube_list :: proc(path: string) -> (youtube.List, apple.Watched) {
 		parsed.list = youtube.to_list(watched.body, virtual.arena_allocator(&parsed.arena))
 	}
 
-	parsed.used_at = time.to_unix_nanoseconds(time.now()) / 1_000_000
+	parsed.used_at = now_ms()
 
 	return parsed.list, watched
 }
 
 // Called first in each frame. A list not asked for in a while leaves memory, as a page does.
 free_unused_youtube_lists :: proc() {
-	now := time.to_unix_nanoseconds(time.now()) / 1_000_000
+	now := now_ms()
 	unused := make([dynamic]string, context.temp_allocator)
 	for path, parsed in parsed_lists do if now - parsed.used_at > UNUSED_PAGE_MS do append(&unused, path)
 
@@ -422,7 +421,7 @@ add_playlist_youtube_songs :: proc(playlist_id: string, songs: []Playlist_YouTub
 	if playlist_id not_in playlist_youtube_songs do playlist_youtube_songs[strings.clone(playlist_id)] = {}
 
 	list := &playlist_youtube_songs[playlist_id]
-	for song in songs do append(list, Playlist_YouTube_Song{strings.clone(song.after), clone_song(song.song)})
+	for song in songs do append(list, Playlist_YouTube_Song{strings.clone(song.after), copy_song(song.song)})
 	save_playlist_youtube_songs()
 }
 

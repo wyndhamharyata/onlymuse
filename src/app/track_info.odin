@@ -224,7 +224,7 @@ listening: struct {
 }
 
 start_play_log :: proc() {
-	since := time.to_unix_nanoseconds(time.now()) / 1_000_000 - PLAY_LOG_DAYS * 86_400_000
+	since := now_ms() - PLAY_LOG_DAYS * 86_400_000
 	for play in store.list_plays(since) do append(&play_log, play)
 }
 
@@ -268,7 +268,7 @@ finish_listening :: proc() {
 	if is_play || furthest >= SKIP_MIN_SECONDS {
 		play := listening.song
 		play.is_skip = !is_play
-		play.played_at = time.to_unix_nanoseconds(time.now()) / 1_000_000
+		play.played_at = now_ms()
 		store.save_play(play)
 		// The log keeps the strings.
 		append(&play_log, play)

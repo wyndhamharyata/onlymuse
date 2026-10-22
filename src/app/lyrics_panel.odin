@@ -28,7 +28,6 @@ WORD_TIMER_SLACK_SECONDS :: 0.005
 
 lyrics_state: struct {
 	lead_ms:             int,
-	lead_changed_frame:  int,
 	lead_changed_tick:   f64,
 	// The lyrics' time, in song seconds, for the frame being built.
 	position_seconds:    f64,

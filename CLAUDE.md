@@ -31,8 +31,19 @@ how to try each part of the app, and lists the development settings.
 
 ```
 src/
-  app/              The window: sidebar, pages, side panel, player bar, the queue and the palette.
-                    main.odin opens the window and builds each frame. pages.odin picks the page.
+  app/              The window. main.odin opens it and builds each frame. pages.odin picks the page.
+                    sidebar, search field, Console page, zoom and bench live here too.
+    core/           What every part of the window shares: the app's state, navigation, page data, songs, the library lists.
+    kit/            The look and the widgets: theme, boxes, artwork, text fields, menus, toasts.
+    matching/       Finds the Apple Music song each YouTube song is.
+    youtube_lists/  YouTube's lists as the pages read them: home, playlists, Liked Music.
+    playback/       The queue, shuffle, the play log, favourites and what Music.app knows of a song.
+    menus/          The song menu, playlist writes and dragging a song onto a playlist.
+    lists/          The cards, song rows and grids that several pages show.
+    browse/         The Apple Music pages: home, albums, playlists, artists, library, downloads, search.
+    youtube_pages/  The YouTube pages, and Bring Over.
+    player/         The player bar, the side panel, the lyrics and the Now Playing page.
+    palette/        The command palette.
   apple/            The one package that calls amp-api.music.apple.com, with its cache.
   youtube/          The one package that calls music.youtube.com. Its answers go through apple's cache.
   console/          The errors and refused requests the Console page lists. Every package reports there.

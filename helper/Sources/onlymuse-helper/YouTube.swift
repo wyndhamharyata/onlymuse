@@ -68,6 +68,8 @@ final class YouTube: NSObject, WKNavigationDelegate {
   // A song starts about a second after the page has it. One not started this long after is asked for again, then
   // the page opens again with it.
   private static let slowStartSeconds = 4.0
+  // Asks again once, then opens the page again once, then gives up.
+  private static let maxStartRetryCount = 2
   // Music.app's posts this soon after the helper paused it may still say it plays.
   private static let pauseSettleSeconds = 2.0
   // The page goes this long after the last YouTube song, as it holds 200 MB or more, unless the queue has more.
@@ -457,8 +459,12 @@ final class YouTube: NSObject, WKNavigationDelegate {
     startRetryCount += 1
     let name = song?.name ?? videoID
 
-    guard startRetryCount <= 2 else {
-      if startRetryCount == 3 { sendError("The YouTube page still has not started \(name).") }
+    // The app shows the song as paused at its start, so the person can press Play again or skip it.
+    guard startRetryCount <= Self.maxStartRetryCount else {
+      sendError("The YouTube page still has not started \(name).")
+      run("document.getElementById('movie_player')?.pauseVideo()")
+      lastState = "paused"
+      send(toNowPlaying(state: "paused", positionSeconds: 0, durationSeconds: song?.durationSeconds ?? 0))
       return
     }
 

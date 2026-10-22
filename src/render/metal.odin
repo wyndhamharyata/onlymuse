@@ -114,6 +114,10 @@ start :: proc(device: ^MTL.Device, layer: ^CA.MetalLayer) {
 }
 
 make_texture :: proc(size_pixels: [2]int, format: MTL.PixelFormat) -> ^MTL.Texture {
+	// The image threads have no autorelease pool of their own, and the descriptor is autoreleased.
+	pool := NS.AutoreleasePool.alloc()->init()
+	defer pool->drain()
+
 	descriptor := MTL.TextureDescriptor.texture2DDescriptorWithPixelFormat(format, NS.UInteger(size_pixels.x), NS.UInteger(size_pixels.y), false)
 	descriptor->setUsage({.ShaderRead})
 

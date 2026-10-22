@@ -107,13 +107,19 @@ favourite_requests: map[int]Favourite_Request
 
 @(private = "file")
 favourite_set: struct {
-	signature: int,
-	ids:       map[string]bool,
+	signature:     int,
+	ids:           map[string]bool,
+	// app.frame_count + 1 of the frame that last checked the answers, so each row's heart and each song a
+	// shuffle sorts reads them once a frame.
+	checked_frame: int,
 }
 
 // The catalog IDs in Favourite Songs, read again when its answers change.
 @(private = "file")
 favourite_ids :: proc() -> map[string]bool {
+	if favourite_set.checked_frame == app.frame_count + 1 do return favourite_set.ids
+
+	favourite_set.checked_frame = app.frame_count + 1
 	_, playlist_id, _ := list_playlists()
 	if playlist_id == "" do return favourite_set.ids
 

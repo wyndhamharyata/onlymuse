@@ -285,6 +285,8 @@ start_matching :: proc(song: Catalog_Song, video_id: string) {
 	matcher.checking[job.video_id] = true
 	append(&matcher.pending, job)
 	// Each task takes a batch, so a task that comes after its songs were taken finds none and ends.
+	// The pool keeps each finished task until it is taken.
+	for _ in thread.pool_pop_done(&matcher.pool) {}
 	thread.pool_add_task(&matcher.pool, context.allocator, check_matches, nil)
 }
 

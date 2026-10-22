@@ -38,8 +38,9 @@ final class Handoff {
 
     arm()
 
-    // A YouTube song after Music.app's loads ahead. After a YouTube song, afterID is nil and the page plays on.
-    if let afterID, !afterID.isEmpty { youTube.prepare(videoID: next?.youTubeVideoID ?? "") }
+    // A YouTube song after Music.app's loads ahead. An empty afterID ends the queue, and the page loaded ahead
+    // goes. After a YouTube song, afterID is nil and the page plays on.
+    if afterID != nil { youTube.prepare(videoID: next?.youTubeVideoID ?? "") }
 
     return nextID
   }

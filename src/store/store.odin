@@ -100,6 +100,12 @@ prepare :: proc(sql: cstring) -> (mac.Sqlite_Statement, bool) {
 	return statement, is_ready
 }
 
+// A write that fails, such as on a full disk, shows on the Console page.
+@(private)
+step_write :: proc(statement: mac.Sqlite_Statement) {
+	if mac.sqlite3_step(statement) != mac.SQLITE_DONE do console.add("Store", "%s", mac.sqlite3_errmsg(state.db))
+}
+
 @(private)
 column_text :: proc(statement: mac.Sqlite_Statement, column: i32, allocator := context.allocator) -> string {
 	bytes := mac.sqlite3_column_text(statement, column)[:mac.sqlite3_column_bytes(statement, column)]
@@ -127,7 +133,7 @@ save_answer :: proc(path, body: string) {
 	bind_text(statement, 1, path)
 	bind_text(statement, 2, body)
 	mac.sqlite3_bind_int64(statement, 3, now_ms())
-	mac.sqlite3_step(statement)
+	step_write(statement)
 }
 
 // The bodies of every saved path that starts with prefix, ordered by the number after "offset=".
@@ -164,7 +170,7 @@ save_state :: proc(key, value: string) {
 	bind_text(statement, 1, key)
 	bind_text(statement, 2, value)
 	mac.sqlite3_bind_int64(statement, 3, now_ms())
-	mac.sqlite3_step(statement)
+	step_write(statement)
 }
 
 // The Apple Music song, as JSON, that a YouTube video is. Empty when Apple has no such song.
@@ -195,7 +201,7 @@ save_rejected_match :: proc(youtube_id: string) {
 	defer mac.sqlite3_finalize(statement)
 
 	bind_text(statement, 1, youtube_id)
-	mac.sqlite3_step(statement)
+	step_write(statement)
 }
 
 delete_rejected_match :: proc(youtube_id: string) {
@@ -204,7 +210,7 @@ delete_rejected_match :: proc(youtube_id: string) {
 	defer mac.sqlite3_finalize(statement)
 
 	bind_text(statement, 1, youtube_id)
-	mac.sqlite3_step(statement)
+	step_write(statement)
 }
 
 // Every saved match goes, such as when the rule that makes them changes.
@@ -220,7 +226,7 @@ save_match :: proc(youtube_id, song_json: string) {
 	bind_text(statement, 1, youtube_id)
 	bind_text(statement, 2, song_json)
 	mac.sqlite3_bind_int64(statement, 3, now_ms())
-	mac.sqlite3_step(statement)
+	step_write(statement)
 }
 
 // A song heard to its middle, or left before it. Music.app keeps only a count and the last date.
@@ -245,7 +251,7 @@ save_play :: proc(play: Play) {
 	bind_text(statement, 4, play.album)
 	mac.sqlite3_bind_int64(statement, 5, 1 if play.is_skip else 0)
 	mac.sqlite3_bind_int64(statement, 6, play.played_at if play.played_at > 0 else now_ms())
-	mac.sqlite3_step(statement)
+	step_write(statement)
 }
 
 // Every play since since_ms, oldest first.

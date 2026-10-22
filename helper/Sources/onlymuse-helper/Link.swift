@@ -31,11 +31,12 @@ struct SongMatch: Decodable {
   }
 }
 
-// Writes one JSON line to the app, as Incoming in src/helper.ts names it.
+// Writes one JSON line to the app, as Message in src/helper/helper.odin names it. A write after the app ended
+// fails here, and the reader thread's onAppGone still pauses Music.app.
 func send(_ message: [String: Any]) {
   guard let data = try? JSONSerialization.data(withJSONObject: message) else { return }
 
-  FileHandle.standardOutput.write(data + Data("\n".utf8))
+  try? FileHandle.standardOutput.write(contentsOf: data + Data("\n".utf8))
 }
 
 func sendError(_ text: String) {

@@ -90,7 +90,8 @@ shuffle_by_rules :: proc(songs: []Catalog_Song) -> []Catalog_Song {
 	}
 
 	apart_count := 0
-	if shuffle_rules.albums_apart do apart_count = keep_albums_apart(shuffled)
+	// Each part on its own, so a song that plays last never moves ahead.
+	if shuffle_rules.albums_apart do apart_count = keep_albums_apart(shuffled[:len(kept)]) + keep_albums_apart(shuffled[len(kept):])
 
 	set_shuffle_note(recent_count, skipped_count, apart_count)
 

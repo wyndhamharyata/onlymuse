@@ -27,7 +27,7 @@ find_artist_id :: proc(artist_name: string) -> (string, apple.Phase) {
 	answer: Search_Answer
 	_ = unmarshal_text(watched.body, &answer)
 	artists := answer.results.artists.data
-	if len(artists) == 0 do return "", .Failed
+	if len(artists) == 0 do return "", .Ready
 
 	for artist in artists do if artist.attributes.name == artist_name do return artist.id, .Ready
 

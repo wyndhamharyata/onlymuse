@@ -3,6 +3,8 @@ package lyrics
 
 import "core:encoding/json"
 import "core:fmt"
+import "core:mem"
+import "core:mem/virtual"
 import "core:strconv"
 import "core:strings"
 import "core:sync"
@@ -52,6 +54,10 @@ state: struct {
 	lines:         []Line,
 	// Who wrote the words, as the lyrics name them.
 	songwriters:   []string,
+	// Holds lines and songwriters.
+	arena:         virtual.Arena,
+	// The last song's lines, which the frame that asked for the new song may still show.
+	last_arena:    virtual.Arena,
 }
 
 // The lyrics of the song, loading them the first time it is asked for. Lines live until another song is asked for.
@@ -65,6 +71,9 @@ find :: proc(persistent_id, name, artist: string) -> (Phase, []Line) {
 	state.phase = .Loading
 	state.lines = nil
 	state.songwriters = nil
+	virtual.arena_destroy(&state.last_arena)
+	state.last_arena = state.arena
+	state.arena = {}
 
 	request := new(Request)
 	request^ = {strings.clone(persistent_id), strings.clone(name), strings.clone(artist)}
@@ -77,17 +86,30 @@ find :: proc(persistent_id, name, artist: string) -> (Phase, []Line) {
 @(private)
 load :: proc(data: rawptr) {
 	request := cast(^Request)data
-	lines, songwriters, ok := fetch_lines(request.name, request.artist)
+	defer {
+		delete(request.persistent_id)
+		delete(request.name)
+		delete(request.artist)
+		free(request)
+	}
 	defer free_all(context.temp_allocator)
+
+	arena: virtual.Arena
+	_ = virtual.arena_init_growing(&arena)
+	lines, songwriters, ok := fetch_lines(request.name, request.artist, virtual.arena_allocator(&arena))
 
 	sync.guard(&state.mutex)
 
 	// Another song started while these loaded.
-	if request.persistent_id != state.persistent_id do return
+	if request.persistent_id != state.persistent_id {
+		virtual.arena_destroy(&arena)
+		return
+	}
 
 	state.phase = .Ready if ok && len(lines) > 0 else .Missing
 	state.lines = lines
 	state.songwriters = songwriters
+	state.arena = arena
 	platform.wake()
 }
 
@@ -95,7 +117,7 @@ load :: proc(data: rawptr) {
 LYRICS_QUERY :: "?l%5Blyrics%5D=en-GB&l%5Bscript%5D=en-Latn&extend=ttmlLocalizations"
 
 @(private)
-fetch_lines :: proc(name, artist: string) -> ([]Line, []string, bool) {
+fetch_lines :: proc(name, artist: string, allocator: mem.Allocator) -> ([]Line, []string, bool) {
 	song_id, ok := find_song_id(name, artist)
 	if !ok do return nil, nil, false
 
@@ -124,7 +146,7 @@ fetch_lines :: proc(name, artist: string) -> ([]Line, []string, bool) {
 	attributes := parsed.data[0].attributes
 	ttml := attributes.ttml_localizations if attributes.ttml_localizations != "" else attributes.ttml
 
-	return to_lines(ttml), to_songwriters(ttml), true
+	return to_lines(ttml, allocator), to_songwriters(ttml, allocator), true
 }
 
 // The songwriters of the playing song's lyrics, once they have loaded.
@@ -135,8 +157,8 @@ find_songwriters :: proc(persistent_id: string) -> []string {
 }
 
 @(private)
-to_songwriters :: proc(ttml: string) -> []string {
-	names := make([dynamic]string)
+to_songwriters :: proc(ttml: string, allocator: mem.Allocator) -> []string {
+	names := make([dynamic]string, allocator)
 	rest := ttml
 
 	for {
@@ -147,7 +169,7 @@ to_songwriters :: proc(ttml: string) -> []string {
 		end := strings.index(rest, "</songwriter>")
 		if end < 0 do break
 
-		append(&names, strings.clone(to_plain_text(rest[:end])))
+		append(&names, strings.clone(to_plain_text(rest[:end]), allocator))
 		rest = rest[end:]
 	}
 
@@ -249,9 +271,9 @@ utf16_length :: proc(text: string) -> int {
 
 // A word is a span with its own start. The space after it stays with it, so the words join back into the line.
 @(private)
-to_words :: proc(markup: string, line_begin_seconds: f64) -> (text: string, words: []Word) {
-	builder := strings.builder_make()
-	word_list := make([dynamic]Word)
+to_words :: proc(markup: string, line_begin_seconds: f64, allocator: mem.Allocator) -> (text: string, words: []Word) {
+	builder := strings.builder_make(allocator)
+	word_list := make([dynamic]Word, allocator)
 	utf16_index := 0
 	rest := markup
 
@@ -351,10 +373,10 @@ to_line_texts :: proc(ttml: string, block_name: string) -> map[string]string {
 }
 
 @(private)
-to_lines :: proc(ttml: string) -> []Line {
+to_lines :: proc(ttml: string, allocator: mem.Allocator) -> []Line {
 	pronunciations := to_line_texts(ttml, "transliteration")
 	translations := to_line_texts(ttml, "translation")
-	lines := make([dynamic]Line)
+	lines := make([dynamic]Line, allocator)
 	body := ttml[max(0, strings.index(ttml, "<body")):]
 
 	for {
@@ -368,18 +390,16 @@ to_lines :: proc(ttml: string) -> []Line {
 
 		attributes := body[3:tag_end]
 		begin_seconds := to_seconds(find_attribute(attributes, "begin"))
-		text, words := to_words(body[tag_end + 1:end], begin_seconds)
+		text, words := to_words(body[tag_end + 1:end], begin_seconds, allocator)
 		line := Line{begin_seconds = begin_seconds, text = text, words = words}
 
 		key := find_attribute(attributes, "itunes:key")
 		if markup, ok := translations[key]; ok {
-			translation, translation_words := to_words(markup, begin_seconds)
-			delete(translation_words)
-			line.translation = translation
+			line.translation, _ = to_words(markup, begin_seconds, allocator)
 		}
 
 		if markup, ok := pronunciations[key]; ok {
-			pronunciation, pronunciation_words := to_words(markup, begin_seconds)
+			pronunciation, pronunciation_words := to_words(markup, begin_seconds, allocator)
 
 			if to_letters(pronunciation) != to_letters(text) {
 				line.pronunciation = pronunciation

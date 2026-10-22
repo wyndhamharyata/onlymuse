@@ -108,6 +108,8 @@ begin_frame :: proc() {
 	state.is_fading = false
 
 	take_finished()
+	// A thread pool keeps each finished task until it is taken.
+	for _ in thread.pool_pop_done(&state.pool) {}
 	start_waiting()
 	unload_extra()
 }

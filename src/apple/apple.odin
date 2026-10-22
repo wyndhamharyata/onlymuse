@@ -29,6 +29,8 @@ state: struct {
 	mutex:           sync.Mutex,
 	developer_token: string,
 	user_token:      string,
+	// Counts up with each new pair of tokens.
+	token_version:   int,
 	started:         time.Tick,
 }
 
@@ -43,6 +45,14 @@ set_tokens :: proc(developer_token, user_token: string) {
 	delete(state.user_token)
 	state.developer_token = strings.clone(developer_token)
 	state.user_token = strings.clone(user_token)
+	state.token_version += 1
+}
+
+@(private)
+read_token_version :: proc() -> int {
+	sync.guard(&state.mutex)
+
+	return state.token_version
 }
 
 has_tokens :: proc() -> bool {
@@ -74,16 +84,22 @@ LANGUAGE :: "en-GB"
 // Apple answers 401 or 403 once a token expires. The helper reads new ones and the request goes again, once.
 @(private)
 send_request :: proc(path: string, method: net.Method, allocator := context.allocator, body := "") -> Answer {
+	sent_version := read_token_version()
 	answer := send_once(path, method, allocator, body)
 	if answer.status != 401 && answer.status != 403 do return answer
 
+	// Another request's refusal may have brought new tokens while this one waited. Those still hold.
+	is_refresh_needed := false
 	{
 		sync.guard(&state.mutex)
-		delete(state.developer_token)
-		state.developer_token = ""
-		state.started = time.tick_now()
+		if state.token_version == sent_version && state.developer_token != "" {
+			delete(state.developer_token)
+			state.developer_token = ""
+			state.started = time.tick_now()
+			is_refresh_needed = true
+		}
 	}
-	helper.send(`{"type":"refreshTokens"}`)
+	if is_refresh_needed do helper.send(`{"type":"refreshTokens"}`)
 	delete(answer.body, allocator)
 
 	return send_once(path, method, allocator, body)

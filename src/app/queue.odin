@@ -34,8 +34,9 @@ Queue_State :: struct {
 	// Empty when the queue's song is not playing.
 	playing_persistent_id: string `json:"playingPersistentID"`,
 	// The last song Music.app played and where it was. The player shows it when Music.app has stopped.
-	// Its song's persistent ID is empty when there is none.
-	resume_point:          Resume_Point `json:"resumePoint"`,
+	// Its song's persistent ID is empty when there is none. Saved under its own key, "resumePoint", as it
+	// changes every few seconds and the queue can hold thousands of songs.
+	resume_point:          Resume_Point `json:"-"`,
 }
 
 // Where Music.app was in the song it plays, as of its last post.
@@ -122,6 +123,9 @@ start_queue :: proc() {
 	if text, ok := store.find_state("queue", context.temp_allocator); ok {
 		_ = json.unmarshal_string(text, &queue)
 	}
+	if text, ok := store.find_state("resumePoint", context.temp_allocator); ok {
+		_ = json.unmarshal_string(text, &queue.resume_point)
+	}
 
 	// A song that was being added when the app quit is not being added any more.
 	queue.is_adding = false
@@ -133,6 +137,12 @@ start_queue :: proc() {
 save_queue :: proc() {
 	bytes, error := json.marshal(queue, allocator = context.temp_allocator)
 	if error == nil do store.save_state("queue", string(bytes))
+}
+
+@(private = "file")
+save_resume_point :: proc() {
+	bytes, error := json.marshal(queue.resume_point, allocator = context.temp_allocator)
+	if error == nil do store.save_state("resumePoint", string(bytes))
 }
 
 // Saves the queue and tells the helper its next song, as setState did.
@@ -733,7 +743,7 @@ apply_queue_now_playing :: proc() {
 	queue_state.has_tracking = false
 	if has_ended && queue.resume_point.song.persistent_id != "" {
 		queue.resume_point.position_seconds = 0
-		save_queue()
+		save_resume_point()
 	}
 	if is_queue_song && has_ended do play_next_after_end()
 }
@@ -755,11 +765,18 @@ apply_resume_point :: proc() {
 
 	queue_state.last_resume_save = helper.now_ms()
 	song := now_playing.song
+	old := queue.resume_point.song
 	queue.resume_point = {
-		song             = {fmt.aprint(song.name), fmt.aprint(song.artist), fmt.aprint(song.album), fmt.aprint(song.persistent_id), song.duration_seconds, fmt.aprint(song.artwork_path)},
+		song             = {strings.clone(song.name), strings.clone(song.artist), strings.clone(song.album), strings.clone(song.persistent_id), song.duration_seconds, strings.clone(song.artwork_path)},
 		position_seconds = to_estimate_seconds(queue_state.tracking, helper.now_ms()),
 	}
-	save_queue()
+	// This runs before the frame builds its boxes, so nothing shows the old text any more.
+	delete(old.name)
+	delete(old.artist)
+	delete(old.album)
+	delete(old.persistent_id)
+	delete(old.artwork_path)
+	save_resume_point()
 }
 
 // Plays the last song again from where it was. Music.app may have quit or stopped since.

@@ -13,6 +13,8 @@ final class LocalProxy: @unchecked Sendable {
   private let queue = DispatchQueue(label: "onlymuse.local-proxy")
   private var listener: NWListener?
 
+  var port: NWEndpoint.Port? { listener?.port }
+
   // Starts listening on a free port of 127.0.0.1, and names it once it listens.
   func start(onReady: @escaping @Sendable (NWEndpoint.Port) -> Void) {
     let parameters = NWParameters.tcp

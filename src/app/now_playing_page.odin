@@ -346,8 +346,31 @@ build_stat_card :: proc(id, label, value, note_text: string, weight: f32 = 1, is
 // This song's plays in each of the last 8 weeks, oldest first, from the app's own log, and its rank
 // among the songs played in the last 30 days, 0 when it has none.
 @(private = "file")
+weekly_plays: struct {
+	// The key the counts are for: the song, the log's length and the hour, as this page asks every frame.
+	song_id:   string,
+	log_count: int,
+	hour:      i64,
+	weeks:     [STAT_WEEKS]int,
+	rank:      int,
+}
+
+@(private = "file")
 count_weekly_plays :: proc(song: Catalog_Song) -> (weeks: [STAT_WEEKS]int, rank: int) {
 	now := i64(helper.now_ms())
+	hour := now / 3_600_000
+	is_counted := weekly_plays.song_id == song.id && weekly_plays.log_count == len(play_log) && weekly_plays.hour == hour
+	if is_counted do return weekly_plays.weeks, weekly_plays.rank
+
+	weeks, rank = to_weekly_plays(song, now)
+	delete(weekly_plays.song_id)
+	weekly_plays = {strings.clone(song.id), len(play_log), hour, weeks, rank}
+
+	return weeks, rank
+}
+
+@(private = "file")
+to_weekly_plays :: proc(song: Catalog_Song, now: i64) -> (weeks: [STAT_WEEKS]int, rank: int) {
 	week_ms: i64 = 7 * 86_400_000
 	month_start := now - 30 * 86_400_000
 	counts := make(map[string]int, context.temp_allocator)
@@ -358,7 +381,8 @@ count_weekly_plays :: proc(song: Catalog_Song) -> (weeks: [STAT_WEEKS]int, rank:
 
 		if is_same_song(play, song) {
 			age := int((now - play.played_at) / week_ms)
-			if age < STAT_WEEKS do weeks[STAT_WEEKS - 1 - age] += 1
+			// A play dated ahead of now, after the Mac's clock moved back, has a negative age.
+			if age >= 0 && age < STAT_WEEKS do weeks[STAT_WEEKS - 1 - age] += 1
 		}
 
 		if play.played_at >= month_start {
@@ -590,7 +614,13 @@ is_catalog_id :: proc(id: string) -> bool {
 read_song_details :: proc(path: string, data: ^Page_Data, body: string) {
 	allocator := page_allocator(data)
 	resources := apple.to_resources(body, allocator)
-	if len(resources) == 0 do return
+
+	// The old details point into the arena find_page_data just reset.
+	if len(resources) == 0 {
+		stored_path, _ := delete_key(&song_details, path)
+		delete(stored_path)
+		return
+	}
 
 	song := resources[0]
 	attributes := song.attributes

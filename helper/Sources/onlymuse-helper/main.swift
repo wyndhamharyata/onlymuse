@@ -19,15 +19,19 @@ let music = MusicApp()
 let youTube = YouTube(music: music, isQuiet: !pausesWhenAppEnds)
 let handoff = Handoff(music: music, youTube: youTube)
 
+// A write to an app that has ended then fails, instead of ending the helper before it pauses Music.app.
+signal(SIGPIPE, SIG_IGN)
+
 // The helper's pages connect through it, so none uses HTTP/3.
 let localProxy = LocalProxy()
 
-localProxy.start { port in
-  DispatchQueue.main.async {
-    MainActor.assumeIsolated {
-      WKWebsiteDataStore.default().proxyConfigurations = [ProxyConfiguration(httpCONNECTProxy: .hostPort(host: "127.0.0.1", port: port))]
-    }
-  }
+let proxyReady = DispatchSemaphore(value: 0)
+
+localProxy.start { _ in proxyReady.signal() }
+
+// The first pages load below, and must not start before the proxy is set. Listening takes milliseconds.
+if proxyReady.wait(timeout: .now() + 2) == .success, let port = localProxy.port {
+  WKWebsiteDataStore.default().proxyConfigurations = [ProxyConfiguration(httpCONNECTProxy: .hostPort(host: "127.0.0.1", port: port))]
 }
 
 @MainActor

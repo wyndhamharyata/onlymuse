@@ -246,7 +246,7 @@ draw_frame :: proc() -> bool {
 	start := time.tick_now()
 	dt_seconds := f32(time.duration_seconds(time.tick_diff(app.last_frame, start)))
 	app.last_frame = start
-	append(&app.frame_starts, start)
+	if app.is_bench do append(&app.frame_starts, start)
 	// Before the frame reads its events, so the typed keys are among them.
 	if app.test_typing != "" && time.duration_seconds(time.tick_since(app.started_at)) > 1 {
 		has_context := platform.type_for_test(app.test_typing)
@@ -304,6 +304,8 @@ draw_frame :: proc() -> bool {
 
 	is_capture_frame := app.capture_path != "" && app.frame_count >= 3 && time.tick_diff(app.capture_time, start) >= 0
 	if is_capture_frame do render.request_capture(app.capture_path)
+	// Only the bench reads more than the last duration.
+	if !app.is_bench do clear(&app.build_durations)
 	append(&app.build_durations, time.tick_since(start))
 	render.end_frame(window.drawable)
 	if is_capture_frame do platform.quit()

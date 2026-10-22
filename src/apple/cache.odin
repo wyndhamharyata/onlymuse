@@ -30,7 +30,13 @@ Entry :: struct {
 	is_checking:   bool,
 	// Unix ms of the last watch, so an answer no page has asked for in a while leaves memory.
 	used_at:       i64,
+	// Unix ms of the last failed check.
+	failed_at:     i64,
 }
+
+// A failed answer is asked for again when a page watches it this long after, such as once the network is back.
+@(private)
+FAILED_RETRY_MS :: 30 * 1000
 
 // An answer no page has watched for this long leaves memory. It stays saved, so a page asking again finds it at once.
 @(private)
@@ -107,6 +113,13 @@ watch :: proc(path: string) -> Watched {
 
 	if entry, ok := cache.entries[path]; ok {
 		entry.used_at = now_ms()
+		can_retry := entry.phase == .Failed && !entry.is_checking && entry.used_at - entry.failed_at > FAILED_RETRY_MS
+
+		if can_retry {
+			entry.is_checking = true
+			thread.pool_add_task(&cache.pool, context.allocator, check, entry)
+		}
+
 		return entry.watched
 	}
 
@@ -164,8 +177,9 @@ check :: proc(task: thread.Task) {
 		cache.last_version += 1
 		entry.version = cache.last_version
 		entry.phase = .Ready
-	case answer.status != 200 && entry.phase == .Loading:
+	case answer.status != 200 && entry.phase != .Ready:
 		entry.phase = .Failed
+		entry.failed_at = now_ms()
 		delete(answer.body)
 	case:
 		delete(answer.body)
@@ -201,6 +215,8 @@ free_retired_bodies :: proc() {
 
 	for body in retired_bodies do delete(body)
 	clear(&retired_bodies)
+	// A thread pool keeps each finished task until it is taken.
+	for _ in thread.pool_pop_done(&cache.pool) {}
 
 	now := now_ms()
 	unused := make([dynamic]string, context.temp_allocator)

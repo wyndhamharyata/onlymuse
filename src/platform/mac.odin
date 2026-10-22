@@ -360,6 +360,7 @@ remove_layer_background :: proc "c" (layer: ^Layer) {
 			msg_send(nil, kept, "addObject:", filter)
 		}
 		msg_send(nil, layer, "setFilters:", kept)
+		kept->release()
 	}
 
 	sublayers := msg_send(^NS.Array, layer, "sublayers")
@@ -668,6 +669,10 @@ request_frame_after :: proc(seconds: f64) {
 
 // Wakes the event loop from any thread, so it sees a change made outside an event.
 wake :: proc "contextless" () {
+	// Worker threads call this, and they have no autorelease pool for the event.
+	pool := NS.AutoreleasePool.alloc()->init()
+	defer pool->drain()
+
 	event := NS.Event.otherEventWithType(.ApplicationDefined, {0, 0}, {}, 0, 0, nil, 0, 0, 0)
 	state.app->postEvent(event, true)
 }
@@ -754,15 +759,23 @@ read_clipboard :: proc() -> string {
 	return strings.clone(text->odinString(), context.temp_allocator)
 }
 
+// By template. Only the main thread formats dates.
+@(private)
+date_formatters: map[string]^Date_Formatter
+
 // A Unix time in ms as local text, by a template such as "d MMM" or "HH:mm", in the order the
 // person's locale writes it. It lives until the next frame.
 format_date :: proc(unix_ms: f64, template: string) -> string {
-	formatter := msg_send(^Date_Formatter, msg_send(^Date_Formatter, Date_Formatter, "alloc"), "init")
-	defer msg_send(nil, formatter, "release")
+	formatter := date_formatters[template] or_else nil
 
-	ns_template := NS.String.alloc()->initWithOdinString(template)
-	defer ns_template->release()
-	msg_send(nil, formatter, "setLocalizedDateFormatFromTemplate:", ns_template)
+	// A formatter is slow to make, and the Console page formats each of its rows every frame.
+	if formatter == nil {
+		formatter = msg_send(^Date_Formatter, msg_send(^Date_Formatter, Date_Formatter, "alloc"), "init")
+		ns_template := NS.String.alloc()->initWithOdinString(template)
+		defer ns_template->release()
+		msg_send(nil, formatter, "setLocalizedDateFormatFromTemplate:", ns_template)
+		date_formatters[strings.clone(template)] = formatter
+	}
 
 	date := msg_send(^NS.Object, NS.Date, "dateWithTimeIntervalSince1970:", NS.TimeInterval(unix_ms / 1000))
 	text := msg_send(^NS.String, formatter, "stringFromDate:", date)

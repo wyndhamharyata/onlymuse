@@ -146,6 +146,7 @@ send_request :: proc(path: string, allocator: mem.Allocator) -> apple.Answer {
 	headers := make([dynamic]string, context.temp_allocator)
 	append(&headers, "Content-Type: application/json", "Origin: " + ORIGIN, "X-Origin: " + ORIGIN)
 
+	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&state.mutex)
 		if api_id := find_cookie_value(state.cookie, "SAPISID"); api_id != "" {

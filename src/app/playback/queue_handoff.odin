@@ -209,6 +209,7 @@ restart_stalled_song :: proc(has_started: bool) {
 // Called each frame: starts polling once a song is added, and asks Music.app again when a poll is due.
 update_queue :: proc() {
 	added: int
+	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&queue_state.add_mutex)
 		added = queue_state.added_play_count

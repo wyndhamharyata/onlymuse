@@ -260,7 +260,7 @@ make_box :: proc(key: u64, style: Style) -> ^Box {
 	return box
 }
 
-// Makes the box the parent of the boxes built inside the if.
+// Makes the box the parent of the boxes built inside the if. deferred_none calls pop_parent when that if ends.
 @(deferred_none = pop_parent)
 scope :: proc(box: ^Box) -> bool {
 	append(&state.parents, box)

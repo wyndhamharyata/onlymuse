@@ -163,6 +163,7 @@ read_lines :: proc() {
 // The messages since the last call. They live until the next frame.
 take_messages :: proc() -> []Message {
 	lines: [dynamic]string
+	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&state.mutex)
 		lines = state.lines

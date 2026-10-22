@@ -1,3 +1,5 @@
+// The look and the small parts every page builds with: theme, boxes, artwork, text fields, menus and toasts.
+// It imports only core from the window.
 package kit
 
 import "core:fmt"
@@ -179,6 +181,7 @@ scrolling_text :: proc(id, text: string, color: [4]f32, font_size: f32, weight :
 
 @(private = "file")
 delete_key_and_value :: proc(m: ^map[string]f64, key: string) {
+	// delete_key hands back the map's own copy of the key, which is the one to free.
 	stored_key, _ := delete_key(m, key)
 	delete(stored_key)
 }

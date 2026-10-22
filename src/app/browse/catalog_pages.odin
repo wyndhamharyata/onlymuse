@@ -1,3 +1,4 @@
+// The Apple Music pages: home, albums, playlists, artists, the library, downloads and search.
 package browse
 
 import "core:fmt"

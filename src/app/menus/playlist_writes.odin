@@ -40,6 +40,7 @@ write_results: struct {
 start_write :: proc(job: Write_Job) {
 	copied := new(Write_Job)
 	copied^ = {strings.clone(job.path), strings.clone(job.body), strings.clone(job.done_text), strings.clone(job.failed_text), strings.clone(job.refresh_path)}
+	// self_cleanup frees the thread when its procedure returns, so nothing waits for it.
 	thread.create_and_start_with_data(copied, run_write, self_cleanup = true)
 }
 
@@ -50,6 +51,7 @@ run_write :: proc(data: rawptr) {
 	status := apple.post(job.path, job.body).status
 	is_done := status >= 200 && status < 300
 
+	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&write_results.mutex)
 		failed := fmt.aprintf("%s: no answer from Apple.", job.failed_text) if status == 0 else fmt.aprintf("%s: Apple answered %d.", job.failed_text, status)
@@ -167,6 +169,7 @@ create_playlist :: proc(name: string, songs: []core.Catalog_Song, youtube_songs:
 
 	job := new(Create_Job)
 	job^ = {strings.clone(name), strings.clone(string(body)), strings.clone(done_text), kept, opens_page}
+	// self_cleanup frees the thread when its procedure returns, so nothing waits for it.
 	thread.create_and_start_with_data(job, run_create, self_cleanup = true)
 }
 

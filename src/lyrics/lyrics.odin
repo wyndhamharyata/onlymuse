@@ -76,6 +76,7 @@ find :: proc(persistent_id, name, artist: string) -> (Phase, []Line) {
 
 	request := new(Request)
 	request^ = {strings.clone(persistent_id), strings.clone(name), strings.clone(artist)}
+	// self_cleanup frees the thread when its procedure returns, so nothing waits for it.
 	thread.create_and_start_with_data(request, load, self_cleanup = true)
 
 	return state.phase, nil

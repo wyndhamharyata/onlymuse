@@ -1,3 +1,4 @@
+// Finds the Apple Music song each YouTube song is, on a thread of its own, and keeps the answers in the store.
 package matching
 
 import "core:encoding/json"

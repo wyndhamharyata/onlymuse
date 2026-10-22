@@ -165,6 +165,7 @@ read_song_details :: proc(path: string, data: ^core.Page_Data, body: string) {
 
 	// The old details point into the arena find_page_data just reset.
 	if len(resources) == 0 {
+		// delete_key hands back the map's own copy of the key, which is the one to free.
 		stored_path, _ := delete_key(&song_details, path)
 		delete(stored_path)
 		return

@@ -1,3 +1,5 @@
+// Opens the window and builds each frame from the packages below. The sidebar, the Console page, zoom and
+// the bench live here too.
 package app
 
 import "base:runtime"
@@ -137,6 +139,7 @@ apply_keys :: proc() {
 }
 
 draw_frame :: proc() -> bool {
+	// Temp memory lives for one frame. The last frame has been drawn, so its temp memory goes now.
 	free_all(context.temp_allocator)
 	core.free_retired_memory()
 	playback.free_retired_songs()

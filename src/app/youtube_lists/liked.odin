@@ -61,6 +61,7 @@ start_youtube_like :: proc(video_id: string, is_liked: bool) {
 
 	job := new(Like_Job)
 	job^ = {strings.clone(video_id), is_liked}
+	// self_cleanup frees the thread when its procedure returns, so nothing waits for it.
 	thread.create_and_start_with_data(job, proc(data: rawptr) {
 		job := cast(^Like_Job)data
 		defer free(job)

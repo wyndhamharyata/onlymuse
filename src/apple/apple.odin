@@ -90,6 +90,7 @@ send_request :: proc(path: string, method: net.Method, allocator := context.allo
 
 	// Another request's refusal may have brought new tokens while this one waited. Those still hold.
 	is_refresh_needed := false
+	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&state.mutex)
 		if state.token_version == sent_version && state.developer_token != "" {
@@ -112,6 +113,7 @@ send_once :: proc(path: string, method: net.Method, allocator := context.allocat
 
 	headers: [5]string
 	header_count := 4
+	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&state.mutex)
 		if state.developer_token == "" {

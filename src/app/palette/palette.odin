@@ -1,3 +1,4 @@
+// The command palette, opened with Cmd K.
 package palette
 
 import "core:fmt"

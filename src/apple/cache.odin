@@ -25,6 +25,7 @@ Watched :: struct {
 
 @(private)
 Entry :: struct {
+	// using lets entry.phase stand for entry.watched.phase, and watch returns entry.watched whole.
 	using watched: Watched,
 	path:          string,
 	is_checking:   bool,
@@ -191,6 +192,7 @@ check :: proc(task: thread.Task) {
 // Asks again for every answer whose path starts with prefix, such as YouTube's after a sign-in.
 refresh_all :: proc(prefix: string) {
 	paths := make([dynamic]string, context.temp_allocator)
+	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&cache.mutex)
 		for path in cache.entries do if strings.has_prefix(path, prefix) do append(&paths, path)

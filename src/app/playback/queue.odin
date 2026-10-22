@@ -1,3 +1,5 @@
+// What plays: the queue, shuffle, the play log, favourites, and what Music.app knows of each song. It draws
+// nothing but the shuffle rules' menu.
 package playback
 
 import "core:encoding/json"
@@ -243,6 +245,7 @@ start_adding :: proc(catalog_id: string, play_count: int) {
 	job := new(Add_Job)
 	// The queue may free its song before the thread runs, so the job keeps its own copy of the ID.
 	job^ = {strings.clone(catalog_id), play_count}
+	// self_cleanup frees the thread when its procedure returns, so nothing waits for it.
 	thread.create_and_start_with_data(job, proc(data: rawptr) {
 		job := cast(^Add_Job)data
 		defer free(job)

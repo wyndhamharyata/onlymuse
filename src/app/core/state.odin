@@ -1,3 +1,5 @@
+// What every part of the window shares: the app's state, navigation, page data, songs and the library lists.
+// It imports no other package of the window, so any of them can import it.
 package core
 
 import "core:time"

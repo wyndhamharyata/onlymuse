@@ -30,6 +30,7 @@ add :: proc(source: string, format: string, args: ..any) {
 	text := fmt.aprintf(format, ..args)
 	fmt.eprintfln("%s: %s", source, text)
 
+	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&state.mutex)
 

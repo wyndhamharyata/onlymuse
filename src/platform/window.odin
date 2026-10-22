@@ -1,3 +1,4 @@
+// The window, its events, text input, the blur, the clipboard and dates, through AppKit.
 package platform
 
 import "base:intrinsics"
@@ -53,6 +54,7 @@ state: struct {
 	marked_length:   int,
 	// The caret of the focused field, in window points from the top left, for the input method.
 	caret_rect:      [4]f32,
+	// AppKit calls the proc "c" procedures from C, with no Odin context, so each one sets this one first.
 	odin_context:    runtime.Context,
 }
 

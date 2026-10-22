@@ -30,6 +30,7 @@ start :: proc() {
 
 @(private)
 append_body :: proc "c" (data: [^]u8, size, count: c.size_t, user: rawptr) -> c.size_t {
+	// curl calls this from C, with no Odin context, and append needs one for its allocator.
 	context = runtime.default_context()
 	body := cast(^[dynamic]u8)user
 	append(body, ..data[:size * count])

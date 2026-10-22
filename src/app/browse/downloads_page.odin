@@ -94,6 +94,7 @@ scan_downloads :: proc() {
 build_downloaded_page :: proc() {
 	list: []Download
 	scan_version: int
+	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&downloads.mutex)
 		// Each visit scans again, so a song downloaded since shows.
@@ -102,6 +103,7 @@ build_downloaded_page :: proc() {
 			downloads.scanned_index = core.navigation.index
 			downloads.scanned_visit = core.navigation_visit
 			downloads.is_scanning = true
+			// self_cleanup frees the thread when its procedure returns, so nothing waits for it.
 			thread.create_and_start(scan_downloads, self_cleanup = true)
 		}
 		list = downloads.list

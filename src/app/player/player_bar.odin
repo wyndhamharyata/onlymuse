@@ -1,3 +1,4 @@
+// The player bar, the side panel with Up Next and the lyrics, and the Now Playing page.
 package player
 
 import "core:fmt"

@@ -1,3 +1,5 @@
+// YouTube's lists as the pages read them: home, playlists, an artist, Liked Music, and the YouTube songs kept
+// in Apple playlists.
 package youtube_lists
 
 import "core:mem/virtual"
@@ -59,6 +61,7 @@ free_unused_youtube_lists :: proc() {
 
 	for path in unused {
 		parsed := parsed_lists[path]
+		// delete_key hands back the map's own copy of the key, which is the one to free.
 		stored_path, _ := delete_key(&parsed_lists, path)
 		core.retire_arena(parsed.arena)
 		free(parsed)

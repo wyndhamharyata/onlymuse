@@ -1,3 +1,4 @@
+// Draws each frame with Metal, in one instanced draw of rectangles, glyphs and images.
 package render
 
 import "base:intrinsics"

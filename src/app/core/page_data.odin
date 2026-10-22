@@ -86,6 +86,7 @@ free_retired_memory :: proc() {
 
 	for key in unused {
 		data := page_data[key]
+		// delete_key hands back the map's own copy of the key, which is the one to free.
 		stored_key, _ := delete_key(&page_data, key)
 		// Its arena goes with the next frame, as this one has yet to start.
 		retire_arena(data.arena)

@@ -1,3 +1,4 @@
+// The cards, shelves, song rows and grids that more than one page shows.
 package lists
 
 import "core:fmt"

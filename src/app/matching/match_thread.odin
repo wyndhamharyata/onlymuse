@@ -67,6 +67,7 @@ check_matches :: proc(task: thread.Task) {
 	defer free_all(context.temp_allocator)
 
 	jobs := make([dynamic]^Match_Job, context.temp_allocator)
+	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&matcher.mutex)
 		count := min(len(matcher.pending), MATCH_BATCH_COUNT)
@@ -235,6 +236,7 @@ to_album_key :: proc(song: core.Catalog_Song) -> string {
 @(private = "file")
 wait_to_search :: proc() {
 	resume_at: time.Tick
+	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&matcher.mutex)
 		resume_at = matcher.resume_at

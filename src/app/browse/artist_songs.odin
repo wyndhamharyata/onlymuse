@@ -15,9 +15,8 @@ RECENT_RELEASE_COUNT :: 10
 // The number of recent songs the artist page shows. The › opens all of them.
 SHOWN_RECENT_SONG_COUNT :: 10
 
-// The songs of the artist's ten newest releases, newest first by each song's own date, which is not
-// always the date of its album. A song on a single and on a later album appears once, from the newer
-// release. dates[i] is the date of songs[i] as Apple writes it, such as "2026-09-02".
+// Lists the songs of the artist's ten newest releases, newest first by each song's own date.
+// dates[i] is the date of songs[i] as Apple writes it, such as "2026-09-02".
 list_recent_songs :: proc(
 	artist_id: string,
 ) -> (
@@ -53,8 +52,10 @@ list_recent_songs :: proc(
 	return data.songs, data.dates, albums.phase
 }
 
+// @(private = "file") hides this procedure from the other files of the package.
 @(private = "file")
 read_newest_release_ids :: proc(data: ^core.Page_Data, body: string) {
+	// context.temp_allocator frees its memory at the start of the next frame.
 	resources := apple.to_resources(body, context.temp_allocator)
 	if len(resources) == 0 do return
 
@@ -113,7 +114,8 @@ read_recent_songs :: proc(data: ^core.Page_Data, body: string, ids: string) {
 	}
 }
 
-// Under Albums, the artist page shows the newest songs in two columns under a title whose › opens them all.
+// Builds the Recent Songs shelf, below Albums, with the songs in two columns.
+// The › of its title opens the page of all recent songs.
 build_recent_songs_shelf :: proc(artist_id, artist_name: string) {
 	songs, dates, phase := list_recent_songs(artist_id)
 	if phase != .Ready || len(songs) == 0 do return
@@ -161,7 +163,7 @@ build_recent_songs_shelf :: proc(artist_id, artist_name: string) {
 	}
 }
 
-// The › opens this page. It shows every recent song the way the other song lists show their songs.
+// The › opens this page. It shows every recent song the way the other song lists do.
 build_artist_recent_songs_page :: proc(artist_id, artist_name: string) {
 	songs, dates, phase := list_recent_songs(artist_id)
 	lists.build_song_list_page("Recent Songs", artist_name, songs, phase, dates)

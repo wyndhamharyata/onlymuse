@@ -18,12 +18,13 @@ PALETTE_ROW_POINTS :: 36
 
 PALETTE_LIST_POINTS :: 420
 
-// The palette searches Apple Music once typing rests this long, so each key press does not ask Apple.
+// The palette asks Apple Music once typing stops for this long, not at each key press.
 PALETTE_SETTLE_MS :: 300
 
 // The most results each group shows.
 PALETTE_GROUP_LIMIT :: 5
 
+// @(private) keeps this type inside the palette package.
 @(private)
 Palette_Action :: enum {
 	Navigate,
@@ -61,7 +62,7 @@ palette: struct {
 	is_open:             bool,
 	field:               kit.Text_Field,
 	selected_index:      int,
-	// update_results rebuilds the results into the arena when the term or the data under it changes.
+	// update_results builds the results again in arena when the term or its data changes.
 	arena:               virtual.Arena,
 	results:             []Palette_Result,
 	built_term:          string,
@@ -93,12 +94,13 @@ toggle_palette :: proc() {
 	kit.focus_field(&palette.field)
 }
 
-// OM_PALETTE opens the palette with a term, as the tests cannot type into a window behind the others.
+// OM_PALETTE opens the palette with a term. A test cannot type into a window behind the others.
 open_palette_for_test :: proc(term: string) {
 	toggle_palette()
 	kit.set_field_text(&palette.field, term)
 }
 
+// @(private = "file") hides this procedure from the other files of the package.
 @(private = "file")
 close_palette :: proc() {
 	palette.is_open = false
@@ -209,7 +211,7 @@ build_palette :: proc() {
 @(private = "file")
 run_result :: proc(result: Palette_Result) {
 	switch result.action {
-	// navigate, play_songs and open_card keep their own copies, so the results' memory can go.
+	// navigate, play_songs and open_card keep their own copies, so the arena may free the results.
 	case .Navigate:
 		core.navigate(result.page)
 	case .Play_Library_Song:

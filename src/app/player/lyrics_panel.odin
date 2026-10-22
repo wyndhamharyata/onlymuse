@@ -28,7 +28,8 @@ SLIDE_RATE :: 9
 
 LINE_FADE_RATE :: 10
 
-// How far ahead of Music.app's position the lyrics run. Music.app's posts run about half a second behind what it plays.
+// How far ahead of Music.app's position the lyrics run.
+// Music.app's posts run about half a second behind what it plays.
 DEFAULT_LEAD_MS :: 500
 
 LEAD_STEP_MS :: 50
@@ -37,7 +38,7 @@ MAX_LEAD_MS :: 2000
 
 LEAD_NOTE_SECONDS :: 2
 
-// The timer for the next word fires this much after its start, so a word is never a hair early.
+// The timer for the next word fires this long after the word begins, so no frame shows it early.
 WORD_TIMER_SLACK_SECONDS :: 0.005
 
 lyrics_state: struct {
@@ -57,6 +58,7 @@ TRANSLATION_FONT_SIZE :: 13
 // Reads the saved lead and the lyrics' switches.
 start_lyrics :: proc() {
 	lyrics_state.lead_ms = DEFAULT_LEAD_MS
+	// or_else gives the text on its right when the store has none. Temp memory lasts one frame.
 	lyrics_state.is_showing_romaji =
 		(store.find_state("lyricsRomaji", context.temp_allocator) or_else "true") == "true"
 	lyrics_state.is_showing_translation =
@@ -118,7 +120,8 @@ find_next_change :: proc(lines: []lyrics.Line, position_seconds: f64) -> f64 {
 	return next
 }
 
-// Returns true while a word or line still fades. Else it sets a timer for the next word, so the app draws no frame between words.
+// Returns true while a word or line still fades. Else it sets a timer for the next word.
+// The app then draws no frame between words.
 schedule_lyrics :: proc(lines: []lyrics.Line) -> bool {
 	if core.app.now_playing.playback != .Playing do return false
 
@@ -200,7 +203,7 @@ build_lyrics :: proc() -> bool {
 		{width = ui.fill(), height = ui.fill(), padding = {8, 10, 8, 0}, flags = {.Clip}},
 	)
 
-	// The column slides to the top of the line three before the current one, in last frame's layout.
+	// The column slides to the line three before the current one, by last frame's layout.
 	first_shown := max(0, lyrics_state.current_index - LINES_BEFORE_CURRENT)
 	target_offset: f32
 	column := ui.find_box("column", view)
@@ -249,6 +252,7 @@ build_panel_note :: proc(text: string) {
 }
 
 // Romaji and Translation, each shown only when a line of the song has it.
+// @(private = "file") lets only this file use the name below.
 @(private = "file")
 build_lyric_toggles :: proc(lines: []lyrics.Line) {
 	has_romaji, has_translation := false, false

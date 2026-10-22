@@ -14,9 +14,9 @@ import "om:lyrics"
 import "om:platform"
 import "om:ui"
 
-// A release this recent shows as NEW.
 NEW_RELEASE_DAYS :: 30
 
+// @(private = "file") hides a name outside this file. @(private) hides it outside package player.
 @(private = "file")
 Detail :: struct {
 	label, value: string,
@@ -199,7 +199,7 @@ build_detail_card :: proc(id, title: string, rows: []Detail, weight: f32) {
 	}
 }
 
-// "NEW · 17 Oct" for a release this month, else its year.
+// "NEW · 17 Oct" for a release in the last NEW_RELEASE_DAYS days, else its year.
 @(private)
 to_release_note :: proc(date: string, now_day: int, allocator := context.allocator) -> string {
 	if len(date) < 10 do return ""
@@ -222,7 +222,7 @@ to_release_note :: proc(date: string, now_day: int, allocator := context.allocat
 	return strings.clone(date[:4], allocator)
 }
 
-// A queue song brings its catalog ID. A search finds any other by its name and artist, as Music.app gives only those.
+// A queue song has its catalog ID. Music.app gives others only a name and an artist to search by.
 @(private)
 find_catalog_id :: proc(name, artist, queue_id: string) -> (string, apple.Phase) {
 	if matching.is_catalog_id(queue_id) do return queue_id, .Ready
@@ -302,7 +302,7 @@ read_song_details :: proc(path: string, data: ^core.Page_Data, body: string) {
 		)
 	}
 
-	// The page's path names the song and keys the map. The strings live in the page's arena. Each read makes them again.
+	// The map owns a clone of the path. The details live in the page arena that each read resets.
 	if path in song_details {
 		song_details[path] = details
 	} else {
@@ -336,7 +336,7 @@ to_date_text :: proc(date: string, allocator := context.allocator) -> string {
 	return fmt.aprintf("%d %s %s", day, month_names[month - 1], date[:4], allocator = allocator)
 }
 
-// Names Apple's locale codes, as "ja" or "en-US", for the languages in this library. Others show as the code.
+// Names the locale codes, as "ja" or "en-US", of this library's languages. Others stay as is.
 @(private = "file")
 to_language_name :: proc(locale: string) -> string {
 	names := [][2]string {

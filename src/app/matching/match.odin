@@ -1,4 +1,4 @@
-// Finds the Apple Music song each YouTube song is, on a thread of its own, and keeps the answers in the store.
+// Finds the match of each YouTube song on a thread of its own. The store keeps the answers.
 package matching
 
 import "core:encoding/json"
@@ -13,7 +13,7 @@ import "om:apple"
 import "om:store"
 import "om:youtube"
 
-// A YouTube song plays from Apple Music whenever Apple has it. This finds Apple's song, once per video.
+// A YouTube song plays from Apple Music whenever Apple has it. Matching runs once per video.
 Match_State :: enum {
 	Checking,
 	// Apple has the song.
@@ -22,10 +22,11 @@ Match_State :: enum {
 	Missing,
 }
 
-// Counts up whenever is_same_recording changes, so find_match drops the matches of an older rule and makes them again.
-// 3 drops the matches that an index into freed memory made from garbage.
+// Counts up whenever is_same_recording changes. When the saved value differs,
+// find_match deletes every saved match, so the matcher makes each one again.
 MATCH_RULE_VERSION :: "3"
 
+// @(private) hides this from every package but matching.
 @(private)
 matcher: struct {
 	mutex:           sync.Mutex,
@@ -45,9 +46,9 @@ matcher: struct {
 	is_rule_checked: bool,
 }
 
-// The library's songs under each of their title keys, made again when the library changes. Only the main thread
-// uses it. core reads the library page's songs again into new memory whenever its phase changes, even with the
-// same signature. So the index keeps copies of its own, in its arena.
+// The library's songs under each of their title keys, for the main thread only. core reads the
+// songs into fresh memory on each phase change, even with one signature. So the index keeps copies.
+// @(private = "file") hides this from every other file.
 @(private = "file")
 library_index: struct {
 	signature: int,
@@ -56,16 +57,18 @@ library_index: struct {
 	by_title:  map[string][dynamic]core.Catalog_Song,
 }
 
-// The Apple Music song for a YouTube one. An Apple song is its own match. A song in the person's library
-// matches with no request. Others wait for the library, then go to the matching thread.
+// The match of a YouTube song. An Apple song is its own match. A library song matches with no
+// request. Other songs wait for the library, then go to the matching thread.
 find_match :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, Match_State) {
 	video_id := youtube.to_video_id(song.id)
 	if video_id == "" do return song, .Found
 
+	// sync.guard locks the mutex and unlocks it when the procedure returns.
 	sync.guard(&matcher.mutex)
 
 	if !matcher.is_rule_checked {
 		matcher.is_rule_checked = true
+		// The temp allocator's memory lasts until the next frame starts.
 		saved_rule, _ := store.find_state("matchRule", context.temp_allocator)
 
 		if saved_rule != MATCH_RULE_VERSION {
@@ -123,7 +126,7 @@ find_library_match :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, bool,
 		library_index.is_built = true
 
 		for library_song in songs {
-			// A song uploaded from a Mac has no catalog ID. Apple's catalog has nothing to say of it.
+			// A song uploaded from a Mac has no catalog ID. Apple's catalog knows nothing of it.
 			if !is_catalog_id(library_song.id) do continue
 
 			copied := core.copy_song(library_song, allocator)
@@ -165,8 +168,8 @@ find_match_locked :: proc(
 	return song, .Missing
 }
 
-// The person heard that Apple's song is another one, or Music.app could not play it. The YouTube song then
-// always plays from YouTube.
+// The person heard that Apple's song is another one, or Music.app could not play it.
+// The YouTube song then always plays from YouTube.
 reject_match :: proc(song: core.Catalog_Song) {
 	video_id := youtube.to_video_id(song.id)
 	if video_id == "" do return
@@ -194,7 +197,7 @@ is_match_rejected :: proc(song: core.Catalog_Song) -> bool {
 	return video_id != "" && store.is_match_rejected(video_id)
 }
 
-// The YouTube song behind an Apple match, to play when Apple's will not play. Its ID lives for the frame.
+// The YouTube song behind a match, for when Apple's song will not play. Its ID lasts one frame.
 to_youtube_song :: proc(song: core.Catalog_Song) -> core.Catalog_Song {
 	youtube_song := song
 	youtube_song.id = fmt.tprintf("%s%s", youtube.SONG_ID_PREFIX, song.youtube_id)
@@ -237,7 +240,8 @@ keep_match :: proc(video_id, saved: string) {
 	matcher.found[key] = song
 }
 
-// Saves an answer, so the matcher matches the song once. keep_match copies a found song out of the answer it came in.
+// Saves an answer, so the matcher matches the song once.
+// keep_match copies a found song out of the answer it came in.
 @(private)
 save_found_match :: proc(video_id: string, song: core.Catalog_Song, is_found: bool) {
 	saved := ""

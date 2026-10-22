@@ -8,7 +8,7 @@ import "om:lyrics"
 import "om:platform"
 import "om:ui"
 
-// Returns how far a moment's fade went, from 0 when it starts to 1 after WORD_FADE_SECONDS.
+// Returns the fade at the lyrics' position, from 0 at begin_seconds to 1 after WORD_FADE_SECONDS.
 to_fade :: proc(begin_seconds: f64) -> f32 {
 	return f32(clamp((lyrics_state.position_seconds - begin_seconds) / WORD_FADE_SECONDS, 0, 1))
 }
@@ -18,8 +18,10 @@ Line_Paint :: struct {
 	words: []lyrics.Word,
 }
 
-// The sung words of the current line fade into the accent. Those of the line before fade back as the next line starts.
+// The sung words of the current line fade into the accent.
+// The words of the line before fade back as the current line starts.
 color_lyric_glyph :: proc(utf16_index: int, data: rawptr) -> [4]f32 {
+	// cast turns the rawptr back into the ^Line_Paint that build_lyric_line stored in text.data.
 	paint := cast(^Line_Paint)data
 	current := lyrics_state.current_index
 	lit: f32
@@ -53,6 +55,7 @@ build_lyric_line :: proc(line: ^lyrics.Line, index: int) {
 	)
 
 	if ui.scope(line_box) {
+		// The text draws after the build. context.temp_allocator keeps the paint one frame.
 		paint := new(Line_Paint, context.temp_allocator)
 		paint^ = {index, line.words}
 
@@ -107,7 +110,8 @@ build_lyric_line :: proc(line: ^lyrics.Line, index: int) {
 	}
 }
 
-// After Cmd [ or Cmd ], this shows the new lead for a moment, so the person hears the change against a number.
+// After Cmd [ or Cmd ], this shows the lead for LEAD_NOTE_SECONDS.
+// The person can then match what they hear against the number.
 build_lead_note :: proc() {
 	if lyrics_state.lead_changed_ms == 0 do return
 

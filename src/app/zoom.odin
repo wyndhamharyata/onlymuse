@@ -14,6 +14,8 @@ zoom_steps := [?]f32{0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2}
 start_saved_window_state :: proc() {
 	core.app.last_panel = .Up_Next
 
+	// Memory from context.temp_allocator lasts until begin_frame frees it at the next frame.
+	// The store saves the panel as JSON text, so each case holds the quotes.
 	if panel, has_panel := store.find_state("panel", context.temp_allocator); has_panel {
 		switch panel {
 		case `"lyrics"`:
@@ -45,7 +47,7 @@ find_zoom_step :: proc() -> int {
 	return nearest
 }
 
-// Zooming in stops at the step whose smallest window no longer fits on the screen.
+// Zooming in stops before a step whose smallest window does not fit on the screen.
 set_zoom :: proc(zoom: f32) {
 	if zoom > core.app.zoom && !does_zoom_fit(zoom) do return
 
@@ -54,8 +56,8 @@ set_zoom :: proc(zoom: f32) {
 	set_min_window_size()
 }
 
-// The smallest window grows with the zoom. So the sidebar, a page and the side panel fit side by side
-// in the smallest window at any zoom.
+// The smallest window grows with the zoom. So the sidebar, a page and the side panel fit side
+// by side in the smallest window at any zoom.
 set_min_window_size :: proc() {
 	platform.set_min_size(to_min_window_size(core.app.zoom))
 }

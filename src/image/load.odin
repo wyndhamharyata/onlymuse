@@ -15,21 +15,27 @@ import "om:render"
 import MTL "vendor:darwin/Metal"
 
 // This procedure runs on a worker thread.
+// @(private) keeps the procedure inside the image package.
 @(private)
 fetch_image :: proc(task: thread.Task) {
+	// cast turns the task's raw pointer back into the Job that start_waiting made.
 	job := cast(^Job)task.data
 
+	// defer runs this block when the procedure returns, so every job reaches state.finished.
 	defer {
+		// sync.guard holds the mutex until this block ends.
 		sync.guard(&state.mutex)
 		append(&state.finished, job)
 		platform.wake()
 	}
+	// A worker thread has its own context.temp_allocator. This frees it after each job.
 	defer free_all(context.temp_allocator)
 
 	// A file path, such as the artwork the helper saves from Music.app, needs no download.
 	path := job.url
 
 	if !strings.has_prefix(path, "/") {
+		// transmute reads the URL's bytes as []u8 with no copy.
 		path = fmt.tprintf("%s/%x.jpg", state.folder, hash.fnv64a(transmute([]u8)job.url))
 		if !os.exists(path) && !fetch_to_file(job.url, path) do return
 	}
@@ -47,7 +53,7 @@ fetch_to_file :: proc(url, path: string) -> bool {
 	}
 	if !strings.has_prefix(response.content_type, "image/") do return false
 
-	// The file takes its name only when it is complete, so a quit halfway never makes a broken image.
+	// The file takes its name only when complete, so a quit halfway never makes a broken image.
 	part_path := fmt.tprintf("%s.part", path)
 	if os.write_entire_file(part_path, response.body) != nil do return false
 
@@ -109,7 +115,8 @@ read_texture :: proc(path: string, size_pixels: int, crop: Crop) -> (^MTL.Textur
 	return texture, to_color(pixels)
 }
 
-// The part of image with crop's aspect, centred across and at focus_y down. It returns image itself when image already has that aspect.
+// The part of image with crop's aspect, centred across and at focus_y down.
+// It returns image itself when image already has that aspect, within 1 percent.
 @(private)
 to_cropped :: proc(image: mac.Image_Ref, crop: Crop) -> mac.Image_Ref {
 	width := f64(mac.CGImageGetWidth(image))

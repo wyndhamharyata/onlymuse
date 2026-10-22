@@ -1,5 +1,5 @@
-// platform calls draw_frame once for each refresh of the screen while the app wants frames: after an event,
-// during an animation, or when request_frame asks.
+// platform calls draw_frame on each refresh of the screen while the app wants frames.
+// The app wants frames after an event, during an animation and when request_frame asks.
 package app
 
 import "core:fmt"
@@ -23,7 +23,7 @@ import "om:platform"
 import "om:render"
 import "om:ui"
 
-// Returns true while it wants another frame.
+// Returns true while the app wants another frame.
 draw_frame :: proc() -> bool {
 	start, frame_seconds := begin_frame()
 	apply_input()
@@ -76,7 +76,7 @@ draw_frame :: proc() -> bool {
 
 // Frees what the last frame let go of. It also times this frame.
 begin_frame :: proc() -> (start: time.Tick, frame_seconds: f32) {
-	// Temp memory lives for one frame. Render drew the last frame, so its temp memory goes now.
+	// Render drew the last frame, so free_all empties context.temp_allocator for this one.
 	free_all(context.temp_allocator)
 	core.free_retired_memory()
 	playback.free_retired_songs()
@@ -90,9 +90,9 @@ begin_frame :: proc() -> (start: time.Tick, frame_seconds: f32) {
 	return start, frame_seconds
 }
 
-// What changed since the last frame: the helper's messages, the queue, finished writes, typing and keys.
+// Takes in what changed since the last frame: helper messages, the queue, writes, typing and keys.
 apply_input :: proc() {
-	// This runs before the frame reads its events, so the typed keys are among them.
+	// The OM_TYPE text goes in before the frame reads its events, so this frame gets the keys.
 	if core.app.test_typing != "" &&
 	   time.duration_seconds(time.tick_since(core.app.started_at)) > 1 {
 		has_context := platform.type_for_test(core.app.test_typing)
@@ -108,9 +108,9 @@ apply_input :: proc() {
 	apply_keys()
 }
 
-// Saves a scroll that came to rest. Then it sends the frame to the screen and runs the capture and the bench.
+// Saves a scroll that came to rest. Then it sends the frame to the screen.
+// It also runs the capture and the bench.
 finish_frame :: proc(start: time.Tick) {
-	// Navigation saves a scroll once, after it comes to rest.
 	if core.is_scroll_changed && !ui.is_animating() {
 		core.is_scroll_changed = false
 		core.save_navigation()

@@ -13,6 +13,7 @@ import "om:apple"
 import "om:platform"
 import "om:youtube"
 
+// @(private = "file") hides this type from the other files of the package.
 @(private = "file")
 Write_Job :: struct {
 	path, body:             string,
@@ -51,9 +52,10 @@ start_write :: proc(job: Write_Job) {
 	thread.create_and_start_with_data(copied, run_write, self_cleanup = true)
 }
 
-// run_write runs on a thread of its own, as the request blocks.
+// apple.post waits for Apple's answer, so run_write runs on a thread of its own.
 @(private = "file")
 run_write :: proc(data: rawptr) {
+	// cast turns the raw pointer back into the Write_Job that start_write made.
 	job := cast(^Write_Job)data
 	status := apple.post(job.path, job.body).status
 	is_done := status >= 200 && status < 300
@@ -79,10 +81,11 @@ run_write :: proc(data: rawptr) {
 	delete(job.failed_text)
 	delete(job.refresh_path)
 	free(job)
+	// Each thread has its own temp memory. No frame frees the temp memory of this thread.
 	free_all(context.temp_allocator)
 }
 
-// apply_write_results runs once a frame. It shows the notes of finished writes and refreshes their paths.
+// Runs once a frame. It shows the toasts of finished writes and refreshes the paths they changed.
 apply_write_results :: proc() {
 	sync.guard(&write_results.mutex)
 
@@ -120,7 +123,8 @@ Song_Reference :: struct {
 	type: string,
 }
 
-// A song only on YouTube stays in onlymuse's part of the playlist, as Apple's playlists hold Apple songs alone.
+// Apple's playlists hold only Apple songs.
+// So a song only on YouTube goes into onlymuse's own part of the playlist.
 add_to_playlist :: proc(playlist_id, playlist_name: string, chosen: core.Catalog_Song) {
 	song := matching.find_playable(chosen)
 
@@ -135,6 +139,7 @@ add_to_playlist :: proc(playlist_id, playlist_name: string, chosen: core.Catalog
 	Body :: struct {
 		data: []Song_Reference,
 	}
+	// context.temp_allocator frees its memory at the start of the next frame.
 	body, _ := json.marshal(Body{{{song.id, "songs"}}}, allocator = context.temp_allocator)
 
 	start_write(
@@ -151,6 +156,7 @@ add_to_playlist :: proc(playlist_id, playlist_name: string, chosen: core.Catalog
 	)
 }
 
+// @(private) keeps this procedure inside the menus package.
 @(private)
 create_playlist_with :: proc(name: string, chosen: core.Catalog_Song) {
 	song := matching.find_playable(chosen)
@@ -173,7 +179,8 @@ Create_Job :: struct {
 	should_open_page:      bool,
 }
 
-// Makes a library playlist of Apple songs. Once Apple gives its ID, onlymuse keeps the YouTube-only songs beside it.
+// Makes a library playlist of Apple songs.
+// Once Apple gives its ID, onlymuse keeps the YouTube-only songs with it.
 create_playlist :: proc(
 	name: string,
 	songs: []core.Catalog_Song,
@@ -224,6 +231,7 @@ create_playlist :: proc(
 run_create :: proc(data: rawptr) {
 	job := cast(^Create_Job)data
 
+	// defer runs these three lines when run_create returns, the last one first.
 	defer free_all(context.temp_allocator)
 	defer free(job)
 	defer delete(job.body)
@@ -232,6 +240,7 @@ run_create :: proc(data: rawptr) {
 	resources :=
 		apple.to_resources(answer.body, context.temp_allocator) if answer.status >= 200 && answer.status < 300 else nil
 
+	// sync.guard holds the lock until run_create returns.
 	sync.guard(&write_results.mutex)
 	defer platform.wake()
 

@@ -1,5 +1,5 @@
-// The look and the small parts every page builds with: theme, boxes, artwork, text fields, menus and toasts.
-// It imports only core from the window.
+// The look and the small parts every page builds with: theme, boxes, artwork, text fields,
+// menus and toasts. The package imports only core from the window.
 package kit
 
 import "core:fmt"
@@ -30,6 +30,7 @@ to_date_text :: proc(date: string) -> string {
 		"Dec",
 	}
 
+	// On the main thread, the memory of the temp allocator lasts until the next frame starts.
 	parts := strings.split(date, "-", context.temp_allocator)
 	if len(parts) < 2 do return date
 
@@ -39,6 +40,7 @@ to_date_text :: proc(date: string) -> string {
 	months := MONTHS
 	if len(parts) < 3 do return fmt.tprintf("%s %s", months[month - 1], parts[0])
 
+	// or_else gives 0 when the day does not parse.
 	day := strconv.parse_int(parts[2]) or_else 0
 
 	return fmt.tprintf("%d %s %s", day, months[month - 1], parts[0])
@@ -51,6 +53,7 @@ Icon_Paint :: struct {
 }
 
 draw_icon :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
+	// box.data is an untyped pointer. cast reads it as the Icon_Paint that icon_box stored.
 	paint := cast(^Icon_Paint)box.data
 	color := paint.color
 	color.a *= opacity
@@ -65,6 +68,7 @@ icon_box :: proc(
 	color: [4]f32,
 	style: ui.Style = {},
 ) -> ^ui.Box {
+	// An Odin parameter is read-only, so this copy is the one to change.
 	style := style
 	box_size := size_points + style.padding.x + style.padding.z
 	if style.width.kind == .Points && style.width.value == 0 do style.width = ui.points(box_size)
@@ -156,8 +160,8 @@ draw_bar :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	)
 }
 
-// A thin track to click or drag along. Returns the ratio shown, which follows the mouse while the button
-// is down, and is_set once the person lets go of the mouse.
+// A thin track to click or drag along. Returns the ratio shown, which follows the mouse while
+// the button is down. is_set turns true once the person lets go of the mouse.
 bar :: proc(id: string, ratio: f32, width: ui.Size) -> (shown_ratio: f32, is_set: bool) {
 	box := ui.box(id, {width = width, height = ui.points(16), flags = {.Clickable}})
 	signal := ui.signal(box)
@@ -200,14 +204,15 @@ spacer :: proc() {
 // The text slides at this speed, so a long title takes longer to show in full.
 SLIDE_POINTS_PER_SECOND :: 40
 
-// A row that only passes under the pointer during a scroll is gone before this. Nothing then slides.
+// A row that only passes under the pointer in a scroll is gone before this. Nothing then slides.
 SLIDE_REST_SECONDS :: 0.3
 
+// @(private = "file") hides slide_start_seconds from other files.
 @(private = "file")
 slide_start_seconds: map[string]f64
 
-// One line that ends in "…" when it does not fit. Resting under the pointer, it slides to show the rest.
-// Inside a clickable row, the caller passes in the row's hover, so the text never takes the row's click.
+// One line that ends in "…" when it does not fit. Resting under the pointer, it slides to show
+// the rest. A clickable row passes in its hover, so the text never takes the row's click.
 scrolling_text :: proc(
 	id, text: string,
 	color: [4]f32,
@@ -235,8 +240,10 @@ scrolling_text :: proc(
 	)
 
 	key := fmt.aprint(id, text)
+	// defer deletes key when this procedure returns, on every path.
 	defer delete(key)
 
+	// .? or_else takes the caller's hover when it passed one, else the box's own.
 	if !(is_hovered.? or_else ui.signal(box).is_hovered) {
 		if key in slide_start_seconds {
 			delete_key_and_value(&slide_start_seconds, key)
@@ -274,7 +281,7 @@ delete_key_and_value :: proc(from: ^map[string]f64, key: string) {
 	delete(stored_key)
 }
 
-// Whether the pointer is over the box, as of last frame, even when a button inside it has the hover.
+// Whether the pointer is over the box, as of last frame, even when a button in it has the hover.
 is_mouse_in :: proc(box: ^ui.Box) -> bool {
 	mouse := ui.mouse_position()
 

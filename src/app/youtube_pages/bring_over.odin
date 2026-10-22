@@ -25,6 +25,7 @@ build_bring_over_page :: proc(page: core.Page) {
 		list, watched := youtube_lists.watch_youtube_list(
 			youtube.to_browse_path(youtube.LIBRARY_PLAYLISTS_ID),
 		)
+		// Memory from context.temp_allocator lasts until begin_frame frees it at the next frame.
 		playlists := make([dynamic]apple.Card, context.temp_allocator)
 
 		// Episodes for Later holds podcasts, which Apple Music has no place for.
@@ -84,6 +85,7 @@ build_bring_over_page :: proc(page: core.Page) {
 	}
 }
 
+// @(private = "file") lets only this file use the name below.
 @(private = "file")
 list_match_counts :: proc(songs: []core.Catalog_Song) -> [matching.Match_State]int {
 	counts: [matching.Match_State]int
@@ -110,7 +112,8 @@ to_match_summary :: proc(counts: [matching.Match_State]int, total: int) -> strin
 	return text
 }
 
-// The Apple songs make the new playlist. It keeps a song only on YouTube after the Apple song before it.
+// The Apple songs make the new playlist.
+// The playlist keeps each song that is only on YouTube after the Apple song before it.
 @(private = "file")
 bring_over :: proc(name: string, songs: []core.Catalog_Song) {
 	apple_songs := make([dynamic]core.Catalog_Song, context.temp_allocator)

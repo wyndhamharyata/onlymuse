@@ -80,6 +80,7 @@ build_search_page :: proc(term: string) {
 	}
 }
 
+// @(private = "file") hides this procedure from the other files of the package.
 @(private = "file")
 build_search_top :: proc(data: ^core.Page_Data) {
 	top := ui.box("top", {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 20})

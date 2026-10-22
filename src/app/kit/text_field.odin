@@ -34,6 +34,7 @@ Text_Field :: struct {
 }
 
 // Every field from register_text_field, so the keyboard reaches the focused one.
+// @(private = "file") hides text_fields from other files.
 @(private = "file")
 text_fields: [dynamic]^Text_Field
 
@@ -74,6 +75,7 @@ replace_all_if_selected :: proc(field: ^Text_Field) {
 @(private = "file")
 insert_text :: proc(field: ^Text_Field, text: string) {
 	replace_all_if_selected(field)
+	// transmute reads the bytes of the string as a []u8, with no copy.
 	inject_at(&field.text, field.cursor, ..transmute([]u8)text)
 	field.cursor += len(text)
 	field.is_changed = true
@@ -168,6 +170,7 @@ apply_text_events :: proc() {
 	}
 
 	for event in platform.list_events() {
+		// #partial switch lets this switch skip the kinds of event that it does not handle.
 		#partial switch input in event {
 		case platform.Mouse_Press:
 			for field in text_fields {
@@ -178,6 +181,7 @@ apply_text_events :: proc() {
 				}
 			}
 		case platform.Text_Insert:
+			// or_continue goes on to the next event when no field has the focus.
 			field := find_focused_field() or_continue
 			delete(field.marked)
 			field.marked = ""
@@ -204,7 +208,7 @@ apply_text_events :: proc() {
 		}
 	}
 
-	// A field the frame no longer builds, such as the closed palette's, must not take the next click.
+	// A field that this frame does not build, such as the closed palette's, takes no click.
 	for field in text_fields do field.is_hovered = false
 }
 
@@ -214,7 +218,8 @@ find_focused_field :: proc() -> (^Text_Field, bool) {
 	return nil, false
 }
 
-// Once the frame has its boxes, the keyboard goes to the focused field's input method or back to shortcuts.
+// Once the frame has its boxes, the keyboard goes to the input method of the focused field,
+// or back to shortcuts.
 finish_text_fields :: proc() {
 	_, is_focused := find_focused_field()
 	platform.set_text_input(is_focused, caret_rect)
@@ -279,7 +284,8 @@ build_text_field :: proc(
 	return box
 }
 
-// The caret after the cursor, and a line under unfinished text. Widths come from the shaped text, in points.
+// The caret after the cursor, and a line under unfinished text.
+// Widths come from the shaped text, in points.
 @(private = "file")
 build_caret :: proc(line: ^ui.Box, before, marked: string, font_size: f32) {
 	font_now := font.system_font(.Regular, ui.to_pixels(font_size))

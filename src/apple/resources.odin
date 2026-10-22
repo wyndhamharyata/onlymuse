@@ -8,7 +8,7 @@ import "core:strings"
 Artwork :: struct {
 	// It has {w}, {h} and {f} in place of the size and the format.
 	url:         string,
-	// The colour behind the picture, in hex, as "2a2a2f". Catalog artwork has it. Library artwork does not.
+	// The colour behind the picture in hex, as "2a2a2f". Only catalog artwork has it.
 	bg_color:    string `json:"bgColor"`,
 	// The colour for text on the picture, which is its strongest other colour.
 	text_color1: string `json:"textColor1"`,
@@ -22,7 +22,7 @@ Catalog_Song :: struct {
 	duration_seconds: f64 `json:"durationSeconds"`,
 	is_lossless:      bool `json:"isLossless"`,
 	artwork:          Artwork,
-	// The YouTube video behind an Apple song's match, so the song can go back to YouTube. Empty for any other song.
+	// The YouTube video of a match, so the song can play from YouTube again. Empty for other songs.
 	youtube_id:       string `json:"youtubeId"`,
 }
 
@@ -113,10 +113,12 @@ Attributes :: struct {
 		standard: string,
 		short:    string,
 	} `json:"editorialNotes"`,
+	// Maybe tells a field that Apple omits from false. list_playlists needs both cases.
 	can_edit:                Maybe(bool) `json:"canEdit"`,
 	can_delete:              Maybe(bool) `json:"canDelete"`,
 }
 
+// @(private) hides this from every package but apple.
 @(private)
 to_card_kind :: proc(type: string) -> Card_Kind {
 	switch type {
@@ -138,6 +140,7 @@ to_card_kind :: proc(type: string) -> Card_Kind {
 }
 
 // The data of an answer, read into allocator, such as a page's arena.
+// allocator defaults to context.allocator, the heap, whose memory lasts until a call frees it.
 to_resources :: proc(body: string, allocator := context.allocator) -> []Resource {
 	Answer_Body :: struct {
 		data: []Resource,
@@ -162,7 +165,8 @@ to_catalog_song :: proc(resource: Resource) -> Catalog_Song {
 	}
 }
 
-// A library song plays by its catalog ID. A song uploaded from a Mac has none, so it keeps its library ID.
+// A library song plays by its catalog ID.
+// A song uploaded from a Mac has no catalog ID, so it keeps its library ID.
 to_library_song :: proc(resource: Resource) -> Catalog_Song {
 	song := to_catalog_song(resource)
 
@@ -184,12 +188,13 @@ to_card :: proc(resource: Resource) -> Card {
 	}
 
 	if card.kind == .Song do card.song = to_catalog_song(resource)
+	// or_else gives false when Apple omits canEdit.
 	card.can_edit = attributes.can_edit.? or_else false
 
 	return card
 }
 
-// A shelf can hold stations, radio shows and videos. The app has no page for those, so they stay out.
+// Shelves can hold stations, radio shows and videos. The app has no page for those and skips them.
 list_cards :: proc(resources: []Resource, allocator := context.allocator) -> []Card {
 	cards := make([dynamic]Card, allocator)
 
@@ -232,7 +237,8 @@ to_home_shelves :: proc(body: string, allocator := context.allocator) -> []Shelf
 	return shelves[:]
 }
 
-// New is Apple's editorial page "music", a list of named shelves. A shelf with no name is a banner, which the app skips.
+// New is Apple's editorial page "music", a list of named shelves.
+// A shelf with no name is a banner, which the app skips.
 to_new_shelves :: proc(body: string, allocator := context.allocator) -> []Shelf {
 	shelves := make([dynamic]Shelf, allocator)
 	groupings := to_resources(body, allocator)
@@ -251,7 +257,7 @@ to_new_shelves :: proc(body: string, allocator := context.allocator) -> []Shelf 
 	return shelves[:]
 }
 
-// A height of 0 asks for a square.
+// A height of 0 asks for a square. The temp allocator's memory lasts until the next frame starts.
 to_artwork_url :: proc(
 	artwork: Artwork,
 	width_pixels: int,

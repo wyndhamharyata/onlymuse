@@ -23,27 +23,30 @@ Watched :: struct {
 	status:  int,
 }
 
+// @(private) hides this from every package but apple.
 @(private)
 Entry :: struct {
-	// using lets entry.phase stand for entry.watched.phase, and watch returns entry.watched whole.
+	// using lets entry.phase stand for entry.watched.phase. watch returns entry.watched whole.
 	using watched: Watched,
 	path:          string,
 	is_checking:   bool,
-	// Unix ms of the last watch, so free_retired_bodies can free an answer that no page asked for in a while.
+	// Unix ms of the last watch. free_retired_bodies frees an answer no page watched in a while.
 	used_at_ms:    i64,
 	// Unix ms of the last failed check.
 	failed_at_ms:  i64,
 }
 
-// watch asks again for a failed answer when a page watches it this long after, such as once the network is back.
+// watch asks again for a failed answer when a page watches it this long after the failure.
+// A page then recovers once the network is back.
 @(private)
 FAILED_RETRY_MS :: 30 * 1000
 
-// free_retired_bodies frees an answer that no page watched for this long. It stays saved, so a page asking again finds it at once.
+// free_retired_bodies frees an answer that no page watched for this long. The store keeps it,
+// so a page that asks again finds it at once.
 @(private)
 UNUSED_ANSWER_MS :: 5 * 60 * 1000
 
-// Bodies replaced or let go during a frame, freed when the next starts, as a page may still read them.
+// Bodies replaced or let go this frame. Pages may still read them, so the next frame frees them.
 @(private)
 retired_bodies: [dynamic]string
 
@@ -52,13 +55,14 @@ cache: struct {
 	mutex:        sync.Mutex,
 	entries:      map[string]^Entry,
 	pool:         thread.Pool,
-	// Each new body takes the next number as its version. The cache never uses a version twice, so a page that
-	// read an answer before the cache let it go never takes a new one for the same.
+	// Each new body takes the next number as its version. No two bodies share a version, so a page
+	// that read an answer before the cache let it go never mistakes a later body for that one.
 	last_version: int,
 	is_started:   bool,
 }
 
-// Another package that answers the paths starting with its prefix, such as src/youtube. It blocks. Its body uses allocator.
+// Another package that answers the paths starting with its prefix, such as src/youtube.
+// It blocks. Its body uses allocator.
 Source :: proc(path: string, allocator: mem.Allocator) -> Answer
 
 @(private)
@@ -113,9 +117,10 @@ to_fresh_duration :: proc(path: string) -> time.Duration {
 @(private)
 CHECK_THREAD_COUNT :: 4
 
-// The answer for path as it stands, without waiting. A saved answer shows at once. watch checks a stale one
-// with Apple meanwhile. The body lives until the version changes.
+// The answer for path as it stands, without waiting. A saved answer shows at once, while watch
+// checks a stale one with Apple. The body lives until the version changes.
 watch :: proc(path: string) -> Watched {
+	// sync.guard locks the mutex and unlocks it when the procedure returns.
 	sync.guard(&cache.mutex)
 
 	if entry, ok := cache.entries[path]; ok {
@@ -127,6 +132,7 @@ watch :: proc(path: string) -> Watched {
 
 		if can_retry {
 			entry.is_checking = true
+			// context.allocator is the heap. Its memory lasts until a call frees it.
 			thread.pool_add_task(&cache.pool, context.allocator, check, entry)
 		}
 
@@ -170,8 +176,10 @@ now_ms :: proc() -> i64 {
 // Runs on a worker. A failed check keeps the saved answer, so the app works offline.
 @(private)
 check :: proc(task: thread.Task) {
+	// cast turns the task's rawptr back into the entry that it points at.
 	entry := cast(^Entry)task.data
 	path := entry.path
+	// defer runs this on return, so this worker's temp memory goes after each check.
 	defer free_all(context.temp_allocator)
 
 	answer := send_to_source(path)
@@ -212,7 +220,7 @@ refresh_all :: proc(prefix: string) {
 	for path in paths do refresh(path)
 }
 
-// Asks Apple again, such as after adding to the library, keeping the saved answer until the new one comes.
+// Asks again, such as after adding to the library. The saved answer stays until the next one comes.
 refresh :: proc(path: string) {
 	sync.guard(&cache.mutex)
 	entry, ok := cache.entries[path]
@@ -222,7 +230,8 @@ refresh :: proc(path: string) {
 	thread.pool_add_task(&cache.pool, context.allocator, check, entry)
 }
 
-// core calls this first in each frame. It frees the bodies replaced since the last frame. It lets go of answers that no page watched lately.
+// core calls this first in each frame. It frees the bodies replaced since the last frame.
+// It lets go of answers that no page watched in UNUSED_ANSWER_MS.
 free_retired_bodies :: proc() {
 	sync.guard(&cache.mutex)
 
@@ -244,7 +253,7 @@ free_retired_bodies :: proc() {
 	for path in unused {
 		entry := cache.entries[path]
 		delete_key(&cache.entries, path)
-		// A page may read it in this frame, which did not start yet. So the next frame frees it.
+		// This frame has yet to start and may read the body. So the next frame frees it.
 		if entry.body != "" do append(&retired_bodies, entry.body)
 		delete(entry.path)
 		free(entry)

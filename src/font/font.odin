@@ -9,10 +9,13 @@ import "om:mac"
 import "om:render"
 import MTL "vendor:darwin/Metal"
 
+// objc_send calls the Objective-C method that a selector string names.
 objc_send :: intrinsics.objc_send
 
+// objc_class binds this struct to the Objective-C class NSFont.
 @(objc_class = "NSFont")
 NS_Font :: struct {
+	// using embeds NS.Object, so a ^NS_Font can stand in for a ^NS.Object.
 	using _: NS.Object,
 }
 
@@ -23,7 +26,7 @@ Weight :: enum {
 	Bold,
 }
 
-// NSFontWeight values, from NSFontDescriptor.h.
+// NSFontWeight values, from NSFontDescriptor.h. @(private) keeps them inside the font package.
 @(private)
 weight_values := [Weight]f64 {
 	.Regular  = 0,
@@ -111,6 +114,7 @@ system_font :: proc(weight: Weight, size_pixels: f32) -> Font {
 	return font
 }
 
+// Returns the font's index in state.fonts. A font that is not there yet goes at the end.
 @(private)
 intern_font :: proc(ct_font: mac.Font_Ref) -> u16 {
 	key := mac.CFHash(mac.Type_Ref(ct_font))
@@ -140,7 +144,7 @@ begin_frame :: proc() {
 	}
 }
 
-// Returns true when the atlas filled and started over during this frame, so glyphs drawn earlier in it are wrong.
+// Returns true when the atlas filled up and started over this frame, so earlier glyphs draw wrong.
 is_redraw_needed :: proc() -> bool {
 	return state.is_atlas_reset
 }
@@ -163,13 +167,14 @@ Overflow :: enum {
 @(private)
 TRUNCATE_END :: 1
 
-// Shapes text once and keeps it while frames draw it. max_width_pixels 0 keeps it on one line, whole.
+// Shapes text once and keeps it while frames draw it. max_width_pixels 0 keeps one whole line.
 shape :: proc(
 	text: string,
 	font: Font,
 	max_width_pixels: f32 = 0,
 	overflow := Overflow.Wrap,
 ) -> ^Shaped_Text {
+	// transmute reads the bytes of the string as a []u8, with no copy.
 	key :=
 		hash.fnv64a(transmute([]u8)text) ~
 		(u64(mac.CFHash(mac.Type_Ref(font.ct_font))) * 31) ~
@@ -198,6 +203,7 @@ shape :: proc(
 		return shaped
 	}
 
+	// defer runs the release when shape returns.
 	defer mac.CFRelease(cf_text)
 	keys := []mac.Type_Ref{mac.Type_Ref(mac.kCTFontAttributeName)}
 	values := []mac.Type_Ref{mac.Type_Ref(font.ct_font)}
@@ -278,6 +284,7 @@ to_shaped_line :: proc(ct_line: mac.Line_Ref, font: Font, top_y: f32) -> Shaped_
 		)
 		font_index := intern_font(run_font)
 
+		// The app frees context.temp_allocator at the start of each frame.
 		ids := make([]mac.Glyph, count, context.temp_allocator)
 		positions := make([]mac.Point, count, context.temp_allocator)
 		indices := make([]mac.Index, count, context.temp_allocator)

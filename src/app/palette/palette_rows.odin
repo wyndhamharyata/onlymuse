@@ -8,6 +8,7 @@ import "om:apple"
 import "om:ui"
 
 // Builds the results in groups with a title each. Returns the index of a clicked result, or -1.
+// @(private) keeps this procedure inside the palette package.
 @(private)
 build_results :: proc() -> int {
 	if len(palette.results) == 0 {
@@ -41,6 +42,7 @@ build_results :: proc() -> int {
 		for result, index in palette.results {
 			if result.group != group {
 				group = result.group
+				// context.temp_allocator frees its memory at the start of the next frame.
 				ui.box(
 					"",
 					{
@@ -97,7 +99,7 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 	)
 	signal := ui.signal(row)
 
-	// The pointer selects only when it moves, so a row under a still pointer keeps the arrow keys' choice.
+	// The pointer selects a row only when it moves. A still pointer keeps the arrow keys' choice.
 	if signal.is_hovered && ui.mouse_position() != palette.last_mouse_position {
 		palette.selected_index = index
 	}

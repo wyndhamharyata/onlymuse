@@ -1,10 +1,9 @@
 package image
 
 
-// to_color reads premultiplied BGRA. It puts the pixels into buckets by hue and weighs each pixel by
-// its saturation squared times its brightness. A grey wall or a black border then counts little against
-// a red coat. The colour is the average of the heaviest hue and the two beside it. An average of every
-// pixel would mix a purple sky and an orange sun into brown.
+// to_color reads premultiplied BGRA. It averages the heaviest hue bucket and the two beside it.
+// An average of every pixel would mix a purple sky and an orange sun into brown.
+// @(private) keeps the procedure inside the image package.
 @(private)
 to_color :: proc(pixels: []u8) -> Color {
 	HUE_BUCKETS :: 36
@@ -17,6 +16,7 @@ to_color :: proc(pixels: []u8) -> Color {
 		alpha := f32(pixels[index + 3]) / 255
 		if alpha < 0.5 do continue
 
+		// The division by alpha undoes the premultiplied alpha.
 		rgb :=
 			[3]f32{f32(pixels[index + 2]), f32(pixels[index + 1]), f32(pixels[index])} /
 			(255 * alpha)
@@ -26,6 +26,7 @@ to_color :: proc(pixels: []u8) -> Color {
 		if spread <= 0 do continue
 
 		saturation := spread / brightest
+		// With this weight, a grey wall or a black border counts little against a red coat.
 		weight := saturation * saturation * brightest
 		bucket := min(int(to_hue(rgb, brightest, spread) * HUE_BUCKETS), HUE_BUCKETS - 1)
 

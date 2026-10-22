@@ -1,4 +1,4 @@
-// What every part of the window shares: the app's state, navigation, page data, songs and the library lists.
+// What every part of the window shares: app state, navigation, page data, songs, library lists.
 // It imports no other package of the window, so any of them can import it.
 package core
 
@@ -30,12 +30,12 @@ app: struct {
 	started_at:        time.Tick,
 	is_sign_in_open:   bool,
 	last_frame:        time.Tick,
-	// OM_CAPTURE saves a frame to this file and quits, for the development tests. OM_CAPTURE_SECONDS waits first.
+	// For the tests, OM_CAPTURE saves a frame here and quits. OM_CAPTURE_SECONDS waits first.
 	capture_path:      string,
 	capture_time:      time.Tick,
 	frame_count:       int,
 	is_bench:          bool,
-	// OM_FRAMES=1 shows how long each frame took to build.
+	// OM_FRAMES=1 shows how long each frame takes to build.
 	is_showing_frames: bool,
 	bench_frame_count: int,
 	bench_direction:   f32,

@@ -5,6 +5,7 @@ import "core:math"
 import "om:mac"
 import "om:render"
 
+// @(private) keeps this type inside the font package.
 @(private)
 Atlas_Entry :: struct {
 	// x, y, width, height in atlas pixels. The width is 0 for a glyph with no ink, such as a space.
@@ -22,7 +23,8 @@ SUBPIXEL_STEPS :: 4
 
 Color_Proc :: #type proc(utf16_index: int, data: rawptr) -> [4]f32
 
-// Draws every glyph. color_of picks a colour per glyph, such as the sung words of a lyric line. opacity scales either.
+// Draws every glyph. color_of picks a colour per glyph, such as for the sung words of a lyric line.
+// opacity scales either colour.
 draw :: proc(
 	shaped: ^Shaped_Text,
 	origin_pixels: [2]f32,
@@ -85,6 +87,7 @@ find_glyph :: proc(font_index: u16, glyph: mac.Glyph, subpixel: int) -> Atlas_En
 
 @(private)
 rasterize :: proc(ct_font: mac.Font_Ref, glyph: mac.Glyph, subpixel: int) -> Atlas_Entry {
+	// An Odin parameter has no address. CoreText takes a pointer, so this copy gives one.
 	glyph := glyph
 	bounds: mac.Rect
 
@@ -92,7 +95,7 @@ rasterize :: proc(ct_font: mac.Font_Ref, glyph: mac.Glyph, subpixel: int) -> Atl
 
 	if bounds.size.width <= 0 || bounds.size.height <= 0 do return {}
 
-	// Each side gets one pixel of room for antialiasing. The right gets one more for the subpixel shift.
+	// Each side has a 1-pixel margin for antialiasing. The right has 1 more for the subpixel shift.
 	left := int(math.floor(bounds.origin.x)) - 1
 	bottom := int(math.floor(bounds.origin.y)) - 1
 	width := int(math.ceil(bounds.origin.x + bounds.size.width)) - left + 2
@@ -102,8 +105,10 @@ rasterize :: proc(ct_font: mac.Font_Ref, glyph: mac.Glyph, subpixel: int) -> Atl
 
 	if !ok do return {}
 
+	// The app frees context.temp_allocator at the start of each frame.
 	pixels := make([]u8, width * height, context.temp_allocator)
 	gray := mac.CGColorSpaceCreateDeviceGray()
+	// defer runs the release when rasterize returns.
 	defer mac.CGColorSpaceRelease(gray)
 	bitmap_context := mac.CGBitmapContextCreate(
 		raw_data(pixels),
@@ -131,7 +136,7 @@ rasterize :: proc(ct_font: mac.Font_Ref, glyph: mac.Glyph, subpixel: int) -> Atl
 	return Atlas_Entry{rect, {f32(left), -f32(height + bottom)}}
 }
 
-// This is shelf packing. Glyphs fill a row from left to right. A new row starts below the tallest one.
+// This is shelf packing. Glyphs fill a row left to right. A new row starts below the tallest one.
 @(private)
 allocate :: proc(width, height: int) -> ([4]int, bool) {
 	if state.atlas_pen.x + width > ATLAS_SIZE {

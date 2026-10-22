@@ -1,4 +1,5 @@
-// This package keeps the app's SQLite file. It holds Apple's answers, the play log and the saved state of the window.
+// This package keeps the app's SQLite file.
+// The file holds Apple's answers, the play log and the saved state of the window.
 package store
 
 import "core:fmt"
@@ -15,6 +16,7 @@ Saved_Answer :: struct {
 	fetched_at_ms: i64,
 }
 
+// @(private) keeps a declaration inside the store package.
 @(private)
 state: struct {
 	database: mac.Sqlite,
@@ -57,6 +59,7 @@ SCHEMA :: `
 
 // OM_DATA names the folder, for the tests.
 read_folder :: proc() -> string {
+	// context.temp_allocator belongs to the calling thread, which frees it after this call.
 	if folder := os.get_env("OM_DATA", context.temp_allocator); folder != "" do return folder
 
 	return fmt.tprintf(
@@ -69,6 +72,7 @@ start :: proc() {
 	os.make_directory_all(read_folder())
 	path := fmt.tprintf("%s/onlymuse.sqlite", read_folder())
 
+	// FULLMUTEX lets several threads share this one connection.
 	flags := i32(mac.SQLITE_OPEN_READWRITE | mac.SQLITE_OPEN_CREATE | mac.SQLITE_OPEN_FULLMUTEX)
 
 	if mac.sqlite3_open_v2(
@@ -82,7 +86,8 @@ start :: proc() {
 		return
 	}
 
-	// WAL lets a read go on during a write. NORMAL stays safe with WAL and skips a sync on every write.
+	// WAL lets a read go on during a write. With WAL, NORMAL stays safe and skips a sync per write.
+	// busy_timeout waits up to 2000 ms for a lock that another connection holds.
 	run("pragma journal_mode = wal; pragma synchronous = normal; pragma busy_timeout = 2000;")
 	run(SCHEMA)
 }
@@ -103,12 +108,14 @@ now_ms :: proc() -> i64 {
 
 @(private)
 bind_text :: proc(statement: mac.Sqlite_Statement, index: i32, text: string) {
+	// SQLITE_TRANSIENT makes SQLite copy the text before this call returns.
 	mac.sqlite3_bind_text(statement, index, raw_data(text), i32(len(text)), mac.SQLITE_TRANSIENT)
 }
 
 @(private)
 prepare :: proc(sql: cstring) -> (mac.Sqlite_Statement, bool) {
 	statement: mac.Sqlite_Statement
+	// -1 tells SQLite that sql ends at its first zero byte.
 	is_ready := mac.sqlite3_prepare_v2(state.database, sql, -1, &statement, nil) == mac.SQLITE_OK
 
 	return statement, is_ready
@@ -139,6 +146,7 @@ column_text :: proc(
 find_answer :: proc(path: string, allocator := context.allocator) -> (Saved_Answer, bool) {
 	statement, ok := prepare("select body, fetched_at from responses where path = ?")
 	if !ok do return {}, false
+	// defer finalizes the statement when the procedure returns, on every path.
 	defer mac.sqlite3_finalize(statement)
 
 	bind_text(statement, 1, path)
@@ -176,6 +184,7 @@ find_state :: proc(key: string, allocator := context.allocator) -> (string, bool
 }
 
 save_state :: proc(key, value: string) {
+	// sync.guard locks the mutex and unlocks it when the procedure returns.
 	sync.guard(&state.mutex)
 
 	statement, ok := prepare(
@@ -190,7 +199,7 @@ save_state :: proc(key, value: string) {
 	step_write(statement)
 }
 
-// The Apple Music song, as JSON, that a YouTube song is. The JSON is empty when Apple has no such song.
+// The Apple Music song that a YouTube song is, as JSON. It is empty when Apple has none.
 find_match :: proc(youtube_id: string, allocator := context.allocator) -> (string, bool) {
 	statement, ok := prepare("select song from matches where youtube_id = ?")
 	if !ok do return "", false
@@ -203,7 +212,7 @@ find_match :: proc(youtube_id: string, allocator := context.allocator) -> (strin
 	return column_text(statement, 0, allocator), true
 }
 
-// True for a match the person turned down. The rejection stays through a change of the rule.
+// True for a match the person turned down. delete_matches keeps these rejections.
 is_match_rejected :: proc(youtube_id: string) -> bool {
 	statement, ok := prepare("select 1 from rejected_matches where youtube_id = ?")
 	if !ok do return false
@@ -232,7 +241,7 @@ delete_rejected_match :: proc(youtube_id: string) {
 	step_write(statement)
 }
 
-// This deletes every saved match, such as when the rule that makes the matches changes.
+// src/app/matching calls this when its MATCH_RULE_VERSION differs from the saved one.
 delete_matches :: proc() {
 	run("delete from matches")
 }
@@ -250,7 +259,8 @@ save_match :: proc(youtube_id, song_json: string) {
 	step_write(statement)
 }
 
-// A song that played to its middle, or that the person skipped before its middle. Music.app keeps only a count and the last date.
+// A song that played to its middle, or that the person skipped before its middle.
+// Music.app keeps only a count and the last date.
 Play :: struct {
 	catalog_id:   string,
 	name:         string,

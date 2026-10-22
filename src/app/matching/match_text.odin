@@ -9,6 +9,7 @@ import "om:app/core"
 MATCH_SECONDS :: 3
 
 // The closest in length of the candidates that are the same recording.
+// @(private) hides this from every package but matching.
 @(private)
 find_closest :: proc(
 	song: core.Catalog_Song,
@@ -34,9 +35,7 @@ find_closest :: proc(
 	return best, is_found
 }
 
-// One recording has the same cleaned title, the same artist and about the same length. YouTube often writes
-// a Japanese title and its romaji as "追い風 - Oikaze", where Apple writes one of them, so either half matches.
-// An artist with another name on each, such as a Japanese name on one, is no match. The song then plays from YouTube.
+// One recording has the same cleaned title, the same artist and about the same length.
 is_same_recording :: proc(youtube_song, apple_song: core.Catalog_Song) -> bool {
 	has_lengths := youtube_song.duration_seconds > 0 && apple_song.duration_seconds > 0
 	length_difference := abs(youtube_song.duration_seconds - apple_song.duration_seconds)
@@ -47,7 +46,8 @@ is_same_recording :: proc(youtube_song, apple_song: core.Catalog_Song) -> bool {
 	return is_same_artist(youtube_song.artist_name, apple_song.artist_name)
 }
 
-// "Ado" and "ADO" are one artist, and so are "SHE'S" and "SHE'S, Yuta Kanazawa".
+// "Ado" and "ADO" are one artist. "SHE'S" and "SHE'S, Yuta Kanazawa" are one artist too.
+// An artist under two names, such as a Japanese name on one side, is no match. YouTube plays it.
 @(private)
 is_same_artist :: proc(youtube_artist, apple_artist: string) -> bool {
 	youtube_key := to_match_key(youtube_artist)
@@ -71,9 +71,11 @@ has_same_title :: proc(youtube_name, apple_name: string) -> bool {
 	return false
 }
 
-// The whole title and each half around " - " or " / ", as match keys.
+// The whole title and each half around " - " or " / ", as match keys. YouTube often writes
+// a Japanese title and its romaji as "追い風 - Oikaze". Apple writes one, so either half matches.
 @(private)
 list_title_keys :: proc(name: string) -> []string {
+	// Temp memory lasts until the next frame, or until the matching thread ends its batch.
 	keys := make([dynamic]string, context.temp_allocator)
 	append(&keys, to_match_key(name))
 
@@ -90,8 +92,8 @@ list_title_keys :: proc(name: string) -> []string {
 	return keys[:]
 }
 
-// Lowercase letters and digits only. It drops parts in brackets, such as "(Official Video)" or "【MV】", and
-// "feat." with what follows. A name that is all brackets keeps them.
+// Lowercase letters and digits only, without "feat." and what follows it. It drops the parts in
+// brackets, such as "(Official Video)" or "【MV】". A name that is all brackets keeps them.
 to_match_key :: proc(text: string) -> string {
 	lower := strings.to_lower(text, context.temp_allocator)
 
@@ -104,6 +106,7 @@ to_match_key :: proc(text: string) -> string {
 	return key if key != "" else to_letters(lower, false)
 }
 
+// @(private = "file") hides this from every other file.
 @(private = "file")
 to_letters :: proc(text: string, skips_brackets: bool) -> string {
 	builder := strings.builder_make(context.temp_allocator)
@@ -126,8 +129,8 @@ to_letters :: proc(text: string, skips_brackets: bool) -> string {
 	return strings.to_string(builder)
 }
 
-// The title, the album and the artist without their bracketed parts. Apple's search finds nothing for a term
-// with an apostrophe, such as "She's", so apostrophes go.
+// The title, the album and the artist, without the parts in brackets or the apostrophes.
+// Apple's search finds nothing for a term with an apostrophe, such as "She's".
 @(private)
 to_search_term :: proc(song: core.Catalog_Song, album: string) -> string {
 	return fmt.tprintf(

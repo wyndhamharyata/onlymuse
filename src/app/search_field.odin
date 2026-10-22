@@ -12,6 +12,7 @@ search_field: kit.Text_Field
 start_search_field :: proc() {
 	kit.register_text_field(&search_field)
 
+	// Memory from context.temp_allocator lasts until begin_frame frees it at the next frame.
 	saved, has_term := store.find_state("searchTerm", context.temp_allocator)
 	if !has_term do return
 
@@ -21,7 +22,7 @@ start_search_field :: proc() {
 	kit.set_field_text(&search_field, term)
 }
 
-// The store keeps the term for the next run. Return searches.
+// Saves the term for the next run. Pressing Return opens the Search page.
 build_search_field :: proc() {
 	if search_field.is_changed {
 		bytes, _ := json.marshal(

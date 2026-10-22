@@ -1,5 +1,5 @@
-// What plays: the queue, shuffle, the play log, favourites, and what Music.app knows of each song. It draws
-// nothing but the shuffle rules' menu.
+// The queue, shuffle, the play log, favourites and what Music.app knows of each song.
+// The package draws nothing but the menu of the shuffle rules.
 package playback
 
 import "core:encoding/json"
@@ -13,14 +13,13 @@ import "om:platform"
 import "om:store"
 import "om:youtube"
 
-// Music.app keeps no queue of its own after a song that AppleScript started. So the app plays each
-// next song of the play queue itself. The helper hands off at each end.
 Resume_Point :: struct {
 	song:             helper.Song,
 	position_seconds: f64 `json:"positionSeconds"`,
 }
 
-// The saved form, under the key "queue".
+// Music.app keeps no queue after a song that AppleScript starts, so the app plays each next song.
+// The store saves this queue under the key "queue".
 Queue_State :: struct {
 	songs:                 []core.Catalog_Song,
 	// The songs in the order they came, so shuffle can turn off again.
@@ -31,12 +30,12 @@ Queue_State :: struct {
 	is_adding:             bool `json:"isAdding"`,
 	// The ID is empty when the queue's song is not playing.
 	playing_persistent_id: string `json:"playingPersistentID"`,
-	// The last song Music.app played and where it was. The player shows it when Music.app neither plays
-	// nor pauses. Its song's persistent ID is empty when there is none. save_resume_point saves it under
-	// its own key, "resumePoint", as it changes every few seconds and the queue can hold thousands of songs.
+	// The last song Music.app played. The player shows it when Music.app stops. It changes every
+	// few seconds, so json:"-" keeps it out of the save of the queue's thousands of songs.
 	resume_point:          Resume_Point `json:"-"`,
 }
 
+// @(private = "file") hides a name from other files. @(private) hides it from other packages.
 @(private = "file")
 Request_Kind :: enum {
 	Play,
@@ -49,7 +48,7 @@ Request_Kind :: enum {
 Request :: struct {
 	kind:            Request_Kind,
 	play_count:      int,
-	// The handoff_version of the request. It is a number, as sync_handoff frees the old key when the next one replaces it.
+	// A number, not handoff_key, as sync_handoff frees the old key when a new one replaces it.
 	handoff_version: int,
 	index:           int,
 	after:           string,
@@ -60,19 +59,20 @@ END_TOLERANCE_SECONDS :: 3.0
 // Previous starts the song again past this point, as Music.app does.
 RESTART_AFTER_SECONDS :: 3.0
 
-// Music.app starts a library song within a second or two. One it has no file for shows a dialog and never starts.
+// Music.app starts a library song within a second or two. For a song with no file, Music.app
+// shows a dialog and never starts it.
 START_TIMEOUT_SECONDS :: 8.0
 
-// Music.app can play a song new to the library for a few seconds, then wait on it for good. Two
-// positions in a row that stand still, about 4 s, start the song again, as playing another song and back does.
+// Music.app can play a song new to the library for a few seconds, then stop on it for good.
+// After 2 still positions, about 4 s, the queue plays it again, as a switch away and back does.
 STALLED_POSITION_COUNT :: 2
 
-// A song at 0:00 may still be loading, which takes Music.app several seconds, so it gets about 16 s.
+// Music.app can take several seconds to load a song at 0:00, so it gets 8 positions, about 16 s.
 UNSTARTED_POSITION_COUNT :: 8
 
 MAX_RESTART_COUNT :: 2
 
-// While a song plays, the queue saves its position this often, so a force quit loses at most this much.
+// The queue saves the position of the playing song this often, the most a force quit can lose.
 POSITION_SAVE_SECONDS :: 5.0
 
 queue: Queue_State
@@ -85,7 +85,7 @@ queue_state: struct {
 	has_handoff:         bool,
 	handoff_key:         string,
 	handoff_version:     int,
-	// Each new play counts up, so an older play that is still adding a song knows to stop.
+	// It counts up with each play, so an older play that is still adding a song knows to stop.
 	play_count:          int,
 	requests:            map[int]Request,
 	// The thread that adds a song to the library sets this to the play count it added for.
@@ -104,6 +104,7 @@ queue_state: struct {
 }
 
 start_queue :: proc() {
+	// On the main thread, the memory of the temp allocator lasts until the next frame starts.
 	if text, ok := store.find_state("queue", context.temp_allocator); ok {
 		_ = json.unmarshal_string(text, &queue)
 	}
@@ -209,7 +210,7 @@ apply_queue_answer :: proc(request_id: int, answered_id: string) {
 			return
 		}
 
-		// Music.app shows a song new to the library after a few seconds, about 6 in the tests.
+		// Music.app shows a song new to the library after a few seconds, about 6 s in NOTES.md.
 		queue.is_adding = true
 		save_queue_and_handoff()
 		start_adding(queue.songs[queue.index].id, queue_state.play_count)
@@ -247,6 +248,7 @@ apply_queue_answer :: proc(request_id: int, answered_id: string) {
 			save_queue_and_handoff()
 		}
 
+		// fmt writes {{ and }} as single braces.
 		helper.send(
 			fmt.tprintf(
 				`{{"type":"seek","positionSeconds":%.3f}}`,

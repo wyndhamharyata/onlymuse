@@ -8,7 +8,8 @@ import "om:apple"
 // A song from YouTube has this before its video ID, in place of a catalog ID.
 SONG_ID_PREFIX :: "yt:"
 
-// What one YouTube answer shows: a page's header, its songs outside shelves, its shelves and its other cards.
+// What one YouTube answer shows: a page's header, its songs outside shelves,
+// its shelves and its other cards.
 List :: struct {
 	title:                string,
 	subtitle:             string,
@@ -20,7 +21,7 @@ List :: struct {
 	cards:                []apple.Card,
 	// The token for the next part of a long list. Empty at its end.
 	continuation:         string,
-	// The token for the next shelves of a page such as home, which to_continuation_path cannot ask for.
+	// The token for the next shelves of a page, such as home. to_continuation_path cannot use it.
 	section_continuation: string,
 }
 
@@ -32,6 +33,7 @@ to_video_id :: proc(song_id: string) -> string {
 	return song_id[len(SONG_ID_PREFIX):] if is_song_id(song_id) else ""
 }
 
+// @(private) hides this from every package but youtube.
 @(private)
 Reader :: struct {
 	allocator:            mem.Allocator,
@@ -46,7 +48,8 @@ Reader :: struct {
 	section_continuation: string,
 }
 
-// Reads any answer of browse, search or next. It parses the JSON in the temp allocator. It copies what it keeps into allocator.
+// Reads any answer of browse, search or next. It parses the JSON in the temp allocator.
+// It copies what it keeps into allocator, which defaults to context.allocator, the heap.
 to_list :: proc(body: string, allocator := context.allocator) -> List {
 	value, error := json.parse_string(body, allocator = context.temp_allocator)
 	if error != nil do return {}
@@ -84,6 +87,7 @@ to_list :: proc(body: string, allocator := context.allocator) -> List {
 
 @(private)
 read_value :: proc(reader: ^Reader, value: json.Value) {
+	// #partial switch picks the case by the type that value holds. Any other type skips them all.
 	#partial switch item in value {
 	case json.Array:
 		for element in item do read_value(reader, element)

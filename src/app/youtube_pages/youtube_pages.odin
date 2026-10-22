@@ -31,7 +31,7 @@ build_youtube_playlist_page :: proc(page: core.Page) {
 	lists.build_song_list_page(title, first.subtitle, songs, phase)
 }
 
-// YouTube's mixes for you are on its home page, as playlists whose IDs start with "RD".
+// YouTube's mixes for you show on its home page as playlists with IDs that start "RD" or "VLRD".
 build_youtube_mixes_page :: proc() {
 	if !youtube.is_signed_in() {
 		build_youtube_sign_in_page(
@@ -45,6 +45,7 @@ build_youtube_mixes_page :: proc() {
 	data, is_stale := core.find_page_data("youtube mixes", signature, phase)
 
 	if is_stale && phase == .Ready {
+		// The cards live in the page's arena. seen lives in context.temp_allocator for one frame.
 		cards := make([dynamic]apple.Card, core.page_allocator(data))
 		seen := make(map[string]bool, context.temp_allocator)
 
@@ -88,7 +89,8 @@ build_youtube_sign_in_note :: proc(text: string) {
 	}
 }
 
-// The button sets this, so the answer says how it went.
+// The Use Helium's Sign-In button sets this, so only its answer shows a toast.
+// @(private = "file") lets only this file use the name below.
 @(private = "file")
 is_reading_youtube_sign_in: bool
 
@@ -97,7 +99,7 @@ apply_youtube_cookie :: proc(message: helper.Message) {
 	youtube.set_cookie(message.cookie)
 	is_signed_in := youtube.is_signed_in()
 
-	// apple.refresh_all asks again for the answers saved while signed out, such as an empty Liked Music.
+	// refresh_all asks again for the answers saved while signed out, such as an empty Liked Music.
 	if is_signed_in != was_signed_in do apple.refresh_all(youtube.PATH_PREFIX)
 
 	if !is_reading_youtube_sign_in do return

@@ -16,6 +16,7 @@ ADD_POLL_SECONDS :: 1.5
 
 ADD_TIMEOUT_SECONDS :: 45.0
 
+// @(private = "file") hides Add_Job from other files. @(private) hides a name from other packages.
 @(private = "file")
 Add_Job :: struct {
 	catalog_id: string,
@@ -29,10 +30,15 @@ start_adding :: proc(catalog_id: string, play_count: int) {
 	// The queue may free its song before the thread runs, so the job keeps its own copy of the ID.
 	job^ = {strings.clone(catalog_id), play_count}
 	// self_cleanup frees the thread when its procedure returns, so nothing waits for it.
-	thread.create_and_start_with_data(job, proc(data: rawptr) {
+	thread.create_and_start_with_data(
+		job,
+		proc(data: rawptr) {
+			// cast turns the untyped pointer back into a pointer to the job.
 			job := cast(^Add_Job)data
+			// Each defer runs when this procedure returns, the last one first.
 			defer free(job)
 			defer delete(job.catalog_id)
+			// Each thread has its own temp allocator, so this thread frees its own temp memory.
 			defer free_all(context.temp_allocator)
 
 			status :=
@@ -46,10 +52,13 @@ start_adding :: proc(catalog_id: string, play_count: int) {
 				)
 			}
 
+			// sync.guard holds the lock until this procedure returns.
 			sync.guard(&queue_state.add_mutex)
 			queue_state.added_play_count = job.play_count
 			platform.wake()
-		}, self_cleanup = true)
+		},
+		self_cleanup = true,
+	)
 }
 
 // A song matched from YouTube must start soon, or it goes back to YouTube.
@@ -61,7 +70,8 @@ await_start :: proc() {
 	platform.request_frame_after(START_TIMEOUT_SECONDS)
 }
 
-// Music.app could not play Apple's song, so the YouTube one plays, now and from now on. It returns false for a song with no YouTube one.
+// Music.app could not play Apple's song, so the YouTube one plays, now and from now on.
+// It returns false for a song with no YouTube one.
 @(private)
 fall_back_to_youtube :: proc() -> bool {
 	queue_state.start_deadline_ms = 0

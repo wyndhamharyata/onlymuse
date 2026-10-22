@@ -14,6 +14,7 @@ build_shelves_page :: proc(title, path: string, is_new: bool) {
 	watched := apple.watch(path)
 	youtube_version := 0
 	if !is_new do _, youtube_version, _ = youtube_lists.watch_youtube_home()
+	// One version for both answers, so the page reads again when either answer changes.
 	data, is_stale := core.find_page_data(
 		path,
 		watched.version * 1000 + youtube_version,

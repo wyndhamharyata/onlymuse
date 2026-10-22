@@ -1,4 +1,4 @@
-// YouTube Music's own web API at music.youtube.com, with the sign-in the helper reads from its web page.
+// YouTube Music's web API at music.youtube.com, with the sign-in the helper reads from its page.
 package youtube
 
 import "core:crypto/legacy/sha1"
@@ -17,10 +17,11 @@ BASE_URL :: "https://music.youtube.com/youtubei/v1/"
 ORIGIN :: "https://music.youtube.com"
 // The web player's own version. YouTube answers older ones for a long time.
 CLIENT_VERSION :: "1.20261015.01.00"
-// Every saved path starts with it, as "youtube/browse?{...}". The JSON after "?" is the request's body.
+// Every saved path starts with it, as "youtube/browse?{...}". The JSON after "?" is the body.
 PATH_PREFIX :: "youtube/"
 
 // Requests wait this long after the app starts for the helper's cookie, then go without a sign-in.
+// @(private) hides this from every package but youtube.
 @(private)
 COOKIE_WAIT :: 8 * time.Second
 
@@ -37,8 +38,10 @@ start :: proc() {
 	apple.add_source(PATH_PREFIX, send_request)
 }
 
-// The helper reads the cookie from its YouTube web page at start and after a sign-in. It is empty without a sign-in.
+// The helper reads the cookie from its YouTube web page at start and after a sign-in.
+// The cookie is empty without a sign-in.
 set_cookie :: proc(cookie: string) {
+	// sync.guard locks the mutex and unlocks it when the procedure returns.
 	sync.guard(&state.mutex)
 	delete(state.cookie)
 	state.cookie = strings.clone(cookie)
@@ -89,8 +92,8 @@ to_section_continuation_path :: proc(token: string) -> string {
 	return to_path("browse", fmt.tprintf("{{%s}}", to_json_field("ctoken", token)))
 }
 
-// An album, a playlist or the liked songs open by browse ID. A mix or a radio has a playlist ID, such as
-// "RDTMAK5uy_…", which only the next endpoint answers.
+// An album, a playlist or the liked songs open by browse ID. A mix or a radio has a playlist ID,
+// such as "RDTMAK5uy_…", which only the next endpoint answers.
 to_list_path :: proc(id: string) -> string {
 	browse_prefixes := []string{"VL", "MPREb_", "FE", "UC"}
 	for prefix in browse_prefixes do if strings.has_prefix(id, prefix) do return to_browse_path(id)
@@ -101,13 +104,15 @@ to_list_path :: proc(id: string) -> string {
 	)
 }
 
-// Likes the video on the signed-in account, or takes the like back. It blocks. It returns 200 when YouTube took it, 0 without a sign-in.
+// Likes the video on the signed-in account, or takes the like back. It blocks.
+// It returns 200 when YouTube took the change, or 0 without a sign-in.
 send_like :: proc(video_id: string, is_liked: bool) -> int {
 	if !is_signed_in() do return 0
 
 	endpoint := "like/like" if is_liked else "like/removelike"
 	body := fmt.tprintf("{{\"target\":{{%s}}}}", to_json_field("videoId", video_id))
 
+	// The calling thread's temp allocator holds the answer until that thread frees it.
 	return send_request(to_path(endpoint, body), context.temp_allocator).status
 }
 
@@ -203,6 +208,7 @@ to_authorization :: proc(api_id: string) -> string {
 	context_value: sha1.Context
 
 	sha1.init(&context_value)
+	// transmute reads the string's bytes as []u8 without a copy.
 	sha1.update(&context_value, transmute([]u8)fmt.tprintf("%d %s %s", seconds, api_id, ORIGIN))
 	sha1.final(&context_value, digest[:])
 

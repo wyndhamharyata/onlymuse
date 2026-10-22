@@ -71,6 +71,7 @@ build_controls :: proc() {
 				},
 			)
 
+			// The icon draws after the build. context.temp_allocator keeps the paint one frame.
 			paint := new(kit.Icon_Paint, context.temp_allocator)
 			paint^ = {"pause.fill" if is_playing else "play.fill", 15, kit.colors.ink}
 			play.draw = kit.draw_icon
@@ -107,7 +108,7 @@ build_controls :: proc() {
 build_progress :: proc(is_playing_song: bool) {
 	now_playing := core.app.now_playing
 	shown, is_song := playback.find_shown_song()
-	// While a song is on its way into the library or the YouTube page loads it, the bar shows its start and its own length. The clock stays still.
+	// While is_waiting, the bar holds at the start of the queue song and shows its own length.
 	is_waiting := playback.queue.is_adding || playback.is_starting_youtube_song()
 	duration_seconds :=
 		playback.queue.songs[playback.queue.index].duration_seconds if is_waiting else shown.duration_seconds if is_song else 0
@@ -150,7 +151,7 @@ build_progress :: proc(is_playing_song: bool) {
 		}
 	}
 
-	// The clock turns over on each whole second while a song plays. Nothing else draws between those seconds.
+	// The clock turns over each whole second. Nothing else draws a frame then, so this timer asks.
 	if now_playing.playback == .Playing && !is_waiting {
 		platform.request_frame_after(1 - (position_seconds - math.floor(position_seconds)) + 0.005)
 	}

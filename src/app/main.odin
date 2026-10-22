@@ -1,5 +1,5 @@
-// Opens the window and builds each frame from the packages below. The sidebar, the Console page, zoom and
-// the bench live here too.
+// Package app opens the window and builds each frame from the packages it imports.
+// The sidebar, the Console page, zoom and the bench live here too.
 package app
 
 import "base:runtime"
@@ -24,10 +24,11 @@ import "om:store"
 import "om:ui"
 import "om:youtube"
 
-// The temp memory of each frame. A long page takes more than the 256 KB that build.sh gives each thread.
+// The temp memory of each frame. A long page needs more than the 256 KB build.sh gives a thread.
 MAIN_TEMP_BYTES :: 4 * 1024 * 1024
 
 main :: proc() {
+	// context.temp_allocator hands out this memory. begin_frame in frame.odin frees it each frame.
 	runtime.default_temp_allocator_init(
 		&runtime.global_default_temp_allocator_data,
 		MAIN_TEMP_BYTES,
@@ -37,7 +38,7 @@ main :: proc() {
 	start_app_state()
 	start_parts()
 
-	// A test or bench run opens behind the other windows. It keeps Music.app as it is when it quits.
+	// A test or bench run opens behind the other windows. It keeps Music.app as it is on quit.
 	is_background :=
 		core.app.capture_path != "" ||
 		core.app.is_bench ||
@@ -63,6 +64,7 @@ start_app_state :: proc() {
 
 	core.app.capture_path = os.get_env("OM_CAPTURE", context.allocator)
 	core.app.is_bench = os.get_env("OM_BENCH", context.temp_allocator) == "1"
+	// or_else gives 1200 when OM_BENCH_FRAMES is missing or not a number.
 	core.app.bench_frame_count =
 		strconv.parse_int(os.get_env("OM_BENCH_FRAMES", context.temp_allocator)) or_else 1200
 	core.app.bench_direction = 1
@@ -79,7 +81,7 @@ start_app_state :: proc() {
 	core.app.started_at = time.tick_now()
 }
 
-// Starts each part in this order, as the queue, navigation and the rest read what the store saved.
+// The store starts first, because the queue, navigation and the rest read what it saved.
 start_parts :: proc() {
 	store.start()
 	apple.start()
@@ -137,7 +139,7 @@ SIGN_IN_CARD_POINTS :: 380
 build_sign_in_card :: proc() {
 	root := ui.current_parent()
 	window_size := [2]f32{root.style.width.value, root.style.height.value}
-	// It takes every click, so nothing behind it opens.
+	// The cover takes every click, so nothing behind it opens.
 	cover := ui.box(
 		"sign in cover",
 		{

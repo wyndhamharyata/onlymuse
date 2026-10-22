@@ -39,6 +39,7 @@ build_panel :: proc() -> bool {
 		)
 
 		if ui.scope(inner) {
+			// #partial switch lets the switch skip a case of the enum, here .None.
 			#partial switch core.app.panel {
 			case .Lyrics:
 				is_moving = build_lyrics()
@@ -114,6 +115,7 @@ build_up_next :: proc() {
 		"up next",
 		{width = ui.fill(), height = ui.fill(), axis = .Y, gap = 2, flags = {.Scroll, .Clip}},
 	)
+	// Only the rows in view get boxes. A spacer above and below holds the height of the others.
 	row_points: f32 = 52
 	first_row := max(
 		playback.queue.index,
@@ -198,7 +200,7 @@ build_queue_row :: proc(index: int, row_points: f32) {
 			)
 		}
 
-		// The song playing stays. Any other song shows its remove button while the mouse is over it.
+		// The song playing stays. Any other song shows its remove button while the mouse is on it.
 		if !is_current && kit.is_mouse_in(row) {
 			is_removed = kit.icon_button("remove", "xmark", 11, kit.colors.dim)
 		}
@@ -232,6 +234,7 @@ build_panel_tabs :: proc(width: f32) {
 	}
 }
 
+// @(private = "file") lets only this file use the name below.
 @(private = "file")
 build_panel_tab :: proc(label, symbol: string, panel: core.Panel) {
 	is_open := core.app.panel == panel

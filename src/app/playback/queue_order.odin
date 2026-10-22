@@ -5,13 +5,16 @@ import "om:app/matching"
 import "om:helper"
 import "om:youtube"
 
-// With shuffle on, the chosen song plays first and the others follow in a random order. The songs are copies.
+// The chosen song first, then the others in the order of shuffle_by_rules. The list holds copies.
+// @(private = "file") hides a name from other files. @(private) hides it from other packages.
 @(private = "file")
 list_play_order :: proc(songs: []core.Catalog_Song, first_index: int) -> []core.Catalog_Song {
+	// On the main thread, the memory of the temp allocator lasts until the next frame starts.
 	others := make([dynamic]core.Catalog_Song, context.temp_allocator)
 	for song, index in songs do if index != first_index do append(&others, song)
 
 	shuffled := shuffle_by_rules(others[:])
+	// defer frees shuffled when this procedure returns.
 	defer delete(shuffled)
 
 	order := make([]core.Catalog_Song, len(songs))
@@ -21,8 +24,8 @@ list_play_order :: proc(songs: []core.Catalog_Song, first_index: int) -> []core.
 	return order
 }
 
-// The queue owns its songs, text and all. A page reads its songs again into new memory whenever its
-// answers or its phase change. A queue that pointed at the old memory would read freed memory.
+// The queue owns copies of its songs, text and all. A page reads its songs into new memory
+// when its answers or phase change. A queue that kept the page's songs would read freed memory.
 @(private = "file")
 replace_songs :: proc(songs, original_songs: []core.Catalog_Song) {
 	retire_songs(queue.songs)
@@ -45,8 +48,8 @@ retire_songs :: proc(songs: []core.Catalog_Song) {
 	append(&retired.lists, songs)
 }
 
-// Songs and lists the queue let go of. free_retired_songs frees them when the next frame starts, as Up
-// Next and the player may already show them in this one.
+// Songs and lists the queue let go of. free_retired_songs frees them when the next frame starts,
+// as Up Next and the player may still show them in this frame.
 @(private = "file")
 retired: struct {
 	songs: [dynamic]core.Catalog_Song,
@@ -76,8 +79,8 @@ set_playable :: proc(index: int) {
 	queue.songs[index] = cloned
 }
 
-// start_matches checks the queue's next YouTube songs against Apple's catalog now, so they play from Apple
-// when their turn comes. It checks each later one when it is next.
+// start_matches matches this many of the next YouTube songs now, so they play from Apple in turn.
+// It matches each later song when that song is next.
 MATCHED_AHEAD_COUNT :: 25
 
 @(private)
@@ -112,7 +115,8 @@ shuffle_songs :: proc(songs: []core.Catalog_Song) {
 	play_at(0)
 }
 
-// Puts the song right after the one playing. With nothing queued, it plays now. The queue takes song, a copy.
+// Puts song right after the one playing, or plays it now when nothing is queued.
+// song must be a copy, as the queue keeps it.
 play_next :: proc(song: core.Catalog_Song) {
 	if queue.index < 0 || len(queue.songs) == 0 {
 		play_songs([]core.Catalog_Song{song}, 0)
@@ -129,7 +133,7 @@ play_next :: proc(song: core.Catalog_Song) {
 	copy(original, queue.original_songs)
 	original[len(original) - 1] = core.copy_song(song)
 
-	// The new lists hold the old songs themselves, so only the old lists go.
+	// The new lists hold the same songs, so only the old lists retire.
 	append(&retired.lists, queue.songs, queue.original_songs)
 	queue.songs = songs
 	queue.original_songs = original
@@ -175,7 +179,7 @@ toggle_shuffle :: proc() {
 		return
 	}
 
-	// The queue may hold Apple's match of a YouTube song in the original list.
+	// queue.songs may hold Apple's match where the original list holds the YouTube song.
 	current := queue.songs[queue.index]
 	original_index := 0
 
@@ -214,7 +218,8 @@ cycle_repeat :: proc() {
 	save_queue_and_handoff()
 }
 
-// The queue leads only while Music.app plays the song it started. Otherwise Music.app's own order applies.
+// The queue leads while it adds a song or Music.app plays the queue's song.
+// Otherwise Music.app's own order applies.
 @(private)
 is_queue_leading :: proc() -> bool {
 	now_playing := core.app.now_playing

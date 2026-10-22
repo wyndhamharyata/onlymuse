@@ -38,25 +38,27 @@ shuffle_rules := Shuffle_Rules {
 shuffle_note: string
 
 start_shuffle_rules :: proc() {
+	// On the main thread, the memory of the temp allocator lasts until the next frame starts.
 	if text, ok := store.find_state("shuffleRules", context.temp_allocator); ok {
 		_ = json.unmarshal_string(text, &shuffle_rules, allocator = context.temp_allocator)
 	}
 }
 
+// @(private = "file") hides this procedure from other files.
 @(private = "file")
 save_shuffle_rules :: proc() {
 	bytes, error := json.marshal(shuffle_rules, allocator = context.temp_allocator)
 	if error == nil do store.save_state("shuffleRules", string(bytes))
 }
 
-// A random order, then the rules: favourites drawn early, recent and often-skipped songs moved to the
-// end in their shuffled order, and no album twice in a row where another song can go between.
+// A random order, then the rules: favourites drawn early, recent and often-skipped songs last,
+// and no album twice in a row where another song can go between.
 shuffle_by_rules :: proc(songs: []core.Catalog_Song) -> []core.Catalog_Song {
 	shuffled := make([]core.Catalog_Song, len(songs))
 	copy(shuffled, songs)
 
 	if shuffle_rules.favourites_first {
-		// Each song draws u^(1/weight) and the largest keys go first, after Efraimidis and Spirakis.
+		// Each song draws u^(1/weight). The largest keys go first, after Efraimidis and Spirakis.
 		Keyed :: struct {
 			key:  f64,
 			song: core.Catalog_Song,
@@ -113,7 +115,8 @@ shuffle_by_rules :: proc(songs: []core.Catalog_Song) -> []core.Catalog_Song {
 	return shuffled
 }
 
-// A song's key in the play log's terms: its name and artist, as a song started in Music.app has no ID.
+// The key joins name and artist, as a song started in Music.app has no catalog ID.
+// \x1f is the ASCII unit separator, a character that no name holds.
 @(private = "file")
 to_song_key :: proc(song: core.Catalog_Song) -> string {
 	return fmt.tprintf("%s\x1f%s", song.name, song.artist_name)
@@ -148,7 +151,8 @@ list_song_history :: proc() -> (recent, skipped: map[string]bool) {
 	return
 }
 
-// Swaps a song that follows one of its own album with the next song from another. Returns how many moved.
+// Swaps a song that follows a song of its album with the next song from another album.
+// Returns how many songs moved.
 @(private = "file")
 keep_albums_apart :: proc(songs: []core.Catalog_Song) -> int {
 	moved := 0
@@ -240,6 +244,7 @@ build_shuffle_rules :: proc() {
 		},
 	)
 
+	// The click that opens the menu must not also close it.
 	is_closing :=
 		(ui.signal(cover).is_clicked || ui.signal(cover).is_right_clicked) &&
 		core.app.frame_count > rules_menu.opened_frame + 1

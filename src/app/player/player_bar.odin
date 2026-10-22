@@ -69,7 +69,7 @@ build_song_info :: proc() {
 	now_playing := core.app.now_playing
 	song, is_song := playback.find_shown_song()
 	queue_song, is_queue_song := playback.find_queue_song(song.persistent_id)
-	// A song on its way into the library, or that the YouTube page loads, shows before Music.app or the page has it.
+	// The queue song shows while it goes into the library or while the YouTube page loads it.
 	is_waiting := playback.queue.is_adding || playback.is_starting_youtube_song()
 	adding_song := playback.queue.songs[playback.queue.index] if is_waiting else {}
 	info := ui.box(
@@ -96,8 +96,7 @@ build_song_info :: proc() {
 			}
 		}
 
-		// The cover opens the Now Playing page.
-		// odinfmt cannot read a set literal followed by if inside another literal, so it stands apart.
+		// odinfmt cannot read `{.Clickable} if ...` inside another literal, so a local holds it.
 		cover_flags: ui.Flags = {.Clickable} if is_song else {}
 		cover := ui.box(
 			"cover",
@@ -155,7 +154,7 @@ build_song_info :: proc() {
 						after_width: f32 = 22 + 7
 						if badge != "" do after_width += kit.measure_text(badge, 9.5, .Bold) + 8 + 7
 
-						// The name gets a point more than the text, as a box exactly as wide cuts a short name such as "If" to nothing.
+						// At exactly its text width, a name such as "If" truncates to nothing.
 						name_width = ui.points(
 							min(
 								kit.measure_text(song.name, 13.5, .Semibold) + 1,
@@ -204,8 +203,7 @@ build_song_info :: proc() {
 					}
 				}
 
-				// Go to Artist always opens the Apple Music artist, never the library one.
-				// Music.app says it plays while it still loads a song. A position that did not move by the first check says so.
+				// Music.app says Playing during a load. A stall before the start shows the load.
 				is_loading :=
 					now_playing.playback == .Playing &&
 					!now_playing.has_started &&
@@ -220,6 +218,7 @@ build_song_info :: proc() {
 					is_clickable = true,
 				)
 
+				// The artist page finds the Apple Music artist by this name, never the library one.
 				if ui.signal(subtitle).is_clicked {
 					core.navigate({kind = .Artist, title = fmt.aprint(song.artist)})
 				}

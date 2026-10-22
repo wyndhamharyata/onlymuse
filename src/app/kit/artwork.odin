@@ -8,7 +8,7 @@ import "om:render"
 import "om:ui"
 import MTL "vendor:darwin/Metal"
 
-// The app asks for artwork in steps of this many pixels, so a resized window reuses the saved files.
+// The app asks for artwork in steps of this many pixels, so a resized window reuses saved files.
 ARTWORK_STEP_PIXELS :: 100
 
 to_artwork_pixels :: proc(size_points: f32) -> int {
@@ -31,6 +31,7 @@ Artwork_Paint :: struct {
 }
 
 draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
+	// cast reads box.data, an untyped pointer, as the Artwork_Paint from artwork_rect_box.
 	paint := cast(^Artwork_Paint)box.data
 	texture: ^MTL.Texture
 	image_opacity: f32
@@ -64,15 +65,15 @@ draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	)
 }
 
-// The width over the height of the box, rounded down to a quarter, so a box that resizes reuses a few
+// The width over the height of the box, rounded down to a quarter, so a resized box reuses a few
 // textures. to_fill_uv crops the rest from a texture a little taller than the box.
+// @(private = "file") hides this procedure from other files.
 @(private = "file")
 to_crop :: proc(rect: [4]f32, focus_y: f32) -> image.Crop {
 	height := rect.w - rect.y
 	if height <= 0 do return {}
 
-	// The 0.01 absorbs float noise. At most zooms a square box comes out 0.9999997 wide for each 1 high.
-	// A plain floor would then flip it to 0.75 on some frames and back.
+	// + 0.01 stops float noise from flooring a square, at 0.9999997, to 0.75 on some frames.
 	return {math.floor((rect.z - rect.x) / height * 4 + 0.01) / 4, focus_y}
 }
 
@@ -104,8 +105,8 @@ Placeholder :: struct {
 	symbol_color: [4]f32,
 }
 
-// Catalog artwork brings its colours, so the gradient previews the cover. Library artwork has none, so
-// the name picks the hues. The same album then gets the same colours everywhere.
+// Catalog artwork brings its colours, so the gradient previews the cover. Library artwork has
+// none, so the name picks the hues. The same album then gets the same colours everywhere.
 to_placeholder :: proc(
 	artwork: apple.Artwork,
 	seed: string,
@@ -123,6 +124,7 @@ to_placeholder :: proc(
 		}
 	}
 
+	// The FNV-1a hash of seed, with its offset basis and prime. transmute reads the bytes, no copy.
 	hash := u32(2166136261)
 	for character in transmute([]u8)seed do hash = (hash ~ u32(character)) * 16777619
 
@@ -167,12 +169,13 @@ artwork_rect_box :: proc(
 
 	if source == "" && placeholder.symbol == "" do return box
 
+	// The temp allocator keeps the paint until the next frame starts, after render draws the box.
 	paint := new(Artwork_Paint, context.temp_allocator)
 	paint^ = {
 		source        = source,
 		size_pixels   = int(ui.to_pixels(max(size_points.x, size_points.y))),
 		symbol        = placeholder.symbol,
-		// The symbol grows in steps of 4, so a tile resizing with the panel reuses a few sizes of it.
+		// The symbol grows in steps of 4, so a tile that resizes with the panel reuses a few sizes.
 		symbol_points = max(8, math.round(min(size_points.x, size_points.y) * 0.3 / 4) * 4),
 		symbol_color  = placeholder.symbol_color,
 		focus_y       = 0.5,

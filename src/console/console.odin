@@ -1,4 +1,4 @@
-// The app's errors and refused requests, which the Console page lists. Any thread can call this package.
+// The errors and refused requests that the Console page lists. Any thread can call this package.
 package console
 
 import "core:fmt"
@@ -17,6 +17,7 @@ Entry :: struct {
 // Past this count, each new entry deletes the oldest one.
 MAX_ENTRY_COUNT :: 500
 
+// @(private) hides state from other packages.
 @(private)
 state: struct {
 	mutex:   sync.Mutex,
@@ -25,7 +26,8 @@ state: struct {
 	version: int,
 }
 
-// add also writes each entry to stderr. source is a constant, such as "Apple".
+// add also writes each entry to stderr. An entry keeps source without a copy,
+// so source must be a constant, such as "Apple".
 add :: proc(source: string, format: string, args: ..any) {
 	text := fmt.aprintf(format, ..args)
 	fmt.eprintfln("%s: %s", source, text)
@@ -46,7 +48,8 @@ add :: proc(source: string, format: string, args: ..any) {
 	platform.wake()
 }
 
-// A copy of every entry, oldest first, in allocator.
+// A copy of every entry, oldest first, in allocator. On the main thread, the memory of
+// context.temp_allocator lasts until the next frame starts.
 list :: proc(allocator := context.temp_allocator) -> []Entry {
 	sync.guard(&state.mutex)
 	entries := make([]Entry, len(state.entries), allocator)

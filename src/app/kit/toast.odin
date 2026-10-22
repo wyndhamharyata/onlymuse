@@ -7,6 +7,7 @@ import "om:ui"
 
 TOAST_SECONDS :: 2.5
 
+// @(private = "file") hides toast from other files.
 @(private = "file")
 toast: struct {
 	text:     string,
@@ -31,6 +32,7 @@ build_toast :: proc() {
 		return
 	}
 
+	// The toast fades out over its last 0.3 s.
 	opacity := min(1, (TOAST_SECONDS - seconds) / 0.3)
 	root := ui.current_parent()
 	window_size := [2]f32{root.style.width.value, root.style.height.value}

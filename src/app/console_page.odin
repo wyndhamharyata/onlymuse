@@ -62,6 +62,7 @@ build_console_page :: proc() {
 	}
 }
 
+// @(private = "file") lets only this file use the name below.
 @(private = "file")
 build_console_row :: proc(index: int, entry: console.Entry) {
 	source_color := kit.colors.youtube if entry.source == "YouTube" else kit.colors.dim
@@ -117,6 +118,7 @@ build_console_row :: proc(index: int, entry: console.Entry) {
 // One line per entry, oldest first, as a log file reads.
 @(private = "file")
 to_console_text :: proc(entries: []console.Entry) -> string {
+	// The text lives in context.temp_allocator, which begin_frame frees at the next frame.
 	builder := strings.builder_make(context.temp_allocator)
 
 	for entry in entries {

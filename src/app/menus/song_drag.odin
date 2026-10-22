@@ -8,6 +8,7 @@ import "om:ui"
 // A press that moves this far becomes a drag.
 DRAG_START_POINTS :: 6
 
+// @(private = "file") hides this value from the other files of the package.
 @(private = "file")
 drag: struct {
 	is_dragging: bool,

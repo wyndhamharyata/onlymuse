@@ -27,7 +27,8 @@ Instance :: struct {
 	border_width:  f32,
 	softness:      f32,
 	kind:          Kind,
-	// A solid fill fades from color to end_color between these shares of its height, when the second is larger.
+	// A solid fill fades from color to end_color between these shares of its height,
+	// when the second share is larger.
 	end_color:     [4]f32,
 	gradient:      [2]f32,
 	// Metal pads the struct to a multiple of 16 bytes.
@@ -37,6 +38,7 @@ Instance :: struct {
 #assert(size_of(Instance) == 128)
 
 // The instances drawn with one texture, in order.
+// @(private) keeps this type inside the render package.
 @(private)
 Batch :: struct {
 	texture:     ^MTL.Texture,
@@ -49,7 +51,8 @@ Batch :: struct {
 FRAMES_IN_FLIGHT :: 3
 @(private)
 MAX_INSTANCE_COUNT :: 64 * 1024
-// The instances a buffer starts with. A frame that draws more grows its buffer, so a short page costs 1 MB a buffer, not 8.
+// The instances a buffer starts with. A frame that draws more grows its buffer.
+// A short page then costs 1 MB a buffer, not the 8 MB of MAX_INSTANCE_COUNT.
 INITIAL_INSTANCE_COUNT :: 8 * 1024
 
 @(private)
@@ -127,6 +130,7 @@ start :: proc(device: ^MTL.Device, layer: ^CA.MetalLayer) {
 make_texture :: proc(size_pixels: [2]int, format: MTL.PixelFormat) -> ^MTL.Texture {
 	// The image threads have no autorelease pool of their own. Metal autoreleases the descriptor.
 	pool := NS.AutoreleasePool.alloc()->init()
+	// defer runs drain when make_texture returns.
 	defer pool->drain()
 
 	descriptor := MTL.TextureDescriptor.texture2DDescriptorWithPixelFormat(
@@ -174,7 +178,7 @@ push :: proc(instance: Instance, texture: ^MTL.Texture = nil) {
 	append(&state.instances, instance)
 }
 
-// end_frame also saves the next frame to path as raw premultiplied BGRA pixels, for the development tests.
+// end_frame saves the next frame to path as raw premultiplied BGRA pixels, for the tests.
 request_capture :: proc(path: string) {
 	state.capture_path = path
 }
@@ -198,6 +202,7 @@ encode_pass :: proc(
 	encoder->setFragmentBuffer(buffer, 0, 0)
 
 	viewport := state.size_pixels
+	// The cast turns viewport's address into a byte pointer, for the slice setVertexBytes takes.
 	encoder->setVertexBytes(([^]byte)(&viewport)[:size_of(viewport)], 1)
 	encoder->setFragmentSamplerState(state.sampler, 0)
 
@@ -279,7 +284,7 @@ end_frame :: proc(drawable: ^CA.MetalDrawable) {
 
 	if state.capture_path != "" do capture(buffer)
 
-	// A timer runs the frames of a background window. Such a frame has no drawable. Only capture uses it.
+	// A timer runs a background window's frames. They have no drawable. Only capture uses them.
 	if drawable == nil do return
 
 	command_buffer := state.queue->commandBuffer()

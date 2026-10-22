@@ -64,7 +64,8 @@ Text_Insert :: struct {
 	text: string,
 }
 
-// An input method's unfinished text, such as kana before it becomes kanji. The text is empty when it ends.
+// An input method's unfinished text, such as kana before it becomes kanji.
+// The text is empty when the input method ends it.
 Text_Marked :: struct {
 	text: string,
 }
@@ -91,11 +92,14 @@ list_events :: proc() -> []Event {
 	return state.events[:]
 }
 
+// @(private) keeps this procedure inside the platform package.
 @(private)
 to_modifiers :: proc(event: ^NS.Event) -> Modifiers {
+	// transmute reads the flag set as a plain number, bit for bit.
 	flags := transmute(NS.UInteger)event->modifierFlags()
 	modifiers: Modifiers
 
+	// AppKit keeps Shift, Control, Option and Command in bits 17 to 20.
 	if flags & (1 << 17) != 0 do modifiers += {.Shift}
 	if flags & (1 << 18) != 0 do modifiers += {.Control}
 	if flags & (1 << 19) != 0 do modifiers += {.Option}
@@ -110,6 +114,7 @@ to_position :: proc(event: ^NS.Event) -> [2]f32 {
 
 	// An event with no window, such as one sent to the process, gives its place on the screen.
 	if event->window() == nil {
+		// objc_send calls the Objective-C method that the selector string names.
 		location = objc_send(NS.Point, state.ns_window, "convertPointFromScreen:", location)
 	}
 
@@ -126,6 +131,7 @@ take_event :: proc(event: ^NS.Event) -> bool {
 	arena_allocator := runtime.arena_allocator(&state.event_arena[state.event_arena_index])
 	is_taken := false
 
+	// #partial lets the switch list only some of the event types.
 	#partial switch event->type() {
 	case .MouseMoved, .LeftMouseDragged, .RightMouseDragged, .OtherMouseDragged:
 		append(&state.events, Mouse_Move{to_position(event)})

@@ -11,29 +11,31 @@ import "om:app/core"
 import "om:apple"
 import "om:platform"
 
-// Apple refuses an account that searches too fast, with 429, for a while. So one search runs at a time, a
-// little apart. A refusal stops matching for a minute.
+// Apple refuses an account that searches too fast, with 429, for a while.
+// So one search runs at a time, with this pause before each one.
 MATCH_GAP :: 300 * time.Millisecond
 
+// A refusal stops matching for this long.
 REFUSED_PAUSE :: 60 * time.Second
 
 // Each refusal in a row doubles the pause, up to this.
 MAX_REFUSED_PAUSE :: 30 * time.Minute
 
-// The matching thread takes this many songs at a time, so it fetches the albums they name in one request.
+// Songs per batch of the matching thread. One request fetches the albums that a batch names.
 MATCH_BATCH_COUNT :: 20
 
-// Albums found for one YouTube album. A single and an album of the same name are both worth checking.
+// Albums found for one YouTube album. A single and an album of one name are both worth checking.
 MAX_FOUND_ALBUM_COUNT :: 3
 
 // Only the matching thread uses this, so it needs no mutex.
 albums: struct {
 	// Apple's album IDs for a YouTube album, by to_album_key.
 	found_ids: map[string][]string,
-	// The songs of each album fetched, by Apple's album ID. It is empty for an album that Apple did not send.
+	// The songs of each album fetched, by Apple's album ID. Empty for an album Apple did not send.
 	songs:     map[string][]core.Catalog_Song,
 }
 
+// @(private) hides this from every package but matching.
 @(private)
 Match_Job :: struct {
 	song:     core.Catalog_Song,
@@ -44,6 +46,7 @@ Match_Job :: struct {
 @(private)
 start_matching :: proc(song: core.Catalog_Song, video_id: string) {
 	if !matcher.is_started {
+		// context.allocator is the heap. Its memory lasts until a call frees it.
 		thread.pool_init(&matcher.pool, context.allocator, 1)
 		thread.pool_start(&matcher.pool)
 		matcher.is_started = true
@@ -54,17 +57,18 @@ start_matching :: proc(song: core.Catalog_Song, video_id: string) {
 	matcher.checking[job.video_id] = true
 	append(&matcher.pending, job)
 
-	// Each task takes a batch, so a task that comes after another task took its songs finds none and ends.
+	// Each task takes a batch. A task that finds its songs taken by an earlier task ends at once.
 	// The pool keeps each finished task until pool_pop_done takes it.
 	for _ in thread.pool_pop_done(&matcher.pool) {}
 	thread.pool_add_task(&matcher.pool, context.allocator, check_matches, nil)
 }
 
-// Runs on the one matching thread. The albums the batch names come first, as one album answers for each of its
-// songs. It searches alone for a song that no album answers for. It saves nothing when an answer does not come.
-// It then checks that song again later.
+// Runs on the one matching thread. It fetches the albums of the batch first, as one album answers
+// for each of its songs. A song that no album answers for gets a search of its own.
+// @(private = "file") hides this from every other file.
 @(private = "file")
 check_matches :: proc(task: thread.Task) {
+	// defer runs this on return, so this thread's temp memory goes after each batch.
 	defer free_all(context.temp_allocator)
 
 	jobs := make([dynamic]^Match_Job, context.temp_allocator)
@@ -90,6 +94,7 @@ check_matches :: proc(task: thread.Task) {
 	}
 }
 
+// finish_job saves nothing when Apple sends no answer, so find_match checks that song again later.
 @(private = "file")
 finish_job :: proc(job: ^Match_Job, best: core.Catalog_Song, is_found: bool, status: int) {
 	sync.guard(&matcher.mutex)
@@ -128,7 +133,8 @@ finish_job :: proc(job: ^Match_Job, best: core.Catalog_Song, is_found: bool, sta
 	delete(job.video_id)
 }
 
-// Searches Apple once for each album the jobs name, then fetches the albums found with their songs, 20 to a request.
+// Searches Apple once for each album the jobs name.
+// It then fetches the albums found with their songs, 20 to a request.
 @(private = "file")
 fetch_job_albums :: proc(jobs: []^Match_Job) -> int {
 	wanted := make([dynamic]string, context.temp_allocator)
@@ -235,6 +241,7 @@ find_in_albums :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, bool) {
 
 	candidates := make([dynamic]core.Catalog_Song, context.temp_allocator)
 
+	// or_else gives an empty list when the map holds no entry for the key.
 	for id in albums.found_ids[to_album_key(song)] or_else nil {
 		append(&candidates, ..albums.songs[id] or_else nil)
 	}
@@ -242,7 +249,7 @@ find_in_albums :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, bool) {
 	return find_closest(song, candidates[:])
 }
 
-// Apple's search for the song itself. When the album search found no album, the album's name goes in the term too.
+// Apple's search for the song itself. With no album found, the term holds the album's name too.
 @(private = "file")
 search_song :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, bool, int) {
 	has_album_ids := len(albums.found_ids[to_album_key(song)] or_else nil) > 0

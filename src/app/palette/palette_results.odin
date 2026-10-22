@@ -11,8 +11,10 @@ import "om:apple"
 import "om:helper"
 import "om:platform"
 
+// @(private) keeps this procedure inside the palette package.
 @(private)
 update_results :: proc() {
+	// context.temp_allocator frees its memory at the start of the next frame.
 	term := strings.to_lower(
 		strings.trim_space(kit.to_field_text(&palette.field)),
 		context.temp_allocator,
@@ -22,7 +24,7 @@ update_results :: proc() {
 	artists, artist_signature, _ := core.list_library_artists()
 	playlists, _, _ := core.list_playlists()
 
-	// The palette searches Apple Music once the typing rests.
+	// The palette asks Apple Music only after typing stops for PALETTE_SETTLE_MS.
 	catalog: apple.Watched
 	is_settled := helper.now_ms() - palette.typed_at_ms >= PALETTE_SETTLE_MS
 	if term != "" && !is_settled do platform.request_frame_after(PALETTE_SETTLE_MS / 1000.0)
@@ -37,6 +39,7 @@ update_results :: proc() {
 		)
 	}
 
+	// One number for all the data under the results, so a change in any of it builds them again.
 	signature :=
 		((song_signature * 31 + album_signature) * 31 + artist_signature) * 31 +
 		catalog.version +
@@ -122,13 +125,14 @@ update_results :: proc() {
 	palette.selected_index = min(palette.selected_index, max(0, len(results) - 1))
 }
 
-// Case aside, the name holds the term.
+// Answers yes when the name holds the term, whatever the case of the name.
 @(private = "file")
 has_term :: proc(name, term: string) -> bool {
 	return to_term_score(name, term) >= 0
 }
 
-// Returns 0 when the name starts with the term, 1 when a word in it does, 2 when it holds it anywhere, -1 when not.
+// Returns 0 when the name starts with the term, 1 when a word in the name starts with it,
+// 2 when the name holds the term elsewhere, or -1 when the name does not hold it.
 @(private = "file")
 to_term_score :: proc(name, term: string) -> int {
 	if term == "" do return 0
@@ -149,8 +153,8 @@ to_term_score :: proc(name, term: string) -> int {
 	return 2
 }
 
-// The indexes of the names that hold the term, best first, at most a group's worth. A second name,
-// such as a song's artist, counts one step lower than the first.
+// Lists the indexes of the names that hold the term, best first, at most PALETTE_GROUP_LIMIT.
+// A second name, such as a song's artist, scores one step lower than the first.
 @(private = "file")
 list_best_indexes :: proc(names, second_names: []string, term: string) -> []int {
 	Scored_Name :: struct {

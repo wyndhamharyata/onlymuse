@@ -5,6 +5,7 @@ import "core:mem"
 import "core:strconv"
 import "core:strings"
 
+// @(private) keeps a procedure inside the lyrics package.
 @(private)
 to_songwriters :: proc(ttml: string, allocator: mem.Allocator) -> []string {
 	names := make([dynamic]string, allocator)
@@ -31,6 +32,7 @@ to_seconds :: proc(text: string) -> f64 {
 	total: f64
 
 	for part in strings.split(text, ":", context.temp_allocator) {
+		// or_else gives 0 when the part is not a number.
 		total = total * 60 + (strconv.parse_f64(part) or_else 0)
 	}
 
@@ -40,6 +42,7 @@ to_seconds :: proc(text: string) -> f64 {
 @(private)
 to_plain_text :: proc(markup: string) -> string {
 	text := markup
+	// "&amp;" comes last, so "&amp;lt;" turns into the text "&lt;" and never into "<".
 	entities := [][2]string {
 		{"&lt;", "<"},
 		{"&gt;", ">"},
@@ -68,6 +71,7 @@ find_attribute :: proc(attributes, name: string) -> string {
 	return rest[:end] if end >= 0 else ""
 }
 
+// CoreText counts in UTF-16 units. A character above U+FFFF takes two of them.
 @(private)
 to_utf16_length :: proc(text: string) -> int {
 	count := 0
@@ -76,7 +80,8 @@ to_utf16_length :: proc(text: string) -> int {
 	return count
 }
 
-// A word is a span with its own start. The space after it stays with it, so the words join back into the line.
+// A word is a span with its own begin time. The space after a word stays with the word,
+// so the words join back into the line.
 @(private)
 to_words :: proc(
 	markup: string,
@@ -104,7 +109,7 @@ to_words :: proc(
 		content_end := strings.index_byte(content, '<')
 		rest = content
 
-		// The loop reads a span that holds other spans, such as background vocals, through its children.
+		// For a span that holds spans, such as background vocals, the loop reads the inner spans.
 		if content_end < 0 || !strings.has_prefix(content[content_end:], "</span>") do continue
 
 		word_text := to_plain_text(content[:content_end])
@@ -118,6 +123,7 @@ to_words :: proc(
 		utf16_index += length
 	}
 
+	// A song timed by line has no spans, so the whole line becomes one word.
 	if len(word_list) == 0 {
 		plain := to_plain_text(to_text_without_tags(markup))
 		append(&word_list, Word{line_begin_seconds, {0, to_utf16_length(plain)}})
@@ -146,7 +152,7 @@ to_text_without_tags :: proc(markup: string) -> string {
 	return strings.to_string(builder)
 }
 
-// This keeps only the letters, so "You are KING" and its pronunciation "You are KING" count as the same.
+// Keeps the letters only, so "You are KING!" and its pronunciation "you are king" match.
 @(private)
 to_letters :: proc(text: string) -> string {
 	builder := strings.builder_make(context.temp_allocator)
@@ -167,8 +173,8 @@ to_letters :: proc(text: string) -> string {
 	return strings.to_string(builder)
 }
 
-// The text of each line in a block of the lyrics' metadata, by the line's key, such as "L1".
-// The "transliteration" block holds the pronunciation in Latin letters. The "translation" block holds the English.
+// The text of each line in one block of the lyrics' metadata, by the line's key, such as "L1".
+// "transliteration" holds the pronunciation in Latin letters. "translation" holds the English.
 @(private)
 to_line_texts :: proc(ttml: string, block_name: string) -> map[string]string {
 	line_texts := make(map[string]string, context.temp_allocator)

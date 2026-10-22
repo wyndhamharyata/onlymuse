@@ -15,11 +15,12 @@ Song_Match :: struct {
 	youtube_id:       string `json:"youtubeId"`,
 }
 
+// @(private) keeps a declaration inside the helper package.
 @(private)
 last_request_id: int
 
-// This asks the helper to play the song. Its answer, playSongResult, carries the returned ID and the song's
-// persistent ID. The persistent ID is empty when the song is not in Music.app's library.
+// Asks the helper to play the song. Its answer, playSongResult, holds the returned ID and the
+// song's persistent ID, which stays empty when the song is not in Music.app's library.
 send_play :: proc(song: Song_Match) -> int {
 	last_request_id += 1
 
@@ -35,11 +36,11 @@ send_play :: proc(song: Song_Match) -> int {
 }
 
 // The helper starts song just before after_persistent_id ends, so Music.app's Autoplay never plays.
-// An empty after_persistent_id cancels the next song. Its answer is setNextResult. keeps_youtube keeps the helper's YouTube
-// page open, as a YouTube song plays later.
+// An empty after_persistent_id cancels the next song. The answer is setNextResult.
 send_set_next :: proc(
 	after_persistent_id: string,
 	song: Maybe(Song_Match),
+	// true keeps the helper's YouTube page open, as a YouTube song plays later.
 	keeps_youtube: bool,
 ) -> int {
 	last_request_id += 1
@@ -47,7 +48,9 @@ send_set_next :: proc(
 	after := after_persistent_id if after_persistent_id != "" else "null"
 	song_json := "null"
 
+	// song.? takes the value out of the Maybe. ok is false when the caller passed nil.
 	if match, ok := song.?; ok {
+		// context.temp_allocator belongs to the calling thread, which frees it after this call.
 		bytes, _ := json.marshal(match, allocator = context.temp_allocator)
 		song_json = string(bytes)
 	}
@@ -68,7 +71,7 @@ send_set_next :: proc(
 	return last_request_id
 }
 
-// This asks for what Music.app knows of a song: plays, dates, favourite and file. Its answer is trackInfo.
+// Asks what Music.app knows of a song: plays, dates, favourite and file. The answer is trackInfo.
 send_song_info_request :: proc(persistent_id: string) {
 	Command :: struct {
 		type:          string,
@@ -78,7 +81,7 @@ send_song_info_request :: proc(persistent_id: string) {
 	send_value(Command{"trackInfo", persistent_id})
 }
 
-// The helper finds the song by persistent ID when it is the playing one or known, else by a match in the library.
+// The helper finds the playing song or a song it knows by persistent_id, any other by song.
 // Its answer is setFavoriteResult, with a null persistent ID when Music.app found no such song.
 send_set_favorite :: proc(persistent_id: string, song: Song_Match, favorited: bool) -> int {
 	last_request_id += 1
@@ -96,17 +99,21 @@ send_set_favorite :: proc(persistent_id: string, song: Song_Match, favorited: bo
 	return last_request_id
 }
 
+// $T lets send_value take a value of any type.
 send_value :: proc(value: $T) {
 	bytes, error := json.marshal(value, allocator = context.temp_allocator)
 	if error == nil do send(string(bytes))
 }
 
-// send writes each command the helper reads, as Command in helper/Sources/onlymuse-helper/Link.swift names it.
+// send writes one command for the helper.
+// Command in helper/Sources/onlymuse-helper/Link.swift names each command the helper reads.
 send :: proc(command: string) {
 	if !state.is_started do return
 
 	// Worker threads send too. One line must never break into another.
+	// sync.guard holds write_mutex until send returns.
 	sync.guard(&state.write_mutex)
 	line := fmt.tprintf("%s\n", command)
+	// transmute reads the string's bytes as []u8 with no copy.
 	os.write(state.to_helper, transmute([]u8)line)
 }

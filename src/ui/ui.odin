@@ -1,5 +1,5 @@
-// An immediate mode UI after Ryan Fleury's. The app builds a tree of boxes every frame. A cache keyed
-// by the ID of each box keeps its state from one frame to the next.
+// An immediate mode UI after Ryan Fleury's. The app builds a tree of boxes every frame.
+// A cache keyed by the ID of each box keeps its state from one frame to the next.
 package ui
 
 import "core:hash"
@@ -19,7 +19,7 @@ Size_Kind :: enum {
 	Percent,
 	// The children laid along the axis, or the largest one across it.
 	Children,
-	// The space that remains in the parent along its axis, shared by weight. Across it, the whole parent.
+	// The parent's free space along its axis, shared by weight. Across it, the whole parent.
 	Fill,
 }
 
@@ -51,7 +51,6 @@ Flag :: enum {
 	Hoverable,
 	// The box scrolls its children along its axis.
 	Scroll,
-	// The box hides the children outside its rect.
 	Clip,
 	// The parent places the box at style.position, out of the flow.
 	Floating,
@@ -218,7 +217,7 @@ current_parent :: proc() -> ^Box {
 	return state.parents[len(state.parents) - 1]
 }
 
-// A box keyed by id under the current parent, kept between frames. An empty id makes a box with no state.
+// A box keyed by id under the current parent, kept between frames. An empty id keeps no state.
 box :: proc(id: string, style: Style, text: string = "") -> ^Box {
 	parent := current_parent()
 	key := to_key(id, parent.key) if id != "" else 0
@@ -242,6 +241,7 @@ make_box :: proc(key: u64, style: Style) -> ^Box {
 	box: ^Box
 
 	if key == 0 {
+		// The app frees context.temp_allocator, and this box with it, when the next frame starts.
 		box = new(Box, context.temp_allocator)
 	} else {
 		found, ok := state.boxes[key]
@@ -267,7 +267,7 @@ make_box :: proc(key: u64, style: Style) -> ^Box {
 	return box
 }
 
-// Makes the box the parent of the boxes built inside the if. deferred_none calls pop_parent when that if ends.
+// Boxes built inside `if scope(box)` go in box. deferred_none calls pop_parent when the if ends.
 @(deferred_none = pop_parent)
 scope :: proc(box: ^Box) -> bool {
 	append(&state.parents, box)

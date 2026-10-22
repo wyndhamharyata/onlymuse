@@ -6,6 +6,7 @@ import "om:app/core"
 import "om:image"
 import "om:platform"
 
+// "contextless" means this procedure needs no context, the value Odin passes to each call.
 to_color :: proc "contextless" (hex: u32) -> [4]f32 {
 	return {
 		f32((hex >> 24) & 0xff) / 255,
@@ -19,6 +20,7 @@ to_color :: proc "contextless" (hex: u32) -> [4]f32 {
 to_color_from_hex :: proc(hex: string) -> [4]f32 {
 	if len(hex) != 7 || hex[0] != '#' do return DEFAULT_ACCENT
 
+	// or_else gives DEFAULT_ACCENT when parse_hex_color returns false.
 	return parse_hex_color(hex[1:]) or_else DEFAULT_ACCENT
 }
 
@@ -65,8 +67,8 @@ PAGE_PADDING_POINTS :: 20
 
 PANEL_WIDTH_POINTS :: 320
 
-// The sidebar, the panel and a page two tiles wide, with the player bar's three parts unsqueezed, at
-// zoom 1. The smallest window is these times the zoom.
+// Room at zoom 1 for the sidebar, the panel, a page two tiles wide and the player bar's three
+// parts at full width. The smallest window is these sizes times the zoom.
 MIN_WINDOW_WIDTH_POINTS :: 1000
 
 MIN_WINDOW_HEIGHT_POINTS :: 600
@@ -115,14 +117,14 @@ to_color_from_hsl :: proc(hue, saturation, lightness: f32) -> [4]f32 {
 // A cover less colourful than this, such as a black and white photo, keeps the system accent.
 MIN_COVER_VIVIDNESS :: 0.015
 
-// The accent is text on the dark window and the fill of a button under white text, so the cover's hue
-// keeps to these.
+// The accent is text on the dark window and the fill of a button under white text.
+// So an accent from a cover keeps its saturation and lightness within these.
 COVER_ACCENT_SATURATION :: [2]f32{0.55, 0.9}
 
 COVER_ACCENT_LIGHTNESS :: [2]f32{0.5, 0.65}
 
-// Blue and purple look darker than orange at the same lightness. to_cover_accent raises the lightness,
-// up to MAX_COVER_ACCENT_LIGHTNESS, until the accent is at least as bright as the system blue, #0A84FF.
+// Blue and purple look darker than orange at the same lightness. to_cover_accent raises the
+// lightness, at most to MAX_COVER_ACCENT_LIGHTNESS, until it is as bright as system blue, #0A84FF.
 MIN_ACCENT_LUMINANCE :: 0.24
 
 MAX_COVER_ACCENT_LIGHTNESS :: 0.8
@@ -168,6 +170,7 @@ to_cover_accent :: proc(rgb: [3]f32) -> [4]f32 {
 }
 
 // How bright a colour looks, from 0 to 1, as WCAG measures it.
+// @(private = "file") hides this procedure from other files.
 @(private = "file")
 to_luminance :: proc(rgb: [3]f32) -> f32 {
 	to_linear :: proc(value: f32) -> f32 {return(

@@ -8,6 +8,7 @@ SWIPE_DECIDE_POINTS :: 4
 // A swipe goes sideways only when it goes this much more sideways than up or down.
 SWIPE_SIDEWAYS_RATIO :: 1.5
 
+// @(private) keeps this procedure inside the ui package.
 @(private)
 apply_events :: proc() {
 	for item in platform.list_events() {
@@ -74,6 +75,7 @@ apply_events :: proc() {
 				// A trackpad already moves smoothly. macOS puts in the glide after a flick.
 				if event.is_precise do box.scroll = box.scroll_target
 			}
+		// A switch without #partial must list every type of the union.
 		case platform.Key_Press, platform.Text_Insert, platform.Text_Marked, platform.Text_Command:
 		}
 	}

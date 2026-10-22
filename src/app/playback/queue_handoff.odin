@@ -12,6 +12,7 @@ import "om:platform"
 import "om:youtube"
 
 // Where Music.app was in the song it plays, as of its last post.
+// @(private) hides Tracking from other packages.
 @(private)
 Tracking :: struct {
 	persistent_id:    string,
@@ -65,7 +66,8 @@ sync_handoff :: proc() {
 	}
 }
 
-// The queue plays a YouTube song after this one, so the helper keeps its YouTube page open meanwhile.
+// Whether a YouTube song comes later in the queue. The helper then keeps its YouTube page open.
+// @(private = "file") hides this procedure from other files.
 @(private = "file")
 has_youtube_song_ahead :: proc() -> bool {
 	start := 0 if queue.repeat == "all" else queue.index + 1
@@ -84,7 +86,8 @@ to_estimate_seconds :: proc(current: Tracking, now_ms: f64) -> f64 {
 	return current.position_seconds + (now_ms - current.received_at_ms) / 1000
 }
 
-// Whether this post shows the song of the helper's handoff starting. With repeat one, the helper starts the same song from 0.
+// Whether this post from Music.app shows the song of the helper's handoff starting.
+// With repeat one, the helper starts the same song again from 0.
 @(private = "file")
 is_handoff_starting :: proc(now_playing: helper.Now_Playing, was_at_end: bool) -> bool {
 	persistent_id := now_playing.song.persistent_id
@@ -118,6 +121,7 @@ apply_playing_song :: proc(now_playing: helper.Now_Playing, now_ms: f64) {
 	is_paused := now_playing.playback == .Paused
 
 	delete(queue_state.tracking.persistent_id)
+	// Music.app may post Paused at 0 at a song's end, so a pause keeps the larger position.
 	queue_state.tracking = {
 		persistent_id    = fmt.aprint(now_playing.song.persistent_id),
 		duration_seconds = now_playing.song.duration_seconds,
@@ -142,7 +146,7 @@ apply_playing_song :: proc(now_playing: helper.Now_Playing, now_ms: f64) {
 		save_queue_and_handoff()
 	}
 
-	// Music.app's Autoplay can go on to a song of its own with no Stopped, so a switch at the end is the end.
+	// Autoplay in Music.app can switch songs with no Stopped post, so a switch at the end ends it.
 	if has_queue_song_ended do play_next_after_end()
 }
 
@@ -237,13 +241,14 @@ restart_stalled_song :: proc(has_started: bool) {
 		)
 	}
 
-	// Until Music.app's next post, its last position still reads as stopped.
+	// The last position stays still until Music.app's next post, so the stall count starts at 0.
 	core.app.now_playing.stall_count = 0
 	play_at(queue.index)
 	queue_state.restart_count = restart_count
 }
 
-// Each frame, it starts polling once Apple's library takes the song. It asks Music.app again when a poll is due.
+// Runs each frame. It starts polling once Apple's library takes the song.
+// It asks Music.app again when a poll is due.
 update_queue :: proc() {
 	added_play_count: int
 
@@ -297,14 +302,12 @@ update_queue :: proc() {
 	has_started := has_song && now_playing.song.persistent_id == queue.playing_persistent_id
 	is_start_late := queue_state.start_deadline_ms > 0 && now_ms >= queue_state.start_deadline_ms
 
-	// With no start awaited, the deadline is already 0.
 	if has_started {
 		queue_state.start_deadline_ms = 0
 	} else if is_start_late {
 		fall_back_to_youtube()
 	}
 
-	// The resume point, every few seconds while a song plays.
 	if core.app.now_playing.playback == .Playing &&
 	   now_ms - queue_state.last_resume_save_ms > POSITION_SAVE_SECONDS * 1000 {
 		apply_resume_point()

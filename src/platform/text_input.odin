@@ -6,16 +6,17 @@ import "core:strings"
 import NS "core:sys/darwin/Foundation"
 import "core:unicode/utf8"
 
-// A 1-point view of its own, apart from the view that draws, takes the keyboard while a text field has
-// focus. An input method such as Japanese can then compose text in it (NSTextInputClient). The drawing
-// view cannot take this role. Its Metal layer then gets a 0 by 0 drawable once the window comes in front.
+// This 1-point view takes the keys while a text field has focus. An input method composes in it.
+// The Metal view cannot. Its layer then gets a 0 by 0 drawable once the window comes in front.
 @(objc_class = "OMInputView", objc_superclass = NS.View, objc_implement)
 Text_View :: struct {
+	// using embeds NS.View, so a ^Text_View can stand in for a ^NS.View.
 	using _: NS.View,
 }
 
+// objc_name makes this procedure the view's acceptsFirstResponder method. It says yes only while
+// a field has focus, so AppKit never makes the view first responder when the window opens.
 @(objc_type = Text_View, objc_implement, objc_name = "acceptsFirstResponder")
-// The view accepts only while a field has focus, so AppKit never makes it first responder on its own when the window opens.
 Text_View_acceptsFirstResponder :: proc "c" (self: ^Text_View) -> NS.BOOL {
 	return NS.BOOL(state.is_text_input)
 }
@@ -25,12 +26,15 @@ Text_View_keyDown :: proc "c" (self: ^Text_View, event: ^NS.Event) {
 	object := cast(^NS.Object)event
 	events := NS.Array.alloc()->initWithObjects(&object, 1)
 
+	// objc_send calls interpretKeyEvents:, which passes the key to the input method.
 	objc_send(nil, self, "interpretKeyEvents:", events)
 	events->release()
 }
 
+// @(private) keeps this procedure inside the platform package.
 @(private)
 to_odin_text :: proc "c" (text: ^NS.Object) -> string {
+	// A proc "c" starts with no Odin context. This sets the one that open_window saved.
 	context = state.odin_context
 	plain := text
 
@@ -45,7 +49,7 @@ to_odin_text :: proc "c" (text: ^NS.Object) -> string {
 	)
 }
 
-// NSResponder's form, which AppKit uses when it finds no input context.
+// NSResponder's insertText:, which AppKit calls when the view has no input context.
 @(objc_type = Text_View, objc_implement, objc_name = "insertTextPlain", objc_selector = "insertText:")
 Text_View_insertTextPlain :: proc "c" (self: ^Text_View, text: ^NS.Object) {
 	context = state.odin_context
@@ -178,8 +182,8 @@ set_text_input :: proc(is_on: bool, caret_rect: [4]f32 = {}) {
 	}
 }
 
-// The tests use this, as they cannot type into a window behind the others. It sends each character to
-// the view as a key press through its input context, as the keyboard would. It reports whether the view has one.
+// The tests type with this. A window behind the others gets no keys from the keyboard.
+// It sends each character as a key press to the view's input context. It returns false without one.
 type_for_test :: proc(text: string) -> bool {
 	input_context := objc_send(^NS.Object, state.input_view, "inputContext")
 	has_context := input_context != nil
@@ -192,6 +196,7 @@ type_for_test :: proc(text: string) -> bool {
 	for character in text {
 		buffer, size := utf8.encode_rune(character)
 		ns_character := NS.String.alloc()->initWithOdinString(string(buffer[:size]))
+		// defer runs release at the end of each pass of the loop.
 		defer ns_character->release()
 
 		// NSEventTypeKeyDown is 10.

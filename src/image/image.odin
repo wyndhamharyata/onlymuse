@@ -13,7 +13,8 @@ import "core:time"
 import "om:net"
 import MTL "vendor:darwin/Metal"
 
-// The most bytes of covers that the GPU keeps. unload_extra never unloads a cover that the last frame drew, so a page with more keeps them all.
+// The most bytes of covers that the GPU keeps. unload_extra never unloads a cover that the last
+// frame drew, so a page with more covers keeps them all.
 MAX_IMAGE_BYTES :: 64 * 1024 * 1024
 
 // The count of downloads and decodes that run at once, each on its own thread.
@@ -24,6 +25,7 @@ RETRY_LATER :: 30 * time.Second
 
 FADE_IN_SECONDS :: 0.25
 
+// @(private) keeps a declaration inside the image package.
 @(private)
 Phase :: enum {
 	Waiting,
@@ -41,7 +43,7 @@ Entry :: struct {
 	last_drawn_frame: int,
 	ready_time:       time.Tick,
 	failed_time:      time.Tick,
-	// Every size of one picture has the same family. Apple's URLs differ only in the last part, the size.
+	// One hash for every size of one picture. Apple's URLs differ only in the last part, the size.
 	family:           u64,
 	// Another size stood in until this one loaded, so it shows at once, with no fade.
 	had_stand_in:     bool,
@@ -50,15 +52,15 @@ Entry :: struct {
 	bytes:            int,
 }
 
-// The crop of a picture before it goes to the GPU. aspect is width over height. The crop stays around focus_y from the top.
-// An aspect of 0 keeps the whole picture. A cropped picture then costs only the part that the window shows.
+// The crop of a picture before the GPU, so it costs only the part that the window shows.
+// aspect is width over height, or 0 for the whole picture. focus_y runs from 0 at the top to 1.
 Crop :: struct {
 	aspect:  f32,
 	focus_y: f32,
 }
 
-// A guess at the colour of a picture. rgb is the average of its pixels. The vivid and bright pixels count most.
-// vividness, from 0 to 1, is how colourful the picture is overall. A black and white picture is near 0.
+// A guess at a picture's colour. rgb averages its pixels. The vivid and bright pixels count most.
+// vividness, from 0 to 1, says how colourful the picture is. A black and white picture is near 0.
 Color :: struct {
 	rgb:       [3]f32,
 	vividness: f32,
@@ -91,6 +93,7 @@ state: struct {
 }
 
 start :: proc() {
+	// context.temp_allocator on the main thread lasts until the app's next frame starts.
 	home := os.get_env("HOME", context.temp_allocator)
 	state.folder, _ = filepath.join(
 		{home, "Library", "Caches", "onlymuse-native", "images"},
@@ -103,7 +106,8 @@ start :: proc() {
 	thread.pool_start(&state.pool)
 }
 
-// The app calls this once a frame before it draws any image. It takes in finished loads and starts waiting ones.
+// The app calls this once a frame, before it draws any image.
+// It takes in finished loads and starts waiting ones.
 begin_frame :: proc() {
 	state.frame_index += 1
 	state.is_fading = false
@@ -120,7 +124,8 @@ is_animating :: proc() -> bool {
 	return state.is_fading
 }
 
-// The texture for url, or a file path, at size_pixels, or nil until it loads. opacity fades a new image in.
+// The texture for url, or for a file path, at size_pixels. It is nil until the image loads.
+// opacity rises from 0 to 1 over FADE_IN_SECONDS as a new image fades in.
 watch :: proc(
 	url: string,
 	size_pixels: int,
@@ -130,6 +135,7 @@ watch :: proc(
 	opacity: f32,
 ) {
 	crop_key := u64(crop.aspect * 100) << 40 | u64(crop.focus_y * 100) << 52
+	// transmute reads the string's bytes as []u8 with no copy. "~" is XOR.
 	key := hash.fnv64a(transmute([]u8)url) ~ u64(size_pixels) ~ crop_key
 	entry, ok := state.entries[key]
 
@@ -175,6 +181,8 @@ watch :: proc(
 	return nil, 0
 }
 
+// Apple puts the size after the last slash. YouTube's googleusercontent.com puts it after "=".
+// Its picture ID follows the last slash. That slash would put every YouTube picture in one family.
 @(private)
 to_family :: proc(url: string) -> u64 {
 	family := url
@@ -183,8 +191,6 @@ to_family :: proc(url: string) -> u64 {
 		slash := strings.last_index_byte(url, '/')
 		equals := strings.last_index_byte(url, '=')
 
-		// Apple puts the size after the last slash. YouTube's googleusercontent.com puts it after "=" and puts
-		// the picture's ID before it. The slash would then make every YouTube picture one family.
 		if equals > slash {
 			family = url[:equals]
 		} else if slash > 0 {
@@ -195,13 +201,14 @@ to_family :: proc(url: string) -> u64 {
 	return hash.fnv64a(transmute([]u8)family)
 }
 
+// Only a size with the same crop stands in. A square crop for a song row would show zoomed in
+// on a wide tile, then jump when the tile's own picture loads.
 @(private)
-// Only a size of the same crop stands in. The same picture cropped square for a song row would show zoomed
-// in a wide tile, then jump when the tile's own picture loads.
 find_stand_in :: proc(family, key: u64, crop: Crop) -> (^Entry, bool) {
 	stand_in_key, ok := state.families[family]
 	if !ok || stand_in_key == key do return nil, false
 
+	// or_else gives nil when the map has no entry for the key.
 	stand_in := state.entries[stand_in_key] or_else nil
 	if stand_in == nil || stand_in.phase != .Ready || stand_in.crop != crop do return nil, false
 
@@ -210,11 +217,12 @@ find_stand_in :: proc(family, key: u64, crop: Crop) -> (^Entry, bool) {
 
 @(private)
 start_waiting :: proc() {
-	// state.waiting holds the requests of the last frame. This loop skips a cover that scrolled out of view before its load started.
+	// #reverse walks the list from its end, so the newest requests start first.
 	#reverse for key in state.waiting {
 		if state.loading_count >= WORKER_COUNT do break
 
 		entry := state.entries[key] or_else nil
+		// A cover that scrolled out of view waits. watch asks for it again when it shows.
 		if entry == nil ||
 		   entry.phase != .Waiting ||
 		   entry.last_drawn_frame < state.frame_index - 1 {
@@ -239,6 +247,7 @@ start_waiting :: proc() {
 
 @(private)
 take_finished :: proc() {
+	// sync.guard locks the mutex and unlocks it when the procedure returns.
 	sync.guard(&state.mutex)
 
 	for job in state.finished {
@@ -253,6 +262,7 @@ take_finished :: proc() {
 		} else {
 			entry.phase = .Ready
 			entry.texture = job.texture
+			// BGRA8Unorm takes 4 bytes for each pixel.
 			entry.bytes = int(job.texture->width() * job.texture->height()) * 4
 			entry.color = job.color
 			entry.ready_time = time.tick_now()

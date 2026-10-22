@@ -19,6 +19,7 @@ SPARK_BESIDE_POINTS :: 260
 
 STAT_WEEKS :: 8
 
+// @(private) lets only the files of package player use the name below.
 @(private)
 build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f32) {
 	weeks, rank := list_weekly_plays(song)
@@ -106,6 +107,7 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f3
 	}
 }
 
+// @(private = "file") lets only this file use the name below.
 @(private = "file")
 build_stat_card :: proc(
 	id, label, value, note_text: string,
@@ -175,11 +177,11 @@ build_stat_card :: proc(
 	return card
 }
 
-// This song's plays in each of the last 8 weeks, oldest first, from the app's own log. Its rank among
-// the songs played in the last 30 days, or 0 when it has none.
+// The song's plays in each of the last STAT_WEEKS weeks, oldest first, from the app's own log.
+// Its rank among the songs played in the last 30 days, or 0 when it has no play there.
 @(private = "file")
 weekly_plays: struct {
-	// The key the counts are for: the song, the log's length and the hour, as this page asks every frame.
+	// The page asks each frame. The counts hold until the song, the log length or the hour changes.
 	song_id:   string,
 	log_count: int,
 	hour:      i64,
@@ -214,6 +216,7 @@ list_weekly_plays_from_log :: proc(
 ) {
 	week_ms: i64 = 7 * 86_400_000
 	month_start_ms := now_ms - 30 * 86_400_000
+	// Memory from context.temp_allocator lasts until begin_frame frees it at the next frame.
 	counts := make(map[string]int, context.temp_allocator)
 	own := 0
 
@@ -227,6 +230,7 @@ list_weekly_plays_from_log :: proc(
 		}
 
 		if play.played_at_ms >= month_start_ms {
+			// \x1f, the ASCII unit separator, never shows in a name, so it keeps the two apart.
 			key := fmt.tprintf("%s\x1f%s", play.name, play.artist)
 			counts[key] += 1
 			if playback.is_same_song(play, song) do own = counts[key]

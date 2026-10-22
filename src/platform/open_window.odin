@@ -14,7 +14,7 @@ MATERIAL_SELECTION :: 4
 BLUR_ALWAYS_ACTIVE :: 1
 // NSViewWidthSizable | NSViewHeightSizable
 SIZE_WITH_SUPERVIEW :: 2 | 16
-// NSWindowCollectionBehaviorTransient | IgnoresCycle. Spaces, Mission Control and Cmd ` skip the window.
+// NSWindowCollectionBehaviorTransient | IgnoresCycle. Spaces, Mission Control and Cmd ` skip it.
 TRANSIENT_WINDOW :: 1 << 3 | 1 << 6
 
 // A background window, for the tests and the bench, opens behind the others and never takes focus.
@@ -25,12 +25,15 @@ open_window :: proc(
 	on_frame: Frame_Proc,
 	is_background := false,
 ) -> ^Window {
+	// context holds the allocators Odin passes to each procedure. AppKit's callbacks use this copy.
 	state.odin_context = context
 	state.on_frame = on_frame
 	state.is_background = is_background
 
 	state.app = NS.Application.sharedApplication()
 	state.app->setActivationPolicy(.Accessory if is_background else .Regular)
+	// objc_send calls the Objective-C method that a selector string names.
+	// run reads events in place of NSApplication's run, so this sends finishLaunching itself.
 	objc_send(nil, state.app, "finishLaunching")
 
 	content_rect := NS.Rect{{0, 0}, {NS.Float(size_points.x), NS.Float(size_points.y)}}
@@ -47,6 +50,7 @@ open_window :: proc(
 	blur->addSubview(state.input_view)
 
 	state.target = objc_send(^Target, objc_send(^Target, Target, "alloc"), "init")
+	// cast treats target as a delegate. Target implements windowDidResize: and windowShouldClose:.
 	state.ns_window->setDelegate(cast(^NS.WindowDelegate)state.target)
 	state.display_link = make_display_link(layer, state.target)
 
@@ -61,6 +65,7 @@ open_window :: proc(
 	return &state.window
 }
 
+// private = "file" keeps this procedure inside this file.
 @(private = "file")
 make_ns_window :: proc(
 	title: string,
@@ -77,6 +82,7 @@ make_ns_window :: proc(
 	ns_window := NS.Window.alloc()->initWithContentRect(content_rect, style, .Buffered, false)
 
 	ns_title := NS.String.alloc()->initWithOdinString(title)
+	// defer runs release when make_ns_window returns, after setTitle: takes its own copy.
 	defer ns_title->release()
 	ns_window->setTitle(ns_title)
 	ns_window->setTitlebarAppearsTransparent(true)
@@ -97,7 +103,7 @@ make_ns_window :: proc(
 	return ns_window
 }
 
-// The view shows what is behind the window, blurred. The Metal view and the input view are inside it.
+// The view blurs what is behind the window. It holds the Metal view and the input view.
 @(private = "file")
 make_blur_view :: proc(content_rect: NS.Rect) -> ^Blur_View {
 	blur := objc_send(
@@ -159,7 +165,8 @@ make_input_view :: proc() -> ^NS.View {
 	)
 }
 
-// The link stays paused until request_frame. It calls Target_metalDisplayLink before each screen refresh.
+// The link stays paused until request_frame.
+// It calls Target_metalDisplayLink before each screen refresh.
 @(private = "file")
 make_display_link :: proc(layer: ^CA.MetalLayer, target: ^Target) -> ^Display_Link {
 	link := objc_send(
@@ -170,7 +177,7 @@ make_display_link :: proc(layer: ^CA.MetalLayer, target: ^Target) -> ^Display_Li
 	)
 
 	objc_send(nil, link, "setDelegate:", target)
-	// The latency counts the frames queued ahead of the screen. 1 gives the shortest wait from input to screen.
+	// The latency counts the frames queued for the screen. 1 shows input on the screen soonest.
 	objc_send(nil, link, "setPreferredFrameLatency:", f32(1))
 	objc_send(nil, link, "addToRunLoop:forMode:", NS.RunLoop.mainRunLoop(), NS.RunLoopCommonModes)
 	objc_send(nil, link, "setPaused:", NS.BOOL(true))

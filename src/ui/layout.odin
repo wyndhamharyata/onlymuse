@@ -3,6 +3,7 @@ package ui
 import "core:math"
 import "om:font"
 
+// @(private) keeps this procedure inside the ui package.
 @(private)
 to_font :: proc(style: Style) -> font.Font {
 	size := style.font_size if style.font_size > 0 else 13
@@ -26,6 +27,7 @@ measure_axis :: proc(box: ^Box, axis: Axis) -> f32 {
 	padding :=
 		box.style.padding.x + box.style.padding.z if axis == .X else box.style.padding.y + box.style.padding.w
 
+	// #partial lets the switch skip Percent and Fill. resolve_children sizes those later.
 	#partial switch size.kind {
 	case .Points:
 		return size.value
@@ -61,9 +63,8 @@ children_extent :: proc(box: ^Box, axis: Axis) -> f32 {
 	return total
 }
 
-// Works out the sizes that need the parent, from the root down. A box sized by its children grows to
-// fit the text that wrapped below it. It grows before place runs, so place aligns a box to the end or
-// the centre by its final size.
+// Works out the sizes that need the parent, from the root down. A box sized by its children then
+// grows to fit the text that wrapped below it. place then aligns the box by this final size.
 @(private)
 resolve :: proc(box: ^Box) {
 	style := box.style
@@ -93,7 +94,7 @@ is_wrapping :: proc(box: ^Box) -> bool {
 	return .Wrap_Children in box.style.flags && box.style.axis == .X
 }
 
-// Lays a wrapping row's children in lines no wider than the row, and returns the height of the lines.
+// Lays a wrapping row's children in lines no wider than the row. It returns the lines' height.
 // With a clip, it places them too.
 @(private)
 wrap_lines :: proc(box: ^Box, clip: ^[4]f32) -> f32 {

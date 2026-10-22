@@ -8,16 +8,16 @@ import "om:app/playback"
 import "om:apple"
 import "om:ui"
 
-// A song's name has no room in a narrower grid column. Below MIN_GRID_COLUMN_POINTS the grid takes one
-// column. Below MIN_DATED_COLUMN_POINTS a row shows no date.
+// A song's name has no room in a narrower column. Below this width the grid takes one column.
+// Below MIN_DATED_COLUMN_POINTS a row shows no date.
 MIN_GRID_COLUMN_POINTS :: 300
 
 MIN_DATED_COLUMN_POINTS :: 420
 
 GRID_GAP_POINTS :: 20
 
-// Builds two columns that fill row by row, or one column when the page is narrow. A click plays all of
-// playing from that song. With dates, each row shows its date when there is room for it.
+// Builds two columns that fill row by row, or one column when the page is narrow.
+// A click plays playing from that song. A row shows its date from dates when it has room.
 build_song_grid :: proc(
 	songs: []core.Catalog_Song,
 	dates: []string,
@@ -62,7 +62,7 @@ build_song_grid :: proc(
 	}
 }
 
-// The tile size that fits a whole number of tiles across, as close to this as it can.
+// The grid picks the tile size that fits a whole number of tiles, as close to this as it can.
 TARGET_TILE_POINTS :: 160
 
 TILE_GAP_POINTS :: 14

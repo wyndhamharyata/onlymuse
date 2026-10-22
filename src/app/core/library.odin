@@ -6,12 +6,12 @@ import "core:strings"
 import "om:apple"
 import "om:ui"
 
-// Where a box inside a scrolling page starts, in the page's content, as of the last frame.
+// Where a box starts in the content of its scrolling page, in points, as of the last frame.
 offset_in_page :: proc(page, box: ^ui.Box) -> f32 {
 	return box.rect.y - page.rect.y - page.style.padding.y + page.scroll
 }
 
-// The library's songs, every page of them, read once per answer version. The command palette shares them.
+// Every page of the library's songs, read once per answer version. The command palette uses them.
 list_library_songs :: proc() -> (songs: []Catalog_Song, signature: int, phase: apple.Phase) {
 	path := "/v1/me/library/songs?sort=name"
 	bodies: []string
@@ -42,6 +42,7 @@ list_library_artists :: proc() -> (cards: []apple.Card, signature: int, phase: a
 
 	allocator := page_allocator(data)
 	found := make([dynamic]apple.Card, allocator)
+	// The temp allocator's memory lasts until the next frame starts.
 	seen := make(map[string]bool, context.temp_allocator)
 
 	for body in bodies {
@@ -59,7 +60,8 @@ list_library_artists :: proc() -> (cards: []apple.Card, signature: int, phase: a
 	return data.cards, signature, phase
 }
 
-// Favourite Songs is the one library playlist a person can neither edit nor delete. The sidebar does not show it.
+// Favourite Songs is the one library playlist a person can neither edit nor delete.
+// The sidebar does not show it, so its ID comes back apart from the list.
 list_playlists :: proc(
 ) -> (
 	playlists: []apple.Card,
@@ -91,7 +93,7 @@ list_playlists :: proc(
 	return data.cards, data.link_id, watched.phase
 }
 
-// Every page of a library list. Of each link to the next page, it keeps only the offset.
+// Watches every page of a library list. Of Apple's link to the next page, it keeps the offset.
 watch_all_pages :: proc(path: string) -> (bodies: []string, signature: int, phase: apple.Phase) {
 	list := make([dynamic]string, context.temp_allocator)
 	separator := "&" if strings.contains(path, "?") else "?"
@@ -99,9 +101,10 @@ watch_all_pages :: proc(path: string) -> (bodies: []string, signature: int, phas
 
 	for {
 		watched := apple.watch(fmt.tprintf("%s%slimit=100&offset=%s", path, separator, offset))
+		// Mixes the version of each page into one number that changes when any page changes.
 		signature = signature * 31 + watched.version
 
-		// A saved page can name a next page that is gone, as after a person removed songs from a playlist. The list ends there.
+		// A saved page can name a next page that is gone after a song removal. A 404 ends the list.
 		is_past_end := watched.phase == .Failed && watched.status == 404 && offset != "0"
 		if is_past_end do break
 		if watched.phase != .Ready do return list[:], signature, watched.phase
@@ -120,7 +123,6 @@ watch_all_pages :: proc(path: string) -> (bodies: []string, signature: int, phas
 	return list[:], signature, .Ready
 }
 
-// Songs of every page of a library list.
 read_library_songs :: proc(data: ^Page_Data, bodies: []string) {
 	allocator := page_allocator(data)
 	songs := make([dynamic]Catalog_Song, allocator)
@@ -147,13 +149,14 @@ read_cards :: proc(data: ^Page_Data, bodies: []string) {
 	data.cards = cards[:]
 }
 
+// @(private = "file") hides this from every other file.
 @(private = "file")
 Next_Offset :: struct {
 	version: int,
 	offset:  string,
 }
 
-// The offset of the next page, read once per answer version. Reading 50 KB of JSON each frame took 5 ms.
+// Reads the next offset once per answer version. Reading 50 KB of JSON each frame costs 5 ms.
 @(private = "file")
 next_offsets: map[string]Next_Offset
 

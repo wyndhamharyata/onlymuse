@@ -4,8 +4,8 @@ import "core:mem"
 import "core:strings"
 import "om:apple"
 
-// A song or a card kept in a page's arena, from another arena that lives on its own terms, such as a parsed
-// YouTube answer. A page that kept only pointers into one would read freed memory once the app read it again.
+// Copies a song into a page's arena from another arena, such as the arena of a YouTube answer.
+// A page that kept pointers into that arena would read freed memory after the app frees it.
 copy_song :: proc(song: Catalog_Song, allocator := context.allocator) -> Catalog_Song {
 	copied := song
 	copied.id = strings.clone(song.id, allocator)

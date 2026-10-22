@@ -17,12 +17,13 @@ ALBUM_HEADER_GAP_POINTS :: 20
 
 MIN_ALBUM_INFO_POINTS :: 300
 
-// Album IDs from the library start with "l.". Apple gives their catalog album first.
+// A library album ID starts with "l.". The page then asks Apple for its catalog album first.
 build_album_page :: proc(album_id: string) {
 	catalog_id := album_id
 
 	if len(album_id) > 2 && album_id[:2] == "l." {
 		link := apple.watch(fmt.tprintf("/v1/me/library/albums/%s/catalog", album_id))
+		// context.temp_allocator frees its memory at the start of the next frame.
 		resources :=
 			apple.to_resources(link.body, context.temp_allocator) if link.phase == .Ready else nil
 
@@ -64,6 +65,7 @@ build_album_page :: proc(album_id: string) {
 	}
 }
 
+// @(private = "file") hides this table from the other files of the package.
 @(private = "file")
 badge_labels := [][2]string {
 	{"hi-res-lossless", "HI-RES LOSSLESS"},

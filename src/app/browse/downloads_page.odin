@@ -29,6 +29,7 @@ downloads: struct {
 }
 
 // Music.app keeps each downloaded Apple Music song as a package of its own, two folders down.
+// @(private = "file") hides this procedure from the other files of the package.
 @(private = "file")
 read_download_folder :: proc() -> string {
 	return fmt.tprintf(
@@ -37,7 +38,8 @@ read_download_folder :: proc() -> string {
 	)
 }
 
-// The stream's file name holds the catalog ID after "_A", and ends in "_alac" for a lossless download.
+// The file name of the stream holds the catalog ID after "_A".
+// The file name of a lossless stream ends in "_alac".
 @(private = "file")
 read_download :: proc(boot_path: string) -> (Download, bool) {
 	bytes, error := os.read_entire_file(boot_path, context.temp_allocator)
@@ -75,7 +77,7 @@ scan_downloads :: proc() {
 	artists, _ := os.read_all_directory_by_path(read_download_folder(), context.temp_allocator)
 
 	for artist in artists {
-		// This frees the temp memory of this artist at the end of the pass but keeps artists.
+		// This frees the temp memory of each pass when the pass ends. The memory of artists stays.
 		runtime.DEFAULT_TEMP_ALLOCATOR_TEMP_GUARD()
 		albums, _ := os.read_all_directory_by_path(artist.fullpath, context.temp_allocator)
 
@@ -92,6 +94,7 @@ scan_downloads :: proc() {
 		}
 	}
 
+	// sync.guard locks the mutex until scan_downloads returns.
 	sync.guard(&downloads.mutex)
 	downloads.list = found[:]
 	downloads.version += 1
@@ -108,7 +111,7 @@ build_downloaded_page :: proc() {
 	{
 		sync.guard(&downloads.mutex)
 
-		// Each visit scans again, so the page shows a song that Music.app downloaded since the last visit.
+		// Each visit scans again to find the songs Music.app downloaded since the last visit.
 		is_new_visit :=
 			downloads.scanned_index != core.navigation.index ||
 			downloads.scanned_visit != core.navigation_visit
@@ -133,6 +136,7 @@ build_downloaded_page :: proc() {
 	// Apple answers in batches of 100 IDs, in the order of the IDs.
 	signature := scan_version
 	phase := apple.Phase.Ready
+	// context.temp_allocator frees its memory at the start of the next frame.
 	bodies := make([dynamic]string, context.temp_allocator)
 
 	for first := 0; first < len(list); first += 100 {

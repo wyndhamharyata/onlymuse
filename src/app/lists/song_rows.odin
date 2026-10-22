@@ -16,8 +16,8 @@ SONG_ARTWORK_POINTS :: 40
 // A list builds this many rows past each of its edges, so a fast scroll finds them ready.
 EXTRA_ROW_COUNT :: 2
 
-// Builds Favourite Songs, Songs, Downloaded, every playlist and an artist's Recent Songs. With dates,
-// the songs are one artist's, so each row shows its album and its date instead of the artist.
+// Builds Favourite Songs, Songs, Downloaded, every playlist and an artist's Recent Songs.
+// With dates, the songs are one artist's, so a row shows its album and date, not the artist.
 build_song_list_page :: proc(
 	title, description: string,
 	songs: []core.Catalog_Song,
@@ -122,7 +122,8 @@ to_song_subtitle :: proc(song: core.Catalog_Song) -> string {
 	)
 }
 
-// Returns true when the person clicks the row. The row shows a date, when there is one, before the heart.
+// Returns true when the person clicks the row.
+// The row shows a date, when there is one, before the heart.
 build_song_row :: proc(
 	id: string,
 	song: core.Catalog_Song,
@@ -193,12 +194,12 @@ build_song_row :: proc(
 	return menus.apply_song_row_signal(ui.signal(row), song)
 }
 
-// The heart fills in the accent for a favourite and shows an empty outline for others, on song lists and albums.
-// A YouTube song with a match takes the heart of its match. One without shows YouTube's mark, dim during the check.
+// A favourite shows a heart in the accent colour. Another song shows an empty heart.
+// A YouTube song shows the heart of its match, else YouTube's mark, dim while matching checks.
 build_row_heart :: proc(row: ^ui.Box, chosen: core.Catalog_Song, is_current: bool) {
 	song, state := matching.find_match(chosen)
 
-	// The mark uses the same padding as the heart's button, so the lengths after it line up.
+	// The mark has the padding of the heart's button, so the durations after both line up.
 	if state != .Found {
 		kit.icon_box(
 			"",
@@ -209,7 +210,7 @@ build_row_heart :: proc(row: ^ui.Box, chosen: core.Catalog_Song, is_current: boo
 		)
 	}
 
-	// Until matching checks Apple's catalog, the song may still have a match whose heart it would take.
+	// Until matching checks Apple's catalog, the song may still get a match and show its heart.
 	if state == .Checking do return
 
 	persistent_id := core.app.now_playing.song.persistent_id if is_current else ""

@@ -3,8 +3,10 @@ package image
 import "core:hash"
 import "core:testing"
 
+// @(test) marks a procedure that odin test runs.
 @(test)
 test_to_family :: proc(t: ^testing.T) {
+	// transmute reads the string's bytes as []u8 with no copy.
 	family :: proc(text: string) -> u64 {return hash.fnv64a(transmute([]u8)text)}
 
 	google :: "https://lh3.googleusercontent.com/__HQP1pw0-A2viS_fBJtlsYASW9dMYoP2B11fM30hMYHHWNHtmSET2bTvTGLZ66ySry6xJjQPx9dLA"

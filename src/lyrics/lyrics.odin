@@ -1,4 +1,4 @@
-// This package finds the lyrics of the playing song through Apple's API and reads them from their TTML.
+// This package fetches the lyrics of the playing song from Apple's API and reads their TTML.
 package lyrics
 
 import "core:encoding/json"
@@ -23,7 +23,7 @@ Line :: struct {
 	begin_seconds:       f64,
 	text:                string,
 	words:               []Word,
-	// Empty when the line reads as written.
+	// Empty when the pronunciation has the same letters as the text.
 	pronunciation:       string,
 	pronunciation_words: []Word,
 	// The line in English, when Apple has a translation. Empty otherwise.
@@ -38,6 +38,7 @@ Phase :: enum {
 	Missing,
 }
 
+// @(private) keeps a declaration inside the lyrics package.
 @(private)
 Request :: struct {
 	persistent_id: string,
@@ -53,14 +54,16 @@ state: struct {
 	lines:         []Line,
 	// Who wrote the words, as the lyrics name them.
 	songwriters:   []string,
-	// The arena holds the lines and the songwriters.
+	// The arena holds the memory of the lines and the songwriters. One arena_destroy frees it all.
 	arena:         virtual.Arena,
 	// The last song's lines, which the frame that asked for the new song may still show.
 	last_arena:    virtual.Arena,
 }
 
-// The lyrics of the song. The first call for a song starts to load them. The lines live until a call asks for another song.
+// The lyrics of the song. The first call for a song starts a thread that loads them.
+// A caller may use the lines until it asks for another song.
 watch :: proc(persistent_id, name, artist: string) -> (Phase, []Line) {
+	// sync.guard locks the mutex and unlocks it when the procedure returns.
 	sync.guard(&state.mutex)
 
 	if persistent_id == state.persistent_id do return state.phase, state.lines
@@ -86,14 +89,17 @@ watch :: proc(persistent_id, name, artist: string) -> (Phase, []Line) {
 // This procedure runs on a thread of its own.
 @(private)
 fetch_lyrics :: proc(data: rawptr) {
+	// cast turns the raw pointer back into the Request that watch made.
 	request := cast(^Request)data
 
+	// defer runs this block when the procedure returns, so the request frees on every path.
 	defer {
 		delete(request.persistent_id)
 		delete(request.name)
 		delete(request.artist)
 		free(request)
 	}
+	// Each thread has its own context.temp_allocator. Its memory goes when this procedure returns.
 	defer free_all(context.temp_allocator)
 
 	arena: virtual.Arena
@@ -120,6 +126,7 @@ fetch_lyrics :: proc(data: rawptr) {
 	platform.wake()
 }
 
+// "%5B" and "%5D" encode "[" and "]". The query asks for English translations and Latin letters.
 @(private)
 LYRICS_QUERY :: "?l%5Blyrics%5D=en-GB&l%5Bscript%5D=en-Latn&extend=ttmlLocalizations"
 
@@ -182,7 +189,8 @@ find_songwriters :: proc(persistent_id: string) -> []string {
 	return state.songwriters if persistent_id == state.persistent_id else nil
 }
 
-// A song that starts outside onlymuse has no catalog ID yet. The queue knows some IDs. The search finds the rest.
+// A song that starts outside onlymuse has no catalog ID yet. The saved queue knows some IDs.
+// A catalog search finds the rest.
 @(private)
 find_song_id :: proc(name, artist: string) -> (string, bool) {
 	if id, ok := find_queue_song_id(name, artist, context.temp_allocator); ok do return id, true

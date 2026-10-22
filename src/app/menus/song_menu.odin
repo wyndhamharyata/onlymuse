@@ -19,8 +19,10 @@ PLAYLIST_MENU_POINTS :: 240
 
 MAX_PLAYLIST_LIST_POINTS :: 324
 
+// macOS gives the Escape key the virtual key code 53.
 ESCAPE_KEY_CODE :: 53
 
+// @(private = "file") hides this value from the other files of the package.
 @(private = "file")
 song_menu: struct {
 	is_open:           bool,
@@ -41,7 +43,8 @@ start_song_menu :: proc() {
 	kit.register_text_field(&playlist_name_field)
 }
 
-// A right-click on a song or Now Playing's Add to Playlist opens the menu. position is in window points.
+// A right-click on a song or Now Playing's Add to Playlist opens the menu.
+// position is in window points.
 open_song_menu :: proc(song: core.Catalog_Song, position: [2]f32, is_playlists_only := false) {
 	close_song_menu()
 	song_menu = {

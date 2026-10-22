@@ -1,5 +1,5 @@
-// YouTube's lists as the pages read them: home, playlists, an artist, Liked Music, and the YouTube songs kept
-// in Apple playlists.
+// YouTube's lists as the pages read them: home, playlists, an artist, Liked Music, and the
+// YouTube songs that onlymuse keeps in Apple playlists.
 package youtube_lists
 
 import "core:mem/virtual"
@@ -15,6 +15,7 @@ MAX_YOUTUBE_PART_COUNT :: 50
 // YouTube's home sends a few shelves at a time. Mixes for you come in its later parts.
 MAX_HOME_PART_COUNT :: 6
 
+// @(private = "file") hides this from every other file.
 @(private = "file")
 Parsed_List :: struct {
 	arena:      virtual.Arena,
@@ -33,6 +34,7 @@ watch_youtube_list :: proc(path: string) -> (youtube.List, apple.Watched) {
 	watched := apple.watch(path)
 	if watched.phase != .Ready do return {}, watched
 
+	// or_else gives nil when the map holds no entry for path.
 	parsed := parsed_lists[path] or_else nil
 
 	if parsed == nil {
@@ -53,9 +55,11 @@ watch_youtube_list :: proc(path: string) -> (youtube.List, apple.Watched) {
 	return parsed.list, watched
 }
 
-// The app calls this first in each frame. It frees a list that no frame asked for in a while, as core does for a page.
+// The app calls this first in each frame. It frees a list that no frame asked for in
+// core.UNUSED_PAGE_MS, as core does for a page.
 free_unused_youtube_lists :: proc() {
 	now := core.now_ms()
+	// The temp allocator's memory lasts until the next frame starts.
 	unused := make([dynamic]string, context.temp_allocator)
 
 	for path, parsed in parsed_lists {
@@ -93,6 +97,7 @@ watch_youtube_songs :: proc(
 	for token := first.continuation;
 	    phase == .Ready && token != "" && len(parts) < MAX_YOUTUBE_PART_COUNT; {
 		part, part_watched := watch_youtube_list(youtube.to_continuation_path(token))
+		// Mixes the version of each part into one number that changes when any part changes.
 		signature = signature * 31 + part_watched.version
 
 		if part_watched.phase == .Loading do phase = .Loading
@@ -144,7 +149,8 @@ to_youtube_phase_note :: proc(phase: apple.Phase) -> string {
 	return "YouTube Music could not be reached." if phase == .Failed else "Loading…"
 }
 
-// Apple's shelves with YouTube's between them, one of each in turn.
+// Apple's shelves with YouTube's between them, one of each in turn. allocator defaults to
+// context.allocator, the heap, whose memory lasts until a call frees it.
 merge_youtube_shelves :: proc(
 	apple_shelves: []apple.Shelf,
 	allocator := context.allocator,

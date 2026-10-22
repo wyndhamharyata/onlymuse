@@ -44,7 +44,7 @@ build_page_area :: proc() {
 		}
 
 		page := core.current_page()
-		// Each page in the history keeps its own scroll, as the key of its box holds its place and ID.
+		// The key holds the history index and page ID, so each history entry keeps its own scroll.
 		page_box := ui.box(
 			fmt.tprintf("page %d %v %s", core.navigation.index, page.kind, page.id),
 			{width = ui.fill(), height = ui.fill(), axis = .Y},

@@ -16,7 +16,8 @@ ARTIST_ALBUM_POINTS :: 150
 
 SIMILAR_ARTIST_POINTS :: 130
 
-// Read_Text keeps text from an answer until the answer's version changes, as the page asks for it every frame.
+// Read_Text keeps the text read from an answer until the answer's version changes.
+// The page asks for the text every frame, so it reads each answer once.
 @(private = "file")
 Read_Text :: struct {
 	key:     string,
@@ -24,6 +25,7 @@ Read_Text :: struct {
 	text:    string,
 }
 
+// @(private = "file") hides these three values from the other files of the package.
 @(private = "file")
 artist_id_by_name, catalog_artist_name, library_artist_id: Read_Text
 
@@ -42,7 +44,8 @@ save_read_text :: proc(read: ^Read_Text, key: string, version: int, text: string
 	return read.text
 }
 
-// Music.app gives a song's artist only as a name. The catalog artist with that exact name is the one.
+// Music.app gives a song's artist only as a name.
+// This returns the catalog artist of that exact name, or else the first search result.
 find_artist_id :: proc(artist_name: string) -> (string, apple.Phase) {
 	watched := apple.watch(
 		fmt.tprintf(
@@ -103,6 +106,7 @@ build_artist_page :: proc(page_id: string, name: string) {
 		catalog_name, ok = find_read_text(&catalog_artist_name, path, watched.version)
 
 		if !ok {
+			// context.temp_allocator frees its memory at the start of the next frame.
 			resources := apple.to_resources(watched.body, context.temp_allocator)
 			catalog_name = save_read_text(
 				&catalog_artist_name,
@@ -114,6 +118,7 @@ build_artist_page :: proc(page_id: string, name: string) {
 	}
 
 	library_albums := watch_library_albums_of(catalog_name)
+	// One version for both answers, so the page reads again when either answer changes.
 	data, is_stale := core.find_page_data(
 		path,
 		watched.version * 31 + library_albums.version,
@@ -173,7 +178,8 @@ build_artist_page :: proc(page_id: string, name: string) {
 	}
 }
 
-// Library search misses a term with an apostrophe. This searches for the longest word and checks the full name.
+// Apple's library search misses a term with an apostrophe.
+// This searches for the longest word of the name, then checks the full name.
 @(private = "file")
 watch_library_albums_of :: proc(artist_name: string) -> apple.Watched {
 	if artist_name == "" do return {phase = .Loading}
@@ -274,7 +280,8 @@ read_artist :: proc(data: ^core.Page_Data, body: string, library_albums: apple.W
 	}
 }
 
-// The channel's videos, live performances and playlists. Apple already gives its albums, singles and similar artists.
+// Answers yes for a shelf of videos, live performances or playlists from the YouTube channel.
+// Apple already gives the artist's albums, singles and similar artists.
 @(private = "file")
 is_youtube_only_shelf :: proc(shelf: apple.Shelf) -> bool {
 	return shelf.is_wide || (len(shelf.cards) > 0 && strings.has_prefix(shelf.cards[0].id, "VL"))

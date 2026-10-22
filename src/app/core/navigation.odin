@@ -43,7 +43,7 @@ MAX_PAGE_COUNT :: 50
 
 navigation: struct {
 	pages:   [dynamic]Page,
-	// The scroll of each page in the history, in points. Back, Forward and the next run return there.
+	// The scroll of each history page, in points. Back, Forward and the next run return there.
 	scrolls: [dynamic]f32,
 	index:   int,
 }
@@ -55,8 +55,8 @@ current_page :: proc() -> Page {
 // Counts up each time the window shows a page anew, by opening, Back or Forward.
 navigation_visit: int
 
-// Opens a page after the current one. It drops the pages after the current one, from Back. The history keeps
-// its own copy of the page's ID and title. A card's copy lives in its page's memory, which the app reads again.
+// Opens a page after the current one and drops the pages that Forward would show. The history
+// clones the ID and title. A card's copies live in its page's arena, which the app may free.
 navigate :: proc(chosen: Page) {
 	if len(navigation.pages) > 0 && current_page() == chosen do return
 
@@ -103,6 +103,7 @@ go_forward :: proc() {
 }
 
 // The saved form of a page, under the state key "navigation".
+// @(private = "file") hides this from every other file.
 @(private = "file")
 Saved_Page :: struct {
 	id:          string,
@@ -110,7 +111,7 @@ Saved_Page :: struct {
 	artist_id:   string `json:"artistId"`,
 	playlist_id: string `json:"playlistId"`,
 	term:        string,
-	// The native app's own field, for an artist that the person opens by name from the player bar.
+	// The artist's name, which the page shows as its title.
 	artist_name: string `json:"artistName"`,
 	playlist:    struct {
 		id:   string,
@@ -154,6 +155,7 @@ to_saved_page :: proc(page: Page) -> Saved_Page {
 		id = page_ids[page.kind],
 	}
 
+	// #partial switch lets the cases skip some Page_Kind values. The skipped kinds do nothing here.
 	#partial switch page.kind {
 	case .Playlist, .YouTube_Playlist, .Bring_Over:
 		saved.playlist = {page.id, page.title}
@@ -202,6 +204,7 @@ to_page :: proc(saved: Saved_Page) -> (Page, bool) {
 }
 
 save_navigation :: proc() {
+	// The temp allocator's memory lasts until the next frame starts.
 	pages := make([]Saved_Page, len(navigation.pages), context.temp_allocator)
 	for page, index in navigation.pages do pages[index] = to_saved_page(page)
 
@@ -239,8 +242,8 @@ start_navigation :: proc() {
 	navigation_visit = 1
 }
 
-// A page's scroll box takes back its saved place each time the window shows the page anew. Its content may
-// still be loading, so keep_scroll sets the place again until the content is tall enough or 2 s pass.
+// Each time the window shows a page anew, its scroll box takes back its saved place. The content
+// may still load, so keep_scroll sets the place again until the content is tall enough or 2 s pass.
 keep_scroll :: proc(page_box: ^ui.Box) {
 	index := navigation.index
 	if index >= len(navigation.scrolls) do return

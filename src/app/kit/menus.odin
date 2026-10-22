@@ -8,6 +8,7 @@ MENU_ITEM_HEIGHT_POINTS :: 26
 
 // A menu's panel, kept inside the window.
 menu_box :: proc(id: string, position: [2]f32, width: f32, window_size: [2]f32) -> ^ui.Box {
+	// The height comes from the last frame's layout. A menu's first frame guesses 200 points.
 	existing := ui.find_box(id, ui.current_parent())
 	height: f32 = existing.size.y if existing != nil else 200
 	x := clamp(position.x, 8, window_size.x - width - 8)

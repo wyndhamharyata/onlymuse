@@ -8,13 +8,14 @@ import "core:time"
 import "om:apple"
 
 unmarshal_text :: proc(text: string, value: ^$T) -> json.Unmarshal_Error {
+	// The temp allocator's memory lasts until the next frame starts.
 	return json.unmarshal_string(text, value, allocator = context.temp_allocator)
 }
 
 // What a page shows, read from its answers once per answer version into an arena of its own.
 Page_Data :: struct {
 	arena:         virtual.Arena,
-	// A sum of the versions of the answers behind the data. Another sum means the page reads them again.
+	// Made from the versions of the answers. A change means the page reads the answers again.
 	signature:     int,
 	phase:         apple.Phase,
 	title:         string,
@@ -39,7 +40,8 @@ Page_Data :: struct {
 
 page_data: map[string]^Page_Data
 
-// The data under key. It starts empty again for the caller to read when the answers' signature or phase changes.
+// The data under key. When the signature or the phase of the answers changes,
+// it returns the data empty, with is_stale true, for the caller to read again.
 find_page_data :: proc(
 	key: string,
 	signature: int,
@@ -48,6 +50,7 @@ find_page_data :: proc(
 	data: ^Page_Data,
 	is_stale: bool,
 ) {
+	// or_else gives nil when the map holds no entry for key.
 	data = page_data[key] or_else nil
 
 	if data == nil {
@@ -69,8 +72,9 @@ find_page_data :: proc(
 	return data, true
 }
 
-// A frame's boxes point at the text they show. They draw it when the frame ends. An answer can arrive while
-// the frame builds, so free_retired_memory frees an arena read again during a frame only when the next starts.
+// Boxes point at their text until the frame ends. A page can read an answer again mid-frame.
+// So free_retired_memory frees the arena that the page let go of only when the next frame starts.
+// @(private = "file") hides this from every other file.
 @(private = "file")
 retired_arenas: [dynamic]virtual.Arena
 
@@ -78,7 +82,8 @@ retire_arena :: proc(arena: virtual.Arena) {
 	append(&retired_arenas, arena)
 }
 
-// free_retired_memory frees a page that the window did not show for this long. Its answers stay saved, so it comes back at once.
+// free_retired_memory frees a page that the window did not show for this long, in ms.
+// The answers of the page stay saved, so the page comes back at once.
 UNUSED_PAGE_MS :: 5 * 60 * 1000
 
 // The app calls this first in each frame, before any box points at anything.

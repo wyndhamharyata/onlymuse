@@ -6,8 +6,8 @@ import "om:app/core"
 import "om:apple"
 import "om:youtube"
 
-// onlymuse keeps a YouTube song in its own Favourite Songs, as Apple's playlist holds Apple songs alone. It
-// also likes the song on YouTube. Liked Music then shows the song. YouTube's mixes learn from it too.
+// A YouTube song goes into onlymuse's own Favourite Songs, as Apple's holds only Apple songs.
+// It also likes the song on YouTube, so Liked Music shows it. YouTube's mixes learn from it too.
 set_youtube_favourite :: proc(song: core.Catalog_Song, is_favourite: bool) {
 	_, playlist_id, _ := core.list_playlists()
 
@@ -28,7 +28,8 @@ is_youtube_favourite :: proc(song: core.Catalog_Song) -> bool {
 	return song.id in list_youtube_liked_ids()
 }
 
-// The song IDs in Liked Music, read again when its songs are. It holds none without a YouTube sign-in.
+// The song IDs in Liked Music, read again with its songs. It holds none without a YouTube sign-in.
+// @(private = "file") hides this from every other file.
 @(private = "file")
 youtube_liked: struct {
 	songs_address: rawptr,
@@ -40,7 +41,7 @@ list_youtube_liked_ids :: proc() -> map[string]bool {
 	if !youtube.is_signed_in() do return nil
 
 	_, songs, phase := watch_youtube_songs(youtube.to_list_path(youtube.LIKED_ID))
-	// The songs move to new memory each time core reads them again, so their address says they changed.
+	// core reads the songs into fresh memory each time, so another address means they changed.
 	if phase != .Ready || raw_data(songs) == youtube_liked.songs_address do return youtube_liked.ids
 
 	for key in youtube_liked.ids do delete(key)
@@ -62,7 +63,8 @@ Like_Job :: struct {
 	is_liked: bool,
 }
 
-// On a thread of its own, as the request blocks. It then asks for Liked Music again, so the list shows the change.
+// The request blocks, so it runs on a thread of its own.
+// It then asks for Liked Music again, so the list shows the change.
 @(private = "file")
 start_youtube_like :: proc(video_id: string, is_liked: bool) {
 	if !youtube.is_signed_in() do return
@@ -71,14 +73,21 @@ start_youtube_like :: proc(video_id: string, is_liked: bool) {
 	job^ = {strings.clone(video_id), is_liked}
 
 	// self_cleanup frees the thread when its procedure returns, so nothing waits for it.
-	thread.create_and_start_with_data(job, proc(data: rawptr) {
+	thread.create_and_start_with_data(
+		job,
+		proc(data: rawptr) {
+			// cast turns the rawptr back into the job that it points at.
 			job := cast(^Like_Job)data
+			// defer runs each of these when the procedure returns, the last one first.
 			defer free(job)
 			defer delete(job.video_id)
+			// This thread has a temp allocator of its own. Its memory goes when the thread ends.
 			defer free_all(context.temp_allocator)
 
 			if youtube.send_like(job.video_id, job.is_liked) != 200 do return
 
 			apple.refresh(youtube.to_list_path(youtube.LIKED_ID))
-		}, self_cleanup = true)
+		},
+		self_cleanup = true,
+	)
 }

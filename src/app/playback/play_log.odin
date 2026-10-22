@@ -5,11 +5,13 @@ import "om:app/core"
 import "om:helper"
 import "om:store"
 
-// A song heard to its middle, or 4 minutes of a long one, is a play. One left sooner, after 2 s, is a skip.
+// A song heard to its middle, or for 4 minutes of a long one, is a play.
+// A song left sooner, after at least 2 s, is a skip.
 PLAY_SHARE :: 0.5
 
 play_log: [dynamic]store.Play
 
+// @(private = "file") hides listening from other files.
 @(private = "file")
 listening: struct {
 	persistent_id:    string,
@@ -23,7 +25,7 @@ start_play_log :: proc() {
 	for play in store.list_plays(since_ms) do append(&play_log, play)
 }
 
-// Each frame, it keeps how far the playing song got and logs a play or a skip when the song changes.
+// Runs each frame. It keeps how far the song got, then logs a play or skip when the song changes.
 update_play_log :: proc() {
 	now_playing := core.app.now_playing
 	has_song := now_playing.playback == .Playing || now_playing.playback == .Paused
@@ -68,7 +70,7 @@ finish_listening :: proc() {
 		play.is_skip = !is_play
 		play.played_at_ms = core.now_ms()
 		store.save_play(play)
-		// The log keeps the strings.
+		// play_log takes the strings, so this branch does not delete them.
 		append(&play_log, play)
 	} else {
 		delete(listening.song.catalog_id)
@@ -81,7 +83,8 @@ finish_listening :: proc() {
 	listening = {}
 }
 
-// A logged play is the song's when its catalog ID matches, or its name and artist, as a song started in Music.app has no ID.
+// A logged play is the song's when its catalog ID matches, or its name and artist do.
+// A song started in Music.app has no catalog ID.
 is_same_song :: proc(play: store.Play, song: core.Catalog_Song) -> bool {
 	if play.catalog_id != "" && play.catalog_id == song.id do return true
 

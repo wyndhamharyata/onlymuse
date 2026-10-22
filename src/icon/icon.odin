@@ -8,10 +8,13 @@ import "om:mac"
 import "om:render"
 import MTL "vendor:darwin/Metal"
 
+// objc_send calls the Objective-C method that a selector string names, such as "size".
 objc_send :: intrinsics.objc_send
 
+// objc_class binds this struct to the Objective-C class NSImageSymbolConfiguration.
 @(objc_class = "NSImageSymbolConfiguration")
 Symbol_Configuration :: struct {
+	// using embeds NS.Object, so a ^Symbol_Configuration can stand in for a ^NS.Object.
 	using _: NS.Object,
 }
 
@@ -20,6 +23,7 @@ Graphics_Context :: struct {
 	using _: NS.Object,
 }
 
+// @(private) keeps this type inside the icon package.
 @(private)
 Entry :: struct {
 	// x, y, width, height in atlas pixels. The width is 0 when the symbol does not exist.
@@ -48,13 +52,13 @@ state: struct {
 	is_fresh:   bool,
 }
 
-// Returns true when a symbol went undrawn for want of room, so another frame draws it.
+// Returns true when a symbol found no room in the atlas, so another frame must draw it.
 is_redraw_needed :: proc() -> bool {
 	return state.is_full && !state.is_fresh
 }
 
-// The app calls this once a frame, before it draws any symbol. It empties a full atlas. draw then puts
-// each symbol in use back as the app asks for it. Emptying it mid-frame would change the queued draws.
+// The app calls this once a frame, before it draws any symbol. It empties a full atlas. draw then
+// puts back each symbol the app asks for. Emptying it mid-frame would change the queued draws.
 begin_frame :: proc() {
 	state.is_fresh = state.is_full
 	if !state.is_full do return
@@ -113,9 +117,11 @@ find :: proc(name: string, size_pixels: f32) -> Entry {
 	return entry
 }
 
+// FNV-1a, with its 64-bit offset basis and prime.
 @(private)
 hash_text :: proc(text: string) -> u64 {
 	value: u64 = 0xcbf29ce484222325
+	// transmute reads the bytes of the string as a []u8, with no copy.
 	for byte_value in transmute([]u8)text do value = (value ~ u64(byte_value)) * 0x100000001b3
 
 	return value
@@ -124,6 +130,7 @@ hash_text :: proc(text: string) -> u64 {
 @(private)
 rasterize :: proc(name: string, size_pixels: f32) -> Entry {
 	ns_name := NS.String.alloc()->initWithOdinString(name)
+	// defer runs release when rasterize returns.
 	defer ns_name->release()
 
 	symbol := objc_send(
@@ -155,10 +162,11 @@ rasterize :: proc(name: string, size_pixels: f32) -> Entry {
 		return {}
 	}
 
+	// The app frees context.temp_allocator at the start of each frame.
 	pixels := make([]u8, width * height * 4, context.temp_allocator)
 	space := mac.CGColorSpaceCreateDeviceRGB()
 	defer mac.CGColorSpaceRelease(space)
-	// kCGImageAlphaPremultipliedLast.
+	// The bitmap info 1 is kCGImageAlphaPremultipliedLast.
 	bitmap_context := mac.CGBitmapContextCreate(
 		raw_data(pixels),
 		uint(width),
@@ -201,7 +209,7 @@ rasterize :: proc(name: string, size_pixels: f32) -> Entry {
 	return Entry{rect}
 }
 
-// Shelf packing, as in the glyph atlas.
+// Shelf packing, as in src/font/atlas.odin. Symbols fill a row, then a new row starts below it.
 @(private)
 allocate :: proc(width, height: int) -> ([4]int, bool) {
 	if state.pen.x + width > ATLAS_SIZE {

@@ -48,7 +48,8 @@ Song_Info :: struct {
 // Music.app's answers, by persistent ID.
 song_infos: map[string]Song_Info
 
-// When the app last asked Music.app about each persistent ID, so a page that builds every frame asks once a minute.
+// When the app last asked Music.app about each persistent ID, so a page that builds every frame
+// asks once a minute. @(private = "file") hides a name from other files.
 @(private = "file")
 asked_at_ms: map[string]f64
 
@@ -120,7 +121,7 @@ find_playing_song :: proc() -> (song: core.Catalog_Song, persistent_id: string, 
 		true
 }
 
-// A toggle since the app last read the Favourite Songs playlist, by catalog ID, so a row shows it at once.
+// Each toggle since the app last read Favourite Songs, by catalog ID, so a row shows it at once.
 @(private = "file")
 favourite_changes: map[string]bool
 
@@ -137,8 +138,8 @@ favourite_requests: map[int]Favourite_Request
 favourite_set: struct {
 	signature:     int,
 	ids:           map[string]bool,
-	// app.frame_count + 1 of the frame that last checked the answers, so each row's heart and each song a
-	// shuffle sorts reads them once a frame.
+	// frame_count + 1 of the last check of the answers, so 0 means no check yet. One check a frame
+	// serves each heart on a row and each song that a shuffle sorts.
 	checked_frame: int,
 }
 
@@ -161,6 +162,7 @@ watch_favourite_ids :: proc() -> map[string]bool {
 	clear(&favourite_set.ids)
 	favourite_set.signature = signature
 
+	// On the main thread, the memory of the temp allocator lasts until the next frame starts.
 	for body in bodies {
 		for resource in apple.to_resources(body, context.temp_allocator) {
 			song := apple.to_library_song(resource)
@@ -212,12 +214,13 @@ set_favourite_change :: proc(catalog_id: string, favorited: bool) {
 	}
 }
 
-// A song Music.app could not find, as one not in the library, keeps its old state.
+// A song Music.app could not find, such as one not in the library, keeps its old favourite state.
 apply_favourite_answer :: proc(message: helper.Message) {
 	request, ok := favourite_requests[message.request_id]
 	if !ok do return
 
 	delete_key(&favourite_requests, message.request_id)
+	// defer frees the ID when this procedure returns, on every path.
 	defer delete(request.catalog_id)
 
 	if message.persistent_id == "" {

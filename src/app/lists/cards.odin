@@ -13,7 +13,7 @@ SHELF_TILE_POINTS :: 150
 
 FIRST_SHELF_TILE_POINTS :: 210
 
-// A video's tile, in 16:9.
+// The width of a video's tile, which shows the video in 16:9.
 WIDE_TILE_POINTS :: 240
 
 YOUTUBE_SYMBOL :: "play.rectangle.fill"
@@ -30,7 +30,8 @@ to_tile_size :: proc(width, target, gap: f32) -> f32 {
 	return math.floor((width - gap * (count - 1)) / count)
 }
 
-// Builds a shelf from Apple or YouTube, with its videos in wide tiles. width is the width of the page.
+// Builds a shelf from Apple or YouTube, with its videos in wide tiles.
+// width is the width of the page.
 build_shelf :: proc(id: string, shelf: apple.Shelf, width, target_points: f32) {
 	target := WIDE_TILE_POINTS if shelf.is_wide else target_points
 
@@ -44,7 +45,8 @@ build_shelf :: proc(id: string, shelf: apple.Shelf, width, target_points: f32) {
 	)
 }
 
-// Builds a shelf of whole tiles, but only the tiles in view. Empty boxes keep the width of the rest.
+// Builds a shelf of whole tiles, but only the tiles in view.
+// Empty boxes keep the width of the other tiles.
 build_card_row :: proc(
 	id, title: string,
 	cards: []apple.Card,
@@ -155,7 +157,7 @@ build_card_tile :: proc(
 	is_wide := false,
 ) -> bool {
 	can_open := card.kind != .Other
-	// odinfmt cannot read a set literal with an if after it inside another literal, so tile_flags stands apart.
+	// odinfmt cannot read a set literal followed by if inside another literal.
 	tile_flags: ui.Flags = {.Clickable} if can_open else {}
 	tile := ui.box(
 		id,
@@ -244,9 +246,10 @@ open_card :: proc(cards: []apple.Card, index: int) {
 			core.Page_Kind.Bring_Over if core.current_page().kind == .Bring_Over else .YouTube_Playlist
 		core.navigate({kind = kind, id = card.id, title = card.name})
 	case .YouTube_Artist:
-		// This opens the Apple Music artist of that name. The artist page then fills in from YouTube.
+		// This opens the Apple Music artist of that name. Its page also shows YouTube shelves.
 		core.navigate({kind = .Artist, title = card.name})
 	case .Song:
+		// context.temp_allocator frees its memory at the start of the next frame.
 		songs := make([dynamic]core.Catalog_Song, context.temp_allocator)
 		first := 0
 
@@ -257,6 +260,7 @@ open_card :: proc(cards: []apple.Card, index: int) {
 		}
 
 		playback.play_songs(songs[:], first)
+	// A switch on an enum without #partial must name every value, so .Other has an empty case.
 	case .Other:
 	}
 }

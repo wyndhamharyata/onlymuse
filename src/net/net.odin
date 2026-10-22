@@ -1,4 +1,5 @@
-// This package sends HTTP requests through libcurl. Each thread keeps its own handle, so curl reuses its connections.
+// This package sends HTTP requests through libcurl.
+// Each thread keeps its own curl handle, so curl reuses its connections.
 package net
 
 import "base:runtime"
@@ -17,7 +18,8 @@ Response :: struct {
 // A Safari User-Agent. Apple's servers reset more connections without one.
 USER_AGENT :: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15"
 TIMEOUT_MS :: 15_000
-// Apple's image server resets a connection now and then. It answers 429 or 5xx when it is busy. fetch tries those again.
+// Apple's image server resets a connection now and then. It answers 429 or 5xx when it is busy.
+// fetch waits each delay in turn and tries those requests again.
 @(private)
 retry_delays := [?]time.Duration {
 	250 * time.Millisecond,
@@ -25,6 +27,7 @@ retry_delays := [?]time.Duration {
 	1000 * time.Millisecond,
 }
 
+// @(private) keeps it inside the net package. thread_local gives each thread its own copy.
 @(private, thread_local)
 thread_handle: mac.Curl
 
@@ -34,8 +37,9 @@ start :: proc() {
 
 @(private)
 append_body :: proc "c" (data: [^]u8, size, count: c.size_t, user: rawptr) -> c.size_t {
-	// curl calls this from C with no Odin context. append needs a context for its allocator.
+	// curl calls this from C with no Odin context. append needs the allocator that context holds.
 	context = runtime.default_context()
+	// cast turns user back into the body that fetch_once gave curl.
 	body := cast(^[dynamic]u8)user
 	append(body, ..data[:size * count])
 
@@ -44,12 +48,12 @@ append_body :: proc "c" (data: [^]u8, size, count: c.size_t, user: rawptr) -> c.
 
 Method :: enum {
 	Get,
-	// A POST carries a JSON body, or an empty one, as the requests that write to Apple's library take.
+	// A POST carries a JSON body or an empty one, as Apple's library writes take.
 	Post,
 }
 
 // fetch blocks the thread until the answer comes. The body and the content type use allocator.
-// fetch never sends a POST twice. A second try after a lost answer could put a song in the library twice.
+// fetch never retries a POST. A retry after a lost answer could put a song in the library twice.
 fetch :: proc(
 	url: string,
 	headers: []string = nil,
@@ -85,8 +89,10 @@ fetch_once :: proc(
 
 	body := make([dynamic]u8, allocator)
 	header_list: mac.Curl_List
+	// defer runs this when the procedure returns, so the header list frees on every path.
 	defer mac.curl_slist_free_all(header_list)
 
+	// context.temp_allocator belongs to the calling thread, which frees it after fetch returns.
 	for header in headers {
 		header_list = mac.curl_slist_append(
 			header_list,
@@ -101,6 +107,7 @@ fetch_once :: proc(
 	)
 	mac.curl_easy_setopt(handle, mac.CURLOPT_USERAGENT, cstring(USER_AGENT))
 	mac.curl_easy_setopt(handle, mac.CURLOPT_FOLLOWLOCATION, c.long(1))
+	// libcurl's docs ask a program with threads to turn off curl's signals.
 	mac.curl_easy_setopt(handle, mac.CURLOPT_NOSIGNAL, c.long(1))
 	mac.curl_easy_setopt(handle, mac.CURLOPT_TIMEOUT_MS, c.long(TIMEOUT_MS))
 	mac.curl_easy_setopt(handle, mac.CURLOPT_WRITEFUNCTION, mac.Curl_Write_Proc(append_body))
@@ -114,7 +121,7 @@ fetch_once :: proc(
 		mac.curl_easy_setopt(handle, mac.CURLOPT_POST, c.long(1))
 		mac.curl_easy_setopt(handle, mac.CURLOPT_POSTFIELDSIZE, c.long(len(request_body)))
 
-		// curl reads the body during perform, which returns before request_body goes.
+		// POSTFIELDS keeps a pointer, not a copy. request_body lasts past curl_easy_perform.
 		if request_body != "" {
 			mac.curl_easy_setopt(handle, mac.CURLOPT_POSTFIELDS, raw_data(request_body))
 		}

@@ -13,8 +13,10 @@ PHOTO_WIDTH_STEP_PIXELS :: 400
 
 LATEST_RELEASE_POINTS :: 210
 
+// @(private) keeps this procedure inside the browse package.
 @(private)
 build_artist_header :: proc(data: ^core.Page_Data, detail: string, width: f32) {
+	// or_else gives kit.colors.card when bg_color does not parse.
 	fallback := kit.parse_hex_color(data.artwork.bg_color) or_else kit.colors.card
 	header := ui.box("header", {width = ui.fill(), height = ui.points(ARTIST_HEADER_POINTS)})
 
@@ -23,8 +25,7 @@ build_artist_header :: proc(data: ^core.Page_Data, detail: string, width: f32) {
 			photo_width :=
 				int(math.ceil(ui.to_pixels(width) / PHOTO_WIDTH_STEP_PIXELS)) *
 				PHOTO_WIDTH_STEP_PIXELS
-			// Apple fits the photo inside the size the app asks for, so a wide size gives a small photo.
-			// A square as wide as the header gives the whole photo for the box to crop.
+			// Apple fits the photo inside the asked size. A square gives the whole photo to crop.
 			photo := apple.to_artwork_url(data.artwork, photo_width, photo_width)
 			box := kit.artwork_rect_box(
 				photo,
@@ -33,7 +34,7 @@ build_artist_header :: proc(data: ^core.Page_Data, detail: string, width: f32) {
 				{top = fallback, bottom = fallback},
 			)
 			box.style.flags += {.Floating}
-			// A face is mostly in the upper part of an artist's photo.
+			// cast reads box.data as a ^kit.Artwork_Paint. A face is mostly high in a photo.
 			if box.data != nil do (cast(^kit.Artwork_Paint)box.data).focus_y = 0.25
 		}
 

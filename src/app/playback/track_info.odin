@@ -60,16 +60,17 @@ find_track_info :: proc(persistent_id: string) -> (Track_Info, bool) {
 
 	now := helper.now_ms()
 	last, was_asked := asked_at[persistent_id]
+	is_fresh := was_asked && now - last <= TRACK_INFO_REFRESH_MS
 
-	if !was_asked || now - last > TRACK_INFO_REFRESH_MS {
-		if was_asked {
-			asked_at[persistent_id] = now
-		} else {
-			asked_at[strings.clone(persistent_id)] = now
-		}
+	if is_fresh do return track_infos[persistent_id]
 
-		helper.request_track_info(persistent_id)
+	if was_asked {
+		asked_at[persistent_id] = now
+	} else {
+		asked_at[strings.clone(persistent_id)] = now
 	}
+
+	helper.request_track_info(persistent_id)
 
 	return track_infos[persistent_id]
 }
@@ -172,10 +173,7 @@ favourite_ids :: proc() -> map[string]bool {
 
 // Music.app's answer for the playing song, else this session's toggle, else Favourite Songs.
 is_favourite :: proc(song: core.Catalog_Song, persistent_id := "") -> bool {
-	if persistent_id != "" {
-		if info, ok := track_infos[persistent_id]; ok do return info.favorited
-	}
-
+	if info, ok := track_infos[persistent_id]; ok && persistent_id != "" do return info.favorited
 	if changed, ok := favourite_changes[song.id]; ok do return changed
 	if youtube.is_song_id(song.id) do return youtube_lists.is_youtube_favourite(song)
 
@@ -194,8 +192,8 @@ toggle_favourite :: proc(song: core.Catalog_Song, persistent_id := "") {
 		return
 	}
 
-	if persistent_id != "" {
-		if info, ok := &track_infos[persistent_id]; ok do info.favorited = favorited
+	if info, ok := &track_infos[persistent_id]; ok && persistent_id != "" {
+		info.favorited = favorited
 	}
 
 	request_id := helper.request_set_favorite(persistent_id, to_song_match(song), favorited)
@@ -230,11 +228,11 @@ apply_favourite_answer :: proc(message: helper.Message) {
 
 	// Favourite Songs follows Music.app a moment later.
 	_, playlist_id, _ := core.list_playlists()
-	if playlist_id != "" {
-		apple.refresh(
-			fmt.tprintf("/v1/me/library/playlists/%s/tracks?limit=100&offset=0", playlist_id),
-		)
-	}
+	if playlist_id == "" do return
+
+	apple.refresh(
+		fmt.tprintf("/v1/me/library/playlists/%s/tracks?limit=100&offset=0", playlist_id),
+	)
 }
 
 // The heart on a row, the player bar and Now Playing. Returns true when clicked.

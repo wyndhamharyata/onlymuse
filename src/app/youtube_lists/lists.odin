@@ -103,18 +103,17 @@ watch_youtube_songs :: proc(
 	}
 
 	data, is_stale := core.find_page_data(path, signature, phase)
+	if !is_stale || phase != .Ready do return first, data.songs, phase
 
-	if is_stale && phase == .Ready {
-		all := make([dynamic]core.Catalog_Song, core.page_allocator(data))
+	all := make([dynamic]core.Catalog_Song, core.page_allocator(data))
 
-		for part in parts {
-			for song in part.songs {
-				append(&all, core.copy_song(song, core.page_allocator(data)))
-			}
+	for part in parts {
+		for song in part.songs {
+			append(&all, core.copy_song(song, core.page_allocator(data)))
 		}
-
-		data.songs = all[:]
 	}
+
+	data.songs = all[:]
 
 	return first, data.songs, phase
 }

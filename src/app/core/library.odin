@@ -38,24 +38,23 @@ list_library_artists :: proc() -> (cards: []apple.Card, signature: int, phase: a
 	bodies: []string
 	bodies, signature, phase = watch_all_pages(path)
 	data, is_stale := find_page_data(path, signature, phase)
+	if !is_stale || phase != .Ready do return data.cards, signature, phase
 
-	if is_stale && phase == .Ready {
-		allocator := page_allocator(data)
-		cards := make([dynamic]apple.Card, allocator)
-		seen := make(map[string]bool, context.temp_allocator)
+	allocator := page_allocator(data)
+	found := make([dynamic]apple.Card, allocator)
+	seen := make(map[string]bool, context.temp_allocator)
 
-		for body in bodies {
-			for artist in apple.to_resources(body, allocator) {
-				catalog := apple.list_related(artist, "catalog")
-				if len(catalog) == 0 || seen[catalog[0].id] do continue
+	for body in bodies {
+		for artist in apple.to_resources(body, allocator) {
+			catalog := apple.list_related(artist, "catalog")
+			if len(catalog) == 0 || seen[catalog[0].id] do continue
 
-				seen[catalog[0].id] = true
-				append(&cards, apple.to_card(catalog[0]))
-			}
+			seen[catalog[0].id] = true
+			append(&found, apple.to_card(catalog[0]))
 		}
-
-		data.cards = cards[:]
 	}
+
+	data.cards = found[:]
 
 	return data.cards, signature, phase
 }
@@ -70,25 +69,24 @@ list_playlists :: proc(
 	path := "/v1/me/library/playlists?limit=100"
 	watched := apple.watch(path)
 	data, is_stale := find_page_data(path, watched.version, watched.phase)
+	if !is_stale || watched.phase != .Ready do return data.cards, data.link_id, watched.phase
 
-	if is_stale && watched.phase == .Ready {
-		allocator := page_allocator(data)
-		cards := make([dynamic]apple.Card, allocator)
+	allocator := page_allocator(data)
+	cards := make([dynamic]apple.Card, allocator)
 
-		for resource in apple.to_resources(watched.body, allocator) {
-			can_edit, has_edit := resource.attributes.can_edit.?
-			can_delete, has_delete := resource.attributes.can_delete.?
+	for resource in apple.to_resources(watched.body, allocator) {
+		can_edit, has_edit := resource.attributes.can_edit.?
+		can_delete, has_delete := resource.attributes.can_delete.?
 
-			if has_edit && has_delete && !can_edit && !can_delete {
-				data.link_id = resource.id
-				continue
-			}
-
-			append(&cards, apple.to_card(resource))
+		if has_edit && has_delete && !can_edit && !can_delete {
+			data.link_id = resource.id
+			continue
 		}
 
-		data.cards = cards[:]
+		append(&cards, apple.to_card(resource))
 	}
+
+	data.cards = cards[:]
 
 	return data.cards, data.link_id, watched.phase
 }

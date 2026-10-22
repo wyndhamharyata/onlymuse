@@ -291,15 +291,15 @@ update_queue :: proc() {
 		queue_state.is_starting_youtube = false
 	}
 
-	if queue_state.start_deadline_ms > 0 {
-		has_song := now_playing.playback == .Playing || now_playing.playback == .Paused
-		has_started := has_song && now_playing.song.persistent_id == queue.playing_persistent_id
+	has_song := now_playing.playback == .Playing || now_playing.playback == .Paused
+	has_started := has_song && now_playing.song.persistent_id == queue.playing_persistent_id
+	is_start_late := queue_state.start_deadline_ms > 0 && now >= queue_state.start_deadline_ms
 
-		if has_started {
-			queue_state.start_deadline_ms = 0
-		} else if now >= queue_state.start_deadline_ms {
-			fall_back_to_youtube()
-		}
+	// With no start awaited, the deadline is already 0.
+	if has_started {
+		queue_state.start_deadline_ms = 0
+	} else if is_start_late {
+		fall_back_to_youtube()
 	}
 
 	// The resume point, every few seconds while a song plays.

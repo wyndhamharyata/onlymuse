@@ -62,22 +62,21 @@ build_search_page :: proc(term: string) {
 
 		build_search_top(data)
 		youtube_pages.build_youtube_search_results(term, data.songs, width)
+		if width <= 0 do return
 
-		if width > 0 {
-			lists.build_card_row(
-				"albums",
-				"Albums",
-				data.cards,
-				lists.fit_tile_size(width, ARTIST_ALBUM_POINTS, lists.CARD_GAP_POINTS),
-			)
-			lists.build_card_row(
-				"artists",
-				"Artists",
-				data.similar,
-				lists.fit_tile_size(width, SIMILAR_ARTIST_POINTS, lists.CARD_GAP_POINTS),
-				true,
-			)
-		}
+		lists.build_card_row(
+			"albums",
+			"Albums",
+			data.cards,
+			lists.fit_tile_size(width, ARTIST_ALBUM_POINTS, lists.CARD_GAP_POINTS),
+		)
+		lists.build_card_row(
+			"artists",
+			"Artists",
+			data.similar,
+			lists.fit_tile_size(width, SIMILAR_ARTIST_POINTS, lists.CARD_GAP_POINTS),
+			true,
+		)
 	}
 }
 

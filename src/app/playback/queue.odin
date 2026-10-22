@@ -217,27 +217,29 @@ apply_queue_answer :: proc(request_id: int, answered_id: string) {
 	case .Poll:
 		if !is_current do return
 
-		if persistent_id != "" || helper.now_ms() > queue_state.poll_deadline_ms {
-			if persistent_id == "" {
-				console.add(
-					"Queue",
-					"%s did not reach the library of Music.app.",
-					queue.songs[queue.index].name,
-				)
-			}
+		is_polled := persistent_id != "" || helper.now_ms() > queue_state.poll_deadline_ms
 
-			if persistent_id == "" && fall_back_to_youtube() do return
-
-			queue_state.is_polling = false
-			queue.is_adding = false
-			queue.playing_persistent_id = persistent_id
-			set_queue()
-			if persistent_id != "" do await_start()
+		if !is_polled {
+			queue_state.next_poll_ms = helper.now_ms() + ADD_POLL_SECONDS * 1000
+			platform.request_frame_after(ADD_POLL_SECONDS)
 			return
 		}
 
-		queue_state.next_poll_ms = helper.now_ms() + ADD_POLL_SECONDS * 1000
-		platform.request_frame_after(ADD_POLL_SECONDS)
+		if persistent_id == "" {
+			console.add(
+				"Queue",
+				"%s did not reach the library of Music.app.",
+				queue.songs[queue.index].name,
+			)
+		}
+
+		if persistent_id == "" && fall_back_to_youtube() do return
+
+		queue_state.is_polling = false
+		queue.is_adding = false
+		queue.playing_persistent_id = persistent_id
+		set_queue()
+		if persistent_id != "" do await_start()
 	case .Resume:
 		if persistent_id == "" do return
 

@@ -62,10 +62,11 @@ start_lyrics :: proc() {
 	lyrics_state.shows_translation =
 		(store.find_state("lyricsTranslation", context.temp_allocator) or_else "false") == "true"
 
-	if text, ok := store.find_state("lyricLeadMs", context.temp_allocator); ok {
-		lead_ms, is_number := strconv.parse_int(text)
-		if is_number && abs(lead_ms) <= MAX_LEAD_MS do lyrics_state.lead_ms = lead_ms
-	}
+	text, ok := store.find_state("lyricLeadMs", context.temp_allocator)
+	if !ok do return
+
+	lead_ms, is_number := strconv.parse_int(text)
+	if is_number && abs(lead_ms) <= MAX_LEAD_MS do lyrics_state.lead_ms = lead_ms
 }
 
 // Cmd ] runs the lyrics 50 ms earlier, Cmd [ 50 ms later.
@@ -203,13 +204,10 @@ build_lyrics :: proc() -> bool {
 	first_shown := max(0, lyrics_state.current_index - LINES_BEFORE_CURRENT)
 	target_offset: f32
 	column := ui.find_box("column", view)
+	first_line :=
+		ui.find_box(fmt.tprintf("line %d", first_shown), column) if column != nil else nil
 
-	if column != nil {
-		if first_line := ui.find_box(fmt.tprintf("line %d", first_shown), column);
-		   first_line != nil {
-			target_offset = first_line.rect.y - column.rect.y
-		}
-	}
+	if first_line != nil do target_offset = first_line.rect.y - column.rect.y
 
 	offset := ui.animate("lyrics offset", target_offset, SLIDE_RATE)
 

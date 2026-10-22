@@ -22,10 +22,9 @@ draw :: proc(box: ^Box, clip: [4]f32, parent_opacity: f32) {
 	scale := state.scale
 	rect_pixels := rect * scale
 	clip_pixels := clip * scale
+	is_outside := rect.x > clip.z || rect.z < clip.x || rect.y > clip.w || rect.w < clip.y
 
-	if rect.x > clip.z || rect.z < clip.x || rect.y > clip.w || rect.w < clip.y {
-		if .Clip in style.flags do return
-	}
+	if is_outside && .Clip in style.flags do return
 
 	background := mix(
 		mix(style.background, style.hover_background, box.hot_t),

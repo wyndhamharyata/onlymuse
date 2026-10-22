@@ -160,14 +160,9 @@ find_best :: proc(names, second_names: []string, term: string) -> []int {
 
 	for name, index in names {
 		score := to_match_score(name, term)
+		second := to_match_score(second_names[index], term) if second_names != nil else -1
 
-		if second_names != nil {
-			if second := to_match_score(second_names[index], term);
-			   second >= 0 && (score < 0 || second + 1 < score) {
-				score = second + 1
-			}
-		}
-
+		if second >= 0 && (score < 0 || second + 1 < score) do score = second + 1
 		if score >= 0 do append(&found, Match{index, score})
 	}
 

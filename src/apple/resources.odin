@@ -221,13 +221,12 @@ to_home_shelves :: proc(body: string, allocator := context.allocator) -> []Shelf
 
 	for resource in to_resources(body, allocator) {
 		cards := list_cards(list_related(resource, "contents"), allocator)
+		if len(cards) == 0 do continue
 
-		if len(cards) > 0 {
-			append(
-				&shelves,
-				Shelf{title = resource.attributes.title.string_for_display, cards = cards},
-			)
-		}
+		append(
+			&shelves,
+			Shelf{title = resource.attributes.title.string_for_display, cards = cards},
+		)
 	}
 
 	return shelves[:]
@@ -244,10 +243,9 @@ to_new_shelves :: proc(body: string, allocator := context.allocator) -> []Shelf 
 
 	for element in list_related(tabs[0], "children") {
 		cards := list_cards(list_related(element, "contents"), allocator)
+		if element.attributes.name == "" || len(cards) == 0 do continue
 
-		if element.attributes.name != "" && len(cards) > 0 {
-			append(&shelves, Shelf{title = element.attributes.name, cards = cards})
-		}
+		append(&shelves, Shelf{title = element.attributes.name, cards = cards})
 	}
 
 	return shelves[:]

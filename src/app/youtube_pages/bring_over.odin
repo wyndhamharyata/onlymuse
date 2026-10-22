@@ -29,9 +29,9 @@ build_bring_over_page :: proc(page: core.Page) {
 
 		// Episodes for Later holds podcasts, which Apple Music has no place for.
 		for card in list.cards {
-			if card.id != youtube.PODCAST_EPISODES_ID {
-				append(&playlists, card)
-			}
+			if card.id == youtube.PODCAST_EPISODES_ID do continue
+
+			append(&playlists, card)
 		}
 
 		lists.build_card_grid_page(

@@ -134,12 +134,11 @@ ACCENT_RATE :: 8
 // artwork_source is the player's cover, empty when it has none.
 update_accent :: proc(dt_seconds: f32, artwork_source: string) {
 	target := core.app.system_accent
+	color: image.Color
+	has_color := false
 
-	if source := artwork_source; source != "" {
-		if color, ok := image.find_color(source); ok && color.vividness >= MIN_COVER_VIVIDNESS {
-			target = to_cover_accent(color.rgb)
-		}
-	}
+	if artwork_source != "" do color, has_color = image.find_color(artwork_source)
+	if has_color && color.vividness >= MIN_COVER_VIVIDNESS do target = to_cover_accent(color.rgb)
 
 	t := 1 - math.exp(-ACCENT_RATE * min(dt_seconds, 0.1))
 	core.app.accent += (target - core.app.accent) * t

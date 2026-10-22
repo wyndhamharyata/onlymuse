@@ -141,41 +141,35 @@ build_artist_page :: proc(page_id: string, name: string) {
 
 		build_artist_header(data, detail, width)
 		build_artist_middle(data)
+		if width <= 0 do return
 
-		if width > 0 {
-			lists.build_card_row(
-				"library",
-				"In Your Library",
-				data.library_cards,
-				lists.fit_tile_size(width, ARTIST_ALBUM_POINTS, lists.CARD_GAP_POINTS),
-			)
-			lists.build_card_row(
-				"albums",
-				"Albums",
-				data.cards,
-				lists.fit_tile_size(width, ARTIST_ALBUM_POINTS, lists.CARD_GAP_POINTS),
-			)
+		lists.build_card_row(
+			"library",
+			"In Your Library",
+			data.library_cards,
+			lists.fit_tile_size(width, ARTIST_ALBUM_POINTS, lists.CARD_GAP_POINTS),
+		)
+		lists.build_card_row(
+			"albums",
+			"Albums",
+			data.cards,
+			lists.fit_tile_size(width, ARTIST_ALBUM_POINTS, lists.CARD_GAP_POINTS),
+		)
 
-			for shelf, index in channel.shelves {
-				if is_youtube_only_shelf(shelf) {
-					lists.build_shelf(
-						fmt.tprintf("youtube %d", index),
-						shelf,
-						width,
-						ARTIST_ALBUM_POINTS,
-					)
-				}
-			}
+		for shelf, index in channel.shelves {
+			if !is_youtube_only_shelf(shelf) do continue
 
-			build_recent_songs_shelf(artist_id, data.title)
-			lists.build_card_row(
-				"similar",
-				"Similar Artists",
-				data.similar,
-				lists.fit_tile_size(width, SIMILAR_ARTIST_POINTS, lists.CARD_GAP_POINTS),
-				true,
-			)
+			lists.build_shelf(fmt.tprintf("youtube %d", index), shelf, width, ARTIST_ALBUM_POINTS)
 		}
+
+		build_recent_songs_shelf(artist_id, data.title)
+		lists.build_card_row(
+			"similar",
+			"Similar Artists",
+			data.similar,
+			lists.fit_tile_size(width, SIMILAR_ARTIST_POINTS, lists.CARD_GAP_POINTS),
+			true,
+		)
 	}
 }
 

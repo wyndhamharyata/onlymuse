@@ -103,13 +103,13 @@ start_parts :: proc() {
 // OM_WINDOW=<width>x<height> opens the window at that size in points, for the tests.
 open_main_window :: proc(is_background: bool) {
 	window_size := [2]f32{1200, 800}
+	size_text := os.get_env("OM_WINDOW", context.temp_allocator)
+	width_text, _, height_text := strings.partition(size_text, "x")
 
-	if size_text := os.get_env("OM_WINDOW", context.temp_allocator); size_text != "" {
-		if width_text, _, height_text := strings.partition(size_text, "x"); height_text != "" {
-			window_size = {
-				f32(strconv.parse_f64(width_text) or_else 1200),
-				f32(strconv.parse_f64(height_text) or_else 800),
-			}
+	if height_text != "" {
+		window_size = {
+			f32(strconv.parse_f64(width_text) or_else 1200),
+			f32(strconv.parse_f64(height_text) or_else 800),
 		}
 	}
 

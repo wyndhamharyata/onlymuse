@@ -77,8 +77,8 @@ start_youtube_like :: proc(video_id: string, is_liked: bool) {
 			defer delete(job.video_id)
 			defer free_all(context.temp_allocator)
 
-			if youtube.send_like(job.video_id, job.is_liked) == 200 {
-				apple.refresh(youtube.list_path(youtube.LIKED_ID))
-			}
+			if youtube.send_like(job.video_id, job.is_liked) != 200 do return
+
+			apple.refresh(youtube.list_path(youtube.LIKED_ID))
 		}, self_cleanup = true)
 }

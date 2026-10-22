@@ -214,23 +214,20 @@ save_navigation :: proc() {
 
 // The pages of the last run, with Back and Forward as they were. Albums when there are none.
 start_navigation :: proc() {
-	if text, ok := store.find_state("navigation"); ok {
-		saved: Saved_Navigation
+	text, has_text := store.find_state("navigation")
+	saved: Saved_Navigation
+	is_read := has_text && json.unmarshal_string(text, &saved) == nil
 
-		if json.unmarshal_string(text, &saved) == nil {
-			for saved_page, index in saved.pages {
-				page, is_page := to_page(saved_page)
-				if !is_page do continue
+	if is_read {
+		for saved_page, index in saved.pages {
+			page, is_page := to_page(saved_page)
+			if !is_page do continue
 
-				append(&navigation.pages, page)
-				append(
-					&navigation.scrolls,
-					saved.scrolls[index] if index < len(saved.scrolls) else 0,
-				)
-			}
-
-			navigation.index = clamp(saved.index, 0, len(navigation.pages) - 1)
+			append(&navigation.pages, page)
+			append(&navigation.scrolls, saved.scrolls[index] if index < len(saved.scrolls) else 0)
 		}
+
+		navigation.index = clamp(saved.index, 0, len(navigation.pages) - 1)
 	}
 
 	if len(navigation.pages) == 0 {
@@ -275,10 +272,10 @@ keep_scroll :: proc(page_box: ^ui.Box) {
 		restore.frames_left = 0
 	}
 
-	if page_box.scroll != saved {
-		navigation.scrolls[index] = page_box.scroll
-		is_scroll_changed = true
-	}
+	if page_box.scroll == saved do return
+
+	navigation.scrolls[index] = page_box.scroll
+	is_scroll_changed = true
 }
 
 // 2 s at 120 Hz.

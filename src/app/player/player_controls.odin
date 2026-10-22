@@ -76,12 +76,12 @@ build_controls :: proc() {
 			play.draw = kit.draw_icon
 			play.data = paint
 
-			if ui.signal(play).is_clicked {
-				if playback.is_resume_shown() {
-					playback.resume_last_song()
-				} else {
-					helper.send(`{"type":"playPause"}`)
-				}
+			is_play_clicked := ui.signal(play).is_clicked
+
+			if is_play_clicked && playback.is_resume_shown() {
+				playback.resume_last_song()
+			} else if is_play_clicked {
+				helper.send(`{"type":"playPause"}`)
 			}
 
 			if kit.icon_button("next", "forward.fill", 17, kit.colors.text) {

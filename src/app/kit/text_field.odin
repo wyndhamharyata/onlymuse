@@ -272,9 +272,8 @@ build_text_field :: proc(
 			line.style.background = to_accent_tint(core.app.accent)
 		}
 
-		if is_focused {
-			if ui.scope(line) do build_caret(line, text[:cursor], field.marked, font_size)
-		}
+		if !is_focused do return box
+		if ui.scope(line) do build_caret(line, text[:cursor], field.marked, font_size)
 	}
 
 	return box

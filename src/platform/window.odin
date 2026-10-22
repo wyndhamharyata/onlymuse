@@ -183,15 +183,15 @@ run_frame :: proc() {
 	state.event_arena_index = 1 - state.event_arena_index
 	runtime.arena_free_all(&state.event_arena[state.event_arena_index])
 
-	if !wants_more && state.is_link_running {
-		state.is_link_running = false
+	if wants_more || !state.is_link_running do return
 
-		if state.is_background {
-			msg_send(nil, state.frame_timer, "invalidate")
-			state.frame_timer = nil
-		} else {
-			msg_send(nil, state.display_link, "setPaused:", NS.BOOL(true))
-		}
+	state.is_link_running = false
+
+	if state.is_background {
+		msg_send(nil, state.frame_timer, "invalidate")
+		state.frame_timer = nil
+	} else {
+		msg_send(nil, state.display_link, "setPaused:", NS.BOOL(true))
 	}
 }
 
@@ -206,11 +206,7 @@ run :: proc() {
 			true,
 		)
 
-		if event != nil {
-			is_taken := take_event(event)
-
-			if !is_taken do state.app->sendEvent(event)
-		}
+		if event != nil && !take_event(event) do state.app->sendEvent(event)
 
 		pool->drain()
 	}

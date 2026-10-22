@@ -189,11 +189,10 @@ build_detail_card :: proc(id, title: string, rows: []Detail, weight: f32) {
 					row.value,
 				)
 
-				if row.label == "ISRC" {
-					if kit.icon_button("copy isrc", "doc.on.doc", 11, kit.colors.dim) {
-						platform.write_clipboard(row.value)
-						kit.show_toast("Copied the ISRC")
-					}
+				if row.label == "ISRC" &&
+				   kit.icon_button("copy isrc", "doc.on.doc", 11, kit.colors.dim) {
+					platform.write_clipboard(row.value)
+					kit.show_toast("Copied the ISRC")
 				}
 			}
 		}

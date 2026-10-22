@@ -144,14 +144,16 @@ find :: proc(
 
 	entry.last_drawn_frame = state.frame_index
 
-	if entry.phase != .Ready {
-		if stand_in, has_stand_in := find_stand_in(entry.family, key, crop); has_stand_in {
-			entry.had_stand_in = true
-			stand_in.last_drawn_frame = state.frame_index
-			if entry.phase == .Waiting do append(&state.waiting, key)
+	stand_in: ^Entry
+	has_stand_in: bool
+	if entry.phase != .Ready do stand_in, has_stand_in = find_stand_in(entry.family, key, crop)
 
-			return stand_in.texture, 1
-		}
+	if has_stand_in {
+		entry.had_stand_in = true
+		stand_in.last_drawn_frame = state.frame_index
+		if entry.phase == .Waiting do append(&state.waiting, key)
+
+		return stand_in.texture, 1
 	}
 
 	switch entry.phase {

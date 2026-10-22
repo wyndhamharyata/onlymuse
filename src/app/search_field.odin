@@ -12,13 +12,13 @@ search_field: kit.Text_Field
 start_search_field :: proc() {
 	kit.register_text_field(&search_field)
 
-	if saved, ok := store.find_state("searchTerm", context.temp_allocator); ok {
-		term: string
+	saved, ok := store.find_state("searchTerm", context.temp_allocator)
+	if !ok do return
 
-		if json.unmarshal_string(saved, &term, allocator = context.temp_allocator) == nil {
-			kit.set_field_text(&search_field, term)
-		}
-	}
+	term: string
+	if json.unmarshal_string(saved, &term, allocator = context.temp_allocator) != nil do return
+
+	kit.set_field_text(&search_field, term)
 }
 
 // The term is kept for the next run. Return searches.

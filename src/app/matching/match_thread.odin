@@ -191,9 +191,9 @@ search_albums :: proc(song: core.Catalog_Song) -> ([]string, int) {
 			has_same_title(song.album_name, album.attributes.name) &&
 			is_same_artist(song.artist_name, album.attributes.artist_name)
 
-		if is_same_album && len(ids) < MAX_FOUND_ALBUM_COUNT {
-			append(&ids, strings.clone(album.id))
-		}
+		if !is_same_album || len(ids) >= MAX_FOUND_ALBUM_COUNT do continue
+
+		append(&ids, strings.clone(album.id))
 	}
 
 	return ids[:], 200

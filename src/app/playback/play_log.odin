@@ -28,33 +28,31 @@ update_play_log :: proc() {
 	now_playing := core.app.now_playing
 	has_song := now_playing.playback == .Playing || now_playing.playback == .Paused
 	persistent_id := now_playing.song.persistent_id if has_song else ""
+	is_new_song := persistent_id != listening.persistent_id
 
-	if persistent_id != listening.persistent_id {
-		finish_listening()
+	if is_new_song do finish_listening()
+	if persistent_id == "" do return
 
-		if persistent_id != "" {
-			song := now_playing.song
-			queue_song, is_queue_song := find_queue_song(persistent_id)
+	if is_new_song {
+		song := now_playing.song
+		queue_song, is_queue_song := find_queue_song(persistent_id)
 
-			listening.persistent_id = strings.clone(persistent_id)
-			listening.duration_seconds = song.duration_seconds
-			listening.song = {
-				catalog_id = strings.clone(queue_song.id if is_queue_song else ""),
-				name       = strings.clone(song.name),
-				artist     = strings.clone(song.artist),
-				album      = strings.clone(song.album),
-			}
+		listening.persistent_id = strings.clone(persistent_id)
+		listening.duration_seconds = song.duration_seconds
+		listening.song = {
+			catalog_id = strings.clone(queue_song.id if is_queue_song else ""),
+			name       = strings.clone(song.name),
+			artist     = strings.clone(song.artist),
+			album      = strings.clone(song.album),
 		}
 	}
 
-	if persistent_id != "" {
-		position := helper.position_seconds(now_playing)
+	position := helper.position_seconds(now_playing)
 
-		listening.furthest_seconds = max(
-			listening.furthest_seconds,
-			min(position, listening.duration_seconds),
-		)
-	}
+	listening.furthest_seconds = max(
+		listening.furthest_seconds,
+		min(position, listening.duration_seconds),
+	)
 }
 
 @(private = "file")

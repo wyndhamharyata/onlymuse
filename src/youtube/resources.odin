@@ -152,17 +152,17 @@ read_shelf :: proc(reader: ^Reader, value: json.Value) {
 		}
 	}
 
-	if len(cards) > 0 {
-		append(
-			&reader.shelves,
-			apple.Shelf {
-				title = clone(reader, title),
-				cards = cards[:],
-				is_youtube = true,
-				is_wide = is_wide,
-			},
-		)
-	}
+	if len(cards) == 0 do return
+
+	append(
+		&reader.shelves,
+		apple.Shelf {
+			title = clone(reader, title),
+			cards = cards[:],
+			is_youtube = true,
+			is_wide = is_wide,
+		},
+	)
 }
 
 @(private)

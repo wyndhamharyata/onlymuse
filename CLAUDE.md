@@ -61,7 +61,7 @@ tools/              The test stand-ins: a fake Music.app and helper, and a mouse
 scripts/            The signing certificate.
 app/                The app's Info.plist and AppIcon.icns, which ./build.sh app puts in onlymuse.app.
 design/             The mock, and the app icon: design/icon.html shows the four drawn, app-icon.svg is the one kept.
-docs/               The plans and mocks of later features.
+docs/               The plans and mocks of later features. docs/explain/ explains how the code works.
 experiments/        The scripts behind NOTES.md. am.sh asks Apple's API with the web player's tokens.
 ```
 

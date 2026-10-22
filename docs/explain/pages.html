@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="code-explainer" content="commit=c98b085fe0ce34cc0021f1d747ffbe70eaf2841e">
+<title>Pages and their data · How onlymuse works</title>
+<link rel="stylesheet" href="explainer.css">
+</head>
+<body data-root="../..">
+<nav>
+<a href="index.html">How onlymuse works</a>
+<a href="window.html">The window and a frame</a>
+<a href="pages.html">Pages and their data</a>
+<a href="playback.html">Playback</a>
+<a href="player.html">The player</a>
+<a href="journey.html">Journey: play a song</a>
+</nav>
+<h1>Pages and their data</h1>
+
+<p>This page follows one page of the window from a click to the songs on the screen. It covers the data under each page. It does not cover how a frame draws. For that, read <a href="window.html">The window and a frame</a>. For what happens after a click on a song, read <a href="playback.html">Playback</a>.</p>
+
+<h2>What you see</h2>
+
+<p>The sidebar on the left lists the pages in four groups:</p>
+<ul>
+<li><strong>Apple Music</strong> holds Home and New.</li>
+<li><strong>YouTube Music</strong> holds Mixes, Liked Music and Bring Over.</li>
+<li><strong>Library</strong> holds Favourite Songs, Recently Added, Artists, Albums, Songs and Downloaded.</li>
+<li><strong>Playlists</strong> holds the library playlists of the account.</li>
+</ul>
+
+<p>Home and New show <em>shelves</em>. A shelf is one named row, such as Made for You. Each tile on a shelf is a <em>card</em>: an album, an artist, a playlist or a song. Home shows Apple's shelves and YouTube Music's shelves in turn. A YouTube shelf has YouTube's mark before its name.</p>
+
+<p>A click on an album card opens the album page. The page shows the cover, the title, the artist and badges such as "LOSSLESS" and "In Library". Under them are the Play and Shuffle buttons and a numbered row for each song. A playlist page and the library song pages show a list of <em>song rows</em>. Each row has a small cover, the name, the artist and album, a heart and the length.</p>
+
+<p>A right-click on a song row opens the <em>song menu</em>. It holds "Play Next", "Add to Playlist", "Favourite", "Go to Artist" and "Copy Link", and some more items for YouTube songs. Cmd K opens the <em>command palette</em>. Its field says "Go to a page, an artist, a song, or do something". The palette finds pages, playlists, library artists, albums and songs, and Apple Music's catalog.</p>
+
+<p>While a page waits for its data, it shows "Loading…". When Apple refuses and the app has no saved answer, the page shows "Apple Music could not be reached."</p>
+
+<h2>From a click to the songs on the screen</h2>
+
+<p>The window builds every box again in each frame. If that idea is new to you, read <a href="index.html#immediate-ui">immediate-mode UI</a> and <a href="index.html#frame-loop">the frame loop</a> first. So a page never "loads" once. In each frame, the page asks for its data again and shows what there is so far. Step through the diagram, or click a box.</p>
+
+<figure class="diagram">
+<script type="application/json">
+{
+  "nodes": [
+    {"id": "nav", "label": "navigate", "x": 20, "y": 20, "src": "src/app/core/navigation.odin:60", "symbol": "navigate", "info": "Puts the chosen page after the current one in the history and saves the history in the store."},
+    {"id": "build", "label": "build_page", "x": 240, "y": 20, "src": "src/app/pages.odin:58", "symbol": "build_page", "info": "In each frame, picks the procedure that builds the current page, by the page's kind."},
+    {"id": "album", "label": "build_album_page", "x": 460, "y": 20, "src": "src/app/browse/album_page.odin:21", "symbol": "build_album_page", "info": "Makes the path of the album in Apple's API, watches it and builds the header and the songs."},
+    {"id": "data", "label": "find_page_data", "x": 680, "y": 20, "src": "src/app/core/page_data.odin:44", "symbol": "find_page_data", "info": "Keeps what the page read from its answers, in an arena of its own. It says when the answers changed."},
+    {"id": "watch", "label": "apple.watch", "x": 460, "y": 140, "src": "src/apple/cache.odin:120", "symbol": "watch", "info": "Returns the answer for a path as it stands now. It never waits for the network."},
+    {"id": "store", "label": "SQLite store", "x": 240, "y": 140, "src": "src/store/store.odin:144", "symbol": "find_answer", "info": "The responses table holds every answer from Apple and YouTube, by its path, with the time it came."},
+    {"id": "check", "label": "check (worker)", "x": 460, "y": 260, "src": "src/apple/cache.odin:174", "symbol": "check", "info": "Runs on one of four worker threads. It asks the source for the path and keeps the new answer."},
+    {"id": "net", "label": "net.fetch", "x": 240, "y": 260, "src": "src/net/net.odin:54", "symbol": "fetch", "info": "Sends the HTTP request through libcurl and blocks its thread until the answer comes."}
+  ],
+  "edges": [
+    {"from": "nav", "to": "build", "label": "Page"},
+    {"from": "build", "to": "album", "label": "page.id"},
+    {"from": "album", "to": "watch", "label": "path"},
+    {"from": "watch", "to": "store", "label": "find_answer"},
+    {"from": "watch", "to": "check", "label": "task"},
+    {"from": "check", "to": "net", "label": "GET"},
+    {"from": "check", "to": "store", "label": "save_answer"},
+    {"from": "album", "to": "data", "label": "version"}
+  ],
+  "steps": [
+    {"active": ["nav"], "text": "The person clicks an album card. open_card calls navigate with an Album page that holds the album's ID."},
+    {"active": ["nav", "build"], "edges": [0], "text": "In the next frame, build_page_area reads the current page. build_page sees the kind Album."},
+    {"active": ["build", "album"], "edges": [1], "text": "build_page calls build_album_page with the album's ID. This call happens again in every frame while the page shows."},
+    {"active": ["album", "watch"], "edges": [2], "text": "build_album_page makes the path /v1/catalog/id/albums/ID and calls apple.watch with it."},
+    {"active": ["watch", "store"], "edges": [3], "text": "The cache has no entry for the path yet. watch looks in the SQLite store. A saved answer shows at once."},
+    {"active": ["watch", "check"], "edges": [4], "text": "With no saved answer, or an old one, watch gives the path to a worker thread. It returns the phase Loading now."},
+    {"active": ["check", "net"], "edges": [5], "text": "On the worker, check asks Apple's API. net.fetch waits for the answer through libcurl."},
+    {"active": ["check", "store"], "edges": [6], "text": "Apple answers 200. check saves the body in the store, gives it a new version and wakes the window."},
+    {"active": ["album", "watch", "data"], "edges": [2, 7], "text": "A later frame calls watch again and gets the phase Ready. find_page_data sees a new version, so read_album reads the body once."},
+    {"active": ["album", "data"], "edges": [7], "text": "The frames after that find the same version. They build the header and the songs from the page data and read no JSON."}
+  ]
+}
+</script>
+</figure>
+
+<h2>Apple, YouTube and the cache they share</h2>
+
+<p>The app reads two outside services. <a class="src" data-src="src/apple/apple.odin:13" data-symbol="BASE_URL" href="../../src/apple/apple.odin">src/apple</a> is the one package that asks amp-api.music.apple.com. <a class="src" data-src="src/youtube/youtube.odin:16" data-symbol="BASE_URL" href="../../src/youtube/youtube.odin">src/youtube</a> is the one package that asks music.youtube.com. Both go through one cache and one SQLite table.</p>
+
+<figure class="diagram">
+<script type="application/json">
+{
+  "nodes": [
+    {"id": "apple_pages", "label": "Apple Music pages", "x": 20, "y": 20, "src": "src/app/browse/catalog_pages.odin:13", "symbol": "build_shelves_page", "info": "Home, New, albums, artists, playlists and search. They call apple.watch with a path of Apple's API."},
+    {"id": "yt_pages", "label": "YouTube pages", "x": 20, "y": 200, "src": "src/app/youtube_pages/youtube_pages.odin:19", "symbol": "build_youtube_playlist_page", "info": "Liked Music, a YouTube playlist, Mixes and Bring Over. They read YouTube's lists through youtube_lists."},
+    {"id": "yt_list", "label": "watch_youtube_list", "x": 240, "y": 200, "src": "src/app/youtube_lists/lists.odin:32", "symbol": "watch_youtube_list", "info": "Watches a youtube/ path and reads the answer into a youtube.List once for each version."},
+    {"id": "watch", "label": "apple.watch", "x": 460, "y": 110, "src": "src/apple/cache.odin:120", "symbol": "watch", "info": "The one cache. Each entry holds a path, its body, its phase and its version."},
+    {"id": "store", "label": "responses table", "x": 460, "y": 250, "src": "src/store/store.odin:156", "symbol": "save_answer", "info": "The SQLite table that keeps each answer by path. The app reads it at the next start, and offline."},
+    {"id": "source", "label": "send_to_source", "x": 680, "y": 110, "src": "src/apple/cache.odin:75", "symbol": "send_to_source", "info": "Sends a path that starts with youtube/ to src/youtube. Every other path goes to Apple."},
+    {"id": "apple_api", "label": "Apple's API", "x": 680, "y": 20, "src": "src/apple/apple.odin:88", "symbol": "send_request", "info": "Sends a GET with the developer token and the user token. On 401 or 403 it asks the helper for fresh tokens and tries once more."},
+    {"id": "yt_api", "label": "YouTube Music", "x": 680, "y": 200, "src": "src/youtube/youtube.odin:133", "symbol": "send_request", "info": "Sends a POST with the JSON after the ? of the path. With a sign-in, it sends the Helium cookie and a SAPISIDHASH."}
+  ],
+  "edges": [
+    {"from": "apple_pages", "to": "watch", "label": "/v1/…"},
+    {"from": "yt_pages", "to": "yt_list"},
+    {"from": "apple_pages", "to": "yt_list", "label": "Home"},
+    {"from": "yt_list", "to": "watch", "label": "youtube/…"},
+    {"from": "watch", "to": "store"},
+    {"from": "watch", "to": "source", "label": "check"},
+    {"from": "source", "to": "apple_api"},
+    {"from": "source", "to": "yt_api"}
+  ],
+  "steps": [
+    {"active": ["apple_pages", "watch"], "edges": [0], "text": "An Apple Music page watches a path of Apple's API, such as /v1/me/recommendations?limit=10 for Home."},
+    {"active": ["yt_pages", "yt_list", "watch"], "edges": [1, 3], "text": "A YouTube page watches a path that starts with youtube/, such as youtube/browse?{\"browseId\":\"VLLM\"} for Liked Music."},
+    {"active": ["apple_pages", "yt_list"], "edges": [2], "text": "Home watches YouTube's home too. It shows Apple's shelves and YouTube's shelves in turn."},
+    {"active": ["watch", "store"], "edges": [4], "text": "Both kinds of path use the same entries, the same worker threads and the same SQLite table."},
+    {"active": ["watch", "source", "apple_api"], "edges": [5, 6], "text": "A worker's check calls send_to_source. A path of Apple's API goes to apple's send_request."},
+    {"active": ["watch", "source", "yt_api"], "edges": [5, 7], "text": "A youtube/ path goes to youtube's send_request. youtube.start registered it with apple.add_source."}
+  ]
+}
+</script>
+</figure>
+
+<h2>Navigation</h2>
+
+<p>A <a class="src" data-src="src/app/core/navigation.odin:35" data-symbol="Page" href="../../src/app/core/navigation.odin">Page</a> holds a kind, an ID and a title. The ID is a playlist, album or artist ID, or the search term. <a class="src" data-src="src/app/core/navigation.odin:8" data-symbol="Page_Kind" href="../../src/app/core/navigation.odin">Page_Kind</a> lists every page the window can show.</p>
+
+<p>The history is a list of pages, with one scroll position for each, and an index. <a class="src" data-src="src/app/core/navigation.odin:60" data-symbol="navigate" href="../../src/app/core/navigation.odin">navigate</a> drops the pages that Forward would show, then appends the new page. It keeps at most <a class="src" data-src="src/app/core/navigation.odin:42" data-symbol="MAX_PAGE_COUNT" href="../../src/app/core/navigation.odin">MAX_PAGE_COUNT</a> pages, which is 50. navigate clones the ID and the title. A card's text lives in its page's arena, and the app can free that arena later.</p>
+
+<p>Every change to the history calls <a class="src" data-src="src/app/core/navigation.odin:204" data-symbol="save_navigation" href="../../src/app/core/navigation.odin">save_navigation</a>. It writes the history as JSON under the state key "navigation". At the next start, <a class="src" data-src="src/app/core/navigation.odin:216" data-symbol="start_navigation" href="../../src/app/core/navigation.odin">start_navigation</a> reads it back, with Back and Forward as they were. With no saved history, the window opens on Home.</p>
+
+<p>The sidebar calls navigate when the person clicks a row (<a class="src" data-src="src/app/sidebar.odin:112" data-symbol="core.navigate" href="../../src/app/sidebar.odin">sidebar.odin</a>). The search field calls it with a Search page (<a class="src" data-src="src/app/search_field.odin:36" data-symbol="core.navigate" href="../../src/app/search_field.odin">search_field.odin</a>). A card calls it through <a class="src" data-src="src/app/lists/cards.odin:232" data-symbol="open_card" href="../../src/app/lists/cards.odin">open_card</a>.</p>
+
+<p>In each frame, <a class="src" data-src="src/app/pages.odin:13" data-symbol="build_page_area" href="../../src/app/pages.odin">build_page_area</a> builds the Back and Forward buttons and then the current page. <a class="src" data-src="src/app/pages.odin:58" data-symbol="build_page" href="../../src/app/pages.odin">build_page</a> holds one switch case for each kind. The page's scroll box gets its saved place back through <a class="src" data-src="src/app/core/navigation.odin:244" data-symbol="keep_scroll" href="../../src/app/core/navigation.odin">keep_scroll</a>. The content may still load, so keep_scroll sets the place again for up to 2 s.</p>
+
+<h2>Page data and arenas</h2>
+
+<p>A page calls <code>apple.watch</code> in every frame. Reading a large JSON answer in every frame costs too much time. So a page reads each answer once and keeps the result in a <a class="src" data-src="src/app/core/page_data.odin:15" data-symbol="Page_Data" href="../../src/app/core/page_data.odin">Page_Data</a>. Page_Data has fields for what pages show: a title, shelves, cards, songs, badges and more.</p>
+
+<p>Each Page_Data owns an arena. If arenas are new to you, read <a href="index.html#memory">memory in onlymuse</a>. <a class="src" data-src="src/app/core/page_data.odin:44" data-symbol="find_page_data" href="../../src/app/core/page_data.odin">find_page_data</a> takes a key, a signature and a phase:</p>
+<ul>
+<li>The key is the path the page watches.</li>
+<li>The signature is a number made from the versions of the answers. A page that watches two answers mixes both versions into one number.</li>
+<li>When the signature or the phase differs from the stored one, find_page_data returns a fresh, empty Page_Data with <code>is_stale</code> true.</li>
+</ul>
+
+<p>The page then reads the answer into that arena. For an album, <a class="src" data-src="src/app/browse/album_page.odin:74" data-symbol="read_album" href="../../src/app/browse/album_page.odin">read_album</a> reads the title, the artist, the songs, the detail line and the badges. It uses <a class="src" data-src="src/app/core/page_data.odin:110" data-symbol="page_allocator" href="../../src/app/core/page_data.odin">page_allocator</a> for each string.</p>
+
+<p>Boxes point at the page data's text until the frame ends. So find_page_data never frees the old arena at once. It hands the arena to <a class="src" data-src="src/app/core/page_data.odin:78" data-symbol="retire_arena" href="../../src/app/core/page_data.odin">retire_arena</a>. At the start of the next frame, <a class="src" data-src="src/app/core/page_data.odin:87" data-symbol="free_retired_memory" href="../../src/app/core/page_data.odin">free_retired_memory</a> frees it. The same procedure frees the page data of a page that no frame asked for in <a class="src" data-src="src/app/core/page_data.odin:84" data-symbol="UNUSED_PAGE_MS" href="../../src/app/core/page_data.odin">UNUSED_PAGE_MS</a>, five minutes. The answers stay in the store, so that page comes back at once.</p>
+
+<p>The library lists use page data too. <a class="src" data-src="src/app/core/library.odin:15" data-symbol="list_library_songs" href="../../src/app/core/library.odin">list_library_songs</a>, list_library_albums, list_library_artists and <a class="src" data-src="src/app/core/library.odin:64" data-symbol="list_playlists" href="../../src/app/core/library.odin">list_playlists</a> each return what the library holds so far. Apple sends a library list 100 items at a time. <a class="src" data-src="src/app/core/library.odin:96" data-symbol="watch_all_pages" href="../../src/app/core/library.odin">watch_all_pages</a> watches one path for each part and follows Apple's offset to the next part.</p>
+
+<h2>The cache and the SQLite store</h2>
+
+<p><a class="src" data-src="src/apple/cache.odin:120" data-symbol="watch" href="../../src/apple/cache.odin">apple.watch</a> returns a <a class="src" data-src="src/apple/cache.odin:18" data-symbol="Watched" href="../../src/apple/cache.odin">Watched</a>: a phase, a body, a version and a status. The <a class="src" data-src="src/apple/cache.odin:11" data-symbol="Phase" href="../../src/apple/cache.odin">Phase</a> is Loading, Ready or Failed. The version counts up each time a newer body replaces the old one.</p>
+
+<p>For a path it has not seen, watch does three things:</p>
+<ol>
+<li>It looks in the store with <a class="src" data-src="src/store/store.odin:144" data-symbol="find_answer" href="../../src/store/store.odin">find_answer</a>. A saved answer makes the entry Ready at once.</li>
+<li>It compares the saved answer's age with <a class="src" data-src="src/apple/cache.odin:87" data-symbol="fresh_rules" href="../../src/apple/cache.odin">fresh_rules</a>. A catalog answer stays fresh for 24 hours. Recommendations stay fresh for 10 minutes. Any other <code>/v1/me/</code> answer is never fresh.</li>
+<li>When the answer is missing or old, it gives the path to <a class="src" data-src="src/apple/cache.odin:174" data-symbol="check" href="../../src/apple/cache.odin">check</a> on a pool of <a class="src" data-src="src/apple/cache.odin:116" data-symbol="CHECK_THREAD_COUNT" href="../../src/apple/cache.odin">CHECK_THREAD_COUNT</a> threads, which is 4.</li>
+</ol>
+
+<p>check runs on a worker. It gets the answer and, on status 200, saves it with <a class="src" data-src="src/store/store.odin:156" data-symbol="save_answer" href="../../src/store/store.odin">save_answer</a>. A new body gets a new version. A failed check keeps the saved answer, so the app works offline. Then check calls <a class="src" data-src="src/platform/window.odin:258" data-symbol="wake" href="../../src/platform/window.odin">platform.wake</a>, so the window builds a frame that shows the change. A failed path gets a new try when a page watches it 30 s after the failure (<a class="src" data-src="src/apple/cache.odin:40" data-symbol="FAILED_RETRY_MS" href="../../src/apple/cache.odin">FAILED_RETRY_MS</a>).</p>
+
+<p>A write to the library calls <a class="src" data-src="src/apple/cache.odin:217" data-symbol="refresh" href="../../src/apple/cache.odin">refresh</a>. It asks again for one path and keeps the saved body until the new one comes. A YouTube sign-in calls <a class="src" data-src="src/apple/cache.odin:205" data-symbol="refresh_all" href="../../src/apple/cache.odin">refresh_all</a> with the prefix youtube/. The cache frees a replaced body one frame later, in <a class="src" data-src="src/apple/cache.odin:228" data-symbol="free_retired_bodies" href="../../src/apple/cache.odin">free_retired_bodies</a>. It lets go of an answer no page watched in five minutes.</p>
+
+<p>Apple's requests go through <a class="src" data-src="src/apple/apple.odin:88" data-symbol="send_request" href="../../src/apple/apple.odin">send_request</a>. It sends the developer token and the user token, which the helper reads from a hidden music.apple.com page (<a class="src" data-src="src/apple/apple.odin:42" data-symbol="set_tokens" href="../../src/apple/apple.odin">set_tokens</a>). For the helper, read <a href="index.html#helper">the helper</a>. On 401 or 403, send_request asks the helper for fresh tokens and sends the request one more time. In the first 30 s after the start, a request waits for the tokens (<a class="src" data-src="src/apple/apple.odin:19" data-symbol="TOKEN_WAIT" href="../../src/apple/apple.odin">TOKEN_WAIT</a>).</p>
+
+<p><a class="src" data-src="src/net/net.odin:54" data-symbol="fetch" href="../../src/net/net.odin">net.fetch</a> sends each HTTP request through libcurl. Each thread keeps its own curl handle, so curl reuses its connections. It waits at most 15 s (<a class="src" data-src="src/net/net.odin:20" data-symbol="TIMEOUT_MS" href="../../src/net/net.odin">TIMEOUT_MS</a>). On no answer, 429 or a 5xx status, it tries a GET again after 250, 500 and 1000 ms. It never tries a POST again, as a second POST could put a song in the library twice.</p>
+
+<p>The store is one SQLite file in <code>~/Library/Application Support/onlymuse-native</code>. If SQLite is new to you, read <a href="index.html#sqlite">SQLite</a>. <a class="src" data-src="src/store/store.odin:26" data-symbol="SCHEMA" href="../../src/store/store.odin">SCHEMA</a> makes five tables:</p>
+<ul>
+<li><code>responses</code> holds each answer by its path.</li>
+<li><code>plays</code> holds the play log.</li>
+<li><code>state</code> holds saved values as JSON, such as the history and the panel (<a class="src" data-src="src/store/store.odin:183" data-symbol="save_state" href="../../src/store/store.odin">save_state</a>).</li>
+<li><code>matches</code> and <code>rejected_matches</code> hold the Apple Music song each YouTube song is.</li>
+</ul>
+<p>The worker threads and the main thread share one connection. <a class="src" data-src="src/store/store.odin:69" data-symbol="start" href="../../src/store/store.odin">start</a> opens it with SQLITE_OPEN_FULLMUTEX, which lets several threads use it.</p>
+
+<h2>YouTube lists</h2>
+
+<p>src/youtube speaks YouTube Music's web API. A YouTube path looks like <code>youtube/browse?{"browseId":"FEmusic_home"}</code>. The JSON after the <code>?</code> is the request body. <a class="src" data-src="src/youtube/youtube.odin:35" data-symbol="start" href="../../src/youtube/youtube.odin">youtube.start</a> registers <a class="src" data-src="src/youtube/youtube.odin:133" data-symbol="send_request" href="../../src/youtube/youtube.odin">send_request</a> for the prefix youtube/ with <a class="src" data-src="src/apple/cache.odin:70" data-symbol="add_source" href="../../src/apple/cache.odin">apple.add_source</a>. So YouTube's answers go through apple's cache and the same SQLite table.</p>
+
+<p>With a sign-in, send_request sends the cookie that the helper read from the Helium browser. It signs each request with <a class="src" data-src="src/youtube/youtube.odin:201" data-symbol="to_authorization" href="../../src/youtube/youtube.odin">to_authorization</a>, a SHA-1 of the time, the SAPISID cookie and the origin. <a class="src" data-src="src/app/youtube_pages/youtube_pages.odin:97" data-symbol="apply_youtube_cookie" href="../../src/app/youtube_pages/youtube_pages.odin">apply_youtube_cookie</a> takes in a new cookie. When the sign-in changes, it asks again for every YouTube answer.</p>
+
+<p><a class="src" data-src="src/youtube/resources.odin:51" data-symbol="to_list" href="../../src/youtube/resources.odin">to_list</a> reads any browse, search or next answer into a <a class="src" data-src="src/youtube/resources.odin:13" data-symbol="List" href="../../src/youtube/resources.odin">List</a>: a header, songs, shelves, cards and a continuation token. The songs and cards use apple's own Catalog_Song and Card types. So one song row or one card works for both services. A YouTube song has the ID <code>yt:</code> and its video ID.</p>
+
+<p>src/app/youtube_lists reads YouTube's answers for the pages:</p>
+<ul>
+<li><a class="src" data-src="src/app/youtube_lists/lists.odin:32" data-symbol="watch_youtube_list" href="../../src/app/youtube_lists/lists.odin">watch_youtube_list</a> watches one path and reads its List once for each version, into an arena of its own.</li>
+<li><a class="src" data-src="src/app/youtube_lists/lists.odin:78" data-symbol="watch_youtube_songs" href="../../src/app/youtube_lists/lists.odin">watch_youtube_songs</a> follows the continuation tokens of a long list, up to 50 parts. It copies every song into one Page_Data with <a class="src" data-src="src/app/core/songs.odin:9" data-symbol="copy_song" href="../../src/app/core/songs.odin">copy_song</a>.</li>
+<li><a class="src" data-src="src/app/youtube_lists/lists.odin:123" data-symbol="watch_youtube_home" href="../../src/app/youtube_lists/lists.odin">watch_youtube_home</a> reads up to 6 parts of YouTube's home. <a class="src" data-src="src/app/youtube_lists/lists.odin:150" data-symbol="merge_youtube_shelves" href="../../src/app/youtube_lists/lists.odin">merge_youtube_shelves</a> puts its shelves between Apple's on Home.</li>
+<li><a class="src" data-src="src/app/youtube_lists/lists.odin:174" data-symbol="watch_youtube_artist" href="../../src/app/youtube_lists/lists.odin">watch_youtube_artist</a> finds the YouTube channel with an artist's name, for the artist page.</li>
+<li><a class="src" data-src="src/app/youtube_lists/playlist_songs.odin:92" data-symbol="merge_playlist_youtube_songs" href="../../src/app/youtube_lists/playlist_songs.odin">merge_playlist_youtube_songs</a> puts the YouTube songs that onlymuse keeps for a library playlist among its Apple songs. Apple's playlists hold only Apple songs.</li>
+</ul>
+
+<p>The YouTube pages use these. <a class="src" data-src="src/app/youtube_pages/youtube_pages.odin:19" data-symbol="build_youtube_playlist_page" href="../../src/app/youtube_pages/youtube_pages.odin">build_youtube_playlist_page</a> shows Liked Music and any YouTube album, playlist or mix. <a class="src" data-src="src/app/youtube_pages/youtube_pages.odin:35" data-symbol="build_youtube_mixes_page" href="../../src/app/youtube_pages/youtube_pages.odin">build_youtube_mixes_page</a> picks the mixes from YouTube's home. A mix is a playlist with an ID that starts with "RD" or "VLRD". On the search page, <a class="src" data-src="src/app/youtube_pages/youtube_pages.odin:122" data-symbol="build_youtube_search_results" href="../../src/app/youtube_pages/youtube_pages.odin">build_youtube_search_results</a> shows "From YouTube" songs that Apple lacks, and "Videos on YouTube".</p>
+
+<h2>Cards and rows</h2>
+
+<p>src/app/lists holds the cards, song rows and grids that more than one page shows. They take the data a page already read and build boxes. They never watch a path themselves.</p>
+<ul>
+<li><a class="src" data-src="src/app/lists/cards.odin:35" data-symbol="build_shelf" href="../../src/app/lists/cards.odin">build_shelf</a> builds one shelf from Apple or YouTube. A shelf of videos gets wide tiles in 16:9.</li>
+<li><a class="src" data-src="src/app/lists/cards.odin:50" data-symbol="build_card_row" href="../../src/app/lists/cards.odin">build_card_row</a> builds only the tiles in view, plus 2 on each side. Empty boxes keep the width of the other tiles.</li>
+<li><a class="src" data-src="src/app/lists/cards.odin:152" data-symbol="build_card_tile" href="../../src/app/lists/cards.odin">build_card_tile</a> builds the cover, the name and the subtitle of one card. It returns true on a click.</li>
+<li><a class="src" data-src="src/app/lists/cards.odin:232" data-symbol="open_card" href="../../src/app/lists/cards.odin">open_card</a> opens the card's page. A song card plays the shelf's songs from that song.</li>
+<li><a class="src" data-src="src/app/lists/song_rows.odin:21" data-symbol="build_song_list_page" href="../../src/app/lists/song_rows.odin">build_song_list_page</a> builds Favourite Songs, Songs, Downloaded, every playlist and an artist's Recent Songs.</li>
+<li><a class="src" data-src="src/app/lists/song_rows.odin:74" data-symbol="build_song_rows" href="../../src/app/lists/song_rows.odin">build_song_rows</a> builds only the rows on screen. Tall empty boxes stand in for the rows above and below.</li>
+<li><a class="src" data-src="src/app/lists/song_rows.odin:127" data-symbol="build_song_row" href="../../src/app/lists/song_rows.odin">build_song_row</a> builds one row. The song that plays now gets the accent colour.</li>
+<li><a class="src" data-src="src/app/lists/song_rows.odin:199" data-symbol="build_row_heart" href="../../src/app/lists/song_rows.odin">build_row_heart</a> shows the heart. A YouTube song with no match shows YouTube's mark.</li>
+<li><a class="src" data-src="src/app/lists/grids.odin:98" data-symbol="build_card_grid" href="../../src/app/lists/grids.odin">build_card_grid</a> builds rows of whole tiles, such as the Albums and Recently Added pages. It builds only the rows on screen.</li>
+</ul>
+
+<h2>The song menu</h2>
+
+<p>Every song row reports its signal to <a class="src" data-src="src/app/menus/song_drag.odin:20" data-symbol="apply_song_row_signal" href="../../src/app/menus/song_drag.odin">apply_song_row_signal</a>. A right-click there calls <a class="src" data-src="src/app/menus/song_menu.odin:47" data-symbol="open_song_menu" href="../../src/app/menus/song_menu.odin">open_song_menu</a>, which keeps a copy of the song. A press that moves more than 6 points starts a drag instead. A sidebar playlist under the dragged song takes it on release (<a class="src" data-src="src/app/menus/song_drag.odin:41" data-symbol="apply_song_drop" href="../../src/app/menus/song_drag.odin">apply_song_drop</a>).</p>
+
+<p>The frame builds the menu after the page, over everything else, in <a class="src" data-src="src/app/menus/song_menu.odin:69" data-symbol="build_song_menu" href="../../src/app/menus/song_menu.odin">build_song_menu</a>. A click outside the menu or Escape closes it. "Add to Playlist" opens a second menu of playlists, from <a class="src" data-src="src/app/menus/song_menu.odin:197" data-symbol="build_playlist_menu" href="../../src/app/menus/song_menu.odin">build_playlist_menu</a>.</p>
+
+<p><a class="src" data-src="src/app/menus/playlist_writes.odin:125" data-symbol="add_to_playlist" href="../../src/app/menus/playlist_writes.odin">add_to_playlist</a> sends an Apple song to Apple. A song only on YouTube goes into onlymuse's own part of the playlist instead. The write to Apple blocks, so <a class="src" data-src="src/app/menus/playlist_writes.odin:41" data-symbol="start_write" href="../../src/app/menus/playlist_writes.odin">start_write</a> starts a thread for <a class="src" data-src="src/app/menus/playlist_writes.odin:56" data-symbol="run_write" href="../../src/app/menus/playlist_writes.odin">run_write</a>. That thread calls <a class="src" data-src="src/apple/apple.odin:77" data-symbol="post" href="../../src/apple/apple.odin">apple.post</a> and stores the toast text and the path to ask again. Once a frame, <a class="src" data-src="src/app/menus/playlist_writes.odin:86" data-symbol="apply_write_results" href="../../src/app/menus/playlist_writes.odin">apply_write_results</a> shows the toasts and calls apple.refresh on those paths. The playlist page then shows the new song.</p>
+
+<h2>The command palette</h2>
+
+<p>Cmd K calls <a class="src" data-src="src/app/palette/palette.odin:82" data-symbol="toggle_palette" href="../../src/app/palette/palette.odin">toggle_palette</a>. While the palette is open, <a class="src" data-src="src/app/palette/palette.odin:108" data-symbol="build_palette" href="../../src/app/palette/palette.odin">build_palette</a> runs in each frame, after the page and the song menu.</p>
+
+<p><a class="src" data-src="src/app/palette/palette_results.odin:15" data-symbol="update_results" href="../../src/app/palette/palette_results.odin">update_results</a> builds the results from data the app already has:</p>
+<ul>
+<li>"Actions", such as "Play or Pause" and "Show Lyrics".</li>
+<li>"Pages", from the sidebar's items, and "Playlists", from list_playlists.</li>
+<li>"Artists", "Albums" and "Songs", from the library lists of core.</li>
+<li>"Apple Music", from a catalog search with at most 4 results of each type.</li>
+</ul>
+
+<p>The catalog search waits until typing stops for 300 ms (<a class="src" data-src="src/app/palette/palette.odin:22" data-symbol="PALETTE_SETTLE_MS" href="../../src/app/palette/palette.odin">PALETTE_SETTLE_MS</a>). update_results makes one signature from the term and the versions of all that data. When nothing changed, it keeps the last results. Otherwise it builds them again in a fresh arena and retires the old one, as find_page_data does. <a class="src" data-src="src/app/palette/palette_results.odin:157" data-symbol="list_best_indexes" href="../../src/app/palette/palette_results.odin">list_best_indexes</a> puts a name that starts with the term first. <a class="src" data-src="src/app/palette/palette.odin:210" data-symbol="run_result" href="../../src/app/palette/palette.odin">run_result</a> navigates, plays a song, opens a card or runs an action, as the chosen result asks.</p>
+
+<h2>Where the code is</h2>
+
+<ul>
+<li><a class="src" data-src="src/app/core/navigation.odin" href="../../src/app/core/navigation.odin">src/app/core/navigation.odin</a> holds the history, Back, Forward and the saved scroll.</li>
+<li><a class="src" data-src="src/app/core/page_data.odin" href="../../src/app/core/page_data.odin">src/app/core/page_data.odin</a> holds Page_Data, its arenas and the frees at the start of a frame.</li>
+<li><a class="src" data-src="src/app/core/library.odin" href="../../src/app/core/library.odin">src/app/core/library.odin</a> holds the library's songs, albums, artists and playlists.</li>
+<li><a class="src" data-src="src/app/core/songs.odin" href="../../src/app/core/songs.odin">src/app/core/songs.odin</a> copies songs, cards and shelves from one arena to another.</li>
+<li><a class="src" data-src="src/app/core/sidebar_items.odin" href="../../src/app/core/sidebar_items.odin">src/app/core/sidebar_items.odin</a> lists the pages of the sidebar.</li>
+<li><a class="src" data-src="src/app/pages.odin" href="../../src/app/pages.odin">src/app/pages.odin</a> picks the procedure that builds the current page.</li>
+<li><a class="src" data-src="src/app/browse/catalog_pages.odin" href="../../src/app/browse/catalog_pages.odin">src/app/browse/</a> holds the Apple Music pages: Home, New, albums, playlists, artists, the library, downloads and search.</li>
+<li><a class="src" data-src="src/app/youtube_pages/youtube_pages.odin" href="../../src/app/youtube_pages/youtube_pages.odin">src/app/youtube_pages/</a> holds the YouTube pages, the YouTube sign-in and Bring Over.</li>
+<li><a class="src" data-src="src/app/youtube_lists/lists.odin" href="../../src/app/youtube_lists/lists.odin">src/app/youtube_lists/</a> reads YouTube's lists for the pages and keeps YouTube songs in Apple playlists.</li>
+<li><a class="src" data-src="src/app/lists/cards.odin" href="../../src/app/lists/cards.odin">src/app/lists/</a> holds the shelves, cards, song rows and grids.</li>
+<li><a class="src" data-src="src/app/menus/song_menu.odin" href="../../src/app/menus/song_menu.odin">src/app/menus/</a> holds the song menu, the playlist writes and the drag of a song.</li>
+<li><a class="src" data-src="src/app/palette/palette.odin" href="../../src/app/palette/palette.odin">src/app/palette/</a> holds the command palette and its results.</li>
+<li><a class="src" data-src="src/apple/apple.odin" href="../../src/apple/apple.odin">src/apple/apple.odin</a> holds the tokens and the requests to Apple's API.</li>
+<li><a class="src" data-src="src/apple/cache.odin" href="../../src/apple/cache.odin">src/apple/cache.odin</a> holds watch, the worker threads and the fresh rules.</li>
+<li><a class="src" data-src="src/apple/resources.odin" href="../../src/apple/resources.odin">src/apple/resources.odin</a> reads Apple's answers into songs, cards and shelves.</li>
+<li><a class="src" data-src="src/youtube/youtube.odin" href="../../src/youtube/youtube.odin">src/youtube/youtube.odin</a> holds the paths and the requests to music.youtube.com.</li>
+<li><a class="src" data-src="src/youtube/resources.odin" href="../../src/youtube/resources.odin">src/youtube/resources.odin</a> reads YouTube's answers into a List.</li>
+<li><a class="src" data-src="src/store/store.odin" href="../../src/store/store.odin">src/store/store.odin</a> holds the SQLite file: answers, the play log, saved state and matches.</li>
+<li><a class="src" data-src="src/net/net.odin" href="../../src/net/net.odin">src/net/net.odin</a> sends HTTP requests through libcurl.</li>
+</ul>
+
+<script src="diagram.js"></script>
+</body>
+</html>

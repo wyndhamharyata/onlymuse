@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="code-explainer" content="commit=c98b085fe0ce34cc0021f1d747ffbe70eaf2841e">
+<title>Playback · How onlymuse works</title>
+<link rel="stylesheet" href="explainer.css">
+</head>
+<body data-root="../..">
+<nav>
+<a href="index.html">How onlymuse works</a>
+<a href="window.html">The window and a frame</a>
+<a href="pages.html">Pages and their data</a>
+<a href="playback.html">Playback</a>
+<a href="player.html">The player</a>
+<a href="journey.html">Journey: play a song</a>
+</nav>
+<h1>Playback</h1>
+
+<p>This page explains how onlymuse plays songs. onlymuse draws no sound itself. Music.app plays each Apple Music song. A hidden music.youtube.com page plays a YouTube song that Apple Music does not have.</p>
+
+<p>The page uses some ideas that the index page explains. Read these first if they are new to you:
+<a href="index.html#odin">Odin</a>,
+<a href="index.html#memory">memory in Odin</a>,
+<a href="index.html#frame-loop">the frame loop</a>,
+<a href="index.html#immediate-ui">immediate-mode UI</a>,
+<a href="index.html#objc">Objective-C calls</a>,
+<a href="index.html#helper">the helper process</a> and
+<a href="index.html#sqlite">the SQLite file</a>.
+The <a href="journey.html">journey page</a> follows one click on Play through every part of the app.</p>
+
+<h2>What you see and hear</h2>
+
+<ul>
+<li>You click a song in a list, or Play on an album. Music.app plays the song. When Music.app is not open, onlymuse opens it in the background.</li>
+<li>Music.app keeps no queue after a song that AppleScript starts. So onlymuse keeps its own queue. The Up Next tab of the side panel shows it.</li>
+<li>When a song ends, the next song of the queue starts at once. Music.app's own Autoplay never plays.</li>
+<li>The shuffle button orders the queue by rules. A right click on it opens the "Shuffle" menu of those rules.</li>
+<li>A YouTube song plays from Apple Music when it has a match. Without a match, a hidden music.youtube.com page plays it. Music.app pauses meanwhile.</li>
+<li>When Music.app stops or quits, the player bar shows the last song, paused where it stopped. Play starts it again from that point.</li>
+</ul>
+
+<h2>One song, from the queue to the speakers</h2>
+
+<p>Step through the diagram. Click a box to read what it does and where its code is.</p>
+
+<figure class="diagram">
+<script type="application/json">
+{
+  "nodes": [
+    {"id": "queue", "label": "play_at", "x": 20, "y": 150, "info": "The queue picks a song. It counts up the play count, puts a match in place of a YouTube song and saves the queue.", "src": "src/app/playback/queue.odin:161", "symbol": "play_at"},
+    {"id": "line", "label": "playSong line", "x": 240, "y": 20, "info": "send_play writes one JSON line to the helper's stdin. It holds the song's name, artist, album, length and YouTube ID.", "src": "src/helper/requests.odin:23", "symbol": "send_play"},
+    {"id": "helper", "label": "Swift helper", "x": 460, "y": 150, "info": "A thread reads each line as a Command. The playSong case sends a song with a YouTube ID to the YouTube page, and any other song to Music.app.", "src": "helper/Sources/onlymuse-helper/main.swift:124", "symbol": "playSong"},
+    {"id": "post", "label": "playerInfo post", "x": 460, "y": 20, "info": "Music.app posts com.apple.Music.playerInfo on each change. The helper runs the handoff check, then sends a nowPlaying line.", "src": "helper/Sources/onlymuse-helper/main.swift:69", "symbol": "playerInfo"},
+    {"id": "music", "label": "Music.app", "x": 680, "y": 20, "info": "MusicApp.playSong finds the library song with the same name, artist and album, closest in length. It then plays that song by its persistent ID.", "src": "helper/Sources/onlymuse-helper/MusicApp.swift:111", "symbol": "playSong"},
+    {"id": "youtube", "label": "YouTube page", "x": 680, "y": 280, "info": "YouTube.play pauses Music.app and plays the song in the hidden music.youtube.com page. The helper reads the page twice a second.", "src": "helper/Sources/onlymuse-helper/YouTube.swift:121", "symbol": "func play"},
+    {"id": "now", "label": "nowPlaying line", "x": 240, "y": 280, "info": "Each frame, apply_helper_messages takes the lines that arrived. helper.apply changes the app's now playing state to match.", "src": "src/app/frame.odin:136", "symbol": "apply_helper_messages"},
+    {"id": "moves", "label": "Queue moves on", "x": 20, "y": 280, "info": "apply_playing_song checks whether the helper started the queue's next song, or whether the queue's song ended.", "src": "src/app/playback/queue_handoff.odin:108", "symbol": "apply_playing_song"}
+  ],
+  "edges": [
+    {"from": "queue", "to": "line", "label": "send_play"},
+    {"from": "line", "to": "helper", "label": "stdin"},
+    {"from": "helper", "to": "music", "label": "AppleScript"},
+    {"from": "helper", "to": "youtube", "label": "yt: song"},
+    {"from": "music", "to": "post", "label": "posts"},
+    {"from": "post", "to": "helper", "label": "observer"},
+    {"from": "helper", "to": "now", "label": "stdout"},
+    {"from": "now", "to": "moves", "label": "apply"},
+    {"from": "moves", "to": "queue", "label": "next song"}
+  ],
+  "steps": [
+    {"active": ["queue"], "text": "play_at picks the song at an index. It saves the queue and starts the matches of the YouTube songs ahead."},
+    {"active": ["queue", "line"], "edges": [0], "text": "send_play writes a playSong line with a new request ID. The queue keeps the request until the helper answers it."},
+    {"active": ["line", "helper"], "edges": [1], "text": "The helper reads the line on a thread of its own. Its playSong case then runs on the main thread."},
+    {"active": ["helper", "music"], "edges": [2], "text": "An Apple song goes to Music.app through AppleScript. The helper answers playSongResult with the song's persistent ID. The queue then sends setNext for the song after it."},
+    {"active": ["helper", "youtube"], "edges": [3], "text": "A song with a YouTube ID plays in the hidden YouTube page. The helper answers with the ID yt: and the video ID."},
+    {"active": ["music", "post", "helper"], "edges": [4, 5], "text": "Music.app posts playerInfo when the song starts. The helper reads the song, its state and its position through AppleScript."},
+    {"active": ["helper", "now"], "edges": [6], "text": "The helper writes a nowPlaying line to stdout. The app reads it on the next frame."},
+    {"active": ["now", "moves"], "edges": [7], "text": "apply_queue_now_playing compares this post with the last one. It keeps the resume point too."},
+    {"active": ["moves", "queue"], "edges": [8], "text": "When the queue's song ended with no handoff, play_next_after_end calls play_at for the next song. The loop starts again."}
+  ]
+}
+</script>
+</figure>
+
+<h2>The helper and its messages</h2>
+
+<p>The app starts the helper in <a class="src" data-src="src/helper/helper.odin:105" data-symbol="start" href="../../src/helper/helper.odin">start</a>. The two processes speak JSON lines over the helper's stdin and stdout. One message is one line. <a class="src" data-src="src/helper/helper.odin:28" data-symbol="Message" href="../../src/helper/helper.odin">Message</a> names every field the helper sends. <a class="src" data-src="helper/Sources/onlymuse-helper/Link.swift:4" data-symbol="Command" href="../../helper/Sources/onlymuse-helper/Link.swift">Command</a> names every field the app sends.</p>
+
+<p>A thread in the app, <a class="src" data-src="src/helper/helper.odin:152" data-symbol="read_lines" href="../../src/helper/helper.odin">read_lines</a>, reads the helper's lines and wakes the window. Each frame, <a class="src" data-src="src/helper/helper.odin:179" data-symbol="take_messages" href="../../src/helper/helper.odin">take_messages</a> hands the main thread the lines so far. <a class="src" data-src="src/helper/requests.odin:106" data-symbol="send" href="../../src/helper/requests.odin">send</a> writes a line the other way. It holds a mutex, as worker threads send too.</p>
+
+<p>These are the messages of playback that the app sends:</p>
+
+<table>
+<tr><th>Message</th><th>What it asks</th></tr>
+<tr><td><code>playSong</code></td><td>Play this song now. <a class="src" data-src="src/helper/requests.odin:23" data-symbol="send_play" href="../../src/helper/requests.odin">send_play</a> sends it. The answer is <code>playSongResult</code>.</td></tr>
+<tr><td><code>setNext</code></td><td>Start this song when the one with this persistent ID ends. <a class="src" data-src="src/helper/requests.odin:39" data-symbol="send_set_next" href="../../src/helper/requests.odin">send_set_next</a> sends it. The answer is <code>setNextResult</code>.</td></tr>
+<tr><td><code>playPause</code>, <code>seek</code>, <code>setVolume</code>, <code>next</code>, <code>previous</code></td><td>Control the player. The helper sends the first three to the YouTube page while a YouTube song plays.</td></tr>
+<tr><td><code>trackInfo</code></td><td>What Music.app knows of a song. <a class="src" data-src="src/helper/requests.odin:72" data-symbol="send_song_info_request" href="../../src/helper/requests.odin">send_song_info_request</a> sends it.</td></tr>
+<tr><td><code>setFavorite</code></td><td>Set or clear a song's favourite in Music.app. <a class="src" data-src="src/helper/requests.odin:83" data-symbol="send_set_favorite" href="../../src/helper/requests.odin">send_set_favorite</a> sends it.</td></tr>
+<tr><td><code>refreshTokens</code>, <code>signIn</code>, <code>youtubeSignIn</code></td><td>Read the Apple tokens again, show the Apple sign-in, or read Helium's YouTube cookies again.</td></tr>
+</table>
+
+<p>These are the messages the helper sends:</p>
+
+<table>
+<tr><th>Message</th><th>What it holds</th></tr>
+<tr><td><code>nowPlaying</code></td><td>The state, the song, the position and the volume. The helper sends it after each <code>playerInfo</code> post, after a seek or a volume change, and when the YouTube page changes state.</td></tr>
+<tr><td><code>position</code></td><td>The position alone, every 2 seconds while a song plays. Music.app posts nothing as a song plays.</td></tr>
+<tr><td><code>playSongResult</code>, <code>setNextResult</code></td><td>The request ID and the song's persistent ID, or null.</td></tr>
+<tr><td><code>trackInfo</code>, <code>setFavoriteResult</code></td><td>The answers to <code>trackInfo</code> and <code>setFavorite</code>.</td></tr>
+<tr><td><code>youtubeCookie</code></td><td>Helium's youtube.com cookies, or an empty text and a problem.</td></tr>
+<tr><td><code>accent</code>, <code>tokens</code>, <code>signInNeeded</code>, <code>error</code></td><td>The system accent colour, Apple's tokens, a request to sign in, and a text for the Console page.</td></tr>
+</table>
+
+<p><a class="src" data-src="src/app/frame.odin:136" data-symbol="apply_helper_messages" href="../../src/app/frame.odin">apply_helper_messages</a> sends each message to the code that owns it. <a class="src" data-src="src/helper/helper.odin:208" data-symbol="apply" href="../../src/helper/helper.odin">apply</a> keeps the now playing state. Between two posts, <a class="src" data-src="src/helper/helper.odin:276" data-symbol="to_position_seconds" href="../../src/helper/helper.odin">to_position_seconds</a> counts the position on from the time the helper read it.</p>
+
+<h2>Inside the Swift helper</h2>
+
+<p>The helper is a small AppKit app with no Dock icon. <a class="src" data-src="helper/Sources/onlymuse-helper/main.swift:119" data-symbol="startReadingCommands" href="../../helper/Sources/onlymuse-helper/main.swift">main.swift</a> reads each command and calls one of these parts:</p>
+
+<ul>
+<li><a class="src" data-src="helper/Sources/onlymuse-helper/MusicApp.swift:5" data-symbol="MusicApp" href="../../helper/Sources/onlymuse-helper/MusicApp.swift">MusicApp</a> runs AppleScript with <code>NSAppleScript</code>. Each script checks first that Music.app runs, so a read never opens Music.app. <a class="src" data-src="helper/Sources/onlymuse-helper/MusicApp.swift:225" data-symbol="findSong" href="../../helper/Sources/onlymuse-helper/MusicApp.swift">findSong</a> looks up a library song by its name, artist and album.</li>
+<li>The helper listens for Music.app's <a class="src" data-src="helper/Sources/onlymuse-helper/main.swift:69" data-symbol="playerInfo" href="../../helper/Sources/onlymuse-helper/main.swift">com.apple.Music.playerInfo</a> post. Music.app sends it on a pause, a play or another song. One timer checks the volume every 2 seconds. Another timer sends the position every 2 seconds while Music.app plays.</li>
+<li><a class="src" data-src="helper/Sources/onlymuse-helper/YouTube.swift:7" data-symbol="YouTube" href="../../helper/Sources/onlymuse-helper/YouTube.swift">YouTube</a> keeps music.youtube.com in a page that no one sees. WebKit plays a page's media only inside a window. So the page has a clear window far off every display.</li>
+<li><a class="src" data-src="helper/Sources/onlymuse-helper/HeliumCookies.swift:38" data-symbol="readYouTubeCookies" href="../../helper/Sources/onlymuse-helper/HeliumCookies.swift">readYouTubeCookies</a> reads the youtube.com cookies of the Helium browser. Google refuses a sign-in inside an app's own page. The helper reads Helium's key from the Keychain. macOS asks the person once.</li>
+<li><a class="src" data-src="helper/Sources/onlymuse-helper/YouTube.swift:69" data-symbol="sendCookie" href="../../helper/Sources/onlymuse-helper/YouTube.swift">sendCookie</a> sends those cookies to the app as <code>youtubeCookie</code>. It also puts them in WebKit's cookie store, so the YouTube page plays signed in.</li>
+<li><a class="src" data-src="helper/Sources/onlymuse-helper/WebPlayer.swift:6" data-symbol="WebPlayer" href="../../helper/Sources/onlymuse-helper/WebPlayer.swift">WebPlayer</a> keeps a hidden music.apple.com page. It reads the developer token and the user token from it. Its window shows only to sign in.</li>
+<li><a class="src" data-src="helper/Sources/onlymuse-helper/LocalProxy.swift:8" data-symbol="LocalProxy" href="../../helper/Sources/onlymuse-helper/LocalProxy.swift">LocalProxy</a> listens on 127.0.0.1. Both pages connect through it, so neither uses HTTP/3. Some networks allow IPv6 packets only up to 1280 bytes. HTTP/3 sends larger ones.</li>
+</ul>
+
+<p>When the app quits, the pipe closes. The helper then pauses Music.app and the YouTube page in <a class="src" data-src="helper/Sources/onlymuse-helper/main.swift:38" data-symbol="pauseWhenAppEnds" href="../../helper/Sources/onlymuse-helper/main.swift">pauseWhenAppEnds</a>. A test run sets <code>GPUIX_BACKGROUND=1</code>. The helper then keeps the music as it is.</p>
+
+<h2>The queue and the handoff</h2>
+
+<p>The queue is <a class="src" data-src="src/app/playback/queue.odin:23" data-symbol="Queue_State" href="../../src/app/playback/queue.odin">Queue_State</a>. It holds copies of the songs, the index of the song playing, shuffle, repeat, and the persistent ID that Music.app gave the queue's song. The store saves it under the key <code>queue</code>, and <a class="src" data-src="src/app/playback/queue.odin:107" data-symbol="start_queue" href="../../src/app/playback/queue.odin">start_queue</a> reads it back at start.</p>
+
+<p>A page calls <a class="src" data-src="src/app/playback/queue_order.odin:92" data-symbol="play_songs" href="../../src/app/playback/queue_order.odin">play_songs</a> or <a class="src" data-src="src/app/playback/queue_order.odin:105" data-symbol="shuffle_songs" href="../../src/app/playback/queue_order.odin">shuffle_songs</a>. "Play Next" in the song menu calls <a class="src" data-src="src/app/playback/queue_order.odin:118" data-symbol="play_next" href="../../src/app/playback/queue_order.odin">play_next</a>. Each one ends in <a class="src" data-src="src/app/playback/queue.odin:161" data-symbol="play_at" href="../../src/app/playback/queue.odin">play_at</a>, except <code>play_next</code> when a queue already plays.</p>
+
+<p>The handoff starts the next song without a pause:</p>
+
+<ol>
+<li><a class="src" data-src="src/app/playback/queue_handoff.odin:34" data-symbol="sync_handoff" href="../../src/app/playback/queue_handoff.odin">sync_handoff</a> sends <code>setNext</code> whenever the song playing or the next song changes. With repeat one, the next song is the same song.</li>
+<li><a class="src" data-src="helper/Sources/onlymuse-helper/Handoff.swift:27" data-symbol="func set" href="../../helper/Sources/onlymuse-helper/Handoff.swift">Handoff.set</a> finds the next song's persistent ID in the library.</li>
+<li><a class="src" data-src="helper/Sources/onlymuse-helper/Handoff.swift:60" data-symbol="func arm" href="../../helper/Sources/onlymuse-helper/Handoff.swift">arm</a> sets a timer for 0.4 seconds before the end. It reads the position again then, as a seek or a pause moves the end.</li>
+<li><a class="src" data-src="helper/Sources/onlymuse-helper/Handoff.swift:90" data-symbol="func fire" href="../../helper/Sources/onlymuse-helper/Handoff.swift">fire</a> starts the next song 0.04 seconds before the end. Music.app's own switch takes longer, so Autoplay never plays.</li>
+<li>When Music.app switches to a song of its own within 3 seconds of the end, <a class="src" data-src="helper/Sources/onlymuse-helper/Handoff.swift:49" data-symbol="onPlayerChange" href="../../helper/Sources/onlymuse-helper/Handoff.swift">onPlayerChange</a> starts the next song at once.</li>
+<li>In the app, <a class="src" data-src="src/app/playback/queue_handoff.odin:108" data-symbol="apply_playing_song" href="../../src/app/playback/queue_handoff.odin">apply_playing_song</a> sees the handoff song start. It moves the queue's index. It sends no playSong.</li>
+</ol>
+
+<p>When a song ends with no handoff, <a class="src" data-src="src/app/playback/queue_handoff.odin:180" data-symbol="play_next_after_end" href="../../src/app/playback/queue_handoff.odin">play_next_after_end</a> plays the next song. A song counts as ended within 3 seconds of its end.</p>
+
+<p>A catalog song that is not in the library gets the answer null. <a class="src" data-src="src/app/playback/queue_add.odin:27" data-symbol="start_adding" href="../../src/app/playback/queue_add.odin">start_adding</a> then asks Apple's API to put it in the library. <a class="src" data-src="src/app/playback/queue_handoff.odin:250" data-symbol="update_queue" href="../../src/app/playback/queue_handoff.odin">update_queue</a> sends <code>playSong</code> again every 1.5 seconds, for at most 45 seconds.</p>
+
+<p><code>update_queue</code> also watches for a song that does not move on. After 2 still positions, about 4 seconds, <a class="src" data-src="src/app/playback/queue_handoff.odin:222" data-symbol="restart_stalled_song" href="../../src/app/playback/queue_handoff.odin">restart_stalled_song</a> plays it again. A song still at 0:00 gets 8 positions, about 16 seconds. The queue tries this at most twice.</p>
+
+<p>The queue leads only while Music.app plays the queue's song, or while the queue puts a song in the library. Otherwise <a class="src" data-src="src/app/playback/queue_order.odin:230" data-symbol="skip_to_next" href="../../src/app/playback/queue_order.odin">skip_to_next</a> sends <code>next</code>. Music.app's own order then applies. <a class="src" data-src="src/app/playback/queue_order.odin:222" data-symbol="is_queue_leading" href="../../src/app/playback/queue_order.odin">is_queue_leading</a> decides it.</p>
+
+<h2>The resume point</h2>
+
+<p>The <a class="src" data-src="src/app/playback/queue.odin:16" data-symbol="Resume_Point" href="../../src/app/playback/queue.odin">Resume_Point</a> holds the last song Music.app played and its position. <a class="src" data-src="src/app/playback/queue_handoff.odin:188" data-symbol="apply_resume_point" href="../../src/app/playback/queue_handoff.odin">apply_resume_point</a> saves it on each post, and every 5 seconds while a song plays. The store keeps it under its own key, <code>resumePoint</code>, apart from the queue's songs. A force quit loses at most 5 seconds.</p>
+
+<p>When Music.app stops or quits, <a class="src" data-src="src/app/playback/song_info.odin:13" data-symbol="find_shown_song" href="../../src/app/playback/song_info.odin">find_shown_song</a> gives the player the resume point's song. A click on Play then calls <a class="src" data-src="src/app/playback/queue.odin:280" data-symbol="resume_last_song" href="../../src/app/playback/queue.odin">resume_last_song</a>. It sends <code>playSong</code>, then a <code>seek</code> to the saved position. A song that played to its end saves the position 0.</p>
+
+<h2>Shuffle and the play log</h2>
+
+<p><a class="src" data-src="src/app/playback/shuffle.odin:54" data-symbol="shuffle_by_rules" href="../../src/app/playback/shuffle.odin">shuffle_by_rules</a> draws a random order, then applies the rules in <a class="src" data-src="src/app/playback/shuffle.odin:31" data-symbol="shuffle_rules" href="../../src/app/playback/shuffle.odin">shuffle_rules</a>:</p>
+
+<ul>
+<li>Songs played in the past 6 hours go last. The menu offers Off, 2, 6 and 24 hours.</li>
+<li>Songs skipped 3 times or more, and more often than played, go last.</li>
+<li>Two songs of one album do not play one after the other, where another song can go between.</li>
+<li>Favourites come earlier, 2.5 times as likely. This rule starts off.</li>
+</ul>
+
+<p>The Up Next tab shows what the rules changed, such as "4 recent songs and 1 often-skipped song play last." <a class="src" data-src="src/app/playback/queue_order.odin:173" data-symbol="toggle_shuffle" href="../../src/app/playback/queue_order.odin">toggle_shuffle</a> keeps the song playing first. Shuffle off goes back to the order the songs came in.</p>
+
+<p>The rules read the play log. onlymuse counts plays and skips itself. <a class="src" data-src="src/app/playback/play_log.odin:29" data-symbol="update_play_log" href="../../src/app/playback/play_log.odin">update_play_log</a> keeps how far each song got. When the song changes, <a class="src" data-src="src/app/playback/play_log.odin:61" data-symbol="finish_listening" href="../../src/app/playback/play_log.odin">finish_listening</a> decides:</p>
+
+<ul>
+<li>A song heard to its middle, or for 4 minutes of a long song, is a play.</li>
+<li>A song stopped sooner, after at least 2 seconds, is a skip.</li>
+<li>A song stopped within 2 seconds counts as nothing.</li>
+</ul>
+
+<p>The store saves each play and skip in the SQLite file. The app keeps the last 120 days in <a class="src" data-src="src/app/playback/play_log.odin:13" data-symbol="play_log" href="../../src/app/playback/play_log.odin">play_log</a>, for shuffle and the Now Playing page.</p>
+
+<h2>Favourites and song info</h2>
+
+<p><a class="src" data-src="src/app/playback/song_info.odin:186" data-symbol="toggle_favourite" href="../../src/app/playback/song_info.odin">toggle_favourite</a> runs on a click on the heart button in a row, the player bar or Now Playing:</p>
+
+<ul>
+<li>For an Apple song, it sends <code>setFavorite</code>. <a class="src" data-src="helper/Sources/onlymuse-helper/MusicApp.swift:191" data-symbol="setFavorite" href="../../helper/Sources/onlymuse-helper/MusicApp.swift">setFavorite</a> sets Music.app's favourite, which also puts the song in Favourite Songs.</li>
+<li>For a YouTube song, it likes or unlikes the song on YouTube.</li>
+<li>When Music.app has no such song, <a class="src" data-src="src/app/playback/song_info.odin:219" data-symbol="apply_favourite_answer" href="../../src/app/playback/song_info.odin">apply_favourite_answer</a> turns the heart back. It shows "Music.app has no such song in your library. Add it to the library first."</li>
+</ul>
+
+<p><a class="src" data-src="src/app/playback/song_info.odin:178" data-symbol="is_favourite" href="../../src/app/playback/song_info.odin">is_favourite</a> reads Music.app's answer for the song first. Then it reads this session's toggles. Last, it reads the Favourite Songs playlist from Apple's API.</p>
+
+<p><a class="src" data-src="src/app/playback/song_info.odin:60" data-symbol="watch_song_info" href="../../src/app/playback/song_info.odin">watch_song_info</a> asks Music.app what it knows of a song that Apple's API does not. That is the play count, the skip count, the dates, the favourite and the file. It asks at most once a minute for each song. <a class="src" data-src="helper/Sources/onlymuse-helper/MusicApp.swift:134" data-symbol="readTrackInfo" href="../../helper/Sources/onlymuse-helper/MusicApp.swift">readTrackInfo</a> reads them in the helper.</p>
+
+<h2>Matching: a YouTube song finds its Apple song</h2>
+
+<p>A YouTube song has the ID <code>yt:</code> and its video ID. A match is the Apple Music song it is. With a match, the song plays from Music.app, lossless. Without one, it plays in the YouTube page.</p>
+
+<figure class="diagram">
+<script type="application/json">
+{
+  "nodes": [
+    {"id": "song", "label": "YouTube song", "x": 20, "y": 20, "info": "play_at calls start_matches. It matches the YouTube songs among the 25 songs from the one playing on.", "src": "src/app/playback/queue_order.odin:85", "symbol": "start_matches"},
+    {"id": "find", "label": "find_match", "x": 300, "y": 20, "info": "Looks for the match in memory, in the songs marked not on Apple Music, in the store, then in the library.", "src": "src/app/matching/match.odin:60", "symbol": "find_match"},
+    {"id": "store", "label": "Saved matches", "x": 580, "y": 20, "info": "The store keeps each answer, found or missing, so the matcher matches a video once.", "src": "src/app/matching/match.odin:90", "symbol": "store.find_match"},
+    {"id": "library", "label": "Library songs", "x": 580, "y": 150, "info": "A library song with the same title, artist and length is the match. It needs no request.", "src": "src/app/matching/match.odin:109", "symbol": "find_library_match"},
+    {"id": "thread", "label": "Matching thread", "x": 300, "y": 150, "info": "One thread checks the songs in batches of 20. It pauses 300 ms before each request.", "src": "src/app/matching/match_thread.odin:66", "symbol": "check_matches"},
+    {"id": "apple", "label": "Apple's catalog", "x": 20, "y": 150, "info": "The thread searches for the album, fetches the albums with their songs, then searches for the song itself.", "src": "src/app/matching/match_thread.odin:166", "symbol": "search_albums"},
+    {"id": "fromApple", "label": "Plays from Apple", "x": 300, "y": 280, "info": "set_playable puts a copy of the match in the queue, in place of the YouTube song.", "src": "src/app/playback/queue_order.odin:71", "symbol": "set_playable"},
+    {"id": "fromYouTube", "label": "Plays on YouTube", "x": 580, "y": 280, "info": "find_playable gives the YouTube song itself when the match is missing or still in the check.", "src": "src/app/matching/match.odin:207", "symbol": "find_playable"}
+  ],
+  "edges": [
+    {"from": "song", "to": "find", "label": "find_match"},
+    {"from": "find", "to": "store", "label": "saved?"},
+    {"from": "find", "to": "library", "label": "in library?"},
+    {"from": "find", "to": "thread", "label": "start_matching"},
+    {"from": "thread", "to": "apple", "label": "search"},
+    {"from": "thread", "to": "fromApple", "label": "Found"},
+    {"from": "thread", "to": "fromYouTube", "label": "Missing"},
+    {"from": "fromApple", "to": "fromYouTube", "label": "no start in 8 s"}
+  ],
+  "steps": [
+    {"active": ["song"], "text": "The queue plays a YouTube song. start_matches asks for the match of each YouTube song among the 25 songs from this one on."},
+    {"active": ["song", "find"], "edges": [0], "text": "find_match answers Found, Missing or Checking. It answers at once from memory when it can."},
+    {"active": ["find", "store"], "edges": [1], "text": "The store keeps every answer. A video that the person marked Not on Apple Music is Missing."},
+    {"active": ["find", "library"], "edges": [2], "text": "A library song with the same title, artist and length matches with no request to Apple."},
+    {"active": ["find", "thread"], "edges": [3], "text": "Any other song goes to the one matching thread. find_match answers Checking until the thread finishes."},
+    {"active": ["thread", "apple"], "edges": [4], "text": "The thread searches Apple's catalog. A song matches when the title, the artist and the length within 3 seconds agree."},
+    {"active": ["thread", "fromApple"], "edges": [5], "text": "With a match, the queue plays Apple's song in Music.app. The song keeps its YouTube ID."},
+    {"active": ["thread", "fromYouTube"], "edges": [6], "text": "With no match, or with the check not done, the song plays in the hidden YouTube page."},
+    {"active": ["fromApple", "fromYouTube"], "edges": [7], "text": "When Music.app does not start the match within 8 seconds, fall_back_to_youtube rejects the match. The song plays from YouTube from then on."}
+  ]
+}
+</script>
+</figure>
+
+<p>The parts of matching, in order:</p>
+
+<ul>
+<li><a class="src" data-src="src/app/matching/match.odin:60" data-symbol="find_match" href="../../src/app/matching/match.odin">find_match</a> answers at once from memory when it can. It starts a request only for a video with no answer yet.</li>
+<li><a class="src" data-src="src/app/matching/match_text.odin:38" data-symbol="is_same_recording" href="../../src/app/matching/match_text.odin">is_same_recording</a> holds the rule. One recording has the same cleaned title, the same artist and a length within 3 seconds.</li>
+<li><a class="src" data-src="src/app/matching/match_text.odin:95" data-symbol="to_match_key" href="../../src/app/matching/match_text.odin">to_match_key</a> cleans a title. It keeps lowercase letters and digits only. It drops "feat." and the parts in brackets, such as "(Official Video)".</li>
+<li><a class="src" data-src="src/app/matching/match_text.odin:76" data-symbol="list_title_keys" href="../../src/app/matching/match_text.odin">list_title_keys</a> also tries each half of a title around " - " or " / ". YouTube often writes a Japanese title and its romaji that way.</li>
+<li><a class="src" data-src="src/app/matching/match_text.odin:13" data-symbol="find_closest" href="../../src/app/matching/match_text.odin">find_closest</a> picks the closest in length of the songs that agree.</li>
+<li>When Apple refuses with 429, <a class="src" data-src="src/app/matching/match_thread.odin:93" data-symbol="finish_job" href="../../src/app/matching/match_thread.odin">finish_job</a> pauses matching for 60 seconds. Each refusal in a row doubles the pause, up to 30 minutes. A song with no answer gets no saved match. find_match checks it again later.</li>
+<li><a class="src" data-src="src/app/matching/match.odin:27" data-symbol="MATCH_RULE_VERSION" href="../../src/app/matching/match.odin">MATCH_RULE_VERSION</a> changes with the rule. When it differs from the saved value, the store deletes every saved match.</li>
+</ul>
+
+<p>The person can correct a match. "Not on Apple Music" in the song menu calls <a class="src" data-src="src/app/menus/song_menu.odin:135" data-symbol="reject_match" href="../../src/app/menus/song_menu.odin">reject_match</a>. The song then plays from YouTube from then on. "Try Apple Music Again" calls <a class="src" data-src="src/app/menus/song_menu.odin:143" data-symbol="allow_match" href="../../src/app/menus/song_menu.odin">allow_match</a>.</p>
+
+<h2>How a YouTube song plays and falls back</h2>
+
+<p>Three things send a song to YouTube:</p>
+
+<ol>
+<li>The song has no match, or its check did not finish before it plays.</li>
+<li>The person chose "Not on Apple Music".</li>
+<li>Music.app did not start the match. <a class="src" data-src="src/app/playback/queue_add.odin:56" data-symbol="await_start" href="../../src/app/playback/queue_add.odin">await_start</a> gives it 8 seconds. Then <a class="src" data-src="src/app/playback/queue_add.odin:66" data-symbol="fall_back_to_youtube" href="../../src/app/playback/queue_add.odin">fall_back_to_youtube</a> rejects the match and plays the YouTube song. A toast says <code>Apple Music could not play %s, so it plays from YouTube</code>, with the song's name.</li>
+</ol>
+
+<p>The same fallback runs when the library never gets a song within 45 seconds and the song came from YouTube.</p>
+
+<p>In the helper, <a class="src" data-src="helper/Sources/onlymuse-helper/YouTube.swift:121" data-symbol="func play" href="../../helper/Sources/onlymuse-helper/YouTube.swift">YouTube.play</a> does these steps:</p>
+
+<ol>
+<li>It pauses Music.app.</li>
+<li>It loads music.youtube.com/watch with the video ID, or tells a page that already loaded to play the song.</li>
+<li>It sends a <code>nowPlaying</code> with <code>isLoading</code>, so the player shows the song at once.</li>
+<li><a class="src" data-src="helper/Sources/onlymuse-helper/YouTubePolling.swift:13" data-symbol="poll" href="../../helper/Sources/onlymuse-helper/YouTubePolling.swift">poll</a> reads the page every 0.5 seconds. It sends <code>nowPlaying</code> on a change of state, and <code>position</code> every 2 seconds.</li>
+</ol>
+
+<p>The page can fail to start or stop partway. The helper tries again:</p>
+
+<ul>
+<li><a class="src" data-src="helper/Sources/onlymuse-helper/YouTubePolling.swift:79" data-symbol="checkSlowStart" href="../../helper/Sources/onlymuse-helper/YouTubePolling.swift">checkSlowStart</a> asks again after 4 seconds with no start. The second time, it opens the page again with new network connections. After that, the player shows the song paused.</li>
+<li><a class="src" data-src="helper/Sources/onlymuse-helper/YouTubePolling.swift:124" data-symbol="checkStuck" href="../../helper/Sources/onlymuse-helper/YouTubePolling.swift">checkStuck</a> loads the song again where it stopped, after 10 seconds stuck. After 2 tries, the player shows it paused.</li>
+</ul>
+
+<p>A YouTube song after a Music.app song loads ahead, muted and paused. <a class="src" data-src="helper/Sources/onlymuse-helper/YouTube.swift:162" data-symbol="func prepare" href="../../helper/Sources/onlymuse-helper/YouTube.swift">prepare</a> does that, so the song starts at once when its turn comes. The page closes 5 minutes after the last YouTube song, as it holds 200 MB or more. It stays open while the queue has a YouTube song ahead, as <code>keepsYouTube</code> in <code>setNext</code> says.</p>
+
+<p>Music.app takes the player back only when it plays a song again. The <code>playerInfo</code> observer then calls <a class="src" data-src="helper/Sources/onlymuse-helper/YouTube.swift:205" data-symbol="func stop" href="../../helper/Sources/onlymuse-helper/YouTube.swift">YouTube.stop</a>, which pauses the page.</p>
+
+<h2>Where the code is</h2>
+
+<table>
+<tr><th>File</th><th>What it holds</th></tr>
+<tr><td><a href="../../src/helper/helper.odin">src/helper/helper.odin</a></td><td>Starts the helper, reads its lines, keeps the now playing state.</td></tr>
+<tr><td><a href="../../src/helper/requests.odin">src/helper/requests.odin</a></td><td>The messages the app sends: <code>playSong</code>, <code>setNext</code>, <code>trackInfo</code>, <code>setFavorite</code>.</td></tr>
+<tr><td><a href="../../src/app/playback/queue.odin">src/app/playback/queue.odin</a></td><td>The queue, <code>play_at</code>, the helper's answers and the resume point.</td></tr>
+<tr><td><a href="../../src/app/playback/queue_handoff.odin">src/app/playback/queue_handoff.odin</a></td><td>The handoff, the queue moving on, the restart of a stuck song.</td></tr>
+<tr><td><a href="../../src/app/playback/queue_add.odin">src/app/playback/queue_add.odin</a></td><td>Puts a song in the library, waits for a match to start, the fallback to YouTube.</td></tr>
+<tr><td><a href="../../src/app/playback/queue_order.odin">src/app/playback/queue_order.odin</a></td><td>Play, Play Next, shuffle on and off, repeat, next and previous.</td></tr>
+<tr><td><a href="../../src/app/playback/shuffle.odin">src/app/playback/shuffle.odin</a></td><td>The shuffle rules and their menu.</td></tr>
+<tr><td><a href="../../src/app/playback/play_log.odin">src/app/playback/play_log.odin</a></td><td>Logs each play and skip.</td></tr>
+<tr><td><a href="../../src/app/playback/song_info.odin">src/app/playback/song_info.odin</a></td><td>The song the player shows, Music.app's song info and favourites.</td></tr>
+<tr><td><a href="../../src/app/matching/match.odin">src/app/matching/match.odin</a></td><td>find_match, the saved and rejected matches, the library check.</td></tr>
+<tr><td><a href="../../src/app/matching/match_thread.odin">src/app/matching/match_thread.odin</a></td><td>The matching thread and its requests to Apple's catalog.</td></tr>
+<tr><td><a href="../../src/app/matching/match_text.odin">src/app/matching/match_text.odin</a></td><td>The rule for one recording, and the cleaning of titles.</td></tr>
+<tr><td><a href="../../helper/Sources/onlymuse-helper/main.swift">helper/…/main.swift</a></td><td>Starts the helper, reads each command, listens for <code>playerInfo</code>.</td></tr>
+<tr><td><a href="../../helper/Sources/onlymuse-helper/Link.swift">helper/…/Link.swift</a></td><td>The command and message types, and the line reader.</td></tr>
+<tr><td><a href="../../helper/Sources/onlymuse-helper/MusicApp.swift">helper/…/MusicApp.swift</a></td><td>Every AppleScript that reads or controls Music.app.</td></tr>
+<tr><td><a href="../../helper/Sources/onlymuse-helper/Handoff.swift">helper/…/Handoff.swift</a></td><td>Starts the queue's next song just before the end.</td></tr>
+<tr><td><a href="../../helper/Sources/onlymuse-helper/YouTube.swift">helper/…/YouTube.swift</a></td><td>The hidden music.youtube.com page and its player.</td></tr>
+<tr><td><a href="../../helper/Sources/onlymuse-helper/YouTubePolling.swift">helper/…/YouTubePolling.swift</a></td><td>Reads the page twice a second and tries a stuck song again.</td></tr>
+<tr><td><a href="../../helper/Sources/onlymuse-helper/YouTubeScripts.swift">helper/…/YouTubeScripts.swift</a></td><td>The JavaScript the helper runs in the YouTube page.</td></tr>
+<tr><td><a href="../../helper/Sources/onlymuse-helper/HeliumCookies.swift">helper/…/HeliumCookies.swift</a></td><td>Reads and decrypts Helium's youtube.com cookies.</td></tr>
+<tr><td><a href="../../helper/Sources/onlymuse-helper/WebPlayer.swift">helper/…/WebPlayer.swift</a></td><td>The hidden music.apple.com page and Apple's tokens.</td></tr>
+<tr><td><a href="../../helper/Sources/onlymuse-helper/LocalProxy.swift">helper/…/LocalProxy.swift</a></td><td>The local proxy that keeps both pages off HTTP/3.</td></tr>
+</table>
+
+<script src="diagram.js"></script>
+</body>
+</html>

@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="code-explainer" content="commit=c98b085fe0ce34cc0021f1d747ffbe70eaf2841e">
+<title>The window and a frame · How onlymuse works</title>
+<link rel="stylesheet" href="explainer.css">
+</head>
+<body data-root="../..">
+<nav>
+<a href="index.html">How onlymuse works</a>
+<a href="window.html">The window and a frame</a>
+<a href="pages.html">Pages and their data</a>
+<a href="playback.html">Playback</a>
+<a href="player.html">The player</a>
+<a href="journey.html">Journey: play a song</a>
+</nav>
+<h1>The window and a frame</h1>
+
+<p>This page tells how onlymuse opens its window and draws each frame. It covers the window, the box
+tree, the text, the icons, the covers and the look. Read these parts of the index page first:
+<a href="index.html#odin">Odin</a>, <a href="index.html#memory">memory</a>,
+<a href="index.html#frame-loop">the frame loop</a>, <a href="index.html#immediate-ui">the immediate-mode UI</a>,
+<a href="index.html#metal">Metal</a> and <a href="index.html#objc">Objective-C calls from Odin</a>.</p>
+
+<h2 id="see">What you see</h2>
+
+<p>onlymuse opens one window of 1200 by 800 points
+(<a class="src" data-src="src/app/main.odin:106" data-symbol="1200, 800" href="../../src/app/main.odin">open_main_window</a>).
+At zoom 1, the person can make it no smaller than 1000 by 600 points
+(<a class="src" data-src="src/app/kit/theme.odin:70" data-symbol="MIN_WINDOW_WIDTH_POINTS" href="../../src/app/kit/theme.odin">MIN_WINDOW_WIDTH_POINTS</a>).
+The window shows no title. Its content runs up under the traffic lights
+(<a class="src" data-src="src/platform/open_window.odin:76" data-symbol="FullSizeContentView" href="../../src/platform/open_window.odin">FullSizeContentView</a>).</p>
+
+<p>The desktop shows through the window, blurred. A dark grey at 85 percent covers the blur
+(<a class="src" data-src="src/app/kit/theme.odin:29" data-symbol="0x1b1b1ed9" href="../../src/app/kit/theme.odin">colors.window</a>).
+Inside the window, the person sees four parts:</p>
+
+<ul>
+<li>The sidebar on the left, 228 points wide, with the search field and the list of pages
+(<a class="src" data-src="src/app/sidebar.odin:11" data-symbol="build_sidebar" href="../../src/app/sidebar.odin">build_sidebar</a>).</li>
+<li>The page area in the middle. A toolbar with the back and forward buttons runs along its top. The page
+the person opened fills the rest
+(<a class="src" data-src="src/app/pages.odin:13" data-symbol="build_page_area" href="../../src/app/pages.odin">build_page_area</a>).</li>
+<li>The side panel on the right, 320 points wide, with the Up Next and Lyrics tabs. It slides shut when
+the person closes it
+(<a class="src" data-src="src/app/player/panel.odin:14" data-symbol="build_panel" href="../../src/app/player/panel.odin">build_panel</a>).</li>
+<li>The player bar along the bottom, 70 points tall
+(<a class="src" data-src="src/app/player/player_bar.odin:14" data-symbol="build_player_bar" href="../../src/app/player/player_bar.odin">build_player_bar</a>).</li>
+</ul>
+
+<p>The song menu, the command palette, a toast and the sign-in card can float over these parts. AppKit
+gives the window, the blur and the keyboard. onlymuse draws every box, word and icon inside the window
+itself, with Metal.</p>
+
+<h2 id="open">How the window opens</h2>
+
+<p><a class="src" data-src="src/app/main.odin:31" data-symbol="main" href="../../src/app/main.odin">main</a>
+runs these steps in order:</p>
+
+<ol>
+<li>It sets the temp memory of a frame to 4 MB
+(<a class="src" data-src="src/app/main.odin:29" data-symbol="MAIN_TEMP_BYTES" href="../../src/app/main.odin">MAIN_TEMP_BYTES</a>).</li>
+<li>It starts the store, Apple, YouTube, the queue and navigation
+(<a class="src" data-src="src/app/main.odin:84" data-symbol="start_parts" href="../../src/app/main.odin">start_parts</a>).
+Then it starts the <a href="index.html#helper">Helper</a>.</li>
+<li>It opens the window
+(<a class="src" data-src="src/app/main.odin:119" data-symbol="platform.open_window" href="../../src/app/main.odin">platform.open_window</a>)
+and gives it <code>draw_frame</code> as the procedure for each frame.</li>
+<li>It starts <code>render</code>, <code>font</code>, <code>icon</code> and <code>image</code>.</li>
+<li>It hands control to AppKit's events
+(<a class="src" data-src="src/app/main.odin:55" data-symbol="platform.run" href="../../src/app/main.odin">platform.run</a>).
+This call returns only when the window closes.</li>
+</ol>
+
+<p><a class="src" data-src="src/platform/open_window.odin:22" data-symbol="open_window" href="../../src/platform/open_window.odin">open_window</a>
+puts four views and objects together:</p>
+
+<ul>
+<li>An <code>NSWindow</code> with a see-through background and a see-through title bar
+(<a class="src" data-src="src/platform/open_window.odin:66" data-symbol="make_ns_window" href="../../src/platform/open_window.odin">make_ns_window</a>).</li>
+<li>A blur view as the window's content
+(<a class="src" data-src="src/platform/open_window.odin:104" data-symbol="make_blur_view" href="../../src/platform/open_window.odin">make_blur_view</a>).
+Each time AppKit updates the blur, onlymuse hides the layer that tints it with the desktop colour. It
+also drops the filter that raises its saturation
+(<a class="src" data-src="src/platform/blur.odin:30" data-symbol="remove_layer_background" href="../../src/platform/blur.odin">remove_layer_background</a>).</li>
+<li>A view with a <code>CAMetalLayer</code>, in front of the blur
+(<a class="src" data-src="src/platform/open_window.odin:134" data-symbol="make_metal_view" href="../../src/platform/open_window.odin">make_metal_view</a>).
+Metal draws every frame into this layer.</li>
+<li>A display link that starts paused
+(<a class="src" data-src="src/platform/open_window.odin:167" data-symbol="make_display_link" href="../../src/platform/open_window.odin">make_display_link</a>).
+It calls onlymuse once before each refresh of the screen.</li>
+</ul>
+
+<p>onlymuse declares three Objective-C classes of its own in Odin. <code>OMTarget</code> takes the display
+link's calls and the window's resize and close. <code>OMBlurView</code> runs the blur.
+<code>OMInputView</code> takes typing. At the end,
+<a class="src" data-src="src/platform/open_window.odin:185" data-symbol="show_window" href="../../src/platform/open_window.odin">show_window</a>
+asks for the first frame.</p>
+
+<h2 id="frame">How a frame goes</h2>
+
+<p>onlymuse draws a frame only when something changes. The diagram follows one mouse move from AppKit to
+the screen. Step through it, or click a box to read its code.</p>
+
+<figure class="diagram">
+<script type="application/json">
+{
+  "nodes": [
+    {"id": "events", "label": "take_event", "x": 20, "y": 20,
+     "info": "platform.run reads each AppKit event. take_event turns a mouse move, a click, a scroll or a key into an Event in a list. Then it calls request_frame.",
+     "src": "src/platform/events.odin:123", "symbol": "take_event"},
+    {"id": "link", "label": "Display link tick", "x": 260, "y": 20,
+     "info": "Before each screen refresh, the display link calls Target_metalDisplayLink. The call brings the drawable, the texture this frame draws into.",
+     "src": "src/platform/window.odin:73", "symbol": "Target_metalDisplayLink"},
+    {"id": "run", "label": "run_frame", "x": 500, "y": 20,
+     "info": "Reads the window size, calls draw_frame, then empties the event list. It pauses the display link when draw_frame wants no more frames.",
+     "src": "src/platform/window.odin:176", "symbol": "run_frame"},
+    {"id": "draw", "label": "draw_frame", "x": 740, "y": 20,
+     "info": "begin_frame frees the temp memory of the last frame. apply_input takes in helper messages, the queue, text events and the Command key shortcuts.",
+     "src": "src/app/frame.odin:27", "symbol": "draw_frame"},
+    {"id": "uib", "label": "ui.begin_frame", "x": 740, "y": 150,
+     "info": "Applies the mouse and scroll events. Then it makes a new root box as big as the window, divided by the zoom.",
+     "src": "src/ui/ui.odin:186", "symbol": "begin_frame"},
+    {"id": "build", "label": "Build boxes", "x": 500, "y": 150,
+     "info": "build_sidebar, build_page_area, build_panel and build_player_bar put boxes in the tree. The menus, the palette, the toast and the sign-in card follow.",
+     "src": "src/app/frame.odin:47", "symbol": "build_sidebar"},
+    {"id": "uie", "label": "ui.end_frame", "x": 260, "y": 150,
+     "info": "Drops the boxes this frame did not build. It lays out the tree, finds the box under the mouse and draws each box.",
+     "src": "src/ui/ui.odin:328", "symbol": "end_frame"},
+    {"id": "render", "label": "render.end_frame", "x": 20, "y": 150,
+     "info": "Copies the instances into a Metal buffer, draws them in one pass and presents the drawable.",
+     "src": "src/render/metal.odin:253", "symbol": "end_frame"}
+  ],
+  "edges": [
+    {"from": "events", "to": "link", "label": "wakes"},
+    {"from": "link", "to": "run", "label": "drawable"},
+    {"from": "run", "to": "draw", "label": "calls"},
+    {"from": "draw", "to": "uib", "label": "size"},
+    {"from": "uib", "to": "build", "label": "root"},
+    {"from": "build", "to": "uie", "label": "boxes"},
+    {"from": "uie", "to": "render", "label": "instances"}
+  ],
+  "steps": [
+    {"active": ["events"], "text": "The person moves the mouse. take_event puts a Mouse_Move in the event list. Then request_frame unpauses the display link."},
+    {"active": ["events", "link"], "edges": [0], "text": "Before the next screen refresh, the display link calls Target_metalDisplayLink with a drawable."},
+    {"active": ["link", "run"], "edges": [1], "text": "run_frame reads the window size in points and its pixels per point. Then it calls draw_frame."},
+    {"active": ["run", "draw"], "edges": [2], "text": "begin_frame frees the temp memory of the last frame and times this one. apply_input takes in helper messages, text and keys."},
+    {"active": ["draw", "uib"], "edges": [3], "text": "render, font, image and icon start their frame. ui.begin_frame applies the mouse events and makes a new root box."},
+    {"active": ["uib", "build"], "edges": [4], "text": "The build procedures put the sidebar, the page, the panel and the player bar in the tree. The floating parts come last, on top."},
+    {"active": ["build", "uie"], "edges": [5], "text": "ui.end_frame measures, sizes and places every box. Then it finds the box under the mouse and pushes one instance per rectangle, glyph and image."},
+    {"active": ["uie", "render"], "edges": [6], "text": "finish_frame calls render.end_frame, which draws the instances and presents the drawable. run_frame then empties the event list."}
+  ]
+}
+</script>
+</figure>
+
+<h3>When the frames stop</h3>
+
+<p><a class="src" data-src="src/app/frame.odin:27" data-symbol="draw_frame" href="../../src/app/frame.odin">draw_frame</a>
+returns true while it wants another frame. That happens during an animation of the UI, while a cover
+fades in, while the lyrics move and after an atlas starts over. A capture or bench run also wants every
+frame. When draw_frame returns false,
+<a class="src" data-src="src/platform/window.odin:176" data-symbol="run_frame" href="../../src/platform/window.odin">run_frame</a>
+pauses the display link. The app then uses no time until something wakes it:</p>
+
+<ul>
+<li><a class="src" data-src="src/platform/window.odin:141" data-symbol="request_frame" href="../../src/platform/window.odin">request_frame</a>
+unpauses the link. Each mouse, scroll and key event calls it. A resize of the window calls it too.</li>
+<li><a class="src" data-src="src/platform/window.odin:220" data-symbol="request_frame_after" href="../../src/platform/window.odin">request_frame_after</a>
+sets a timer, such as for the next word of a lyric line.</li>
+<li><a class="src" data-src="src/platform/window.odin:258" data-symbol="wake" href="../../src/platform/window.odin">wake</a>
+posts an event from another thread, such as when a cover finishes loading.</li>
+</ul>
+
+<p>A test window behind the other windows gets no frames from its display link. A timer runs its frames
+60 times a second instead
+(<a class="src" data-src="src/platform/window.odin:81" data-symbol="Target_frameTimerFired" href="../../src/platform/window.odin">Target_frameTimerFired</a>).</p>
+
+<h3>Events and typing</h3>
+
+<p>The event list lives for one frame. Two arenas take turns to hold the text of the events, so that text
+lasts through the next frame
+(<a class="src" data-src="src/platform/window.odin:187" data-symbol="event_arena_index" href="../../src/platform/window.odin">run_frame</a>).
+Any part of the app reads the list with
+<a class="src" data-src="src/platform/events.odin:91" data-symbol="list_events" href="../../src/platform/events.odin">list_events</a>.</p>
+
+<p>Typing in a text field goes another way. While a field has focus, a 1-point view takes the keys
+(<a class="src" data-src="src/platform/text_input.odin:12" data-symbol="Text_View" href="../../src/platform/text_input.odin">Text_View</a>).
+The macOS input method composes text in that view, such as kana before it becomes kanji. The view turns
+what it gets into <code>Text_Insert</code>, <code>Text_Marked</code> and <code>Text_Command</code> events.
+At the end of each frame,
+<a class="src" data-src="src/app/kit/text_field.odin:219" data-symbol="finish_text_fields" href="../../src/app/kit/text_field.odin">finish_text_fields</a>
+gives the keys to that view, or back to the shortcuts.</p>
+
+<h2 id="packages">What each package hands to the next</h2>
+
+<p>Each package in the frame does one job. Click a box to read it.</p>
+
+<figure class="diagram">
+<script type="application/json">
+{
+  "nodes": [
+    {"id": "platform", "label": "platform", "x": 20, "y": 20,
+     "info": "Opens the AppKit window with its blur and its Metal layer. It turns AppKit events into a list and calls draw_frame on each tick. It hands the drawable to the app.",
+     "src": "src/platform/window.odin:203", "symbol": "run"},
+    {"id": "app", "label": "app", "x": 260, "y": 20,
+     "info": "draw_frame builds the whole window each frame. It calls the build procedures of the sidebar, the page, the panel and the player bar.",
+     "src": "src/app/frame.odin:27", "symbol": "draw_frame"},
+    {"id": "kit", "label": "app/kit", "x": 500, "y": 20,
+     "info": "The colours, the sizes and the widgets every page uses. A widget puts boxes in the tree. It gives a box a draw proc for an icon or a cover.",
+     "src": "src/app/kit/theme.odin:26", "symbol": "colors"},
+    {"id": "ui", "label": "ui", "x": 260, "y": 150,
+     "info": "Keeps the tree of boxes. It lays them out, finds the box under the mouse, scrolls and draws each box.",
+     "src": "src/ui/ui.odin:222", "symbol": "box"},
+    {"id": "icon", "label": "icon", "x": 500, "y": 150,
+     "info": "Draws each SF Symbol once per size into an atlas of masks. Any colour can then fill it.",
+     "src": "src/icon/icon.odin:74", "symbol": "draw"},
+    {"id": "image", "label": "image", "x": 740, "y": 150,
+     "info": "Downloads each cover on a worker thread and saves it on disk. It decodes it at the size the window draws and keeps it on the GPU.",
+     "src": "src/image/image.odin:129", "symbol": "watch"},
+    {"id": "font", "label": "font", "x": 20, "y": 280,
+     "info": "CoreText shapes the text. The package draws each glyph from a glyph atlas.",
+     "src": "src/font/font.odin:168", "symbol": "shape"},
+    {"id": "render", "label": "render", "x": 260, "y": 280,
+     "info": "Collects one instance per rectangle, glyph and image. It draws them all with Metal in one pass.",
+     "src": "src/render/metal.odin:162", "symbol": "push"}
+  ],
+  "edges": [
+    {"from": "platform", "to": "app", "label": "tick"},
+    {"from": "platform", "to": "ui", "label": "events"},
+    {"from": "app", "to": "kit", "label": "calls"},
+    {"from": "app", "to": "ui", "label": "boxes"},
+    {"from": "kit", "to": "ui", "label": "boxes"},
+    {"from": "kit", "to": "icon", "label": "symbol"},
+    {"from": "kit", "to": "image", "label": "cover URL"},
+    {"from": "ui", "to": "font", "label": "text"},
+    {"from": "ui", "to": "render", "label": "rects"},
+    {"from": "font", "to": "render", "label": "glyphs"},
+    {"from": "icon", "to": "render", "label": "masks"},
+    {"from": "image", "to": "render", "label": "textures"}
+  ]
+}
+</script>
+</figure>
+
+<h2 id="boxes">The box tree</h2>
+
+<p>The <code>ui</code> package is an immediate-mode UI (see <a href="index.html#immediate-ui">the index</a>).
+The app calls
+<a class="src" data-src="src/ui/ui.odin:222" data-symbol="box" href="../../src/ui/ui.odin">ui.box</a>
+with an ID, a style and an optional text. The box goes in the current parent.
+<a class="src" data-src="src/ui/ui.odin:272" data-symbol="scope" href="../../src/ui/ui.odin">ui.scope</a>
+makes a box the parent of the boxes built inside its <code>if</code>.</p>
+
+<p>Each box with an ID keeps its state from one frame to the next. Its key is a hash of its ID and its
+parent's key
+(<a class="src" data-src="src/ui/ui.odin:213" data-symbol="to_key" href="../../src/ui/ui.odin">to_key</a>).
+The kept state holds the hover, the press and the scroll. A box with an empty ID lives in the temp memory
+of the frame and keeps nothing. A box that a frame does not build goes away at the end of that frame
+(<a class="src" data-src="src/ui/ui.odin:338" data-symbol="remove_unbuilt" href="../../src/ui/ui.odin">remove_unbuilt</a>).</p>
+
+<p>A width or a height takes one of five kinds: points, a percent of the parent, a share of the free
+space, the size of the children, or the size of the text
+(<a class="src" data-src="src/ui/ui.odin:14" data-symbol="Size_Kind" href="../../src/ui/ui.odin">Size_Kind</a>).
+<a class="src" data-src="src/ui/ui.odin:328" data-symbol="end_frame" href="../../src/ui/ui.odin">ui.end_frame</a>
+lays out the tree in three passes:</p>
+
+<ol>
+<li><a class="src" data-src="src/ui/layout.odin:15" data-symbol="measure" href="../../src/ui/layout.odin">measure</a>
+works from the bottom of the tree up. It shapes each text and works out the sizes that need no parent.</li>
+<li><a class="src" data-src="src/ui/layout.odin:68" data-symbol="resolve" href="../../src/ui/layout.odin">resolve</a>
+works from the root down. It shares the free space and wraps text to its width.</li>
+<li><a class="src" data-src="src/ui/layout.odin:160" data-symbol="place" href="../../src/ui/layout.odin">place</a>
+sets the rectangle and the clip of each box. A scroll box moves its children by its scroll.</li>
+</ol>
+
+<p>Then
+<a class="src" data-src="src/ui/input.odin:99" data-symbol="find_hot" href="../../src/ui/input.odin">find_hot</a>
+finds the last clickable or hoverable box under the mouse. That box shows on top. The build code asks
+<a class="src" data-src="src/ui/ui.odin:281" data-symbol="signal" href="../../src/ui/ui.odin">ui.signal</a>
+if the person hovered or clicked a box. The hover that signal reads comes from the layout of the last
+frame.</p>
+
+<p>A scroll moves the scroll target of the scroll box under the mouse
+(<a class="src" data-src="src/ui/input.odin:12" data-symbol="apply_events" href="../../src/ui/input.odin">apply_events</a>).
+A trackpad scroll jumps there at once. A mouse wheel scroll glides there over the next frames.
+<a class="src" data-src="src/ui/ui.odin:304" data-symbol="animate" href="../../src/ui/ui.odin">ui.animate</a>
+glides any number the same way, such as the width of the side panel.</p>
+
+<p>Last,
+<a class="src" data-src="src/ui/draw.odin:16" data-symbol="draw" href="../../src/ui/draw.odin">draw</a>
+walks the tree. For each box, it pushes a rounded rectangle, then the text, then the box's own draw proc.
+The box's draw proc draws an icon or a cover.</p>
+
+<h3>Drawing with Metal</h3>
+
+<p>Each rectangle, glyph and image becomes one 128-byte instance
+(<a class="src" data-src="src/render/metal.odin:20" data-symbol="Instance" href="../../src/render/metal.odin">Instance</a>).
+<a class="src" data-src="src/render/metal.odin:162" data-symbol="push" href="../../src/render/metal.odin">render.push</a>
+groups the instances in a row that use the same texture.
+<a class="src" data-src="src/render/metal.odin:253" data-symbol="end_frame" href="../../src/render/metal.odin">render.end_frame</a>
+then draws each group with one call. It keeps three buffers, so the GPU can still draw a frame while
+the app builds the next one
+(<a class="src" data-src="src/render/metal.odin:50" data-symbol="FRAMES_IN_FLIGHT" href="../../src/render/metal.odin">FRAMES_IN_FLIGHT</a>).</p>
+
+<p>One pair of shaders draws every instance. The fragment shader works out rounded corners and borders
+from a distance to the box
+(<a class="src" data-src="src/render/shaders.metal:57" data-symbol="fragment_main" href="../../src/render/shaders.metal">fragment_main</a>).
+For a glyph or an icon, it reads the coverage from the atlas. For a cover, it reads the colour from the
+cover's texture. The app compiles the shaders from their source when it starts
+(<a class="src" data-src="src/render/metal.odin:77" data-symbol="start" href="../../src/render/metal.odin">render.start</a>).</p>
+
+<h2 id="text">Text</h2>
+
+<p>The <code>font</code> package uses San Francisco, the system font of macOS
+(<a class="src" data-src="src/font/font.odin:89" data-symbol="system_font" href="../../src/font/font.odin">system_font</a>).
+<a class="src" data-src="src/font/font.odin:168" data-symbol="shape" href="../../src/font/font.odin">font.shape</a>
+asks CoreText for the glyphs of a text and their places. It also breaks the text into lines, or ends it in
+"…". It keeps each result until no frame uses it for 120 frames.</p>
+
+<p><a class="src" data-src="src/font/atlas.odin:27" data-symbol="draw" href="../../src/font/atlas.odin">font.draw</a>
+pushes one instance per glyph. Each glyph comes from one texture of 4096 by 4096 pixels, the atlas. The
+first time a glyph shows,
+<a class="src" data-src="src/font/atlas.odin:88" data-symbol="rasterize" href="../../src/font/atlas.odin">rasterize</a>
+draws it with CoreText as a grey mask and copies it into the atlas. The atlas holds each glyph at up to
+four positions within a pixel
+(<a class="src" data-src="src/font/atlas.odin:21" data-symbol="SUBPIXEL_STEPS" href="../../src/font/atlas.odin">SUBPIXEL_STEPS</a>).
+When the atlas fills up, it starts over and asks for one more frame.</p>
+
+<p>SF Symbols work the same way in the <code>icon</code> package. AppKit draws each symbol once per size
+into an atlas of 1024 by 1024 pixels
+(<a class="src" data-src="src/icon/icon.odin:127" data-symbol="rasterize" href="../../src/icon/icon.odin">rasterize</a>).
+The atlas keeps only the mask, so the shader can fill the symbol with any colour.</p>
+
+<h2 id="covers">Covers</h2>
+
+<p>A cover goes on the screen through
+<a class="src" data-src="src/app/kit/artwork.odin:150" data-symbol="artwork_rect_box" href="../../src/app/kit/artwork.odin">artwork_rect_box</a>.
+The box first shows a placeholder, a gradient with a symbol on it. Its draw proc,
+<a class="src" data-src="src/app/kit/artwork.odin:33" data-symbol="draw_artwork" href="../../src/app/kit/artwork.odin">draw_artwork</a>,
+asks
+<a class="src" data-src="src/image/image.odin:129" data-symbol="watch" href="../../src/image/image.odin">image.watch</a>
+for the texture each frame. watch returns nothing until the cover loads. Then the cover fades in over
+0.25 seconds.</p>
+
+<p>The <code>image</code> package loads covers on six worker threads
+(<a class="src" data-src="src/image/image.odin:21" data-symbol="WORKER_COUNT" href="../../src/image/image.odin">WORKER_COUNT</a>).
+<a class="src" data-src="src/image/load.odin:19" data-symbol="fetch_image" href="../../src/image/load.odin">fetch_image</a>
+downloads a cover once to <code>~/Library/Caches/onlymuse-native/images</code>.
+<a class="src" data-src="src/image/load.odin:59" data-symbol="read_texture" href="../../src/image/load.odin">read_texture</a>
+decodes it straight to the size the window draws and crops it to the box. It also works out the colour of
+the cover. Then the thread wakes the event loop.</p>
+
+<p>At the start of each frame,
+<a class="src" data-src="src/image/image.odin:111" data-symbol="begin_frame" href="../../src/image/image.odin">image.begin_frame</a>
+takes in the finished covers and starts the next ones. A cover the person scrolled past waits. A
+loaded size of the same cover stands in while a new size loads
+(<a class="src" data-src="src/image/image.odin:206" data-symbol="find_stand_in" href="../../src/image/image.odin">find_stand_in</a>).
+The GPU keeps at most 64 MB of covers. Above that,
+<a class="src" data-src="src/image/image.odin:276" data-symbol="unload_extra" href="../../src/image/image.odin">unload_extra</a>
+unloads the covers that no frame drew for the longest time. It never unloads a cover the last frame
+drew.</p>
+
+<h2 id="look">The look</h2>
+
+<p>The <code>app/kit</code> package holds the look of the window. Every page builds with it.</p>
+
+<ul>
+<li>The colours of the design mock, in
+<a class="src" data-src="src/app/kit/theme.odin:26" data-symbol="colors" href="../../src/app/kit/theme.odin">colors</a>.
+The file also names the sizes of the sidebar, the player bar, the toolbar and the panel.</li>
+<li>The accent colour.
+<a class="src" data-src="src/app/kit/theme.odin:135" data-symbol="update_accent" href="../../src/app/kit/theme.odin">update_accent</a>
+turns it each frame toward the colour of the cover of the Now playing song. With no colourful cover,
+it turns to the system accent that the Helper sends.</li>
+<li>The widgets:
+<a class="src" data-src="src/app/kit/widgets.odin:83" data-symbol="icon_button" href="../../src/app/kit/widgets.odin">icon_button</a>,
+<a class="src" data-src="src/app/kit/page.odin:50" data-symbol="action_button" href="../../src/app/kit/page.odin">action_button</a>,
+<a class="src" data-src="src/app/kit/widgets.odin:211" data-symbol="scrolling_text" href="../../src/app/kit/widgets.odin">scrolling_text</a>,
+<a class="src" data-src="src/app/kit/page.odin:8" data-symbol="page_scroll" href="../../src/app/kit/page.odin">page_scroll</a>,
+<a class="src" data-src="src/app/kit/text_field.odin:225" data-symbol="build_text_field" href="../../src/app/kit/text_field.odin">build_text_field</a>,
+<a class="src" data-src="src/app/kit/menus.odin:10" data-symbol="menu_box" href="../../src/app/kit/menus.odin">menu_box</a>
+and
+<a class="src" data-src="src/app/kit/toast.odin:23" data-symbol="build_toast" href="../../src/app/kit/toast.odin">build_toast</a>.
+Each one puts boxes in the tree. A button returns true when the person clicks it.</li>
+</ul>
+
+<h2 id="code">Where the code is</h2>
+
+<ul>
+<li><a class="src" data-src="src/app/main.odin:31" data-symbol="main" href="../../src/app/main.odin">src/app/main.odin</a>
+starts every part and opens the window.</li>
+<li><a class="src" data-src="src/app/frame.odin:27" data-symbol="draw_frame" href="../../src/app/frame.odin">src/app/frame.odin</a>
+builds one frame.</li>
+<li><a class="src" data-src="src/platform/open_window.odin:22" data-symbol="open_window" href="../../src/platform/open_window.odin">src/platform/open_window.odin</a>
+makes the window, its views and the display link.</li>
+<li><a class="src" data-src="src/platform/window.odin:176" data-symbol="run_frame" href="../../src/platform/window.odin">src/platform/window.odin</a>
+runs the events, the display link and the timers.</li>
+<li><a class="src" data-src="src/platform/events.odin:123" data-symbol="take_event" href="../../src/platform/events.odin">src/platform/events.odin</a>
+turns AppKit events into the event list.</li>
+<li><a class="src" data-src="src/platform/text_input.odin:163" data-symbol="set_text_input" href="../../src/platform/text_input.odin">src/platform/text_input.odin</a>
+takes typing and the input method.</li>
+<li><a class="src" data-src="src/platform/blur.odin:23" data-symbol="Blur_View_updateLayer" href="../../src/platform/blur.odin">src/platform/blur.odin</a>
+runs the blur behind the window.</li>
+<li><a class="src" data-src="src/ui/ui.odin:222" data-symbol="box" href="../../src/ui/ui.odin">src/ui/ui.odin</a>
+holds the boxes and their kept state.</li>
+<li><a class="src" data-src="src/ui/layout.odin:160" data-symbol="place" href="../../src/ui/layout.odin">src/ui/layout.odin</a>
+sizes and places the boxes.</li>
+<li><a class="src" data-src="src/ui/input.odin:99" data-symbol="find_hot" href="../../src/ui/input.odin">src/ui/input.odin</a>
+reads the mouse and the scroll.</li>
+<li><a class="src" data-src="src/ui/draw.odin:16" data-symbol="draw" href="../../src/ui/draw.odin">src/ui/draw.odin</a>
+turns the boxes into instances.</li>
+<li><a class="src" data-src="src/render/metal.odin:253" data-symbol="end_frame" href="../../src/render/metal.odin">src/render/metal.odin</a>
+draws the instances with Metal.</li>
+<li><a class="src" data-src="src/render/shaders.metal:57" data-symbol="fragment_main" href="../../src/render/shaders.metal">src/render/shaders.metal</a>
+colours each pixel of a box, a glyph or a cover.</li>
+<li><a class="src" data-src="src/font/font.odin:168" data-symbol="shape" href="../../src/font/font.odin">src/font/font.odin</a>
+shapes text with CoreText.</li>
+<li><a class="src" data-src="src/font/atlas.odin:27" data-symbol="draw" href="../../src/font/atlas.odin">src/font/atlas.odin</a>
+draws glyphs from the glyph atlas.</li>
+<li><a class="src" data-src="src/icon/icon.odin:74" data-symbol="draw" href="../../src/icon/icon.odin">src/icon/icon.odin</a>
+draws SF Symbols from the icon atlas.</li>
+<li><a class="src" data-src="src/image/image.odin:129" data-symbol="watch" href="../../src/image/image.odin">src/image/image.odin</a>
+keeps the covers on the GPU.</li>
+<li><a class="src" data-src="src/image/load.odin:19" data-symbol="fetch_image" href="../../src/image/load.odin">src/image/load.odin</a>
+downloads and decodes a cover on a worker thread.</li>
+<li><a class="src" data-src="src/app/kit/theme.odin:26" data-symbol="colors" href="../../src/app/kit/theme.odin">src/app/kit/theme.odin</a>
+holds the colours, the sizes and the accent.</li>
+<li><a class="src" data-src="src/app/kit/widgets.odin:83" data-symbol="icon_button" href="../../src/app/kit/widgets.odin">src/app/kit/widgets.odin</a>
+holds the small widgets.</li>
+<li><a class="src" data-src="src/app/kit/artwork.odin:150" data-symbol="artwork_rect_box" href="../../src/app/kit/artwork.odin">src/app/kit/artwork.odin</a>
+draws a cover over its placeholder.</li>
+</ul>
+
+<script src="diagram.js"></script>
+</body>
+</html>

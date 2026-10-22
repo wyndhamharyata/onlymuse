@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="code-explainer" content="commit=c98b085fe0ce34cc0021f1d747ffbe70eaf2841e">
+<title>The player · How onlymuse works</title>
+<link rel="stylesheet" href="explainer.css">
+</head>
+<body data-root="../..">
+<nav>
+<a href="index.html">How onlymuse works</a>
+<a href="window.html">The window and a frame</a>
+<a href="pages.html">Pages and their data</a>
+<a href="playback.html">Playback</a>
+<a href="player.html">The player</a>
+<a href="journey.html">Journey: play a song</a>
+</nav>
+<h1>The player</h1>
+
+<p>The player shows the song Music.app plays and lets the person control it. It has four parts in the window.
+This page explains each part. <a href="playback.html">Playback</a> explains how a song starts and how the
+queue works. <a href="window.html">The window and a frame</a> explains how a frame draws.</p>
+
+<p>The code is in <a href="index.html#odin">Odin</a>. It builds the whole window again each frame, as
+<a href="index.html#immediate-ui">an immediate-mode UI</a> does. The app draws a frame only when something
+asks for one. <a href="index.html#frame-loop">The frame loop</a> explains that. The data about the playing
+song comes from <a href="index.html#helper">the helper</a>.</p>
+
+<h2>What the person sees</h2>
+
+<ul>
+<li><strong>The player bar</strong> runs along the bottom of the window. Its left end shows the cover, the
+song name, a "LOSSLESS" or "YOUTUBE" badge, a heart and the artist and album. The middle holds shuffle,
+previous, play, next, repeat and the seek bar with two clocks. The right end holds the side panel button
+and the volume bar.</li>
+<li><strong>The side panel</strong> opens right of the page. Two tabs at its foot say "Up Next" and
+"Lyrics". Up Next lists the queue from the song playing on.</li>
+<li><strong>The lyrics</strong> follow the song word by word. The current line shows brighter than the
+others. Each word takes the accent colour as the song reaches it. A "Romaji" chip and a "Translation" chip
+show a second line under each line, when the song has one.</li>
+<li><strong>The Now Playing page</strong> opens with a click on the cover in the player bar. It shows the
+cover large on a blurred copy of its colours. Beside the cover come the song, its artist, its album and
+pills such as "Lossless" and "Dolby Atmos". Under them come the "Favourite", "Add to Playlist" and
+"Copy Link" buttons and the current lyric line. Below, the PLAYS, LAST PLAYED, IN LIBRARY SINCE and SKIPS
+cards give numbers. The CREDITS and SOUND cards and "More by" the artist come last.</li>
+</ul>
+
+<p>The accent colour comes from the cover of the playing song. Each frame,
+<a class="src" data-src="src/app/frame.odin:37" data-symbol="update_accent" href="../../src/app/frame.odin">kit.update_accent</a>
+reads the cover that
+<a class="src" data-src="src/app/player/player_bar.odin:47" data-symbol="find_player_artwork_source" href="../../src/app/player/player_bar.odin">find_player_artwork_source</a>
+finds. It keeps the result in
+<a class="src" data-src="src/app/core/state.odin:20" data-symbol="accent" href="../../src/app/core/state.odin">core.app.accent</a>.</p>
+
+<h2>From the helper to the sung word</h2>
+
+<p>Step through the diagram to follow the now-playing state from a helper post to the word the lyrics
+light. Click a box to read what it does.</p>
+
+<figure class="diagram">
+<script type="application/json">
+{
+  "nodes": [
+    {"id": "apply", "label": "helper.apply", "x": 20, "y": 20, "src": "src/helper/helper.odin:208", "symbol": "apply",
+     "info": "Takes in each nowPlaying and position post from the helper and writes it into core.app.now_playing."},
+    {"id": "state", "label": "Now_Playing", "x": 240, "y": 20, "src": "src/helper/helper.odin:71", "symbol": "Now_Playing",
+     "info": "The state, the song, the volume, the last position and the time the helper read that position."},
+    {"id": "estimate", "label": "to_position_seconds", "x": 460, "y": 20, "src": "src/helper/helper.odin:276", "symbol": "to_position_seconds",
+     "info": "Moves the last position on by the time since the helper read it. It never goes past the song's length."},
+    {"id": "bar", "label": "build_player_bar", "x": 240, "y": 128, "src": "src/app/player/player_bar.odin:14", "symbol": "build_player_bar",
+     "info": "Builds the player bar each frame from core.app.now_playing: the song, the play button and the volume."},
+    {"id": "progress", "label": "build_progress", "x": 460, "y": 128, "src": "src/app/player/player_controls.odin:110", "symbol": "build_progress",
+     "info": "Builds the seek bar and the two clocks. It asks for a frame at the next whole second."},
+    {"id": "lyrics", "label": "build_lyrics", "x": 680, "y": 128, "src": "src/app/player/lyrics_panel.odin:148", "symbol": "build_lyrics",
+     "info": "The Lyrics tab. It puts the lead on top of the estimate to get the lyrics' time for this frame."},
+    {"id": "line", "label": "find_current_line", "x": 680, "y": 236, "src": "src/app/player/lyrics_panel.odin:94", "symbol": "find_current_line",
+     "info": "Picks the last line that began before the lyrics' time."},
+    {"id": "glyph", "label": "color_lyric_glyph", "x": 460, "y": 236, "src": "src/app/player/lyrics_lines.odin:24", "symbol": "color_lyric_glyph",
+     "info": "Gives each glyph of a line its colour. A sung word of the current line fades into the accent."}
+  ],
+  "edges": [
+    {"from": "apply", "to": "state", "label": "posts"},
+    {"from": "state", "to": "estimate"},
+    {"from": "state", "to": "bar"},
+    {"from": "bar", "to": "progress"},
+    {"from": "estimate", "to": "progress", "label": "seconds"},
+    {"from": "estimate", "to": "lyrics", "label": "seconds"},
+    {"from": "lyrics", "to": "line"},
+    {"from": "line", "to": "glyph", "label": "index"}
+  ],
+  "steps": [
+    {"active": ["apply"], "text": "The helper sends a nowPlaying post when the song or its state changes. It sends a position post every 2 s. helper.apply takes in both."},
+    {"active": ["apply", "state"], "edges": [0], "text": "helper.apply writes the post into core.app.now_playing. A position post counts only for the same song while it plays."},
+    {"active": ["state", "bar"], "edges": [2], "text": "Each frame, build_player_bar reads core.app.now_playing. It shows the song, the play or pause icon and the volume."},
+    {"active": ["state", "estimate"], "edges": [1], "text": "Between posts, to_position_seconds moves the position on by the time since the helper read it."},
+    {"active": ["bar", "estimate", "progress"], "edges": [3, 4], "text": "build_progress draws the seek bar from the estimate. It asks for the next frame at the next whole second, so the clock turns over."},
+    {"active": ["estimate", "lyrics"], "edges": [5], "text": "build_lyrics takes the same estimate and puts the lead on top of it. The lead starts at 500 ms."},
+    {"active": ["lyrics", "line"], "edges": [6], "text": "find_current_line picks the current line. The column of lines slides so that three lines show above it."},
+    {"active": ["line", "glyph"], "edges": [7], "text": "color_lyric_glyph lights each sung word of that line. schedule_lyrics then sets a timer for the next word."}
+  ]
+}
+</script>
+</figure>
+
+<p>Music.app posts its state only when it changes.
+<a class="src" data-src="src/helper/helper.odin:276" data-symbol="to_position_seconds" href="../../src/helper/helper.odin">to_position_seconds</a>
+estimates the position between posts from
+<a class="src" data-src="src/helper/helper.odin:77" data-symbol="position_read_at_ms" href="../../src/helper/helper.odin">position_read_at_ms</a>.
+Two cases keep the last position as it is. In the first, the last position post did not move on, so
+<a class="src" data-src="src/helper/helper.odin:80" data-symbol="stall_count" href="../../src/helper/helper.odin">stall_count</a>
+holds more than 0. In the second, the song did not start yet, so
+<a class="src" data-src="src/helper/helper.odin:82" data-symbol="has_started" href="../../src/helper/helper.odin">has_started</a>
+holds false. Music.app says it plays while it still loads a song. The clock then stays still.</p>
+
+<p>A post counts as moved on when its position runs more than
+<a class="src" data-src="src/helper/helper.odin:88" data-symbol="MIN_PROGRESS_SECONDS" href="../../src/helper/helper.odin">MIN_PROGRESS_SECONDS</a>
+(0.5 s) past the last one.
+<a class="src" data-src="src/app/frame.odin:138" data-symbol="helper.apply" href="../../src/app/frame.odin">apply_helper_messages</a>
+calls helper.apply for each message, before the frame builds its boxes.</p>
+
+<h2>How the lyrics load</h2>
+
+<p>Apple's API gives lyrics as TTML. TTML is an XML format for timed text. Each line is a
+<code>&lt;p&gt;</code> tag with a begin time. In a song timed by word, each word is a
+<code>&lt;span&gt;</code> tag with its own begin time.</p>
+
+<figure class="diagram">
+<script type="application/json">
+{
+  "nodes": [
+    {"id": "build", "label": "build_lyrics", "x": 20, "y": 20, "src": "src/app/player/lyrics_panel.odin:183", "symbol": "lyrics.watch",
+     "info": "Asks lyrics.watch for the lines of the playing song, each frame."},
+    {"id": "watch", "label": "lyrics.watch", "x": 240, "y": 20, "src": "src/lyrics/lyrics.odin:64", "symbol": "watch",
+     "info": "Returns the phase and the lines it has. The first call for a song starts a thread that loads them."},
+    {"id": "thread", "label": "fetch_lyrics", "x": 460, "y": 20, "src": "src/lyrics/lyrics.odin:88", "symbol": "fetch_lyrics",
+     "info": "Runs on a thread of its own. It keeps the lines only when the song did not change while they loaded."},
+    {"id": "id", "label": "find_song_id", "x": 680, "y": 20, "src": "src/lyrics/lyrics.odin:189", "symbol": "find_song_id",
+     "info": "Finds the catalog ID from the saved queue, or else from a catalog search by name and artist."},
+    {"id": "fetch", "label": "fetch_lines", "x": 680, "y": 128, "src": "src/lyrics/lyrics.odin:128", "symbol": "fetch_lines",
+     "info": "Asks Apple for the syllable lyrics. When Apple refuses, it asks for the lyrics by line."},
+    {"id": "lines", "label": "to_lines", "x": 460, "y": 128, "src": "src/lyrics/ttml.odin:205", "symbol": "to_lines",
+     "info": "Reads each <p> tag of the TTML body as one Line with its begin time."},
+    {"id": "words", "label": "to_words", "x": 240, "y": 128, "src": "src/lyrics/ttml.odin:84", "symbol": "to_words",
+     "info": "Reads each <span> with a begin time as one Word, with its UTF-16 range in the line's text."},
+    {"id": "texts", "label": "to_line_texts", "x": 460, "y": 236, "src": "src/lyrics/ttml.odin:177", "symbol": "to_line_texts",
+     "info": "Reads the transliteration and translation blocks, by the key of each line."}
+  ],
+  "edges": [
+    {"from": "build", "to": "watch"},
+    {"from": "watch", "to": "thread", "label": "new song"},
+    {"from": "thread", "to": "fetch"},
+    {"from": "fetch", "to": "id"},
+    {"from": "fetch", "to": "lines", "label": "TTML"},
+    {"from": "lines", "to": "words", "label": "each line"},
+    {"from": "lines", "to": "texts", "label": "romaji"}
+  ],
+  "steps": [
+    {"active": ["build", "watch"], "edges": [0], "text": "Each frame, build_lyrics calls lyrics.watch with the persistent ID, the name and the artist of the playing song."},
+    {"active": ["watch", "thread"], "edges": [1], "text": "For a new persistent ID, watch sets the phase to Loading. It starts fetch_lyrics on a thread of its own."},
+    {"active": ["thread", "fetch", "id"], "edges": [2, 3], "text": "fetch_lines first needs the catalog ID. find_song_id looks in the saved queue, then searches the catalog."},
+    {"active": ["fetch"], "text": "fetch_lines asks for syllable-lyrics. When that fails, it asks for the lyrics by line. A YouTube song gets no lyrics."},
+    {"active": ["fetch", "lines"], "edges": [4], "text": "to_lines reads each <p> tag of the TTML as one line, with its begin time and its key."},
+    {"active": ["lines", "words"], "edges": [5], "text": "to_words reads the timed words of each line. A song timed by line gets one word for each line."},
+    {"active": ["lines", "texts"], "edges": [6], "text": "to_line_texts reads the romaji and the English translation of each line, by its key."},
+    {"active": ["thread", "watch"], "text": "fetch_lyrics stores the lines and sets the phase to Ready or Missing. platform.wake then asks for a frame."}
+  ]
+}
+</script>
+</figure>
+
+<p><a class="src" data-src="src/lyrics/lyrics.odin:64" data-symbol="watch" href="../../src/lyrics/lyrics.odin">lyrics.watch</a>
+holds the lines of one song at a time. A new song moves the old lines to
+<a class="src" data-src="src/lyrics/lyrics.odin:59" data-symbol="last_arena" href="../../src/lyrics/lyrics.odin">last_arena</a>.
+The frame that asked for the new song may still show them. The next new song frees them.
+<a href="index.html#memory">Memory</a> explains arenas.</p>
+
+<p><a class="src" data-src="src/lyrics/lyrics.odin:111" data-symbol="request.persistent_id" href="../../src/lyrics/lyrics.odin">fetch_lyrics</a>
+compares its song with the song that <code>watch</code> holds now. When another song started while the lines
+loaded, it frees the lines and stops.</p>
+
+<p>The query
+<a class="src" data-src="src/lyrics/lyrics.odin:125" data-symbol="LYRICS_QUERY" href="../../src/lyrics/lyrics.odin">LYRICS_QUERY</a>
+asks Apple for English translations and for Latin letters. The answer then holds a second TTML in
+<code>ttmlLocalizations</code>.
+<a class="src" data-src="src/lyrics/lyrics.odin:174" data-symbol="ttml_localizations" href="../../src/lyrics/lyrics.odin">fetch_lines</a>
+reads that one when it has text. Else it reads <code>ttml</code>.</p>
+
+<p>Each line has a key, such as "L1".
+<a class="src" data-src="src/lyrics/ttml.odin:177" data-symbol="to_line_texts" href="../../src/lyrics/ttml.odin">to_line_texts</a>
+reads the <code>transliteration</code> block for the romaji and the <code>translation</code> block for the
+English. <a class="src" data-src="src/lyrics/ttml.odin:238" data-symbol="to_letters" href="../../src/lyrics/ttml.odin">to_lines</a>
+keeps the romaji only when its letters differ from the line's own letters. An English song thus shows no
+romaji line.</p>
+
+<p>A <a class="src" data-src="src/lyrics/lyrics.odin:15" data-symbol="Word" href="../../src/lyrics/lyrics.odin">Word</a>
+holds its begin time and its UTF-16 range in the line's text. CoreText counts text in UTF-16 units.
+<a class="src" data-src="src/lyrics/ttml.odin:74" data-symbol="to_utf16_length" href="../../src/lyrics/ttml.odin">to_utf16_length</a>
+counts a character above U+FFFF as two units. The space after a word stays with the word, so the words
+join back into the line.</p>
+
+<p>The lyrics also name their songwriters.
+<a class="src" data-src="src/lyrics/ttml.odin:9" data-symbol="to_songwriters" href="../../src/lyrics/ttml.odin">to_songwriters</a>
+reads them. The CREDITS card shows them as "Lyrics by".</p>
+
+<h2>The player bar</h2>
+
+<p><a class="src" data-src="src/app/player/player_bar.odin:14" data-symbol="build_player_bar" href="../../src/app/player/player_bar.odin">build_player_bar</a>
+builds three parts, left to right:</p>
+
+<ul>
+<li><a class="src" data-src="src/app/player/player_bar.odin:69" data-symbol="build_song_info" href="../../src/app/player/player_bar.odin">build_song_info</a>
+builds the cover, the name, the badge, the heart and the artist and album. A click on the cover opens the
+Now Playing page. A click on the artist and album opens the artist page.</li>
+<li><a class="src" data-src="src/app/player/player_controls.odin:13" data-symbol="build_controls" href="../../src/app/player/player_controls.odin">build_controls</a>
+builds the five buttons and the seek bar. A right-click on shuffle opens the shuffle's rules.</li>
+<li><a class="src" data-src="src/app/player/player_controls.odin:163" data-symbol="build_player_end" href="../../src/app/player/player_controls.odin">build_player_end</a>
+builds the side panel button and the volume bar.</li>
+</ul>
+
+<p>The bar sends its commands to Music.app through the helper. The play button sends
+<a class="src" data-src="src/app/player/player_controls.odin:86" data-symbol="playPause" href="../../src/app/player/player_controls.odin">playPause</a>.
+A change on the seek bar sends
+<a class="src" data-src="src/app/player/player_controls.odin:149" data-symbol="seek" href="../../src/app/player/player_controls.odin">seek</a>,
+but only while a song plays or waits paused. A change on the volume bar sends
+<a class="src" data-src="src/app/player/player_controls.odin:188" data-symbol="setVolume" href="../../src/app/player/player_controls.odin">setVolume</a>.
+It also sets the volume in core.app.now_playing at once.</p>
+
+<p>The bar does not always show what Music.app plays.</p>
+
+<ul>
+<li>When Music.app plays nothing,
+<a class="src" data-src="src/app/playback/song_info.odin:13" data-symbol="find_shown_song" href="../../src/app/playback/song_info.odin">find_shown_song</a>
+returns the last song, paused where it was. A click on play then calls
+<a class="src" data-src="src/app/player/player_controls.odin:84" data-symbol="resume_last_song" href="../../src/app/player/player_controls.odin">resume_last_song</a>.</li>
+<li>While the queue puts a song into the library, or the YouTube page loads it, the bar shows the queue
+song. Its second line says "Adding to library…" or "Loading from YouTube…".</li>
+<li><a class="src" data-src="src/app/player/player_bar.odin:208" data-symbol="is_loading" href="../../src/app/player/player_bar.odin">is_loading</a>
+holds true when Music.app says Playing but the song did not start and its position stalls. The bar then
+says "Loading in Music.app…".</li>
+<li>With no song at all, the bar says "Not playing". Its second line says "Music.app is closed" or
+"Nothing in Music.app".</li>
+</ul>
+
+<p>A queue song from YouTube shows the "YOUTUBE" badge in place of "LOSSLESS". The heart calls
+<a class="src" data-src="src/app/player/player_bar.odin:203" data-symbol="toggle_favourite" href="../../src/app/player/player_bar.odin">playback.toggle_favourite</a>.</p>
+
+<p>The clock shows whole seconds. No other part asks for a frame when the second turns over.
+<a class="src" data-src="src/app/player/player_controls.odin:158" data-symbol="request_frame_after" href="../../src/app/player/player_controls.odin">build_progress</a>
+asks for a frame 5 ms after the next whole second, while a song plays.</p>
+
+<h2>The side panel</h2>
+
+<p><a class="src" data-src="src/app/player/panel.odin:14" data-symbol="build_panel" href="../../src/app/player/panel.odin">build_panel</a>
+animates the panel's width from 0 to
+<a class="src" data-src="src/app/kit/theme.odin:66" data-symbol="PANEL_WIDTH_POINTS" href="../../src/app/kit/theme.odin">PANEL_WIDTH_POINTS</a>
+(320 points). It builds the open tab, then the tabs at the foot. It returns true while the lyrics move.
+<a class="src" data-src="src/app/frame.odin:73" data-symbol="is_lyrics_moving" href="../../src/app/frame.odin">The frame</a>
+then asks for the next frame.</p>
+
+<p>The side panel button calls
+<a class="src" data-src="src/app/core/state.odin:47" data-symbol="toggle_side_panel" href="../../src/app/core/state.odin">core.toggle_side_panel</a>.
+It opens the tab the panel showed last, or closes the panel. A click on a tab calls
+<a class="src" data-src="src/app/core/state.odin:51" data-symbol="set_panel" href="../../src/app/core/state.odin">core.set_panel</a>,
+which saves the choice in the store as <code>panel</code>.</p>
+
+<p><a class="src" data-src="src/app/player/panel.odin:59" data-symbol="build_up_next" href="../../src/app/player/panel.odin">build_up_next</a>
+lists the queue from the song playing on. It builds boxes only for the rows in view, plus two rows on each
+side. Two spacers hold the height of the other rows. Each row is 52 points high.</p>
+
+<p><a class="src" data-src="src/app/player/panel.odin:153" data-symbol="build_queue_row" href="../../src/app/player/panel.odin">build_queue_row</a>
+builds one row. The row of the song playing takes the accent tint. Another row shows a remove button while
+the mouse is on it. A click on a row plays the queue from that row. A right-click opens the song menu. A
+drag takes the song onto a playlist. While the queue plays shuffled, a note above the list shows the
+shuffle and a "Rules" button.</p>
+
+<h2>Lyrics timing</h2>
+
+<p>The lyrics run ahead of Music.app's position by the lead.
+<a class="src" data-src="src/app/player/lyrics_panel.odin:33" data-symbol="DEFAULT_LEAD_MS" href="../../src/app/player/lyrics_panel.odin">DEFAULT_LEAD_MS</a>
+sets it to 500 ms. Music.app's posts run about half a second behind what it plays.</p>
+
+<p>Cmd ] runs the lyrics 50 ms earlier. Cmd [ runs them 50 ms later.
+<a class="src" data-src="src/app/player/lyrics_panel.odin:75" data-symbol="apply_lead_key" href="../../src/app/player/lyrics_panel.odin">apply_lead_key</a>
+keeps the lead within 2000 ms either way. It saves the lead in the store as <code>lyricLeadMs</code>.
+<a class="src" data-src="src/app/player/lyrics_panel.odin:59" data-symbol="start_lyrics" href="../../src/app/player/lyrics_panel.odin">start_lyrics</a>
+reads it at the start. For 2 s after a change,
+<a class="src" data-src="src/app/player/lyrics_lines.odin:115" data-symbol="build_lead_note" href="../../src/app/player/lyrics_lines.odin">build_lead_note</a>
+shows a note such as "Lyrics 0.50 s ahead of Music.app. Cmd [ and Cmd ] change it."</p>
+
+<p>Each frame,
+<a class="src" data-src="src/app/player/lyrics_panel.odin:198" data-symbol="position_seconds" href="../../src/app/player/lyrics_panel.odin">build_lyrics</a>
+works out the lyrics' time from the estimate and the lead. Then:</p>
+
+<ol>
+<li><a class="src" data-src="src/app/player/lyrics_panel.odin:94" data-symbol="find_current_line" href="../../src/app/player/lyrics_panel.odin">find_current_line</a>
+picks the last line that began.</li>
+<li>The column slides so that the line three before the current one shows at the top. It reads the line's
+place from last frame's layout. It glides at
+<a class="src" data-src="src/app/player/lyrics_panel.odin:216" data-symbol="SLIDE_RATE" href="../../src/app/player/lyrics_panel.odin">SLIDE_RATE</a>.</li>
+<li><a class="src" data-src="src/app/player/lyrics_lines.odin:45" data-symbol="build_lyric_line" href="../../src/app/player/lyrics_lines.odin">build_lyric_line</a>
+builds each line. The current line fades to full opacity. The others fade to 0.7.</li>
+<li>The text box of each line gets
+<a class="src" data-src="src/app/player/lyrics_lines.odin:74" data-symbol="color_lyric_glyph" href="../../src/app/player/lyrics_lines.odin">color_lyric_glyph</a>
+as its <code>color_of</code>.
+<a class="src" data-src="src/font/atlas.odin:64" data-symbol="color_of" href="../../src/font/atlas.odin">The text drawing</a>
+calls it for each glyph with the glyph's UTF-16 index.</li>
+</ol>
+
+<p><a class="src" data-src="src/app/player/lyrics_lines.odin:24" data-symbol="color_lyric_glyph" href="../../src/app/player/lyrics_lines.odin">color_lyric_glyph</a>
+finds the word that holds the glyph. In the current line, a sung word fades from dim to the accent over
+<a class="src" data-src="src/app/player/lyrics_panel.odin:24" data-symbol="WORD_FADE_SECONDS" href="../../src/app/player/lyrics_panel.odin">WORD_FADE_SECONDS</a>
+(0.15 s). In the line before, the sung words fade back to dim as the current line starts. The romaji line
+uses the same procedure with its own timed words. The translation line has no timing.</p>
+
+<p><a class="src" data-src="src/app/player/lyrics_panel.odin:125" data-symbol="schedule_lyrics" href="../../src/app/player/lyrics_panel.odin">schedule_lyrics</a>
+decides when the next frame comes. While a word still fades, it returns true. The frame loop then keeps drawing. Else
+<a class="src" data-src="src/app/player/lyrics_panel.odin:105" data-symbol="find_next_change" href="../../src/app/player/lyrics_panel.odin">find_next_change</a>
+finds the next word's begin time. schedule_lyrics asks for a frame 5 ms after it. The app then draws no
+frame between words.</p>
+
+<p><a class="src" data-src="src/app/player/lyrics_panel.odin:257" data-symbol="build_lyric_toggles" href="../../src/app/player/lyrics_panel.odin">build_lyric_toggles</a>
+shows the "Romaji" chip only when a line has romaji. It shows the "Translation" chip only when a line has a
+translation. Romaji shows until the person turns it off. The translation shows only after the person turns
+it on. The store saves both as <code>lyricsRomaji</code> and <code>lyricsTranslation</code>.</p>
+
+<h2>The Now Playing page</h2>
+
+<p><a class="src" data-src="src/app/player/now_playing_page.odin:18" data-symbol="build_now_playing_page" href="../../src/app/player/now_playing_page.odin">build_now_playing_page</a>
+needs Apple's catalog data for the song. A queue song has its catalog ID. For any other song,
+<a class="src" data-src="src/app/player/now_playing_details.odin:228" data-symbol="find_catalog_id" href="../../src/app/player/now_playing_details.odin">find_catalog_id</a>
+searches the catalog by name and artist. It takes the exact match, or else the first result. Then the page
+watches the song with its albums and artists. <a href="pages.html">Pages and their data</a> explains
+<code>apple.watch</code> and page data.</p>
+
+<p><a class="src" data-src="src/app/player/now_playing_details.odin:258" data-symbol="read_song_details" href="../../src/app/player/now_playing_details.odin">read_song_details</a>
+reads the answer into
+<a class="src" data-src="src/app/player/now_playing_details.odin:32" data-symbol="Song_Details" href="../../src/app/player/now_playing_details.odin">Song_Details</a>.
+Until Apple answers, the page shows what Music.app gave. From the top, the page builds:</p>
+
+<ol>
+<li><a class="src" data-src="src/app/player/now_playing_hero.odin:28" data-symbol="build_hero" href="../../src/app/player/now_playing_hero.odin">build_hero</a>
+builds the large cover, the title, the artist and the album with its label. Below them come
+<a class="src" data-src="src/app/player/now_playing_hero.odin:159" data-symbol="build_pills" href="../../src/app/player/now_playing_hero.odin">the pills</a>,
+<a class="src" data-src="src/app/player/now_playing_hero.odin:222" data-symbol="build_actions" href="../../src/app/player/now_playing_hero.odin">the buttons</a>
+and
+<a class="src" data-src="src/app/player/now_playing_page.odin:97" data-symbol="build_current_lyric" href="../../src/app/player/now_playing_page.odin">the current lyric line</a>.
+The lyric line uses the same lyrics, lead and word timer as the Lyrics tab.</li>
+<li><a class="src" data-src="src/app/player/now_playing_stats.odin:24" data-symbol="build_stats" href="../../src/app/player/now_playing_stats.odin">build_stats</a>
+builds the four stat cards, only for a song in the library.</li>
+<li><a class="src" data-src="src/app/player/now_playing_details.odin:47" data-symbol="build_detail_cards" href="../../src/app/player/now_playing_details.odin">build_detail_cards</a>
+builds the CREDITS and SOUND cards.</li>
+<li><a class="src" data-src="src/app/player/now_playing_page.odin:154" data-symbol="build_more_by" href="../../src/app/player/now_playing_page.odin">build_more_by</a>
+shows up to six releases of the artist, newest first. A release from the last 30 days says "NEW" and its
+date.</li>
+</ol>
+
+<h3>Details from Music.app and from Apple</h3>
+
+<p>Apple's API and Music.app each know part of the song.
+<a class="src" data-src="src/app/playback/song_info.odin:60" data-symbol="watch_song_info" href="../../src/app/playback/song_info.odin">watch_song_info</a>
+asks Music.app, through the helper, at most once a minute for each song. Music.app gives the play count,
+the dates, the skips, the sample rate, the bit rate, the BPM and the file size. Apple gives the composer,
+the label, the genre, the release date, the ISRC and the audio traits. Music.app names a streamed song
+"HLS media".
+<a class="src" data-src="src/app/player/now_playing_details.odin:116" data-symbol="to_format" href="../../src/app/player/now_playing_details.odin">to_format</a>
+then reads the format from Apple's traits.</p>
+
+<h3>Stats from the play log</h3>
+
+<p>The PLAYS, LAST PLAYED, IN LIBRARY SINCE and SKIPS cards show Music.app's numbers. The PLAYS card also
+shows bars for the last eight weeks and a note such as "#3 this month". Those two come from the app's own
+<a class="src" data-src="src/app/playback/play_log.odin:13" data-symbol="play_log" href="../../src/app/playback/play_log.odin">play log</a>.
+<a href="playback.html">Playback</a> explains how the log counts a play or a skip.</p>
+
+<p><a class="src" data-src="src/app/player/now_playing_stats.odin:209" data-symbol="list_weekly_plays_from_log" href="../../src/app/player/now_playing_stats.odin">list_weekly_plays_from_log</a>
+counts the song's plays in each week. It passes over skips. It also ranks the song among the songs
+played in the last 30 days.
+<a class="src" data-src="src/app/playback/play_log.odin:88" data-symbol="is_same_song" href="../../src/app/playback/play_log.odin">is_same_song</a>
+matches a logged play by catalog ID, or by name and artist.
+<a class="src" data-src="src/app/player/now_playing_stats.odin:192" data-symbol="list_weekly_plays" href="../../src/app/player/now_playing_stats.odin">list_weekly_plays</a>
+keeps the counts until the song, the length of the log or the hour changes.</p>
+
+<h3>The backdrop</h3>
+
+<p>The cover's colours fill the top of the page and the toolbar.
+<a class="src" data-src="src/app/player/now_playing_backdrop.odin:49" data-symbol="set_backdrop" href="../../src/app/player/now_playing_backdrop.odin">set_backdrop</a>
+keeps the cover's address at
+<a class="src" data-src="src/app/player/now_playing_backdrop.odin:13" data-symbol="BACKDROP_PIXELS" href="../../src/app/player/now_playing_backdrop.odin">BACKDROP_PIXELS</a>
+(24 pixels).
+<a class="src" data-src="src/app/player/now_playing_backdrop.odin:21" data-symbol="draw_backdrop" href="../../src/app/player/now_playing_backdrop.odin">draw_backdrop</a>
+stretches that small image over a box 520 points high. The stretch blurs it without a blur shader. It shows
+only the middle band of the square cover.</p>
+
+<p>The page area calls
+<a class="src" data-src="src/app/pages.odin:17" data-symbol="build_page_backdrop" href="../../src/app/pages.odin">build_page_backdrop</a>
+before it builds the toolbar. The backdrop thus shows behind the toolbar too. It stays in place as the page
+scrolls. <a href="index.html#metal">Metal</a> explains how the image reaches the screen.</p>
+
+<h2>Where the code is</h2>
+
+<ul>
+<li><a href="../../src/app/player/player_bar.odin">src/app/player/player_bar.odin</a> builds the player bar and its left end.</li>
+<li><a href="../../src/app/player/player_controls.odin">src/app/player/player_controls.odin</a> builds the buttons, the seek bar and the volume.</li>
+<li><a href="../../src/app/player/panel.odin">src/app/player/panel.odin</a> builds the side panel, its tabs and Up Next.</li>
+<li><a href="../../src/app/player/lyrics_panel.odin">src/app/player/lyrics_panel.odin</a> builds the Lyrics tab and holds the lead and the word timer.</li>
+<li><a href="../../src/app/player/lyrics_lines.odin">src/app/player/lyrics_lines.odin</a> builds each lyric line and colours its sung words.</li>
+<li><a href="../../src/app/player/now_playing_page.odin">src/app/player/now_playing_page.odin</a> builds the Now Playing page, its lyric line and "More by".</li>
+<li><a href="../../src/app/player/now_playing_hero.odin">src/app/player/now_playing_hero.odin</a> builds the cover, the title, the pills and the buttons of the page.</li>
+<li><a href="../../src/app/player/now_playing_stats.odin">src/app/player/now_playing_stats.odin</a> builds the four stat cards from Music.app and the play log.</li>
+<li><a href="../../src/app/player/now_playing_details.odin">src/app/player/now_playing_details.odin</a> reads Apple's answer and builds the CREDITS and SOUND cards.</li>
+<li><a href="../../src/app/player/now_playing_backdrop.odin">src/app/player/now_playing_backdrop.odin</a> draws the blurred cover behind the page.</li>
+<li><a href="../../src/lyrics/lyrics.odin">src/lyrics/lyrics.odin</a> fetches the lyrics on a thread and holds the lines of one song.</li>
+<li><a href="../../src/lyrics/ttml.odin">src/lyrics/ttml.odin</a> reads the TTML into lines, words, romaji, translations and songwriters.</li>
+<li><a href="../../src/helper/helper.odin">src/helper/helper.odin</a> takes in the helper's posts and estimates the position.</li>
+</ul>
+
+<script src="diagram.js"></script>
+</body>
+</html>

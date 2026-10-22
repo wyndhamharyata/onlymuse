@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="code-explainer" content="commit=c98b085fe0ce34cc0021f1d747ffbe70eaf2841e; reader=Odin,manual memory,frame loop,immediate-mode UI,Metal,Objective-C from Odin,helper process,SQLite">
+<title>How onlymuse works</title>
+<link rel="stylesheet" href="explainer.css">
+</head>
+<body data-root="../..">
+<nav>
+<a href="index.html">How onlymuse works</a>
+<a href="window.html">The window and a frame</a>
+<a href="pages.html">Pages and their data</a>
+<a href="playback.html">Playback</a>
+<a href="player.html">The player</a>
+<a href="journey.html">Journey: play a song</a>
+</nav>
+<h1>How onlymuse works</h1>
+
+<p>onlymuse is a Mac app for Apple Music. It shows Apple Music's pages, and YouTube Music's pages, in a
+window that it draws itself. Music.app plays every song, so the sound stays lossless.</p>
+
+<p>These pages explain the code to a reader who has never seen it. Start with "Before you read" if Odin
+or a native renderer is new to you. Then read the parts in any order, or follow one click from start to
+end on the <a href="journey.html">journey page</a>.</p>
+
+<h2>The parts</h2>
+
+<p>Click a box to read what it does. Step through the diagram to see how the parts work together.</p>
+
+<figure class="diagram">
+<script type="application/json">
+{
+  "nodes": [
+    {"id": "window", "label": "AppKit window", "x": 20, "y": 20, "info": "macOS gives the app its window, the mouse and the keys. The app runs AppKit's events until the window closes.", "src": "src/platform/window.odin:203", "symbol": "run"},
+    {"id": "frame", "label": "One frame", "x": 240, "y": 20, "info": "On each refresh of the screen, the app builds every box of the window again from its state.", "src": "src/app/frame.odin:27", "symbol": "draw_frame"},
+    {"id": "metal", "label": "Metal", "x": 460, "y": 20, "info": "The GPU draws the boxes, the text and the covers of the frame.", "src": "src/render/metal.odin:253", "symbol": "end_frame"},
+    {"id": "pages", "label": "Pages", "x": 240, "y": 130, "info": "Home, albums, artists, playlists, search and the YouTube pages. Each page asks for its data each frame.", "src": "src/app/core/navigation.odin:60", "symbol": "navigate"},
+    {"id": "apple", "label": "Apple and YouTube", "x": 20, "y": 240, "info": "The packages that call Apple Music's API and music.youtube.com, with a cache in front.", "src": "src/apple/cache.odin:120", "symbol": "watch"},
+    {"id": "store", "label": "SQLite store", "x": 20, "y": 130, "info": "One file on disk keeps Apple's answers, the play log and the saved state of the window.", "src": "src/store/store.odin:69", "symbol": "start"},
+    {"id": "queue", "label": "Queue", "x": 460, "y": 130, "info": "The list of songs to play, with shuffle and the play log. It sends each song to the helper.", "src": "src/app/playback/queue_order.odin:92", "symbol": "play_songs"},
+    {"id": "helper", "label": "Swift helper", "x": 460, "y": 240, "info": "A second program that the app starts. It controls Music.app and tells the app what Music.app plays.", "src": "src/helper/helper.odin:105", "symbol": "start"},
+    {"id": "player", "label": "Player", "x": 240, "y": 240, "info": "The player bar, the lyrics, the side panel and the Now Playing page.", "src": "src/app/player/player_bar.odin:14", "symbol": "build_player_bar"}
+  ],
+  "edges": [
+    {"from": "window", "to": "frame", "label": "refresh"},
+    {"from": "frame", "to": "metal", "label": "boxes"},
+    {"from": "frame", "to": "pages"},
+    {"from": "pages", "to": "apple", "label": "watch"},
+    {"from": "apple", "to": "store", "label": "cache"},
+    {"from": "pages", "to": "queue", "label": "play"},
+    {"from": "queue", "to": "helper", "label": "message"},
+    {"from": "helper", "to": "player", "label": "now playing"}
+  ],
+  "steps": [
+    {"active": ["window", "frame"], "edges": [0], "text": "On each refresh of the screen, the window asks the app for a frame."},
+    {"active": ["frame", "metal"], "edges": [1], "text": "The frame builds every box from the app's state. Metal draws the boxes."},
+    {"active": ["frame", "pages"], "edges": [2], "text": "The frame builds the page that the sidebar picked."},
+    {"active": ["pages", "apple", "store"], "edges": [3, 4], "text": "The page asks for its data. The answer comes from the store, or from the network on a thread."},
+    {"active": ["pages", "queue"], "edges": [5], "text": "When the user plays a song, the page gives its songs to the queue."},
+    {"active": ["queue", "helper"], "edges": [6], "text": "The queue sends the song to the helper. The helper tells Music.app to play it."},
+    {"active": ["helper", "player"], "edges": [7], "text": "The helper reports what Music.app plays. The next frame shows it in the player."}
+  ]
+}
+</script>
+</figure>
+
+<ul>
+<li><a href="window.html">The window and a frame</a> shows how the app draws its window, its text and its covers on each refresh.</li>
+<li><a href="pages.html">Pages and their data</a> shows how a page gets its data from Apple or YouTube.</li>
+<li><a href="playback.html">Playback</a> covers the queue, the helper, Music.app and YouTube songs.</li>
+<li><a href="player.html">The player</a> covers the player bar, the lyrics and the Now Playing page.</li>
+<li><a href="journey.html">Journey: play a song</a> follows one click on a song through every part.</li>
+</ul>
+
+<h2>Before you read</h2>
+
+<p>Each item explains one idea that the other pages use. Each one links to a longer guide.</p>
+
+<div class="before">
+
+<h3 id="odin">Odin</h3>
+<p>The app is written in Odin, a language close to C. A procedure is a function. A package is a folder of
+<code>.odin</code> files that share their names. One package calls another with its folder name as a
+prefix, such as <code>ui.box</code> or <code>helper.start</code>. Odin has no classes and no garbage
+collector. Learn the syntax from the <a href="https://odin-lang.org/docs/overview/">Odin overview</a>.</p>
+
+<h3 id="memory">Manual memory and temp memory</h3>
+<p>Odin frees no memory by itself. The code frees each thing it makes. An allocator is the object that
+gives out memory. Each thread has a temp allocator for short-lived things. The main thread frees all of its
+temp memory at the start of each frame, in <a class="src" data-src="src/app/frame.odin:80"
+data-symbol="free_all" href="../../src/app/frame.odin">begin_frame</a>. So text that one frame makes in
+temp memory lasts until the next frame starts.</p>
+<p>An arena is an allocator that frees everything it gave out at once. onlymuse reads the data of each
+page into an arena of its own. When a new answer comes, the page reads it into a new arena. The next frame
+frees the old arena, in <a class="src" data-src="src/app/core/page_data.odin:78" data-symbol="retire_arena"
+href="../../src/app/core/page_data.odin">retire_arena</a>. See
+<a href="https://odin-lang.org/docs/overview/#allocators">allocators in the Odin overview</a>.</p>
+
+<h3 id="frame-loop">The frame loop</h3>
+<p>A game draws its screen many times a second. onlymuse does the same. macOS tells the app each time the
+screen refreshes, through a display link. On each refresh, the app runs
+<a class="src" data-src="src/app/frame.odin:27" data-symbol="draw_frame" href="../../src/app/frame.odin">draw_frame</a>.
+When nothing moves, the app stops asking for frames, so it uses no power while it waits.</p>
+
+<h3 id="immediate-ui">An immediate-mode UI</h3>
+<p>Most UI kits keep a tree of views and change the tree when the data changes. onlymuse builds the whole
+tree of boxes again on every frame, straight from its state. A box is one rectangle with a style, and
+maybe text. No code keeps the screen in sync with the data. The next frame shows the new data. A click comes back as a signal from <a class="src" data-src="src/ui/ui.odin:281" data-symbol="signal"
+href="../../src/ui/ui.odin">ui.signal</a> on the box that the code builds. Read
+<a href="https://en.wikipedia.org/wiki/Immediate_mode_GUI">Immediate mode GUI</a> for the idea.</p>
+
+<h3 id="metal">Metal</h3>
+<p>Metal is Apple's API for the GPU. onlymuse uses no AppKit buttons or text views on screen. It hands
+Metal a list of rectangles each frame. Each rectangle has a colour, round corners, and maybe a piece of a
+texture: a letter, a symbol or a cover. Shaders, small programs that run on the GPU, draw them. See
+<a href="https://developer.apple.com/metal/">Apple's Metal page</a>.</p>
+
+<h3 id="objc">Objective-C from Odin</h3>
+<p>AppKit and Metal are Objective-C APIs. Odin calls them with <code>objc_send</code>, which sends a
+message, such as <code>"setPaused:"</code>, to an Objective-C object. The text in quotes is the
+method's name, its selector. Plain C APIs of macOS, such as CoreText and SQLite, live in
+<code>src/mac</code>. See <code>objc_send</code> in
+<a href="https://pkg.odin-lang.org/base/intrinsics/">Odin's intrinsics package</a>.</p>
+
+<h3 id="helper">The helper process</h3>
+<p>Some macOS features are easy in Swift and hard in Odin: AppleScript, WebKit pages and the Keychain. So
+onlymuse starts a second program, the Swift helper in <code>helper/</code>. The two programs talk in JSON,
+one message per line, over the helper's standard input and output. The app starts it in
+<a class="src" data-src="src/helper/helper.odin:105" data-symbol="start" href="../../src/helper/helper.odin">helper.start</a>.</p>
+
+<h3 id="sqlite">SQLite</h3>
+<p>SQLite is a database in one file, with no server. onlymuse keeps its file in
+<code>~/Library/Application Support/onlymuse-native</code>. It holds Apple's answers, the play log and the
+saved state of the window. See <a href="https://sqlite.org/about.html">About SQLite</a>.</p>
+
+</div>
+
+<h2>Words</h2>
+<p>The pages use the project's own words. A <b>song</b> is one song. Music.app calls it a track. The
+<b>catalog</b> is everything Apple Music offers. The <b>library</b> is what the account added. A
+<b>shelf</b> is one named row on Home. A <b>card</b> is one tile on a shelf. The full list is in
+<code>CLAUDE.md</code>, under Words.</p>
+
+<script src="diagram.js"></script>
+</body>
+</html>

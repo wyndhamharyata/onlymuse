@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="code-explainer" content="commit=c98b085fe0ce34cc0021f1d747ffbe70eaf2841e">
+<title>Journey: play a song · How onlymuse works</title>
+<link rel="stylesheet" href="explainer.css">
+</head>
+<body data-root="../..">
+<nav>
+<a href="index.html">How onlymuse works</a>
+<a href="window.html">The window and a frame</a>
+<a href="pages.html">Pages and their data</a>
+<a href="playback.html">Playback</a>
+<a href="player.html">The player</a>
+<a href="journey.html">Journey: play a song</a>
+</nav>
+<h1>Journey: play a song</h1>
+
+<h2>What the user does and sees</h2>
+<p>The user opens an album page and clicks a song row. Music.app starts to play that song, with the rest of the album after it in the queue. The player bar at the bottom of the window then shows the song's name, cover and position.</p>
+<p>One click plays the row. The <a class="src" data-src="src/ui/ui.odin:137" data-symbol="click_count" href="../../src/ui/ui.odin">Signal</a> of a box holds a click count, but the album row does not read it. The <a class="src" data-src="src/app/browse/album_page.odin:217" data-symbol="action_button" href="../../src/app/browse/album_page.odin">"Play"</a> button above the songs takes the same path from the first song.</p>
+<p>This page follows the click through the code. It uses ideas that the index page explains:</p>
+<ul>
+<li><a href="index.html#odin">Odin</a> and <a href="index.html#memory">its memory</a>.</li>
+<li><a href="index.html#frame-loop">The frame loop</a> and <a href="index.html#immediate-ui">the immediate-mode UI</a>.</li>
+<li><a href="index.html#metal">Metal</a> and <a href="index.html#objc">Objective-C calls from Odin</a>.</li>
+<li><a href="index.html#helper">The helper process</a> and <a href="index.html#sqlite">the SQLite file</a>.</li>
+</ul>
+
+<h2>The journey, step by step</h2>
+<p>Use Next and Back, or the arrow keys, to follow the click. Click a box to read what it does.</p>
+
+<figure class="diagram">
+<script type="application/json">
+{
+  "nodes": [
+    {"id": "platform", "label": "AppKit event", "x": 20, "y": 30, "info": "src/platform turns each AppKit mouse event into an event of its own and asks for a frame.", "src": "src/platform/events.odin:123", "symbol": "take_event"},
+    {"id": "ui", "label": "Box signal", "x": 240, "y": 30, "info": "src/ui finds the box under the mouse and tells the box if the user clicked it this frame.", "src": "src/ui/ui.odin:281", "symbol": "signal"},
+    {"id": "row", "label": "Album song row", "x": 460, "y": 30, "info": "The album page builds one row per song. A click on a row plays the album from that song.", "src": "src/app/browse/album_page.odin:248", "symbol": "build_numbered_songs"},
+    {"id": "queue", "label": "Queue", "x": 680, "y": 30, "info": "src/app/playback keeps the queue. It asks the helper to play a song and takes in the answers.", "src": "src/app/playback/queue.odin:161", "symbol": "play_at"},
+    {"id": "player", "label": "Player bar", "x": 440, "y": 170, "info": "The player bar shows the song that Music.app plays, with its cover and position.", "src": "src/app/player/player_bar.odin:14", "symbol": "build_player_bar"},
+    {"id": "helper", "label": "src/helper", "x": 680, "y": 170, "info": "The one package that talks to the helper. It writes JSON lines to the helper and reads its lines on a thread.", "src": "src/helper/requests.odin:106", "symbol": "send"},
+    {"id": "music", "label": "Music.app", "x": 440, "y": 310, "info": "Apple's Music app. It plays every Apple Music song and posts a playerInfo notification on each change."},
+    {"id": "swift", "label": "Swift helper", "x": 680, "y": 310, "info": "A separate Swift process. It controls Music.app with AppleScript and sends what Music.app plays.", "src": "helper/Sources/onlymuse-helper/main.swift:124", "symbol": "playSong"}
+  ],
+  "edges": [
+    {"from": "platform", "to": "ui", "label": "event"},
+    {"from": "ui", "to": "row", "label": "signal"},
+    {"from": "row", "to": "queue", "label": "click"},
+    {"from": "queue", "to": "helper", "label": "send_play"},
+    {"from": "helper", "to": "swift", "label": "JSON line"},
+    {"from": "swift", "to": "music", "label": "AppleScript"},
+    {"from": "music", "to": "swift"},
+    {"from": "swift", "to": "helper"},
+    {"from": "helper", "to": "queue"},
+    {"from": "queue", "to": "player", "label": "reads"}
+  ],
+  "steps": [
+    {"active": ["platform"], "text": "1. The mouse button goes down on a song row. take_event stores a Mouse_Press and asks for a frame."},
+    {"active": ["platform"], "text": "2. The button comes up over the same row. take_event stores a Mouse_Release. The display link then runs draw_frame."},
+    {"active": ["platform", "ui"], "edges": [0], "text": "3. ui.begin_frame calls apply_events. A release over the pressed box makes that box the clicked box."},
+    {"active": ["ui", "row"], "edges": [1], "text": "4. build_numbered_songs builds the row box again. ui.signal(row) says is_clicked for this row."},
+    {"active": ["row", "queue"], "edges": [2], "text": "5. apply_song_row_signal returns true for a click that ends no drag. The row calls playback.play_songs with the album and its index."},
+    {"active": ["queue"], "text": "6. play_songs puts copies of the album's songs in the queue. play_at then starts from the clicked song."},
+    {"active": ["queue", "helper"], "edges": [3], "text": "7. play_at saves the queue to SQLite. send_play writes a playSong command with a new request ID."},
+    {"active": ["helper", "swift"], "edges": [4], "text": "8. send writes one JSON line to the helper's stdin. The helper reads it on a thread of its own."},
+    {"active": ["swift", "music"], "edges": [5], "text": "9. The helper runs MusicApp.playSong. AppleScript finds the song in the library, then tells Music.app to play it."},
+    {"active": ["swift", "helper"], "edges": [7], "text": "10. The helper sends playSongResult. It holds the request ID and the song's persistent ID in Music.app's library."},
+    {"active": ["music", "swift", "helper"], "edges": [6, 7], "text": "11. Music.app posts com.apple.Music.playerInfo. The helper reads the song with readNowPlaying and sends a nowPlaying line."},
+    {"active": ["helper"], "text": "12. In the app, read_lines reads each line on its own thread. It calls platform.wake, which asks for a frame."},
+    {"active": ["helper", "queue"], "edges": [8], "text": "13. On that frame, apply_helper_messages takes the lines. now_playing gets the new song. The queue keeps its persistent ID."},
+    {"active": ["queue", "player"], "edges": [9], "text": "14. Later in the same frame, build_player_bar reads now_playing. It shows the song's name, cover and position."},
+    {"active": ["queue", "row"], "text": "15. The album page reads the playing song too. The clicked row now shows in the accent colour."}
+  ]
+}
+</script>
+</figure>
+
+<h2>Each step in the code</h2>
+
+<h3>1. The mouse press reaches the app</h3>
+<p><a class="src" data-src="src/platform/window.odin:203" data-symbol="run" href="../../src/platform/window.odin">run</a> waits for the next AppKit event. It gives each event to <a class="src" data-src="src/platform/window.odin:213" data-symbol="take_event" href="../../src/platform/window.odin">take_event</a> first. For a left mouse down, take_event stores a <a class="src" data-src="src/platform/events.odin:139" data-symbol="Mouse_Press" href="../../src/platform/events.odin">Mouse_Press</a> with the position, the button, the click count and the modifier keys. It then calls <a class="src" data-src="src/platform/events.odin:188" data-symbol="request_frame" href="../../src/platform/events.odin">request_frame</a>, which starts the display link (<a class="src" data-src="src/platform/window.odin:141" data-symbol="request_frame" href="../../src/platform/window.odin">request_frame</a>). See <a href="index.html#objc">Objective-C calls</a> and <a href="window.html">the window page</a>.</p>
+<p>This step runs on the main thread, between two frames.</p>
+
+<h3>2. The release, and a new frame</h3>
+<p>For a left mouse up, take_event stores a <a class="src" data-src="src/platform/events.odin:142" data-symbol="Mouse_Release" href="../../src/platform/events.odin">Mouse_Release</a>. On the next refresh of the screen, <a class="src" data-src="src/platform/window.odin:176" data-symbol="run_frame" href="../../src/platform/window.odin">run_frame</a> calls <a class="src" data-src="src/platform/window.odin:183" data-symbol="on_frame" href="../../src/platform/window.odin">on_frame</a>. The app set on_frame to <a class="src" data-src="src/app/main.odin:123" data-symbol="draw_frame" href="../../src/app/main.odin">draw_frame</a>. After the frame, run_frame empties <a class="src" data-src="src/platform/window.odin:185" data-symbol="state.events" href="../../src/platform/window.odin">the list of events</a>.</p>
+<p>The press and the release can come in one frame or in two. Each frame reads the events since the last frame.</p>
+
+<h3>3. The UI finds the clicked box</h3>
+<p><a class="src" data-src="src/app/frame.odin:27" data-symbol="draw_frame" href="../../src/app/frame.odin">draw_frame</a> calls <a class="src" data-src="src/app/frame.odin:36" data-symbol="ui.begin_frame" href="../../src/app/frame.odin">ui.begin_frame</a>. <a class="src" data-src="src/ui/ui.odin:186" data-symbol="begin_frame" href="../../src/ui/ui.odin">begin_frame</a> sets <a class="src" data-src="src/ui/ui.odin:191" data-symbol="clicked_key" href="../../src/ui/ui.odin">clicked_key</a> to 0, then calls <a class="src" data-src="src/ui/ui.odin:196" data-symbol="apply_events" href="../../src/ui/ui.odin">apply_events</a>.</p>
+<p>In <a class="src" data-src="src/ui/input.odin:12" data-symbol="apply_events" href="../../src/ui/input.odin">apply_events</a>, the press makes the box under the mouse the <a class="src" data-src="src/ui/input.odin:27" data-symbol="active_key" href="../../src/ui/input.odin">active box</a>. The release over that same box makes it <a class="src" data-src="src/ui/input.odin:37" data-symbol="clicked_key" href="../../src/ui/input.odin">the clicked box</a>. The box under the mouse comes from <a class="src" data-src="src/ui/input.odin:99" data-symbol="find_hot" href="../../src/ui/input.odin">find_hot</a>. <a class="src" data-src="src/ui/ui.odin:333" data-symbol="find_hot" href="../../src/ui/ui.odin">end_frame</a> calls it, so it uses the boxes of the last frame. See <a href="index.html#immediate-ui">the immediate-mode UI</a>.</p>
+<p>This step runs at the start of the frame after the release.</p>
+
+<h3>4. The album page builds the row</h3>
+<p>The album page calls <a class="src" data-src="src/app/browse/album_page.odin:63" data-symbol="build_numbered_songs" href="../../src/app/browse/album_page.odin">build_numbered_songs</a> with the album's songs. <a class="src" data-src="src/app/browse/album_page.odin:248" data-symbol="build_numbered_songs" href="../../src/app/browse/album_page.odin">build_numbered_songs</a> builds one row box per song, with the <a class="src" data-src="src/app/browse/album_page.odin:268" data-symbol=".Clickable" href="../../src/app/browse/album_page.odin">.Clickable</a> flag. The ID of each row holds the index and the song's ID, so the row keeps its key from frame to frame. <a class="src" data-src="src/ui/ui.odin:281" data-symbol="signal" href="../../src/ui/ui.odin">ui.signal</a> compares the row's key with the clicked key and sets <a class="src" data-src="src/ui/ui.odin:288" data-symbol="is_clicked" href="../../src/ui/ui.odin">is_clicked</a>. See <a href="pages.html">the pages page</a>.</p>
+<p>This step runs on the same frame, while the app builds the page.</p>
+
+<h3>5. The row asks the queue to play</h3>
+<p><a class="src" data-src="src/app/browse/album_page.odin:297" data-symbol="apply_song_row_signal" href="../../src/app/browse/album_page.odin">The row</a> gives its signal to <a class="src" data-src="src/app/menus/song_drag.odin:20" data-symbol="apply_song_row_signal" href="../../src/app/menus/song_drag.odin">apply_song_row_signal</a>. That procedure opens the song menu on a right click. It starts a drag when the user holds the button and moves the mouse. It <a class="src" data-src="src/app/menus/song_drag.odin:37" data-symbol="is_clicked" href="../../src/app/menus/song_drag.odin">returns true</a> for a click, unless a drag ended on this frame. The row then calls <a class="src" data-src="src/app/browse/album_page.odin:298" data-symbol="play_songs" href="../../src/app/browse/album_page.odin">playback.play_songs</a> with the album's songs and the row's index.</p>
+<p>This step runs on the same frame.</p>
+
+<h3>6. play_songs fills the queue</h3>
+<p><a class="src" data-src="src/app/playback/queue_order.odin:92" data-symbol="play_songs" href="../../src/app/playback/queue_order.odin">play_songs</a> returns at once for an empty list. With shuffle off, it puts <a class="src" data-src="src/app/playback/queue_order.odin:96" data-symbol="clone_songs" href="../../src/app/playback/queue_order.odin">copies of the songs</a> in the queue and calls <a class="src" data-src="src/app/playback/queue_order.odin:97" data-symbol="play_at" href="../../src/app/playback/queue_order.odin">play_at</a> with the clicked index. With shuffle on, <a class="src" data-src="src/app/playback/queue_order.odin:101" data-symbol="list_play_order" href="../../src/app/playback/queue_order.odin">list_play_order</a> puts the clicked song first, and play_at starts from 0.</p>
+<p>The queue keeps its own copies. <a class="src" data-src="src/app/playback/queue_order.odin:26" data-symbol="freed memory" href="../../src/app/playback/queue_order.odin">The page reads its songs into new memory</a> when its answers or phase change, so the queue never points into the page's memory. The old songs wait until the next frame starts, when <a class="src" data-src="src/app/frame.odin:82" data-symbol="free_retired_songs" href="../../src/app/frame.odin">free_retired_songs</a> frees them. See <a href="index.html#memory">memory</a>.</p>
+<p>This step runs on the same frame.</p>
+
+<h3>7. play_at asks the helper to play</h3>
+<p><a class="src" data-src="src/app/playback/queue.odin:161" data-symbol="play_at" href="../../src/app/playback/queue.odin">play_at</a> counts one more play in <a class="src" data-src="src/app/playback/queue.odin:162" data-symbol="play_count" href="../../src/app/playback/queue.odin">play_count</a>. <a class="src" data-src="src/app/playback/queue.odin:164" data-symbol="set_playable" href="../../src/app/playback/queue.odin">set_playable</a> puts the Apple match in place of a YouTube song that has one. play_at sets the queue index and empties <a class="src" data-src="src/app/playback/queue.odin:171" data-symbol="playing_persistent_id" href="../../src/app/playback/queue.odin">playing_persistent_id</a>. <a class="src" data-src="src/app/playback/queue.odin:172" data-symbol="save_queue_and_handoff" href="../../src/app/playback/queue.odin">save_queue_and_handoff</a> writes the queue to <a href="index.html#sqlite">the SQLite file</a> through <a class="src" data-src="src/app/playback/queue.odin:123" data-symbol="save_queue" href="../../src/app/playback/queue.odin">save_queue</a>.</p>
+<p><a class="src" data-src="src/app/playback/queue.odin:140" data-symbol="to_song_match" href="../../src/app/playback/queue.odin">to_song_match</a> turns the song into a <a class="src" data-src="src/helper/requests.odin:9" data-symbol="Song_Match" href="../../src/helper/requests.odin">Song_Match</a>: the name, the artist, the album, the length and a YouTube ID. <a class="src" data-src="src/helper/requests.odin:23" data-symbol="send_play" href="../../src/helper/requests.odin">send_play</a> wraps it in a <a class="src" data-src="src/helper/requests.odin:32" data-symbol="playSong" href="../../src/helper/requests.odin">playSong</a> command with a new request ID. play_at <a class="src" data-src="src/app/playback/queue.odin:175" data-symbol="queue_state.requests" href="../../src/app/playback/queue.odin">keeps the request ID</a> with the kind .Play and the play count.</p>
+<p>This step runs on the same frame.</p>
+
+<h3>8. The command goes to the helper</h3>
+<p><a class="src" data-src="src/helper/requests.odin:106" data-symbol="send" href="../../src/helper/requests.odin">send</a> returns at once if the helper did not start. Else it locks <a class="src" data-src="src/helper/requests.odin:110" data-symbol="write_mutex" href="../../src/helper/requests.odin">write_mutex</a>, as worker threads send too. It <a class="src" data-src="src/helper/requests.odin:112" data-symbol="os.write" href="../../src/helper/requests.odin">writes</a> the command and a newline to the helper's stdin. See <a href="index.html#helper">the helper process</a>.</p>
+<p>In the helper, <a class="src" data-src="helper/Sources/onlymuse-helper/Link.swift:47" data-symbol="startReadingCommands" href="../../helper/Sources/onlymuse-helper/Link.swift">startReadingCommands</a> runs a thread that <a class="src" data-src="helper/Sources/onlymuse-helper/Link.swift:54" data-symbol="readLine" href="../../helper/Sources/onlymuse-helper/Link.swift">reads each line</a>. It decodes the line as a Command and <a class="src" data-src="helper/Sources/onlymuse-helper/Link.swift:60" data-symbol="DispatchQueue.main.async" href="../../helper/Sources/onlymuse-helper/Link.swift">gives it to the main queue</a>.</p>
+<p>The app writes the line on the same frame. The helper reads it on another thread, in another process.</p>
+
+<h3>9. The helper tells Music.app to play</h3>
+<p>The helper's <a class="src" data-src="helper/Sources/onlymuse-helper/main.swift:124" data-symbol="playSong" href="../../helper/Sources/onlymuse-helper/main.swift">playSong case</a> checks for a <a class="src" data-src="helper/Sources/onlymuse-helper/main.swift:128" data-symbol="youTubeVideoID" href="../../helper/Sources/onlymuse-helper/main.swift">YouTube video ID</a>. An album song has none, so the helper stops its YouTube page and calls <a class="src" data-src="helper/Sources/onlymuse-helper/main.swift:132" data-symbol="playSong" href="../../helper/Sources/onlymuse-helper/main.swift">music.playSong</a>.</p>
+<p><a class="src" data-src="helper/Sources/onlymuse-helper/MusicApp.swift:111" data-symbol="playSong" href="../../helper/Sources/onlymuse-helper/MusicApp.swift">MusicApp.playSong</a> calls <a class="src" data-src="helper/Sources/onlymuse-helper/MusicApp.swift:225" data-symbol="findSong" href="../../helper/Sources/onlymuse-helper/MusicApp.swift">findSong</a>. findSong runs an AppleScript that lists the library songs with the same name, artist and album. It <a class="src" data-src="helper/Sources/onlymuse-helper/MusicApp.swift:250" data-symbol="candidates.min" href="../../helper/Sources/onlymuse-helper/MusicApp.swift">picks the one closest in length</a> and returns its persistent ID. <a class="src" data-src="helper/Sources/onlymuse-helper/MusicApp.swift:128" data-symbol="play(persistentID" href="../../helper/Sources/onlymuse-helper/MusicApp.swift">play(persistentID:)</a> then runs a second AppleScript that plays the song with that ID.</p>
+<p>This step runs on the helper's main thread, in another process.</p>
+
+<h3>10. The helper answers playSongResult</h3>
+<p>After the play script, the helper <a class="src" data-src="helper/Sources/onlymuse-helper/main.swift:135" data-symbol="playSongResult" href="../../helper/Sources/onlymuse-helper/main.swift">sends playSongResult</a>. It holds the request ID and the persistent ID, or null when findSong found no song. <a class="src" data-src="helper/Sources/onlymuse-helper/Link.swift:36" data-symbol="send" href="../../helper/Sources/onlymuse-helper/Link.swift">send</a> writes each message as one JSON line to the helper's stdout.</p>
+<p>This step runs on the helper's main thread, in another process.</p>
+
+<h3>11. Music.app posts playerInfo</h3>
+<p>Music.app starts the song. It then posts the <code>com.apple.Music.playerInfo</code> notification. The helper <a class="src" data-src="helper/Sources/onlymuse-helper/main.swift:69" data-symbol="com.apple.Music.playerInfo" href="../../helper/Sources/onlymuse-helper/main.swift">observes that notification</a>. It then <a class="src" data-src="helper/Sources/onlymuse-helper/main.swift:80" data-symbol="readNowPlaying" href="../../helper/Sources/onlymuse-helper/main.swift">sends the result of readNowPlaying</a>.</p>
+<p><a class="src" data-src="helper/Sources/onlymuse-helper/MusicApp.swift:47" data-symbol="readNowPlaying" href="../../helper/Sources/onlymuse-helper/MusicApp.swift">readNowPlaying</a> runs <a class="src" data-src="helper/Sources/onlymuse-helper/MusicApp.swift:12" data-symbol="nowPlayingScript" href="../../helper/Sources/onlymuse-helper/MusicApp.swift">an AppleScript</a> for the state, the volume, the position, the name, the artist, the album, the persistent ID and the length. It saves the cover to a file and puts its path in <a class="src" data-src="helper/Sources/onlymuse-helper/MusicApp.swift:65" data-symbol="artworkPath" href="../../helper/Sources/onlymuse-helper/MusicApp.swift">artworkPath</a>. The result goes to the app as a nowPlaying message.</p>
+<p>Music.app posts in its own process. The helper reads and sends on its main thread.</p>
+
+<h3>12. The app reads the helper's lines</h3>
+<p><a class="src" data-src="src/helper/helper.odin:148" data-symbol="read_lines" href="../../src/helper/helper.odin">start</a> runs <a class="src" data-src="src/helper/helper.odin:152" data-symbol="read_lines" href="../../src/helper/helper.odin">read_lines</a> on a thread of its own. read_lines reads the helper's stdout and <a class="src" data-src="src/helper/helper.odin:169" data-symbol="state.lines" href="../../src/helper/helper.odin">stores each full line</a>. It then calls <a class="src" data-src="src/helper/helper.odin:172" data-symbol="platform.wake" href="../../src/helper/helper.odin">platform.wake</a>.</p>
+<p><a class="src" data-src="src/platform/window.odin:258" data-symbol="wake" href="../../src/platform/window.odin">wake</a> posts an application event to AppKit. take_event sees <a class="src" data-src="src/platform/events.odin:143" data-symbol=".ApplicationDefined" href="../../src/platform/events.odin">.ApplicationDefined</a> and asks for a frame.</p>
+<p>read_lines runs on another thread of the app. The frame it asks for is a later frame.</p>
+
+<h3>13. apply_helper_messages takes in the answers</h3>
+<p>At the start of each frame, <a class="src" data-src="src/app/frame.odin:29" data-symbol="apply_input" href="../../src/app/frame.odin">apply_input</a> calls <a class="src" data-src="src/app/frame.odin:136" data-symbol="apply_helper_messages" href="../../src/app/frame.odin">apply_helper_messages</a>. It calls <a class="src" data-src="src/helper/helper.odin:179" data-symbol="take_messages" href="../../src/helper/helper.odin">take_messages</a>, which reads each stored line as JSON. <a class="src" data-src="src/app/frame.odin:138" data-symbol="helper.apply" href="../../src/app/frame.odin">helper.apply</a> runs for each message.</p>
+<ul>
+<li>For nowPlaying, <a class="src" data-src="src/helper/helper.odin:212" data-symbol="nowPlaying" href="../../src/helper/helper.odin">apply</a> sets the playback state and the position. It puts <a class="src" data-src="src/helper/helper.odin:227" data-symbol="clone_song" href="../../src/helper/helper.odin">a copy of the song</a> in core.app.now_playing.</li>
+<li>For playSongResult, <a class="src" data-src="src/app/frame.odin:160" data-symbol="apply_queue_answer" href="../../src/app/frame.odin">the frame</a> calls <a class="src" data-src="src/app/playback/queue.odin:182" data-symbol="apply_queue_answer" href="../../src/app/playback/queue.odin">apply_queue_answer</a>. For the kind .Play, it <a class="src" data-src="src/app/playback/queue.odin:203" data-symbol="is_current" href="../../src/app/playback/queue.odin">drops an old answer</a>. It keeps the ID as <a class="src" data-src="src/app/playback/queue.odin:206" data-symbol="playing_persistent_id" href="../../src/app/playback/queue.odin">queue.playing_persistent_id</a>.</li>
+<li>For nowPlaying, the frame also calls <a class="src" data-src="src/app/playback/queue_handoff.odin:152" data-symbol="apply_queue_now_playing" href="../../src/app/playback/queue_handoff.odin">apply_queue_now_playing</a>. For a playing song, <a class="src" data-src="src/app/playback/queue_handoff.odin:108" data-symbol="apply_playing_song" href="../../src/app/playback/queue_handoff.odin">apply_playing_song</a> keeps the song and its position in <a class="src" data-src="src/app/playback/queue_handoff.odin:123" data-symbol="queue_state.tracking" href="../../src/app/playback/queue_handoff.odin">queue_state.tracking</a>.</li>
+</ul>
+<p>This step runs at the start of a later frame, before the app builds any box. See <a href="playback.html">the playback page</a>.</p>
+
+<h3>14. The player bar shows the song</h3>
+<p>Later in the same frame, draw_frame calls <a class="src" data-src="src/app/frame.odin:52" data-symbol="build_player_bar" href="../../src/app/frame.odin">build_player_bar</a>. <a class="src" data-src="src/app/player/player_bar.odin:69" data-symbol="build_song_info" href="../../src/app/player/player_bar.odin">build_song_info</a> gets the song from <a class="src" data-src="src/app/playback/song_info.odin:13" data-symbol="find_shown_song" href="../../src/app/playback/song_info.odin">find_shown_song</a>. That procedure returns now_playing's song while Music.app plays or pauses.</p>
+<p><a class="src" data-src="src/app/player/player_bar.odin:58" data-symbol="queue_song.artwork.url" href="../../src/app/player/player_bar.odin">The cover</a> comes from Apple's artwork of the queue song, when the queue plays it. <a class="src" data-src="src/app/player/player_controls.odin:110" data-symbol="build_progress" href="../../src/app/player/player_controls.odin">build_progress</a> gets the position from <a class="src" data-src="src/helper/helper.odin:276" data-symbol="to_position_seconds" href="../../src/helper/helper.odin">to_position_seconds</a>. That procedure moves the position on with the clock between the helper's messages. The helper also <a class="src" data-src="helper/Sources/onlymuse-helper/main.swift:111" data-symbol="positionCheckSeconds" href="../../helper/Sources/onlymuse-helper/main.swift">sends the position every 2 s</a>. See <a href="player.html">the player page</a> and <a href="index.html#metal">Metal</a>, which draws the boxes.</p>
+<p>This step runs on the same later frame as step 13.</p>
+
+<h3>15. The row shows the playing song</h3>
+<p>The album page asks <a class="src" data-src="src/app/browse/album_page.odin:250" data-symbol="find_queue_song" href="../../src/app/browse/album_page.odin">find_queue_song</a> for the song of now_playing. <a class="src" data-src="src/app/playback/queue.odin:272" data-symbol="find_queue_song" href="../../src/app/playback/queue.odin">find_queue_song</a> finds it when its persistent ID equals queue.playing_persistent_id. The clicked row then gets <a class="src" data-src="src/app/browse/album_page.odin:266" data-symbol="tint" href="../../src/app/browse/album_page.odin">the accent tint</a> and <a class="src" data-src="src/app/browse/album_page.odin:278" data-symbol="core.app.accent" href="../../src/app/browse/album_page.odin">an accent number</a>.</p>
+<p>This step runs on the same later frame, while the app builds the page.</p>
+
+<h2>When the path changes</h2>
+
+<h3>Music.app is not open</h3>
+<p>MusicApp.playSong checks <a class="src" data-src="helper/Sources/onlymuse-helper/MusicApp.swift:112" data-symbol="launch" href="../../helper/Sources/onlymuse-helper/MusicApp.swift">isRunning</a> first. When Music.app does not run, <a class="src" data-src="helper/Sources/onlymuse-helper/MusicApp.swift:296" data-symbol="launch" href="../../helper/Sources/onlymuse-helper/MusicApp.swift">launch</a> opens it with <a class="src" data-src="helper/Sources/onlymuse-helper/MusicApp.swift:301" data-symbol="activates = false" href="../../helper/Sources/onlymuse-helper/MusicApp.swift">activates = false</a>, so it stays behind onlymuse. findSong and the play script then run as in step 9. When Music.app starts, the helper also <a class="src" data-src="helper/Sources/onlymuse-helper/main.swift:96" data-symbol="readNowPlaying" href="../../helper/Sources/onlymuse-helper/main.swift">sends the result of readNowPlaying</a>.</p>
+<p>If findSong finds no song in the library, playSongResult holds no ID. apply_queue_answer then sets <a class="src" data-src="src/app/playback/queue.odin:214" data-symbol="is_adding" href="../../src/app/playback/queue.odin">is_adding</a> and calls <a class="src" data-src="src/app/playback/queue_add.odin:27" data-symbol="start_adding" href="../../src/app/playback/queue_add.odin">start_adding</a>. On a thread, start_adding asks Apple to <a class="src" data-src="src/app/playback/queue_add.odin:38" data-symbol="/v1/me/library" href="../../src/app/playback/queue_add.odin">put the song in the library</a>. <a class="src" data-src="src/app/playback/queue_handoff.odin:250" data-symbol="update_queue" href="../../src/app/playback/queue_handoff.odin">update_queue</a> then sends playSong every <a class="src" data-src="src/app/playback/queue_add.odin:15" data-symbol="ADD_POLL_SECONDS" href="../../src/app/playback/queue_add.odin">1.5 s</a>, for up to <a class="src" data-src="src/app/playback/queue_add.odin:17" data-symbol="ADD_TIMEOUT_SECONDS" href="../../src/app/playback/queue_add.odin">45 s</a>. Meanwhile the player bar shows <a class="src" data-src="src/app/player/player_bar.odin:129" data-symbol="Adding to library" href="../../src/app/player/player_bar.odin">"Adding to library…"</a>.</p>
+
+<h3>The song is a YouTube song</h3>
+<p>A song row on a YouTube page calls the <a class="src" data-src="src/app/youtube_pages/youtube_pages.odin:164" data-symbol="play_songs" href="../../src/app/youtube_pages/youtube_pages.odin">same play_songs</a>. In play_at, <a class="src" data-src="src/app/playback/queue_order.odin:71" data-symbol="set_playable" href="../../src/app/playback/queue_order.odin">set_playable</a> asks <a class="src" data-src="src/app/matching/match.odin:207" data-symbol="find_playable" href="../../src/app/matching/match.odin">find_playable</a> for the Apple match. With a match, the Apple song takes its place and plays from Music.app as above. That song must start within <a class="src" data-src="src/app/playback/queue.odin:65" data-symbol="START_TIMEOUT_SECONDS" href="../../src/app/playback/queue.odin">8 s</a>, or <a class="src" data-src="src/app/playback/queue_handoff.odin:305" data-symbol="fall_back_to_youtube" href="../../src/app/playback/queue_handoff.odin">fall_back_to_youtube</a> plays the YouTube song.</p>
+<p>With no match, to_song_match puts the <a class="src" data-src="src/app/playback/queue.odin:146" data-symbol="to_video_id" href="../../src/app/playback/queue.odin">video ID</a> in the command. The helper then calls <a class="src" data-src="helper/Sources/onlymuse-helper/YouTube.swift:121" data-symbol="play" href="../../helper/Sources/onlymuse-helper/YouTube.swift">youTube.play</a>. It <a class="src" data-src="helper/Sources/onlymuse-helper/YouTube.swift:135" data-symbol="pauseIfRunning" href="../../helper/Sources/onlymuse-helper/YouTube.swift">pauses Music.app</a> and <a class="src" data-src="helper/Sources/onlymuse-helper/YouTube.swift:148" data-symbol="music.youtube.com" href="../../helper/Sources/onlymuse-helper/YouTube.swift">loads the song</a> in its hidden music.youtube.com page. It sends <a class="src" data-src="helper/Sources/onlymuse-helper/YouTube.swift:153" data-symbol="isLoading" href="../../helper/Sources/onlymuse-helper/YouTube.swift">a nowPlaying with isLoading</a>, and <a class="src" data-src="helper/Sources/onlymuse-helper/YouTube.swift:157" data-symbol="idPrefix" href="../../helper/Sources/onlymuse-helper/YouTube.swift">answers "yt:" and the video ID</a> as the persistent ID. The player bar shows <a class="src" data-src="src/app/player/player_bar.odin:129" data-symbol="Loading from YouTube" href="../../src/app/player/player_bar.odin">"Loading from YouTube…"</a> until the page plays the song.</p>
+
+<script src="diagram.js"></script>
+</body>
+</html>

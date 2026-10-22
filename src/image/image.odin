@@ -134,7 +134,7 @@ find :: proc(url: string, size_pixels: int, crop := Crop{}) -> (texture: ^MTL.Te
 	entry.last_drawn_frame = state.frame_index
 
 	if entry.phase != .Ready {
-		if stand_in, has_stand_in := find_stand_in(entry.family, key); has_stand_in {
+		if stand_in, has_stand_in := find_stand_in(entry.family, key, crop); has_stand_in {
 			entry.had_stand_in = true
 			stand_in.last_drawn_frame = state.frame_index
 			if entry.phase == .Waiting do append(&state.waiting, key)
@@ -181,12 +181,14 @@ to_family :: proc(url: string) -> u64 {
 }
 
 @(private)
-find_stand_in :: proc(family, key: u64) -> (^Entry, bool) {
+// Only a size of the same crop stands in. The same picture cropped square for a song row would show zoomed
+// in a wide tile, then jump when the tile's own loads.
+find_stand_in :: proc(family, key: u64, crop: Crop) -> (^Entry, bool) {
 	stand_in_key, ok := state.families[family]
 	if !ok || stand_in_key == key do return nil, false
 
 	stand_in := state.entries[stand_in_key] or_else nil
-	if stand_in == nil || stand_in.phase != .Ready do return nil, false
+	if stand_in == nil || stand_in.phase != .Ready || stand_in.crop != crop do return nil, false
 
 	return stand_in, true
 }

@@ -208,7 +208,12 @@ version or a change. Types carry the contract.
 
 ## 7. Structure
 
-- Return early. The main path comes last. Keep each `if` one level deep where you can.
+- A function runs in three parts: set up the values it needs, check them with early exits
+  (`return`, `continue`, `break`), then do its main work. The main path comes last, not inside an
+  `if`.
+- Never nest an `if` inside an `if` when an early exit, a named condition (`&&`) or an `else if`
+  can say the same. Nest only when the inner check needs the outer one to hold and the outer block
+  does more than that check. `if ui.scope(box)` opens a box and does not count as nesting.
 - A blank line groups a block. One idea per block, about five statements.
 - Control flow is its own block. An `if`, a loop, a `switch` or a `try` of more than one line has a
   blank line before and after it, unless it opens or closes its block. A run of early exits stays

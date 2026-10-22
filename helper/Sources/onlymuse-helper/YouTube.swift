@@ -65,6 +65,9 @@ final class YouTube: NSObject, WKNavigationDelegate {
   // A song that stops by itself for this long after it played loads again where it stopped, at most maxReloadCount times.
   private static let stuckSeconds = 10.0
   private static let maxReloadCount = 2
+  // A song starts about a second after the page has it. One not started this long after is asked for again, then
+  // the page opens again with it.
+  private static let slowStartSeconds = 8.0
   // Music.app's posts this soon after the helper paused it may still say it plays.
   private static let pauseSettleSeconds = 2.0
   // The page goes this long after the last YouTube song, as it holds 200 MB or more, unless the queue has more.
@@ -97,6 +100,8 @@ final class YouTube: NSObject, WKNavigationDelegate {
   private var playedSeconds = 0.0
   private var stuckSince: Date?
   private var reloadCount = 0
+  private var startAskedAt = Date.distantPast
+  private var startRetryCount = 0
   private var volumePercent = 100
 
   // True from a YouTube song's start until another source plays, so Music.app's posts leave the player as it is.
@@ -156,6 +161,7 @@ final class YouTube: NSObject, WKNavigationDelegate {
     guard webView === playerView else { return }
 
     isPageLoaded = true
+    startAskedAt = Date()
     // A song asked to play while its page still loaded ahead plays now.
     if isActive && preparedID == "" {
       run(toPlayScript())
@@ -175,6 +181,8 @@ final class YouTube: NSObject, WKNavigationDelegate {
     playedSeconds = 0
     stuckSince = nil
     reloadCount = 0
+    startAskedAt = Date()
+    startRetryCount = 0
     if !isQuiet {
       music.pauseIfRunning()
       pausedMusicAt = Date()
@@ -268,7 +276,8 @@ final class YouTube: NSObject, WKNavigationDelegate {
   }
 
   // Plays the song, at once when it was loaded ahead, and with sound again after it waited muted.
-  private func toPlayScript() -> String {
+  // forcesLoad loads the song again even when the page already holds it.
+  private func toPlayScript(forcesLoad: Bool = false) -> String {
     let id = quoted(videoID)
     let unmute = isQuiet ? "" : "const video = document.querySelector('video'); if (video) video.muted = false; player?.unMute?.();"
 
@@ -279,7 +288,7 @@ final class YouTube: NSObject, WKNavigationDelegate {
         const player = document.getElementById('movie_player');
         \(unmute)
         if (!player || !player.getVideoData) return;
-        if (player.getVideoData().video_id === \(id) && player.getPlayerState() !== \(Self.endedState)) {
+        if (\(!forcesLoad) && player.getVideoData().video_id === \(id) && player.getPlayerState() !== \(Self.endedState)) {
           if (player.getCurrentTime() > 1) player.seekTo(0, true);
           player.playVideo();
         } else {
@@ -376,6 +385,7 @@ final class YouTube: NSObject, WKNavigationDelegate {
     playerView.evaluateJavaScript(Self.readStateScript) { [weak self] result, _ in
       MainActor.assumeIsolated {
         guard let self, self.isActive else { return }
+        self.checkSlowStart()
         guard let text = result as? String, let data = text.data(using: .utf8), let page = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
           return self.checkStuck(playerState: nil)
         }
@@ -432,6 +442,33 @@ final class YouTube: NSObject, WKNavigationDelegate {
 
     lastPositionSentAt = Date()
     send(["type": "position", "persistentID": Self.idPrefix + videoID, "positionSeconds": positionSeconds, "positionReadAtMs": MusicApp.nowMs()])
+  }
+
+  // The song has not started long after the page had it, as when the page's load of it hangs with no error.
+  private func checkSlowStart() {
+    guard lastState == "", isPageLoaded, Date().timeIntervalSince(startAskedAt) >= Self.slowStartSeconds else { return }
+
+    startAskedAt = Date()
+    startRetryCount += 1
+    let name = song?.name ?? videoID
+
+    guard startRetryCount <= 2 else {
+      if startRetryCount == 3 { sendError("The YouTube page still has not started \(name).") }
+      return
+    }
+
+    playerView?.evaluateJavaScript("JSON.stringify({ state: \(Self.readStateScript), problem: \(Self.readProblemScript) })") { result, _ in
+      sendError("The YouTube page had not started \(name) after \(Int(Self.slowStartSeconds)) s. The page showed: \(result as? String ?? "nothing")")
+    }
+
+    if startRetryCount == 1 {
+      sendError("The helper asks the YouTube page for \(name) again.")
+      run(toPlayScript(forcesLoad: true))
+    } else {
+      sendError("The helper opens the YouTube page again for \(name).")
+      isPageLoaded = false
+      playerView?.load(URLRequest(url: URL(string: "https://music.youtube.com/watch?v=\(videoID)")!))
+    }
   }
 
   // The page stopped a song that played, by itself: it answers no state, or one neither playing nor paused. It

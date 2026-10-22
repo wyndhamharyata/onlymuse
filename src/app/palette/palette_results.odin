@@ -11,10 +11,8 @@ import "om:apple"
 import "om:helper"
 import "om:platform"
 
-// @(private) keeps this procedure inside the palette package.
 @(private)
 update_results :: proc() {
-	// context.temp_allocator frees its memory at the start of the next frame.
 	term := strings.to_lower(
 		strings.trim_space(kit.to_field_text(&palette.field)),
 		context.temp_allocator,

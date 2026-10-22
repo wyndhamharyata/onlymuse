@@ -31,7 +31,6 @@ Artwork_Paint :: struct {
 }
 
 draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
-	// cast reads box.data, an untyped pointer, as the Artwork_Paint from artwork_rect_box.
 	paint := cast(^Artwork_Paint)box.data
 	texture: ^MTL.Texture
 	image_opacity: f32
@@ -67,7 +66,6 @@ draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 
 // The width over the height of the box, rounded down to a quarter, so a resized box reuses a few
 // textures. to_fill_uv crops the rest from a texture a little taller than the box.
-// @(private = "file") hides this procedure from other files.
 @(private = "file")
 to_crop :: proc(rect: [4]f32, focus_y: f32) -> image.Crop {
 	height := rect.w - rect.y
@@ -124,7 +122,7 @@ to_placeholder :: proc(
 		}
 	}
 
-	// The FNV-1a hash of seed, with its offset basis and prime. transmute reads the bytes, no copy.
+	// The FNV-1a hash of seed, with its offset basis and prime.
 	hash := u32(2166136261)
 	for character in transmute([]u8)seed do hash = (hash ~ u32(character)) * 16777619
 
@@ -169,7 +167,7 @@ artwork_rect_box :: proc(
 
 	if source == "" && placeholder.symbol == "" do return box
 
-	// The temp allocator keeps the paint until the next frame starts, after render draws the box.
+	// The paint lasts for this frame only. Render draws the box before the next frame starts.
 	paint := new(Artwork_Paint, context.temp_allocator)
 	paint^ = {
 		source        = source,

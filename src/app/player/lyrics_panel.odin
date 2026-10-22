@@ -58,7 +58,7 @@ TRANSLATION_FONT_SIZE :: 13
 // Reads the saved lead and the lyrics' switches.
 start_lyrics :: proc() {
 	lyrics_state.lead_ms = DEFAULT_LEAD_MS
-	// or_else gives the text on its right when the store has none. Temp memory lasts one frame.
+	// Until the person changes them, romaji shows and the translation does not.
 	lyrics_state.is_showing_romaji =
 		(store.find_state("lyricsRomaji", context.temp_allocator) or_else "true") == "true"
 	lyrics_state.is_showing_translation =
@@ -144,6 +144,7 @@ schedule_lyrics :: proc(lines: []lyrics.Line) -> bool {
 	return false
 }
 
+// The Lyrics tab of the side panel. Returns true while a line still moves or fades.
 build_lyrics :: proc() -> bool {
 	now_playing := core.app.now_playing
 	song := now_playing.song
@@ -252,7 +253,6 @@ build_panel_note :: proc(text: string) {
 }
 
 // Romaji and Translation, each shown only when a line of the song has it.
-// @(private = "file") lets only this file use the name below.
 @(private = "file")
 build_lyric_toggles :: proc(lines: []lyrics.Line) {
 	has_romaji, has_translation := false, false

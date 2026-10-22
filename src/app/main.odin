@@ -24,11 +24,11 @@ import "om:store"
 import "om:ui"
 import "om:youtube"
 
-// The temp memory of each frame. A long page needs more than the 256 KB build.sh gives a thread.
+// The memory for the text and lists of one frame.
+// A long page needs more than the 256 KB that build.sh gives a thread.
 MAIN_TEMP_BYTES :: 4 * 1024 * 1024
 
 main :: proc() {
-	// context.temp_allocator hands out this memory. begin_frame in frame.odin frees it each frame.
 	runtime.default_temp_allocator_init(
 		&runtime.global_default_temp_allocator_data,
 		MAIN_TEMP_BYTES,
@@ -64,7 +64,6 @@ start_app_state :: proc() {
 
 	core.app.capture_path = os.get_env("OM_CAPTURE", context.allocator)
 	core.app.is_bench = os.get_env("OM_BENCH", context.temp_allocator) == "1"
-	// or_else gives 1200 when OM_BENCH_FRAMES is missing or not a number.
 	core.app.bench_frame_count =
 		strconv.parse_int(os.get_env("OM_BENCH_FRAMES", context.temp_allocator)) or_else 1200
 	core.app.bench_direction = 1

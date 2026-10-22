@@ -42,7 +42,6 @@ list_library_artists :: proc() -> (cards: []apple.Card, signature: int, phase: a
 
 	allocator := page_allocator(data)
 	found := make([dynamic]apple.Card, allocator)
-	// The temp allocator's memory lasts until the next frame starts.
 	seen := make(map[string]bool, context.temp_allocator)
 
 	for body in bodies {
@@ -149,7 +148,6 @@ read_cards :: proc(data: ^Page_Data, bodies: []string) {
 	data.cards = cards[:]
 }
 
-// @(private = "file") hides this from every other file.
 @(private = "file")
 Next_Offset :: struct {
 	version: int,

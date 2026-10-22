@@ -6,7 +6,6 @@ import "om:app/core"
 import "om:image"
 import "om:platform"
 
-// "contextless" means this procedure needs no context, the value Odin passes to each call.
 to_color :: proc "contextless" (hex: u32) -> [4]f32 {
 	return {
 		f32((hex >> 24) & 0xff) / 255,
@@ -20,7 +19,6 @@ to_color :: proc "contextless" (hex: u32) -> [4]f32 {
 to_color_from_hex :: proc(hex: string) -> [4]f32 {
 	if len(hex) != 7 || hex[0] != '#' do return DEFAULT_ACCENT
 
-	// or_else gives DEFAULT_ACCENT when parse_hex_color returns false.
 	return parse_hex_color(hex[1:]) or_else DEFAULT_ACCENT
 }
 
@@ -170,7 +168,6 @@ to_cover_accent :: proc(rgb: [3]f32) -> [4]f32 {
 }
 
 // How bright a colour looks, from 0 to 1, as WCAG measures it.
-// @(private = "file") hides this procedure from other files.
 @(private = "file")
 to_luminance :: proc(rgb: [3]f32) -> f32 {
 	to_linear :: proc(value: f32) -> f32 {return(

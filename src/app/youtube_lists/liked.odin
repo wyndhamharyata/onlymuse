@@ -29,7 +29,6 @@ is_youtube_favourite :: proc(song: core.Catalog_Song) -> bool {
 }
 
 // The song IDs in Liked Music, read again with its songs. It holds none without a YouTube sign-in.
-// @(private = "file") hides this from every other file.
 @(private = "file")
 youtube_liked: struct {
 	songs_address: rawptr,
@@ -72,22 +71,14 @@ start_youtube_like :: proc(video_id: string, is_liked: bool) {
 	job := new(Like_Job)
 	job^ = {strings.clone(video_id), is_liked}
 
-	// self_cleanup frees the thread when its procedure returns, so nothing waits for it.
-	thread.create_and_start_with_data(
-		job,
-		proc(data: rawptr) {
-			// cast turns the rawptr back into the job that it points at.
+	thread.create_and_start_with_data(job, proc(data: rawptr) {
 			job := cast(^Like_Job)data
-			// defer runs each of these when the procedure returns, the last one first.
 			defer free(job)
 			defer delete(job.video_id)
-			// This thread has a temp allocator of its own. Its memory goes when the thread ends.
 			defer free_all(context.temp_allocator)
 
 			if youtube.send_like(job.video_id, job.is_liked) != 200 do return
 
 			apple.refresh(youtube.to_list_path(youtube.LIKED_ID))
-		},
-		self_cleanup = true,
-	)
+		}, self_cleanup = true)
 }

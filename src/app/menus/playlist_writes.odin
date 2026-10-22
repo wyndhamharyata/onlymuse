@@ -13,7 +13,7 @@ import "om:apple"
 import "om:platform"
 import "om:youtube"
 
-// @(private = "file") hides this type from the other files of the package.
+// One write to a library playlist on Apple, with the toasts it shows when Apple answers.
 @(private = "file")
 Write_Job :: struct {
 	path, body:             string,
@@ -48,19 +48,16 @@ start_write :: proc(job: Write_Job) {
 		strings.clone(job.refresh_path),
 	}
 
-	// self_cleanup frees the thread when its procedure returns, so nothing waits for it.
 	thread.create_and_start_with_data(copied, run_write, self_cleanup = true)
 }
 
 // apple.post waits for Apple's answer, so run_write runs on a thread of its own.
 @(private = "file")
 run_write :: proc(data: rawptr) {
-	// cast turns the raw pointer back into the Write_Job that start_write made.
 	job := cast(^Write_Job)data
 	status := apple.post(job.path, job.body).status
 	is_done := status >= 200 && status < 300
 
-	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&write_results.mutex)
 
@@ -81,7 +78,7 @@ run_write :: proc(data: rawptr) {
 	delete(job.failed_text)
 	delete(job.refresh_path)
 	free(job)
-	// Each thread has its own temp memory. No frame frees the temp memory of this thread.
+	// The app frees temp memory each frame on the main thread only.
 	free_all(context.temp_allocator)
 }
 
@@ -139,7 +136,6 @@ add_to_playlist :: proc(playlist_id, playlist_name: string, chosen: core.Catalog
 	Body :: struct {
 		data: []Song_Reference,
 	}
-	// context.temp_allocator frees its memory at the start of the next frame.
 	body, _ := json.marshal(Body{{{song.id, "songs"}}}, allocator = context.temp_allocator)
 
 	start_write(
@@ -156,7 +152,6 @@ add_to_playlist :: proc(playlist_id, playlist_name: string, chosen: core.Catalog
 	)
 }
 
-// @(private) keeps this procedure inside the menus package.
 @(private)
 create_playlist_with :: proc(name: string, chosen: core.Catalog_Song) {
 	song := matching.find_playable(chosen)
@@ -222,7 +217,6 @@ create_playlist :: proc(
 		should_open_page,
 	}
 
-	// self_cleanup frees the thread when its procedure returns, so nothing waits for it.
 	thread.create_and_start_with_data(job, run_create, self_cleanup = true)
 }
 
@@ -231,7 +225,6 @@ create_playlist :: proc(
 run_create :: proc(data: rawptr) {
 	job := cast(^Create_Job)data
 
-	// defer runs these three lines when run_create returns, the last one first.
 	defer free_all(context.temp_allocator)
 	defer free(job)
 	defer delete(job.body)
@@ -240,7 +233,6 @@ run_create :: proc(data: rawptr) {
 	resources :=
 		apple.to_resources(answer.body, context.temp_allocator) if answer.status >= 200 && answer.status < 300 else nil
 
-	// sync.guard holds the lock until run_create returns.
 	sync.guard(&write_results.mutex)
 	defer platform.wake()
 

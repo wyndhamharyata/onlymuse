@@ -3,7 +3,6 @@ package ui
 import "core:math"
 import "om:font"
 
-// @(private) keeps this procedure inside the ui package.
 @(private)
 to_font :: proc(style: Style) -> font.Font {
 	size := style.font_size if style.font_size > 0 else 13
@@ -27,7 +26,7 @@ measure_axis :: proc(box: ^Box, axis: Axis) -> f32 {
 	padding :=
 		box.style.padding.x + box.style.padding.z if axis == .X else box.style.padding.y + box.style.padding.w
 
-	// #partial lets the switch skip Percent and Fill. resolve_children sizes those later.
+	// resolve_children sizes Percent and Fill later.
 	#partial switch size.kind {
 	case .Points:
 		return size.value

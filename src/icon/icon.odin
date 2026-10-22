@@ -8,13 +8,10 @@ import "om:mac"
 import "om:render"
 import MTL "vendor:darwin/Metal"
 
-// objc_send calls the Objective-C method that a selector string names, such as "size".
 objc_send :: intrinsics.objc_send
 
-// objc_class binds this struct to the Objective-C class NSImageSymbolConfiguration.
 @(objc_class = "NSImageSymbolConfiguration")
 Symbol_Configuration :: struct {
-	// using embeds NS.Object, so a ^Symbol_Configuration can stand in for a ^NS.Object.
 	using _: NS.Object,
 }
 
@@ -23,7 +20,7 @@ Graphics_Context :: struct {
 	using _: NS.Object,
 }
 
-// @(private) keeps this type inside the icon package.
+// The place of one symbol at one size in the atlas.
 @(private)
 Entry :: struct {
 	// x, y, width, height in atlas pixels. The width is 0 when the symbol does not exist.
@@ -121,7 +118,6 @@ find :: proc(name: string, size_pixels: f32) -> Entry {
 @(private)
 hash_text :: proc(text: string) -> u64 {
 	value: u64 = 0xcbf29ce484222325
-	// transmute reads the bytes of the string as a []u8, with no copy.
 	for byte_value in transmute([]u8)text do value = (value ~ u64(byte_value)) * 0x100000001b3
 
 	return value
@@ -130,7 +126,6 @@ hash_text :: proc(text: string) -> u64 {
 @(private)
 rasterize :: proc(name: string, size_pixels: f32) -> Entry {
 	ns_name := NS.String.alloc()->initWithOdinString(name)
-	// defer runs release when rasterize returns.
 	defer ns_name->release()
 
 	symbol := objc_send(
@@ -162,7 +157,6 @@ rasterize :: proc(name: string, size_pixels: f32) -> Entry {
 		return {}
 	}
 
-	// The app frees context.temp_allocator at the start of each frame.
 	pixels := make([]u8, width * height * 4, context.temp_allocator)
 	space := mac.CGColorSpaceCreateDeviceRGB()
 	defer mac.CGColorSpaceRelease(space)

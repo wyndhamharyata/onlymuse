@@ -38,7 +38,6 @@ Instance :: struct {
 #assert(size_of(Instance) == 128)
 
 // The instances drawn with one texture, in order.
-// @(private) keeps this type inside the render package.
 @(private)
 Batch :: struct {
 	texture:     ^MTL.Texture,
@@ -130,7 +129,6 @@ start :: proc(device: ^MTL.Device, layer: ^CA.MetalLayer) {
 make_texture :: proc(size_pixels: [2]int, format: MTL.PixelFormat) -> ^MTL.Texture {
 	// The image threads have no autorelease pool of their own. Metal autoreleases the descriptor.
 	pool := NS.AutoreleasePool.alloc()->init()
-	// defer runs drain when make_texture returns.
 	defer pool->drain()
 
 	descriptor := MTL.TextureDescriptor.texture2DDescriptorWithPixelFormat(
@@ -202,7 +200,6 @@ encode_pass :: proc(
 	encoder->setFragmentBuffer(buffer, 0, 0)
 
 	viewport := state.size_pixels
-	// The cast turns viewport's address into a byte pointer, for the slice setVertexBytes takes.
 	encoder->setVertexBytes(([^]byte)(&viewport)[:size_of(viewport)], 1)
 	encoder->setFragmentSamplerState(state.sampler, 0)
 

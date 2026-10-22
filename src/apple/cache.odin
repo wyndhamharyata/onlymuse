@@ -23,10 +23,8 @@ Watched :: struct {
 	status:  int,
 }
 
-// @(private) hides this from every package but apple.
 @(private)
 Entry :: struct {
-	// using lets entry.phase stand for entry.watched.phase. watch returns entry.watched whole.
 	using watched: Watched,
 	path:          string,
 	is_checking:   bool,
@@ -120,7 +118,6 @@ CHECK_THREAD_COUNT :: 4
 // The answer for path as it stands, without waiting. A saved answer shows at once, while watch
 // checks a stale one with Apple. The body lives until the version changes.
 watch :: proc(path: string) -> Watched {
-	// sync.guard locks the mutex and unlocks it when the procedure returns.
 	sync.guard(&cache.mutex)
 
 	if entry, ok := cache.entries[path]; ok {
@@ -132,7 +129,6 @@ watch :: proc(path: string) -> Watched {
 
 		if can_retry {
 			entry.is_checking = true
-			// context.allocator is the heap. Its memory lasts until a call frees it.
 			thread.pool_add_task(&cache.pool, context.allocator, check, entry)
 		}
 
@@ -176,10 +172,8 @@ now_ms :: proc() -> i64 {
 // Runs on a worker. A failed check keeps the saved answer, so the app works offline.
 @(private)
 check :: proc(task: thread.Task) {
-	// cast turns the task's rawptr back into the entry that it points at.
 	entry := cast(^Entry)task.data
 	path := entry.path
-	// defer runs this on return, so this worker's temp memory goes after each check.
 	defer free_all(context.temp_allocator)
 
 	answer := send_to_source(path)
@@ -211,7 +205,6 @@ check :: proc(task: thread.Task) {
 refresh_all :: proc(prefix: string) {
 	paths := make([dynamic]string, context.temp_allocator)
 
-	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&cache.mutex)
 		for path in cache.entries do if strings.has_prefix(path, prefix) do append(&paths, path)
@@ -238,7 +231,6 @@ free_retired_bodies :: proc() {
 	for body in retired_bodies do delete(body)
 	clear(&retired_bodies)
 
-	// A thread pool keeps each finished task until pool_pop_done takes it.
 	for _ in thread.pool_pop_done(&cache.pool) {}
 
 	now := now_ms()

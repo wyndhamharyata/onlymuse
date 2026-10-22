@@ -7,7 +7,6 @@ import "om:apple"
 
 // A Google photo URL ends in its size, as "=w120-h120-l90-rj" or "=s576".
 // to_artwork puts {w} and {h} in place of that size, as Apple's URLs have.
-// @(private) hides this from every package but youtube.
 @(private)
 to_artwork :: proc(reader: ^Reader, url, video_id: string) -> apple.Artwork {
 	// A video's thumbnail is hqdefault.jpg. It shows 16:9 between black bars, which the app crops.
@@ -96,7 +95,6 @@ child :: proc(value: json.Value, keys: ..string) -> json.Value {
 	for key in keys {
 		object, ok := current.(json.Object)
 		if !ok do return nil
-		// or_else gives nil when the object holds no such key.
 		current = object[key] or_else nil
 	}
 
@@ -119,7 +117,6 @@ as_array :: proc(value: json.Value) -> json.Array {
 
 @(private)
 as_number :: proc(value: json.Value) -> f64 {
-	// #partial switch picks the case by the type that value holds. Any other type skips them all.
 	#partial switch number in value {
 	case json.Float:
 		return f64(number)
@@ -135,7 +132,6 @@ as_number :: proc(value: json.Value) -> f64 {
 to_text :: proc(value: json.Value) -> string {
 	if simple := as_string(child(value, "simpleText")); simple != "" do return simple
 
-	// The calling thread's temp allocator holds the text until that thread frees it.
 	builder := strings.builder_make(context.temp_allocator)
 
 	for run in as_array(child(value, "runs")) {

@@ -30,7 +30,6 @@ to_date_text :: proc(date: string) -> string {
 		"Dec",
 	}
 
-	// On the main thread, the memory of the temp allocator lasts until the next frame starts.
 	parts := strings.split(date, "-", context.temp_allocator)
 	if len(parts) < 2 do return date
 
@@ -40,7 +39,6 @@ to_date_text :: proc(date: string) -> string {
 	months := MONTHS
 	if len(parts) < 3 do return fmt.tprintf("%s %s", months[month - 1], parts[0])
 
-	// or_else gives 0 when the day does not parse.
 	day := strconv.parse_int(parts[2]) or_else 0
 
 	return fmt.tprintf("%d %s %s", day, months[month - 1], parts[0])
@@ -53,7 +51,6 @@ Icon_Paint :: struct {
 }
 
 draw_icon :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
-	// box.data is an untyped pointer. cast reads it as the Icon_Paint that icon_box stored.
 	paint := cast(^Icon_Paint)box.data
 	color := paint.color
 	color.a *= opacity
@@ -68,7 +65,6 @@ icon_box :: proc(
 	color: [4]f32,
 	style: ui.Style = {},
 ) -> ^ui.Box {
-	// An Odin parameter is read-only, so this copy is the one to change.
 	style := style
 	box_size := size_points + style.padding.x + style.padding.z
 	if style.width.kind == .Points && style.width.value == 0 do style.width = ui.points(box_size)
@@ -160,8 +156,8 @@ draw_bar :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	)
 }
 
-// A thin track to click or drag along. Returns the ratio shown, which follows the mouse while
-// the button is down. is_set turns true once the person lets go of the mouse.
+// A thin track to click or drag along, such as the player bar's position and volume.
+// Returns the ratio shown, which follows a held mouse. is_set turns true when the person lets go.
 bar :: proc(id: string, ratio: f32, width: ui.Size) -> (shown_ratio: f32, is_set: bool) {
 	box := ui.box(id, {width = width, height = ui.points(16), flags = {.Clickable}})
 	signal := ui.signal(box)
@@ -207,7 +203,6 @@ SLIDE_POINTS_PER_SECOND :: 40
 // A row that only passes under the pointer in a scroll is gone before this. Nothing then slides.
 SLIDE_REST_SECONDS :: 0.3
 
-// @(private = "file") hides slide_start_seconds from other files.
 @(private = "file")
 slide_start_seconds: map[string]f64
 
@@ -240,10 +235,8 @@ scrolling_text :: proc(
 	)
 
 	key := fmt.aprint(id, text)
-	// defer deletes key when this procedure returns, on every path.
 	defer delete(key)
 
-	// .? or_else takes the caller's hover when it passed one, else the box's own.
 	if !(is_hovered.? or_else ui.signal(box).is_hovered) {
 		if key in slide_start_seconds {
 			delete_key_and_value(&slide_start_seconds, key)
@@ -276,7 +269,6 @@ scrolling_text :: proc(
 
 @(private = "file")
 delete_key_and_value :: proc(from: ^map[string]f64, key: string) {
-	// delete_key hands back the map's own copy of the key, which is the one to free.
 	stored_key, _ := delete_key(from, key)
 	delete(stored_key)
 }
@@ -293,7 +285,7 @@ is_mouse_in :: proc(box: ^ui.Box) -> bool {
 	)
 }
 
-// A rounded pill that is on or off. Returns true when clicked.
+// A rounded pill that is on or off, such as Romaji on the lyrics. Returns true when clicked.
 toggle_chip :: proc(label: string, is_on: bool) -> bool {
 	tint := to_accent_tint(core.app.accent)
 	chip := ui.box(

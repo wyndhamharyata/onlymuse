@@ -1,13 +1,11 @@
 // The C APIs of macOS the app calls, with only the procedures it uses.
 package mac
 
-// foreign import links a system framework into the program under a name, such as core_text.
 foreign import core_foundation "system:CoreFoundation.framework"
 foreign import core_graphics "system:CoreGraphics.framework"
 foreign import core_text "system:CoreText.framework"
 foreign import image_io "system:ImageIO.framework"
 
-// distinct makes Type_Ref its own type, so a plain rawptr needs a cast to become one.
 Type_Ref :: distinct rawptr
 String_Ref :: Type_Ref
 Dictionary_Ref :: Type_Ref
@@ -63,7 +61,6 @@ Dictionary_Callbacks :: struct {
 	hash:        rawptr,
 }
 
-// A foreign block declares a framework's variables and procedures. They use C's calling convention.
 @(default_calling_convention = "c")
 foreign core_foundation {
 	kCFTypeDictionaryKeyCallBacks: Dictionary_Callbacks

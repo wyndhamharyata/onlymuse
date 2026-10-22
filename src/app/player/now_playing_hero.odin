@@ -23,7 +23,7 @@ HERO_GAP_POINTS :: 26
 // The text beside the cover takes at least this much, else the text goes under the cover.
 MIN_INFO_POINTS :: 360
 
-// @(private) lets only the files of package player use the name below.
+// The top of the Now Playing page: the large cover, the song, its artist and album, and actions.
 @(private)
 build_hero :: proc(
 	details: Song_Details,
@@ -145,7 +145,6 @@ build_hero :: proc(
 }
 
 // The title keeps its two or three lines rather than filling the column with one word each.
-// @(private = "file") lets only this file use the name below.
 @(private = "file")
 to_title_size :: proc(info_width: f32) -> f32 {
 	if info_width >= 520 do return 44
@@ -155,9 +154,9 @@ to_title_size :: proc(info_width: f32) -> f32 {
 	return 24
 }
 
+// The pills under the album, such as Lossless, Dolby Atmos, the language and Explicit.
 @(private = "file")
 build_pills :: proc(details: Song_Details, info: playback.Song_Info) {
-	// Memory from context.temp_allocator lasts until begin_frame frees it at the next frame.
 	pills := make([dynamic]string, context.temp_allocator)
 	rate := fmt.tprintf("%.1f kHz", f64(info.sample_rate) / 1000) if info.sample_rate > 0 else ""
 	quality := ""
@@ -218,6 +217,7 @@ build_pills :: proc(details: Song_Details, info: playback.Song_Info) {
 	}
 }
 
+// The Favourite, Add to Playlist and Copy Link buttons.
 @(private = "file")
 build_actions :: proc(details: Song_Details, persistent_id: string) {
 	row := ui.box(

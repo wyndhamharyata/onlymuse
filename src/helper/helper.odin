@@ -87,7 +87,6 @@ Now_Playing :: struct {
 // A position this far past the last one counts as moved on. The helper sends one every 2 s.
 MIN_PROGRESS_SECONDS :: 0.5
 
-// @(private) keeps a declaration inside the helper package.
 @(private)
 state: struct {
 	process:     os.Process,
@@ -104,7 +103,6 @@ state: struct {
 // OM_HELPER names a stand-in for the tests. GPUIX_BACKGROUND=1 tells the helper to leave
 // Music.app as it is when the app quits.
 start :: proc(is_background: bool) {
-	// context.temp_allocator on the main thread lasts until the app's next frame starts.
 	path := os.get_env("OM_HELPER", context.temp_allocator)
 
 	if path == "" {
@@ -116,7 +114,6 @@ start :: proc(is_background: bool) {
 	}
 
 	// With SIGPIPE ignored, a write to a helper that ended fails and onlymuse keeps running.
-	// auto_cast converts SIG_IGN to the type that posix.signal takes.
 	posix.signal(.SIGPIPE, auto_cast posix.SIG_IGN)
 
 	child_stdin, to_helper, _ := os.pipe()
@@ -168,7 +165,6 @@ read_lines :: proc() {
 
 			line := strings.clone(string(pending[:index]))
 			remove_range(&pending, 0, index + 1)
-			// sync.guard holds the mutex until this loop body ends.
 			sync.guard(&state.mutex)
 			append(&state.lines, line)
 		}
@@ -183,14 +179,12 @@ read_lines :: proc() {
 take_messages :: proc() -> []Message {
 	lines: [dynamic]string
 
-	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&state.mutex)
 		lines = state.lines
 		state.lines = {}
 	}
 
-	// defer frees the lines at return. The messages hold their own copies in the temp allocator.
 	defer {
 		for line in lines do delete(line)
 		delete(lines)
@@ -280,7 +274,6 @@ now_ms :: proc() -> f64 {
 
 // Music.app posts only on a change, so the position moves on here between its posts.
 to_position_seconds :: proc(now_playing: Now_Playing) -> f64 {
-	// #partial switch lets Closed and Stopped go without a case. They return 0 below.
 	#partial switch now_playing.playback {
 	case .Paused:
 		return now_playing.position_seconds

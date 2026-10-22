@@ -16,7 +16,6 @@ Saved_Answer :: struct {
 	fetched_at_ms: i64,
 }
 
-// @(private) keeps a declaration inside the store package.
 @(private)
 state: struct {
 	database: mac.Sqlite,
@@ -59,7 +58,6 @@ SCHEMA :: `
 
 // OM_DATA names the folder, for the tests.
 read_folder :: proc() -> string {
-	// context.temp_allocator belongs to the calling thread, which frees it after this call.
 	if folder := os.get_env("OM_DATA", context.temp_allocator); folder != "" do return folder
 
 	return fmt.tprintf(
@@ -146,7 +144,6 @@ column_text :: proc(
 find_answer :: proc(path: string, allocator := context.allocator) -> (Saved_Answer, bool) {
 	statement, ok := prepare("select body, fetched_at from responses where path = ?")
 	if !ok do return {}, false
-	// defer finalizes the statement when the procedure returns, on every path.
 	defer mac.sqlite3_finalize(statement)
 
 	bind_text(statement, 1, path)
@@ -184,7 +181,6 @@ find_state :: proc(key: string, allocator := context.allocator) -> (string, bool
 }
 
 save_state :: proc(key, value: string) {
-	// sync.guard locks the mutex and unlocks it when the procedure returns.
 	sync.guard(&state.mutex)
 
 	statement, ok := prepare(

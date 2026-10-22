@@ -9,6 +9,7 @@ import "om:app/playback"
 import "om:apple"
 import "om:ui"
 
+// The side panel right of the page, with its Up Next and Lyrics tabs.
 // Returns true while the lyrics move.
 build_panel :: proc() -> bool {
 	is_open := core.app.panel != .None
@@ -39,7 +40,6 @@ build_panel :: proc() -> bool {
 		)
 
 		if ui.scope(inner) {
-			// #partial switch lets the switch skip a case of the enum, here .None.
 			#partial switch core.app.panel {
 			case .Lyrics:
 				is_moving = build_lyrics()
@@ -55,6 +55,7 @@ build_panel :: proc() -> bool {
 	return is_moving
 }
 
+// The Up Next tab of the side panel, which lists the queue from the song playing on.
 build_up_next :: proc() {
 	if len(playback.queue.songs) == 0 || playback.queue.index < 0 {
 		build_panel_note("Play a song or an album, and the songs after it show here.")
@@ -234,7 +235,6 @@ build_panel_tabs :: proc(width: f32) {
 	}
 }
 
-// @(private = "file") lets only this file use the name below.
 @(private = "file")
 build_panel_tab :: proc(label, symbol: string, panel: core.Panel) {
 	is_open := core.app.panel == panel

@@ -13,6 +13,7 @@ to_fade :: proc(begin_seconds: f64) -> f32 {
 	return f32(clamp((lyrics_state.position_seconds - begin_seconds) / WORD_FADE_SECONDS, 0, 1))
 }
 
+// One lyric line and its timed words, so each word takes the accent as the song reaches it.
 Line_Paint :: struct {
 	index: int,
 	words: []lyrics.Word,
@@ -21,7 +22,6 @@ Line_Paint :: struct {
 // The sung words of the current line fade into the accent.
 // The words of the line before fade back as the current line starts.
 color_lyric_glyph :: proc(utf16_index: int, data: rawptr) -> [4]f32 {
-	// cast turns the rawptr back into the ^Line_Paint that build_lyric_line stored in text.data.
 	paint := cast(^Line_Paint)data
 	current := lyrics_state.current_index
 	lit: f32
@@ -55,7 +55,7 @@ build_lyric_line :: proc(line: ^lyrics.Line, index: int) {
 	)
 
 	if ui.scope(line_box) {
-		// The text draws after the build. context.temp_allocator keeps the paint one frame.
+		// The text draws after the build, so the paint stays until the next frame.
 		paint := new(Line_Paint, context.temp_allocator)
 		paint^ = {index, line.words}
 

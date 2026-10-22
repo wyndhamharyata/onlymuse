@@ -25,14 +25,12 @@ open_window :: proc(
 	on_frame: Frame_Proc,
 	is_background := false,
 ) -> ^Window {
-	// context holds the allocators Odin passes to each procedure. AppKit's callbacks use this copy.
 	state.odin_context = context
 	state.on_frame = on_frame
 	state.is_background = is_background
 
 	state.app = NS.Application.sharedApplication()
 	state.app->setActivationPolicy(.Accessory if is_background else .Regular)
-	// objc_send calls the Objective-C method that a selector string names.
 	// run reads events in place of NSApplication's run, so this sends finishLaunching itself.
 	objc_send(nil, state.app, "finishLaunching")
 
@@ -50,7 +48,6 @@ open_window :: proc(
 	blur->addSubview(state.input_view)
 
 	state.target = objc_send(^Target, objc_send(^Target, Target, "alloc"), "init")
-	// cast treats target as a delegate. Target implements windowDidResize: and windowShouldClose:.
 	state.ns_window->setDelegate(cast(^NS.WindowDelegate)state.target)
 	state.display_link = make_display_link(layer, state.target)
 
@@ -65,7 +62,6 @@ open_window :: proc(
 	return &state.window
 }
 
-// private = "file" keeps this procedure inside this file.
 @(private = "file")
 make_ns_window :: proc(
 	title: string,
@@ -82,7 +78,7 @@ make_ns_window :: proc(
 	ns_window := NS.Window.alloc()->initWithContentRect(content_rect, style, .Buffered, false)
 
 	ns_title := NS.String.alloc()->initWithOdinString(title)
-	// defer runs release when make_ns_window returns, after setTitle: takes its own copy.
+	// setTitle: takes its own copy of the title.
 	defer ns_title->release()
 	ns_window->setTitle(ns_title)
 	ns_window->setTitlebarAppearsTransparent(true)

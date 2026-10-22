@@ -12,7 +12,6 @@ search_field: kit.Text_Field
 start_search_field :: proc() {
 	kit.register_text_field(&search_field)
 
-	// Memory from context.temp_allocator lasts until begin_frame frees it at the next frame.
 	saved, has_term := store.find_state("searchTerm", context.temp_allocator)
 	if !has_term do return
 

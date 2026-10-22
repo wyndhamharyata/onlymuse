@@ -27,7 +27,6 @@ retry_delays := [?]time.Duration {
 	1000 * time.Millisecond,
 }
 
-// @(private) keeps it inside the net package. thread_local gives each thread its own copy.
 @(private, thread_local)
 thread_handle: mac.Curl
 
@@ -37,9 +36,7 @@ start :: proc() {
 
 @(private)
 append_body :: proc "c" (data: [^]u8, size, count: c.size_t, user: rawptr) -> c.size_t {
-	// curl calls this from C with no Odin context. append needs the allocator that context holds.
 	context = runtime.default_context()
-	// cast turns user back into the body that fetch_once gave curl.
 	body := cast(^[dynamic]u8)user
 	append(body, ..data[:size * count])
 
@@ -89,10 +86,8 @@ fetch_once :: proc(
 
 	body := make([dynamic]u8, allocator)
 	header_list: mac.Curl_List
-	// defer runs this when the procedure returns, so the header list frees on every path.
 	defer mac.curl_slist_free_all(header_list)
 
-	// context.temp_allocator belongs to the calling thread, which frees it after fetch returns.
 	for header in headers {
 		header_list = mac.curl_slist_append(
 			header_list,

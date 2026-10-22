@@ -2,12 +2,10 @@ package mac
 
 import "core:c"
 
-// foreign import links a system library into the program under a name, such as sqlite.
 foreign import sqlite "system:sqlite3"
 foreign import curl "system:curl"
 foreign import core_graphics_names "system:CoreGraphics.framework"
 
-// A foreign block declares a library's variables and procedures. They use C's calling convention.
 @(default_calling_convention = "c")
 foreign core_graphics_names {
 	kCGColorSpaceSRGB: String_Ref
@@ -15,7 +13,6 @@ foreign core_graphics_names {
 	CGColorSpaceCreateWithName :: proc(name: String_Ref) -> Color_Space_Ref ---
 }
 
-// distinct makes Sqlite its own type, so no other rawptr passes for it.
 Sqlite :: distinct rawptr
 Sqlite_Statement :: distinct rawptr
 

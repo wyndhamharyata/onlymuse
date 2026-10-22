@@ -249,7 +249,6 @@ open_card :: proc(cards: []apple.Card, index: int) {
 		// This opens the Apple Music artist of that name. Its page also shows YouTube shelves.
 		core.navigate({kind = .Artist, title = card.name})
 	case .Song:
-		// context.temp_allocator frees its memory at the start of the next frame.
 		songs := make([dynamic]core.Catalog_Song, context.temp_allocator)
 		first := 0
 
@@ -260,7 +259,6 @@ open_card :: proc(cards: []apple.Card, index: int) {
 		}
 
 		playback.play_songs(songs[:], first)
-	// A switch on an enum without #partial must name every value, so .Other has an empty case.
 	case .Other:
 	}
 }

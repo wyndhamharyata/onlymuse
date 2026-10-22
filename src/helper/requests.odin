@@ -15,7 +15,6 @@ Song_Match :: struct {
 	youtube_id:       string `json:"youtubeId"`,
 }
 
-// @(private) keeps a declaration inside the helper package.
 @(private)
 last_request_id: int
 
@@ -48,9 +47,7 @@ send_set_next :: proc(
 	after := after_persistent_id if after_persistent_id != "" else "null"
 	song_json := "null"
 
-	// song.? takes the value out of the Maybe. ok is false when the caller passed nil.
 	if match, ok := song.?; ok {
-		// context.temp_allocator belongs to the calling thread, which frees it after this call.
 		bytes, _ := json.marshal(match, allocator = context.temp_allocator)
 		song_json = string(bytes)
 	}
@@ -99,7 +96,6 @@ send_set_favorite :: proc(persistent_id: string, song: Song_Match, favorited: bo
 	return last_request_id
 }
 
-// $T lets send_value take a value of any type.
 send_value :: proc(value: $T) {
 	bytes, error := json.marshal(value, allocator = context.temp_allocator)
 	if error == nil do send(string(bytes))
@@ -111,9 +107,7 @@ send :: proc(command: string) {
 	if !state.is_started do return
 
 	// Worker threads send too. One line must never break into another.
-	// sync.guard holds write_mutex until send returns.
 	sync.guard(&state.write_mutex)
 	line := fmt.tprintf("%s\n", command)
-	// transmute reads the string's bytes as []u8 with no copy.
 	os.write(state.to_helper, transmute([]u8)line)
 }

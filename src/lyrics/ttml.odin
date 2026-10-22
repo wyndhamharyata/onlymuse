@@ -5,7 +5,6 @@ import "core:mem"
 import "core:strconv"
 import "core:strings"
 
-// @(private) keeps a procedure inside the lyrics package.
 @(private)
 to_songwriters :: proc(ttml: string, allocator: mem.Allocator) -> []string {
 	names := make([dynamic]string, allocator)
@@ -32,7 +31,6 @@ to_seconds :: proc(text: string) -> f64 {
 	total: f64
 
 	for part in strings.split(text, ":", context.temp_allocator) {
-		// or_else gives 0 when the part is not a number.
 		total = total * 60 + (strconv.parse_f64(part) or_else 0)
 	}
 

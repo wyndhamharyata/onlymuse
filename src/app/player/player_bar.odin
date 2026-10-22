@@ -65,6 +65,7 @@ find_player_artwork_source :: proc() -> string {
 	return song.artwork_path if is_song else ""
 }
 
+// The left end of the player bar, with the cover, the song, its badge and the heart.
 build_song_info :: proc() {
 	now_playing := core.app.now_playing
 	song, is_song := playback.find_shown_song()

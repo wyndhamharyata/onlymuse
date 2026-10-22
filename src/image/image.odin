@@ -25,7 +25,6 @@ RETRY_LATER :: 30 * time.Second
 
 FADE_IN_SECONDS :: 0.25
 
-// @(private) keeps a declaration inside the image package.
 @(private)
 Phase :: enum {
 	Waiting,
@@ -34,6 +33,7 @@ Phase :: enum {
 	Failed,
 }
 
+// One cover at one size and crop, from the first watch call until unload_extra unloads it.
 @(private)
 Entry :: struct {
 	phase:            Phase,
@@ -66,6 +66,7 @@ Color :: struct {
 	vividness: f32,
 }
 
+// One cover that a worker thread downloads and decodes.
 @(private)
 Job :: struct {
 	key:         u64,
@@ -93,7 +94,6 @@ state: struct {
 }
 
 start :: proc() {
-	// context.temp_allocator on the main thread lasts until the app's next frame starts.
 	home := os.get_env("HOME", context.temp_allocator)
 	state.folder, _ = filepath.join(
 		{home, "Library", "Caches", "onlymuse-native", "images"},
@@ -135,7 +135,6 @@ watch :: proc(
 	opacity: f32,
 ) {
 	crop_key := u64(crop.aspect * 100) << 40 | u64(crop.focus_y * 100) << 52
-	// transmute reads the string's bytes as []u8 with no copy. "~" is XOR.
 	key := hash.fnv64a(transmute([]u8)url) ~ u64(size_pixels) ~ crop_key
 	entry, ok := state.entries[key]
 
@@ -208,7 +207,6 @@ find_stand_in :: proc(family, key: u64, crop: Crop) -> (^Entry, bool) {
 	stand_in_key, ok := state.families[family]
 	if !ok || stand_in_key == key do return nil, false
 
-	// or_else gives nil when the map has no entry for the key.
 	stand_in := state.entries[stand_in_key] or_else nil
 	if stand_in == nil || stand_in.phase != .Ready || stand_in.crop != crop do return nil, false
 
@@ -217,7 +215,6 @@ find_stand_in :: proc(family, key: u64, crop: Crop) -> (^Entry, bool) {
 
 @(private)
 start_waiting :: proc() {
-	// #reverse walks the list from its end, so the newest requests start first.
 	#reverse for key in state.waiting {
 		if state.loading_count >= WORKER_COUNT do break
 
@@ -247,7 +244,6 @@ start_waiting :: proc() {
 
 @(private)
 take_finished :: proc() {
-	// sync.guard locks the mutex and unlocks it when the procedure returns.
 	sync.guard(&state.mutex)
 
 	for job in state.finished {

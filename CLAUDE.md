@@ -195,12 +195,12 @@ The default is no comment. Write one line only when it holds one of these:
 - The source of a formula, with the source's own symbol.
 - The unit of a bare number, when a name cannot hold it.
 - A constraint outside the code that a tool or a platform sets.
-- What an Odin feature does at that line, for a reader who knows no Odin. Explain it at its first
-  use in each file, and only where its effect is not plain from the line: `defer`, `context`,
-  `context.temp_allocator` and when its memory goes, `or_else`, `or_continue`, `when`, `transmute`,
-  `cast`, `distinct`, `using`, `#partial switch`, `foreign`, and attributes such as `@(private)`.
-  Basic syntax (`::`, `:=`, `^`, slices, `[dynamic]`, `map`, `for ... in`) gets no comment. The
-  reader learns it once from the Odin overview at https://odin-lang.org/docs/overview/.
+- What part of onlymuse the code serves, for a reader with no context: the feature, the page or
+  the step of playback, in the § Words terms. Write it above a package's main file, a type or a
+  procedure when its name alone does not tell the reader.
+
+A comment never explains the Odin language, such as `defer`, `@(private)` or the temp allocator.
+The reader learns Odin from the overview at https://odin-lang.org/docs/overview/.
 
 Never write a banner, step narration, a label such as `// Main logic`, commented-out code, or a TODO
 with no named task. A comment is one line. It explains the code as it is. It never refers to a past

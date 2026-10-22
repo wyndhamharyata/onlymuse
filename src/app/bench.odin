@@ -13,6 +13,7 @@ import "om:ui"
 // The first frames open the window and load fonts, so the bench skips them.
 BENCH_SKIPPED_FRAME_COUNT :: 10
 
+// With OM_FRAMES=1, the top right corner shows how long the last frame took to build.
 build_frame_time :: proc() {
 	count := len(core.app.build_durations)
 	if count == 0 || !core.app.is_showing_frames do return
@@ -35,6 +36,7 @@ build_frame_time :: proc() {
 	)
 }
 
+// Prints the frame times of an OM_BENCH run, then quits the app.
 finish_bench :: proc() {
 	remove_range(&core.app.build_durations, 0, BENCH_SKIPPED_FRAME_COUNT)
 	remove_range(&core.app.frame_starts, 0, BENCH_SKIPPED_FRAME_COUNT)

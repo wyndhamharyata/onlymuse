@@ -38,7 +38,6 @@ Phase :: enum {
 	Missing,
 }
 
-// @(private) keeps a declaration inside the lyrics package.
 @(private)
 Request :: struct {
 	persistent_id: string,
@@ -54,7 +53,7 @@ state: struct {
 	lines:         []Line,
 	// Who wrote the words, as the lyrics name them.
 	songwriters:   []string,
-	// The arena holds the memory of the lines and the songwriters. One arena_destroy frees it all.
+	// The arena holds the lines and the songwriters.
 	arena:         virtual.Arena,
 	// The last song's lines, which the frame that asked for the new song may still show.
 	last_arena:    virtual.Arena,
@@ -63,7 +62,6 @@ state: struct {
 // The lyrics of the song. The first call for a song starts a thread that loads them.
 // A caller may use the lines until it asks for another song.
 watch :: proc(persistent_id, name, artist: string) -> (Phase, []Line) {
-	// sync.guard locks the mutex and unlocks it when the procedure returns.
 	sync.guard(&state.mutex)
 
 	if persistent_id == state.persistent_id do return state.phase, state.lines
@@ -80,7 +78,6 @@ watch :: proc(persistent_id, name, artist: string) -> (Phase, []Line) {
 
 	request := new(Request)
 	request^ = {strings.clone(persistent_id), strings.clone(name), strings.clone(artist)}
-	// self_cleanup frees the thread when its procedure returns, so nothing waits for it.
 	thread.create_and_start_with_data(request, fetch_lyrics, self_cleanup = true)
 
 	return state.phase, nil
@@ -89,17 +86,14 @@ watch :: proc(persistent_id, name, artist: string) -> (Phase, []Line) {
 // This procedure runs on a thread of its own.
 @(private)
 fetch_lyrics :: proc(data: rawptr) {
-	// cast turns the raw pointer back into the Request that watch made.
 	request := cast(^Request)data
 
-	// defer runs this block when the procedure returns, so the request frees on every path.
 	defer {
 		delete(request.persistent_id)
 		delete(request.name)
 		delete(request.artist)
 		free(request)
 	}
-	// Each thread has its own context.temp_allocator. Its memory goes when this procedure returns.
 	defer free_all(context.temp_allocator)
 
 	arena: virtual.Arena

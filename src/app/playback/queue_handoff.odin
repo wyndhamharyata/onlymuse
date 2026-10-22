@@ -12,7 +12,6 @@ import "om:platform"
 import "om:youtube"
 
 // Where Music.app was in the song it plays, as of its last post.
-// @(private) hides Tracking from other packages.
 @(private)
 Tracking :: struct {
 	persistent_id:    string,
@@ -67,7 +66,6 @@ sync_handoff :: proc() {
 }
 
 // Whether a YouTube song comes later in the queue. The helper then keeps its YouTube page open.
-// @(private = "file") hides this procedure from other files.
 @(private = "file")
 has_youtube_song_ahead :: proc() -> bool {
 	start := 0 if queue.repeat == "all" else queue.index + 1
@@ -252,7 +250,6 @@ restart_stalled_song :: proc(has_started: bool) {
 update_queue :: proc() {
 	added_play_count: int
 
-	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&queue_state.add_mutex)
 		added_play_count = queue_state.added_play_count

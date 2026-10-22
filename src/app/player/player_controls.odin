@@ -9,6 +9,7 @@ import "om:helper"
 import "om:platform"
 import "om:ui"
 
+// The middle of the player bar: shuffle, previous, play, next, repeat and the seek bar.
 build_controls :: proc() {
 	now_playing := core.app.now_playing
 	is_playing := now_playing.playback == .Playing
@@ -71,7 +72,7 @@ build_controls :: proc() {
 				},
 			)
 
-			// The icon draws after the build. context.temp_allocator keeps the paint one frame.
+			// The icon draws after the build, so the paint stays until the next frame.
 			paint := new(kit.Icon_Paint, context.temp_allocator)
 			paint^ = {"pause.fill" if is_playing else "play.fill", 15, kit.colors.ink}
 			play.draw = kit.draw_icon
@@ -105,6 +106,7 @@ build_controls :: proc() {
 	}
 }
 
+// The seek bar of the player bar, between the position and the length of the song.
 build_progress :: proc(is_playing_song: bool) {
 	now_playing := core.app.now_playing
 	shown, is_song := playback.find_shown_song()
@@ -157,6 +159,7 @@ build_progress :: proc(is_playing_song: bool) {
 	}
 }
 
+// The right end of the player bar, with the side panel button and the volume.
 build_player_end :: proc() {
 	end := ui.box(
 		"end",

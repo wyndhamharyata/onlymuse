@@ -6,7 +6,6 @@ import "core:strings"
 import "om:apple"
 
 // A song, video, album, playlist, mix or artist. A podcast or an episode gives false.
-// @(private) hides this from every package but youtube.
 @(private)
 to_card :: proc(reader: ^Reader, key: string, value: json.Value) -> (apple.Card, bool) {
 	switch key {
@@ -55,7 +54,6 @@ to_list_item :: proc(reader: ^Reader, value: json.Value) -> (apple.Card, bool) {
 		return to_browse_card(reader, browse, name, subtitle, thumbnail)
 	}
 
-	// The calling thread's temp allocator holds the byline until that thread frees it.
 	byline := make([dynamic]json.Value, context.temp_allocator)
 
 	for column in columns[1:] {

@@ -24,7 +24,6 @@ PALETTE_SETTLE_MS :: 300
 // The most results each group shows.
 PALETTE_GROUP_LIMIT :: 5
 
-// @(private) keeps this type inside the palette package.
 @(private)
 Palette_Action :: enum {
 	Navigate,
@@ -100,7 +99,6 @@ open_palette_for_test :: proc(term: string) {
 	kit.set_field_text(&palette.field, term)
 }
 
-// @(private = "file") hides this procedure from the other files of the package.
 @(private = "file")
 close_palette :: proc() {
 	palette.is_open = false

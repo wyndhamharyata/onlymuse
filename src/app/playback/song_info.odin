@@ -22,6 +22,7 @@ find_shown_song :: proc() -> (helper.Song, bool) {
 	return resume.song, resume.song.persistent_id != ""
 }
 
+// Whether the player shows the last song, paused where it was, as Music.app plays nothing.
 is_resume_shown :: proc() -> bool {
 	now_playing := core.app.now_playing
 	has_song := now_playing.playback == .Playing || now_playing.playback == .Paused
@@ -49,7 +50,7 @@ Song_Info :: struct {
 song_infos: map[string]Song_Info
 
 // When the app last asked Music.app about each persistent ID, so a page that builds every frame
-// asks once a minute. @(private = "file") hides a name from other files.
+// asks once a minute.
 @(private = "file")
 asked_at_ms: map[string]f64
 
@@ -125,6 +126,7 @@ find_playing_song :: proc() -> (song: core.Catalog_Song, persistent_id: string, 
 @(private = "file")
 favourite_changes: map[string]bool
 
+// A favourite toggle sent to the helper, kept until Music.app answers it.
 @(private = "file")
 Favourite_Request :: struct {
 	catalog_id: string,
@@ -162,7 +164,6 @@ watch_favourite_ids :: proc() -> map[string]bool {
 	clear(&favourite_set.ids)
 	favourite_set.signature = signature
 
-	// On the main thread, the memory of the temp allocator lasts until the next frame starts.
 	for body in bodies {
 		for resource in apple.to_resources(body, context.temp_allocator) {
 			song := apple.to_library_song(resource)
@@ -220,7 +221,6 @@ apply_favourite_answer :: proc(message: helper.Message) {
 	if !ok do return
 
 	delete_key(&favourite_requests, message.request_id)
-	// defer frees the ID when this procedure returns, on every path.
 	defer delete(request.catalog_id)
 
 	if message.persistent_id == "" {

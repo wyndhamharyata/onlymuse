@@ -4,7 +4,6 @@ import "core:math"
 import "om:font"
 import "om:render"
 
-// @(private) keeps this procedure inside the ui package.
 @(private)
 mix :: proc(a, b: [4]f32, fraction: f32) -> [4]f32 {
 	// A hover or press colour with alpha 0 means the style sets none, so the colour a stays.

@@ -9,9 +9,9 @@ import "om:store"
 // A song left sooner, after at least 2 s, is a skip.
 PLAY_SHARE :: 0.5
 
+// Each play and skip of the last PLAY_LOG_DAYS days, for shuffle and the Now Playing page.
 play_log: [dynamic]store.Play
 
-// @(private = "file") hides listening from other files.
 @(private = "file")
 listening: struct {
 	persistent_id:    string,

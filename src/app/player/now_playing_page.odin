@@ -93,7 +93,6 @@ build_now_playing_page :: proc() {
 }
 
 // The current line of the lyrics, with its romaji, from the lyrics the panel loads.
-// @(private) lets only the files of package player use the name below.
 @(private)
 build_current_lyric :: proc(shown: helper.Song) {
 	phase, lines := lyrics.watch(shown.persistent_id, shown.name, shown.artist)
@@ -151,7 +150,6 @@ build_current_lyric :: proc(shown: helper.Song) {
 }
 
 // The artist's newest release first, marked NEW for NEW_RELEASE_DAYS, then their albums.
-// @(private = "file") lets only this file use the name below.
 @(private = "file")
 build_more_by :: proc(details: Song_Details) {
 	if details.artist_path == "" do return
@@ -170,7 +168,7 @@ build_more_by :: proc(details: Song_Details) {
 		resources := apple.to_resources(watched.body, allocator)
 		if len(resources) == 0 do return
 
-		// The cards live in the page's arena. seen lives in context.temp_allocator for one frame.
+		// The cards stay as long as the page data. The seen IDs last one frame.
 		cards := make([dynamic]apple.Card, allocator)
 		seen := make(map[string]bool, context.temp_allocator)
 		now_day := int(helper.now_ms() / 86_400_000)

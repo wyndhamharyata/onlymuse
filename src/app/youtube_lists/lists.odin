@@ -15,7 +15,6 @@ MAX_YOUTUBE_PART_COUNT :: 50
 // YouTube's home sends a few shelves at a time. Mixes for you come in its later parts.
 MAX_HOME_PART_COUNT :: 6
 
-// @(private = "file") hides this from every other file.
 @(private = "file")
 Parsed_List :: struct {
 	arena:      virtual.Arena,
@@ -34,7 +33,6 @@ watch_youtube_list :: proc(path: string) -> (youtube.List, apple.Watched) {
 	watched := apple.watch(path)
 	if watched.phase != .Ready do return {}, watched
 
-	// or_else gives nil when the map holds no entry for path.
 	parsed := parsed_lists[path] or_else nil
 
 	if parsed == nil {
@@ -59,7 +57,6 @@ watch_youtube_list :: proc(path: string) -> (youtube.List, apple.Watched) {
 // core.UNUSED_PAGE_MS, as core does for a page.
 free_unused_youtube_lists :: proc() {
 	now := core.now_ms()
-	// The temp allocator's memory lasts until the next frame starts.
 	unused := make([dynamic]string, context.temp_allocator)
 
 	for path, parsed in parsed_lists {
@@ -70,7 +67,6 @@ free_unused_youtube_lists :: proc() {
 
 	for path in unused {
 		parsed := parsed_lists[path]
-		// delete_key hands back the map's own copy of the key, which is the one to free.
 		stored_path, _ := delete_key(&parsed_lists, path)
 		core.retire_arena(parsed.arena)
 		free(parsed)
@@ -145,12 +141,12 @@ watch_youtube_home :: proc() -> (shelves: []apple.Shelf, signature: int, phase: 
 	return all[:], signature, .Ready
 }
 
+// The text a YouTube page shows in place of its list while it loads or after it fails.
 to_youtube_phase_note :: proc(phase: apple.Phase) -> string {
 	return "YouTube Music could not be reached." if phase == .Failed else "Loading…"
 }
 
-// Apple's shelves with YouTube's between them, one of each in turn. allocator defaults to
-// context.allocator, the heap, whose memory lasts until a call frees it.
+// Apple's shelves with YouTube's between them, one of each in turn.
 merge_youtube_shelves :: proc(
 	apple_shelves: []apple.Shelf,
 	allocator := context.allocator,

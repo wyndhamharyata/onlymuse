@@ -17,7 +17,6 @@ Entry :: struct {
 // Past this count, each new entry deletes the oldest one.
 MAX_ENTRY_COUNT :: 500
 
-// @(private) hides state from other packages.
 @(private)
 state: struct {
 	mutex:   sync.Mutex,
@@ -32,7 +31,6 @@ add :: proc(source: string, format: string, args: ..any) {
 	text := fmt.aprintf(format, ..args)
 	fmt.eprintfln("%s: %s", source, text)
 
-	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&state.mutex)
 
@@ -48,8 +46,7 @@ add :: proc(source: string, format: string, args: ..any) {
 	platform.wake()
 }
 
-// A copy of every entry, oldest first, in allocator. On the main thread, the memory of
-// context.temp_allocator lasts until the next frame starts.
+// A copy of every entry, oldest first, for the Console page.
 list :: proc(allocator := context.temp_allocator) -> []Entry {
 	sync.guard(&state.mutex)
 	entries := make([]Entry, len(state.entries), allocator)

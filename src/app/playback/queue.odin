@@ -30,12 +30,11 @@ Queue_State :: struct {
 	is_adding:             bool `json:"isAdding"`,
 	// The ID is empty when the queue's song is not playing.
 	playing_persistent_id: string `json:"playingPersistentID"`,
-	// The last song Music.app played. The player shows it when Music.app stops. It changes every
-	// few seconds, so json:"-" keeps it out of the save of the queue's thousands of songs.
+	// The last song Music.app played, which the player shows when Music.app stops. It changes
+	// every few seconds, so the store saves it apart from the queue's thousands of songs.
 	resume_point:          Resume_Point `json:"-"`,
 }
 
-// @(private = "file") hides a name from other files. @(private) hides it from other packages.
 @(private = "file")
 Request_Kind :: enum {
 	Play,
@@ -44,6 +43,7 @@ Request_Kind :: enum {
 	Resume,
 }
 
+// A message that the queue sent to the helper, kept until the helper answers it.
 @(private = "file")
 Request :: struct {
 	kind:            Request_Kind,
@@ -54,6 +54,7 @@ Request :: struct {
 	after:           string,
 }
 
+// A song this close to its end counts as ended when Music.app moves on or stops.
 END_TOLERANCE_SECONDS :: 3.0
 
 // Previous starts the song again past this point, as Music.app does.
@@ -104,7 +105,6 @@ queue_state: struct {
 }
 
 start_queue :: proc() {
-	// On the main thread, the memory of the temp allocator lasts until the next frame starts.
 	if text, ok := store.find_state("queue", context.temp_allocator); ok {
 		_ = json.unmarshal_string(text, &queue)
 	}
@@ -248,7 +248,6 @@ apply_queue_answer :: proc(request_id: int, answered_id: string) {
 			save_queue_and_handoff()
 		}
 
-		// fmt writes {{ and }} as single braces.
 		helper.send(
 			fmt.tprintf(
 				`{{"type":"seek","positionSeconds":%.3f}}`,

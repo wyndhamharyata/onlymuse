@@ -37,6 +37,7 @@ page_heading :: proc(title: string) {
 	)
 }
 
+// A dim line on a page, such as "Loading…" or a message for an empty list.
 note :: proc(text: string) {
 	ui.box(
 		"",
@@ -87,6 +88,7 @@ action_button :: proc(label, symbol: string, is_primary: bool, symbol_color: [4]
 
 BENCH_POINTS_PER_FRAME :: 30
 
+// With OM_BENCH=1, scrolls the list up and down each frame, so the bench can time the frames.
 run_bench_scroll :: proc(list: ^ui.Box) {
 	if !core.app.is_bench do return
 

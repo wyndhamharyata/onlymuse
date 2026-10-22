@@ -52,10 +52,8 @@ list_recent_songs :: proc(
 	return data.songs, data.dates, albums.phase
 }
 
-// @(private = "file") hides this procedure from the other files of the package.
 @(private = "file")
 read_newest_release_ids :: proc(data: ^core.Page_Data, body: string) {
-	// context.temp_allocator frees its memory at the start of the next frame.
 	resources := apple.to_resources(body, context.temp_allocator)
 	if len(resources) == 0 do return
 

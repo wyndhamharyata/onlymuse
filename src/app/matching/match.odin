@@ -26,7 +26,6 @@ Match_State :: enum {
 // find_match deletes every saved match, so the matcher makes each one again.
 MATCH_RULE_VERSION :: "3"
 
-// @(private) hides this from every package but matching.
 @(private)
 matcher: struct {
 	mutex:           sync.Mutex,
@@ -48,7 +47,6 @@ matcher: struct {
 
 // The library's songs under each of their title keys, for the main thread only. core reads the
 // songs into fresh memory on each phase change, even with one signature. So the index keeps copies.
-// @(private = "file") hides this from every other file.
 @(private = "file")
 library_index: struct {
 	signature: int,
@@ -63,12 +61,10 @@ find_match :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, Match_State) 
 	video_id := youtube.to_video_id(song.id)
 	if video_id == "" do return song, .Found
 
-	// sync.guard locks the mutex and unlocks it when the procedure returns.
 	sync.guard(&matcher.mutex)
 
 	if !matcher.is_rule_checked {
 		matcher.is_rule_checked = true
-		// The temp allocator's memory lasts until the next frame starts.
 		saved_rule, _ := store.find_state("matchRule", context.temp_allocator)
 
 		if saved_rule != MATCH_RULE_VERSION {

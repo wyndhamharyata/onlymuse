@@ -15,7 +15,6 @@ BASE_URL :: "https://amp-api.music.apple.com"
 STOREFRONT :: "id"
 
 // Requests wait for the helper's tokens until this long after the app starts, then go without.
-// @(private) hides this from every package but apple.
 @(private)
 TOKEN_WAIT :: 30 * time.Second
 
@@ -41,7 +40,6 @@ start :: proc() {
 
 // The helper reads the tokens from a hidden music.apple.com page.
 set_tokens :: proc(developer_token, user_token: string) {
-	// sync.guard locks the mutex and unlocks it when the procedure returns.
 	sync.guard(&state.mutex)
 	delete(state.developer_token)
 	delete(state.user_token)
@@ -63,8 +61,8 @@ has_tokens :: proc() -> bool {
 	return state.developer_token != ""
 }
 
-// The saved answer when there is one, else Apple's, which fetch then saves. It blocks. Any thread
-// may call it. The body uses allocator, which defaults to context.allocator, the heap.
+// The saved answer when there is one, else Apple's, which fetch then saves. It blocks.
+// Any thread may call it.
 fetch :: proc(path: string, allocator := context.allocator) -> Answer {
 	if saved, ok := store.find_answer(path, allocator); ok do return {200, saved.body}
 
@@ -77,7 +75,6 @@ fetch :: proc(path: string, allocator := context.allocator) -> Answer {
 // The path /v1/me/library?ids[songs]=1440857781 puts that song in the library. Apple answers 202.
 // A JSON body goes with a playlist's new songs. It blocks, so a worker thread calls it.
 post :: proc(path: string, body := "") -> Answer {
-	// The answer's body lives in the worker's temp allocator until the worker frees it.
 	return send_request(path, .Post, context.temp_allocator, body)
 }
 
@@ -101,7 +98,6 @@ send_request :: proc(
 	// Another refusal may bring fresh tokens while this request waits. It then keeps those tokens.
 	is_refresh_needed := false
 
-	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&state.mutex)
 
@@ -134,7 +130,6 @@ send_once :: proc(
 	headers: [5]string
 	header_count := 4
 
-	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&state.mutex)
 
@@ -177,7 +172,6 @@ send_once :: proc(
 to_query_text :: proc(text: string) -> string {
 	builder := strings.builder_make(context.temp_allocator)
 
-	// transmute reads the string's bytes as []u8 without a copy.
 	for byte_value in transmute([]u8)text {
 		is_plain :=
 			(byte_value >= 'a' && byte_value <= 'z') ||

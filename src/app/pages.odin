@@ -9,6 +9,7 @@ import "om:app/youtube_pages"
 import "om:apple"
 import "om:ui"
 
+// Right of the sidebar, the back and forward buttons with the page the person opened below them.
 build_page_area :: proc() {
 	area := ui.box("page area", {width = ui.fill(), height = ui.fill(), axis = .Y})
 

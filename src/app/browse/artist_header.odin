@@ -13,10 +13,8 @@ PHOTO_WIDTH_STEP_PIXELS :: 400
 
 LATEST_RELEASE_POINTS :: 210
 
-// @(private) keeps this procedure inside the browse package.
 @(private)
 build_artist_header :: proc(data: ^core.Page_Data, detail: string, width: f32) {
-	// or_else gives kit.colors.card when bg_color does not parse.
 	fallback := kit.parse_hex_color(data.artwork.bg_color) or_else kit.colors.card
 	header := ui.box("header", {width = ui.fill(), height = ui.points(ARTIST_HEADER_POINTS)})
 
@@ -34,7 +32,7 @@ build_artist_header :: proc(data: ^core.Page_Data, detail: string, width: f32) {
 				{top = fallback, bottom = fallback},
 			)
 			box.style.flags += {.Floating}
-			// cast reads box.data as a ^kit.Artwork_Paint. A face is mostly high in a photo.
+			// A face is mostly in the upper part of an artist's photo.
 			if box.data != nil do (cast(^kit.Artwork_Paint)box.data).focus_y = 0.25
 		}
 
@@ -90,6 +88,7 @@ build_artist_header :: proc(data: ^core.Page_Data, detail: string, width: f32) {
 	}
 }
 
+// Builds Latest Release and Top Songs, side by side under the photo of the artist page.
 @(private)
 build_artist_middle :: proc(data: ^core.Page_Data) {
 	middle := ui.box(

@@ -17,6 +17,8 @@ Download :: struct {
 	is_lossless: bool,
 }
 
+// The Downloaded page shows what the last scan of Music.app's download folder found.
+// The scan runs on a thread of its own.
 downloads: struct {
 	mutex:         sync.Mutex,
 	list:          []Download,
@@ -29,7 +31,6 @@ downloads: struct {
 }
 
 // Music.app keeps each downloaded Apple Music song as a package of its own, two folders down.
-// @(private = "file") hides this procedure from the other files of the package.
 @(private = "file")
 read_download_folder :: proc() -> string {
 	return fmt.tprintf(
@@ -77,7 +78,6 @@ scan_downloads :: proc() {
 	artists, _ := os.read_all_directory_by_path(read_download_folder(), context.temp_allocator)
 
 	for artist in artists {
-		// This frees the temp memory of each pass when the pass ends. The memory of artists stays.
 		runtime.DEFAULT_TEMP_ALLOCATOR_TEMP_GUARD()
 		albums, _ := os.read_all_directory_by_path(artist.fullpath, context.temp_allocator)
 
@@ -94,7 +94,6 @@ scan_downloads :: proc() {
 		}
 	}
 
-	// sync.guard locks the mutex until scan_downloads returns.
 	sync.guard(&downloads.mutex)
 	downloads.list = found[:]
 	downloads.version += 1
@@ -107,7 +106,6 @@ build_downloaded_page :: proc() {
 	list: []Download
 	scan_version: int
 
-	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&downloads.mutex)
 
@@ -120,7 +118,6 @@ build_downloaded_page :: proc() {
 			downloads.scanned_index = core.navigation.index
 			downloads.scanned_visit = core.navigation_visit
 			downloads.is_scanning = true
-			// self_cleanup frees the thread when its procedure returns, so nothing waits for it.
 			thread.create_and_start(scan_downloads, self_cleanup = true)
 		}
 
@@ -136,7 +133,6 @@ build_downloaded_page :: proc() {
 	// Apple answers in batches of 100 IDs, in the order of the IDs.
 	signature := scan_version
 	phase := apple.Phase.Ready
-	// context.temp_allocator frees its memory at the start of the next frame.
 	bodies := make([dynamic]string, context.temp_allocator)
 
 	for first := 0; first < len(list); first += 100 {

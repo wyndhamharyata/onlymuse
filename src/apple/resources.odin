@@ -113,12 +113,11 @@ Attributes :: struct {
 		standard: string,
 		short:    string,
 	} `json:"editorialNotes"`,
-	// Maybe tells a field that Apple omits from false. list_playlists needs both cases.
+	// Apple omits these on some playlists. list_playlists tells a missing value from false.
 	can_edit:                Maybe(bool) `json:"canEdit"`,
 	can_delete:              Maybe(bool) `json:"canDelete"`,
 }
 
-// @(private) hides this from every package but apple.
 @(private)
 to_card_kind :: proc(type: string) -> Card_Kind {
 	switch type {
@@ -140,7 +139,6 @@ to_card_kind :: proc(type: string) -> Card_Kind {
 }
 
 // The data of an answer, read into allocator, such as a page's arena.
-// allocator defaults to context.allocator, the heap, whose memory lasts until a call frees it.
 to_resources :: proc(body: string, allocator := context.allocator) -> []Resource {
 	Answer_Body :: struct {
 		data: []Resource,
@@ -188,7 +186,6 @@ to_card :: proc(resource: Resource) -> Card {
 	}
 
 	if card.kind == .Song do card.song = to_catalog_song(resource)
-	// or_else gives false when Apple omits canEdit.
 	card.can_edit = attributes.can_edit.? or_else false
 
 	return card
@@ -257,7 +254,7 @@ to_new_shelves :: proc(body: string, allocator := context.allocator) -> []Shelf 
 	return shelves[:]
 }
 
-// A height of 0 asks for a square. The temp allocator's memory lasts until the next frame starts.
+// A height of 0 asks for a square.
 to_artwork_url :: proc(
 	artwork: Artwork,
 	width_pixels: int,

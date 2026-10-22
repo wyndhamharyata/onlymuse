@@ -19,7 +19,7 @@ SPARK_BESIDE_POINTS :: 260
 
 STAT_WEEKS :: 8
 
-// @(private) lets only the files of package player use the name below.
+// The PLAYS, LAST PLAYED, IN LIBRARY SINCE and SKIPS cards of the Now Playing page.
 @(private)
 build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f32) {
 	weeks, rank := list_weekly_plays(song)
@@ -107,7 +107,6 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f3
 	}
 }
 
-// @(private = "file") lets only this file use the name below.
 @(private = "file")
 build_stat_card :: proc(
 	id, label, value, note_text: string,
@@ -216,7 +215,6 @@ list_weekly_plays_from_log :: proc(
 ) {
 	week_ms: i64 = 7 * 86_400_000
 	month_start_ms := now_ms - 30 * 86_400_000
-	// Memory from context.temp_allocator lasts until begin_frame frees it at the next frame.
 	counts := make(map[string]int, context.temp_allocator)
 	own := 0
 
@@ -245,6 +243,7 @@ list_weekly_plays_from_log :: proc(
 	return weeks, rank
 }
 
+// The bars of the PLAYS card, one for each week, oldest first.
 @(private = "file")
 build_spark :: proc(weeks: [STAT_WEEKS]int) {
 	most := 1

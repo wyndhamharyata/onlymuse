@@ -9,7 +9,6 @@ import "om:app/core"
 MATCH_SECONDS :: 3
 
 // The closest in length of the candidates that are the same recording.
-// @(private) hides this from every package but matching.
 @(private)
 find_closest :: proc(
 	song: core.Catalog_Song,
@@ -75,7 +74,6 @@ has_same_title :: proc(youtube_name, apple_name: string) -> bool {
 // a Japanese title and its romaji as "追い風 - Oikaze". Apple writes one, so either half matches.
 @(private)
 list_title_keys :: proc(name: string) -> []string {
-	// Temp memory lasts until the next frame, or until the matching thread ends its batch.
 	keys := make([dynamic]string, context.temp_allocator)
 	append(&keys, to_match_key(name))
 
@@ -106,7 +104,6 @@ to_match_key :: proc(text: string) -> string {
 	return key if key != "" else to_letters(lower, false)
 }
 
-// @(private = "file") hides this from every other file.
 @(private = "file")
 to_letters :: proc(text: string, skips_brackets: bool) -> string {
 	builder := strings.builder_make(context.temp_allocator)

@@ -5,16 +5,14 @@ import "om:app/matching"
 import "om:helper"
 import "om:youtube"
 
-// The chosen song first, then the others in the order of shuffle_by_rules. The list holds copies.
-// @(private = "file") hides a name from other files. @(private) hides it from other packages.
+// With shuffle on, the chosen song plays first, then the others in the order of shuffle_by_rules.
+// The list holds copies of the songs.
 @(private = "file")
 list_play_order :: proc(songs: []core.Catalog_Song, first_index: int) -> []core.Catalog_Song {
-	// On the main thread, the memory of the temp allocator lasts until the next frame starts.
 	others := make([dynamic]core.Catalog_Song, context.temp_allocator)
 	for song, index in songs do if index != first_index do append(&others, song)
 
 	shuffled := shuffle_by_rules(others[:])
-	// defer frees shuffled when this procedure returns.
 	defer delete(shuffled)
 
 	order := make([]core.Catalog_Song, len(songs))

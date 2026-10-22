@@ -16,7 +16,6 @@ Playlist_YouTube_Song :: struct {
 PLAYLIST_START :: "start"
 
 // By library playlist ID, under the state key "playlistYouTubeSongs".
-// @(private = "file") hides this from every other file.
 @(private = "file")
 playlist_youtube_songs: map[string][dynamic]Playlist_YouTube_Song
 
@@ -32,7 +31,6 @@ read_playlist_youtube_songs :: proc() {
 
 	is_playlist_songs_read = true
 
-	// The temp allocator's memory lasts until the next frame starts.
 	if text, ok := store.find_state("playlistYouTubeSongs", context.temp_allocator); ok {
 		_ = json.unmarshal_string(text, &playlist_youtube_songs)
 	}
@@ -81,7 +79,6 @@ remove_playlist_youtube_song :: proc(playlist_id, song_id: string) {
 is_playlist_youtube_song :: proc(playlist_id, song_id: string) -> bool {
 	read_playlist_youtube_songs()
 
-	// or_else gives an empty list when the map holds no entry for playlist_id.
 	for song in playlist_youtube_songs[playlist_id] or_else {} {
 		if song.song.id == song_id {
 			return true
@@ -91,8 +88,7 @@ is_playlist_youtube_song :: proc(playlist_id, song_id: string) -> bool {
 	return false
 }
 
-// The playlist's Apple songs with its YouTube songs back in their places. allocator defaults to
-// context.allocator, the heap, whose memory lasts until a call frees it.
+// The playlist's Apple songs with its YouTube songs back in their places.
 merge_playlist_youtube_songs :: proc(
 	playlist_id: string,
 	songs: []core.Catalog_Song,

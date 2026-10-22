@@ -76,7 +76,7 @@ draw_frame :: proc() -> bool {
 
 // Frees what the last frame let go of. It also times this frame.
 begin_frame :: proc() -> (start: time.Tick, frame_seconds: f32) {
-	// Render drew the last frame, so free_all empties context.temp_allocator for this one.
+	// Render drew the last frame, so this frame reuses its memory.
 	free_all(context.temp_allocator)
 	core.free_retired_memory()
 	playback.free_retired_songs()
@@ -164,6 +164,7 @@ apply_helper_messages :: proc() {
 	}
 }
 
+// The Command key shortcuts: zoom, quit, the command palette, favourite and the lyrics lead.
 apply_keys :: proc() {
 	for event in platform.list_events() {
 		key, is_key := event.(platform.Key_Press)

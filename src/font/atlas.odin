@@ -5,7 +5,6 @@ import "core:math"
 import "om:mac"
 import "om:render"
 
-// @(private) keeps this type inside the font package.
 @(private)
 Atlas_Entry :: struct {
 	// x, y, width, height in atlas pixels. The width is 0 for a glyph with no ink, such as a space.
@@ -87,7 +86,6 @@ find_glyph :: proc(font_index: u16, glyph: mac.Glyph, subpixel: int) -> Atlas_En
 
 @(private)
 rasterize :: proc(ct_font: mac.Font_Ref, glyph: mac.Glyph, subpixel: int) -> Atlas_Entry {
-	// An Odin parameter has no address. CoreText takes a pointer, so this copy gives one.
 	glyph := glyph
 	bounds: mac.Rect
 
@@ -105,10 +103,8 @@ rasterize :: proc(ct_font: mac.Font_Ref, glyph: mac.Glyph, subpixel: int) -> Atl
 
 	if !ok do return {}
 
-	// The app frees context.temp_allocator at the start of each frame.
 	pixels := make([]u8, width * height, context.temp_allocator)
 	gray := mac.CGColorSpaceCreateDeviceGray()
-	// defer runs the release when rasterize returns.
 	defer mac.CGColorSpaceRelease(gray)
 	bitmap_context := mac.CGBitmapContextCreate(
 		raw_data(pixels),

@@ -45,7 +45,7 @@ build_youtube_mixes_page :: proc() {
 	data, is_stale := core.find_page_data("youtube mixes", signature, phase)
 
 	if is_stale && phase == .Ready {
-		// The cards live in the page's arena. seen lives in context.temp_allocator for one frame.
+		// The cards stay as long as the page data. The seen IDs last one frame.
 		cards := make([dynamic]apple.Card, core.page_allocator(data))
 		seen := make(map[string]bool, context.temp_allocator)
 
@@ -90,10 +90,10 @@ build_youtube_sign_in_note :: proc(text: string) {
 }
 
 // The Use Helium's Sign-In button sets this, so only its answer shows a toast.
-// @(private = "file") lets only this file use the name below.
 @(private = "file")
 is_reading_youtube_sign_in: bool
 
+// Signs in to YouTube Music with the cookie that the helper read from Helium.
 apply_youtube_cookie :: proc(message: helper.Message) {
 	was_signed_in := youtube.is_signed_in()
 	youtube.set_cookie(message.cookie)

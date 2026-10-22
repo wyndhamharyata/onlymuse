@@ -15,27 +15,22 @@ import "om:render"
 import MTL "vendor:darwin/Metal"
 
 // This procedure runs on a worker thread.
-// @(private) keeps the procedure inside the image package.
 @(private)
 fetch_image :: proc(task: thread.Task) {
-	// cast turns the task's raw pointer back into the Job that start_waiting made.
 	job := cast(^Job)task.data
 
-	// defer runs this block when the procedure returns, so every job reaches state.finished.
+	// A failed job reaches state.finished too, so watch asks for its cover again later.
 	defer {
-		// sync.guard holds the mutex until this block ends.
 		sync.guard(&state.mutex)
 		append(&state.finished, job)
 		platform.wake()
 	}
-	// A worker thread has its own context.temp_allocator. This frees it after each job.
 	defer free_all(context.temp_allocator)
 
 	// A file path, such as the artwork the helper saves from Music.app, needs no download.
 	path := job.url
 
 	if !strings.has_prefix(path, "/") {
-		// transmute reads the URL's bytes as []u8 with no copy.
 		path = fmt.tprintf("%s/%x.jpg", state.folder, hash.fnv64a(transmute([]u8)job.url))
 		if !os.exists(path) && !fetch_to_file(job.url, path) do return
 	}

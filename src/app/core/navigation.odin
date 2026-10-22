@@ -103,7 +103,6 @@ go_forward :: proc() {
 }
 
 // The saved form of a page, under the state key "navigation".
-// @(private = "file") hides this from every other file.
 @(private = "file")
 Saved_Page :: struct {
 	id:          string,
@@ -155,7 +154,6 @@ to_saved_page :: proc(page: Page) -> Saved_Page {
 		id = page_ids[page.kind],
 	}
 
-	// #partial switch lets the cases skip some Page_Kind values. The skipped kinds do nothing here.
 	#partial switch page.kind {
 	case .Playlist, .YouTube_Playlist, .Bring_Over:
 		saved.playlist = {page.id, page.title}
@@ -204,7 +202,6 @@ to_page :: proc(saved: Saved_Page) -> (Page, bool) {
 }
 
 save_navigation :: proc() {
-	// The temp allocator's memory lasts until the next frame starts.
 	pages := make([]Saved_Page, len(navigation.pages), context.temp_allocator)
 	for page, index in navigation.pages do pages[index] = to_saved_page(page)
 

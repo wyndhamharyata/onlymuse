@@ -22,7 +22,6 @@ MAX_PLAYLIST_LIST_POINTS :: 324
 // macOS gives the Escape key the virtual key code 53.
 ESCAPE_KEY_CODE :: 53
 
-// @(private = "file") hides this value from the other files of the package.
 @(private = "file")
 song_menu: struct {
 	is_open:           bool,

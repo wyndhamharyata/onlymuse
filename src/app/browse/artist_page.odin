@@ -25,7 +25,6 @@ Read_Text :: struct {
 	text:    string,
 }
 
-// @(private = "file") hides these three values from the other files of the package.
 @(private = "file")
 artist_id_by_name, catalog_artist_name, library_artist_id: Read_Text
 
@@ -106,7 +105,6 @@ build_artist_page :: proc(page_id: string, name: string) {
 		catalog_name, ok = find_read_text(&catalog_artist_name, path, watched.version)
 
 		if !ok {
-			// context.temp_allocator frees its memory at the start of the next frame.
 			resources := apple.to_resources(watched.body, context.temp_allocator)
 			catalog_name = save_read_text(
 				&catalog_artist_name,

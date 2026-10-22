@@ -38,13 +38,11 @@ shuffle_rules := Shuffle_Rules {
 shuffle_note: string
 
 start_shuffle_rules :: proc() {
-	// On the main thread, the memory of the temp allocator lasts until the next frame starts.
 	if text, ok := store.find_state("shuffleRules", context.temp_allocator); ok {
 		_ = json.unmarshal_string(text, &shuffle_rules, allocator = context.temp_allocator)
 	}
 }
 
-// @(private = "file") hides this procedure from other files.
 @(private = "file")
 save_shuffle_rules :: proc() {
 	bytes, error := json.marshal(shuffle_rules, allocator = context.temp_allocator)

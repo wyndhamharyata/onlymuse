@@ -34,7 +34,6 @@ Text_Field :: struct {
 }
 
 // Every field from register_text_field, so the keyboard reaches the focused one.
-// @(private = "file") hides text_fields from other files.
 @(private = "file")
 text_fields: [dynamic]^Text_Field
 
@@ -75,7 +74,6 @@ replace_all_if_selected :: proc(field: ^Text_Field) {
 @(private = "file")
 insert_text :: proc(field: ^Text_Field, text: string) {
 	replace_all_if_selected(field)
-	// transmute reads the bytes of the string as a []u8, with no copy.
 	inject_at(&field.text, field.cursor, ..transmute([]u8)text)
 	field.cursor += len(text)
 	field.is_changed = true
@@ -170,7 +168,6 @@ apply_text_events :: proc() {
 	}
 
 	for event in platform.list_events() {
-		// #partial switch lets this switch skip the kinds of event that it does not handle.
 		#partial switch input in event {
 		case platform.Mouse_Press:
 			for field in text_fields {
@@ -181,7 +178,6 @@ apply_text_events :: proc() {
 				}
 			}
 		case platform.Text_Insert:
-			// or_continue goes on to the next event when no field has the focus.
 			field := find_focused_field() or_continue
 			delete(field.marked)
 			field.marked = ""

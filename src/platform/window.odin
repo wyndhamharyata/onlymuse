@@ -7,11 +7,9 @@ import NS "core:sys/darwin/Foundation"
 import MTL "vendor:darwin/Metal"
 import CA "vendor:darwin/QuartzCore"
 
-// objc_send calls the Objective-C method that a selector string names, such as "alloc".
 objc_send :: intrinsics.objc_send
 
 // Odin 2026-10 builds objc_send calls only in a program that looks up a class by name.
-// @(init) runs this procedure before main. private = "file" hides it from the other files.
 @(init, private = "file")
 work_around_odin_7793 :: proc "contextless" () {
 	_ = intrinsics.objc_find_class("NSObject")
@@ -29,7 +27,6 @@ Window :: struct {
 	pixels_per_point: f32,
 }
 
-// @(private) keeps state inside the platform package.
 @(private)
 state: struct {
 	app:                ^NS.Application,
@@ -57,25 +54,20 @@ state: struct {
 	marked_length:      int,
 	// The caret of the focused field, in window points from the top left, for the input method.
 	caret_rect:         [4]f32,
-	// Odin passes each procedure a context that holds its allocators and logger. AppKit calls
-	// each proc "c" with no context, so each one sets context to this copy first.
 	odin_context:       runtime.Context,
 }
 
-// objc_class binds this struct to the Objective-C class CAMetalDisplayLink.
 @(objc_class = "CAMetalDisplayLink")
 Display_Link :: struct {
-	// using embeds NS.Object, so a ^Display_Link can stand in for a ^NS.Object.
 	using _: NS.Object,
 }
 
-// objc_implement makes Odin create the class OMTarget at startup, as a subclass of NSObject.
+// Takes the display link's frames, the timers and the window's resize and close.
 @(objc_class = "OMTarget", objc_superclass = NS.Object, objc_implement)
 Target :: struct {
 	using _: NS.Object,
 }
 
-// The attribute makes this procedure the Target method for metalDisplayLink:needsUpdate:.
 // The update holds a drawable for the next screen refresh, so drawing never waits for one.
 @(objc_type = Target, objc_implement, objc_name = "metalDisplayLink", objc_selector = "metalDisplayLink:needsUpdate:")
 Target_metalDisplayLink :: proc "c" (self: ^Target, link: NS.id, update: ^NS.Object) {
@@ -109,17 +101,16 @@ Target_windowShouldClose :: proc "c" (self: ^Target, sender: NS.id) -> NS.BOOL {
 	return true
 }
 
-// foreign import links a library under a name. The foreign block below declares its C procedures.
 // The procedures live in libobjc, which Odin links into every Objective-C program.
 foreign import objc_runtime "system:Foundation.framework"
 
+// Lets the blur view run AppKit's own updateLayer before it removes the tint.
 @(private)
 Objc_Super :: struct {
 	receiver:    ^Blur_View,
 	super_class: NS.Class,
 }
 
-// The procedures in this block use the C calling convention. private keeps them in this package.
 @(default_calling_convention = "c", private)
 foreign objc_runtime {
 	objc_msgSendSuper :: proc(super: ^Objc_Super, selector: NS.SEL) ---
@@ -184,7 +175,6 @@ request_frame :: proc "contextless" () {
 @(private)
 run_frame :: proc() {
 	pool := NS.AutoreleasePool.alloc()->init()
-	// defer runs drain when run_frame returns, so the pool frees what the frame autoreleased.
 	defer pool->drain()
 
 	update_window_size()

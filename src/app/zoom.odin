@@ -14,7 +14,6 @@ zoom_steps := [?]f32{0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2}
 start_saved_window_state :: proc() {
 	core.app.last_panel = .Up_Next
 
-	// Memory from context.temp_allocator lasts until begin_frame frees it at the next frame.
 	// The store saves the panel as JSON text, so each case holds the quotes.
 	if panel, has_panel := store.find_state("panel", context.temp_allocator); has_panel {
 		switch panel {

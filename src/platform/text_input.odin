@@ -10,12 +10,11 @@ import "core:unicode/utf8"
 // The Metal view cannot. Its layer then gets a 0 by 0 drawable once the window comes in front.
 @(objc_class = "OMInputView", objc_superclass = NS.View, objc_implement)
 Text_View :: struct {
-	// using embeds NS.View, so a ^Text_View can stand in for a ^NS.View.
 	using _: NS.View,
 }
 
-// objc_name makes this procedure the view's acceptsFirstResponder method. It says yes only while
-// a field has focus, so AppKit never makes the view first responder when the window opens.
+// Says yes only while a field has focus, so AppKit never makes the view first responder when the
+// window opens.
 @(objc_type = Text_View, objc_implement, objc_name = "acceptsFirstResponder")
 Text_View_acceptsFirstResponder :: proc "c" (self: ^Text_View) -> NS.BOOL {
 	return NS.BOOL(state.is_text_input)
@@ -26,15 +25,13 @@ Text_View_keyDown :: proc "c" (self: ^Text_View, event: ^NS.Event) {
 	object := cast(^NS.Object)event
 	events := NS.Array.alloc()->initWithObjects(&object, 1)
 
-	// objc_send calls interpretKeyEvents:, which passes the key to the input method.
+	// interpretKeyEvents: passes the key to the input method.
 	objc_send(nil, self, "interpretKeyEvents:", events)
 	events->release()
 }
 
-// @(private) keeps this procedure inside the platform package.
 @(private)
 to_odin_text :: proc "c" (text: ^NS.Object) -> string {
-	// A proc "c" starts with no Odin context. This sets the one that open_window saved.
 	context = state.odin_context
 	plain := text
 
@@ -196,7 +193,6 @@ type_for_test :: proc(text: string) -> bool {
 	for character in text {
 		buffer, size := utf8.encode_rune(character)
 		ns_character := NS.String.alloc()->initWithOdinString(string(buffer[:size]))
-		// defer runs release at the end of each pass of the loop.
 		defer ns_character->release()
 
 		// NSEventTypeKeyDown is 10.

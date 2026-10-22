@@ -126,6 +126,7 @@ Box :: struct {
 	is_shown:         bool,
 }
 
+// What the mouse did to a box this frame.
 Signal :: struct {
 	box:              ^Box,
 	is_hovered:       bool,
@@ -241,7 +242,6 @@ make_box :: proc(key: u64, style: Style) -> ^Box {
 	box: ^Box
 
 	if key == 0 {
-		// The app frees context.temp_allocator, and this box with it, when the next frame starts.
 		box = new(Box, context.temp_allocator)
 	} else {
 		found, ok := state.boxes[key]
@@ -267,7 +267,7 @@ make_box :: proc(key: u64, style: Style) -> ^Box {
 	return box
 }
 
-// Boxes built inside `if scope(box)` go in box. deferred_none calls pop_parent when the if ends.
+// Boxes built inside `if scope(box)` go in box.
 @(deferred_none = pop_parent)
 scope :: proc(box: ^Box) -> bool {
 	append(&state.parents, box)

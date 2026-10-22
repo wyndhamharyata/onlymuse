@@ -3,10 +3,8 @@ package platform
 import "base:intrinsics"
 import NS "core:sys/darwin/Foundation"
 
-// objc_class binds this struct to the Objective-C class NSVisualEffectView.
 @(objc_class = "NSVisualEffectView")
 Visual_Effect_View :: struct {
-	// using embeds NS.View, so a ^Visual_Effect_View can stand in for a ^NS.View.
 	using _: NS.View,
 }
 
@@ -15,24 +13,19 @@ Layer :: struct {
 	using _: NS.Object,
 }
 
-// objc_implement makes Odin create OMBlurView at startup, as a subclass of NSVisualEffectView.
 @(objc_class = "OMBlurView", objc_superclass = Visual_Effect_View, objc_implement)
 Blur_View :: struct {
 	using _: Visual_Effect_View,
 }
 
 // AppKit puts back its tint and saturation layers each time it updates the blur.
-// The attribute makes this procedure the updateLayer method of OMBlurView.
 @(objc_type = Blur_View, objc_implement, objc_name = "updateLayer")
 Blur_View_updateLayer :: proc "c" (self: ^Blur_View) {
-	// objc_msgSendSuper runs the updateLayer of NSVisualEffectView, which this method replaces.
 	super := Objc_Super{self, NS.Class(intrinsics.objc_find_class("NSVisualEffectView"))}
 	objc_msgSendSuper(&super, NS.SEL(intrinsics.objc_find_selector("updateLayer")))
-	// objc_send calls the Objective-C method that the selector string names, here "layer".
 	remove_layer_background(objc_send(^Layer, self, "layer"))
 }
 
-// @(private) keeps this procedure inside the platform package.
 @(private)
 remove_layer_background :: proc "c" (layer: ^Layer) {
 	if layer == nil do return
@@ -71,7 +64,7 @@ remove_layer_background :: proc "c" (layer: ^Layer) {
 	if sublayers == nil do return
 
 	for index in 0 ..< sublayers->count() {
-		// cast treats the object as a ^Layer. Every sublayer of a CALayer is a CALayer.
+		// Every sublayer of a CALayer is a CALayer.
 		remove_layer_background(cast(^Layer)sublayers->object(index))
 	}
 }

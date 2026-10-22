@@ -8,7 +8,6 @@ import "om:apple"
 import "om:ui"
 
 // Builds the results in groups with a title each. Returns the index of a clicked result, or -1.
-// @(private) keeps this procedure inside the palette package.
 @(private)
 build_results :: proc() -> int {
 	if len(palette.results) == 0 {
@@ -42,7 +41,6 @@ build_results :: proc() -> int {
 		for result, index in palette.results {
 			if result.group != group {
 				group = result.group
-				// context.temp_allocator frees its memory at the start of the next frame.
 				ui.box(
 					"",
 					{

@@ -3,7 +3,6 @@ package image
 
 // to_color reads premultiplied BGRA. It averages the heaviest hue bucket and the two beside it.
 // An average of every pixel would mix a purple sky and an orange sun into brown.
-// @(private) keeps the procedure inside the image package.
 @(private)
 to_color :: proc(pixels: []u8) -> Color {
 	HUE_BUCKETS :: 36

@@ -7,7 +7,6 @@ import "om:ui"
 
 TOAST_SECONDS :: 2.5
 
-// @(private = "file") hides toast from other files.
 @(private = "file")
 toast: struct {
 	text:     string,

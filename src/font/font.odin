@@ -9,13 +9,10 @@ import "om:mac"
 import "om:render"
 import MTL "vendor:darwin/Metal"
 
-// objc_send calls the Objective-C method that a selector string names.
 objc_send :: intrinsics.objc_send
 
-// objc_class binds this struct to the Objective-C class NSFont.
 @(objc_class = "NSFont")
 NS_Font :: struct {
-	// using embeds NS.Object, so a ^NS_Font can stand in for a ^NS.Object.
 	using _: NS.Object,
 }
 
@@ -26,7 +23,7 @@ Weight :: enum {
 	Bold,
 }
 
-// NSFontWeight values, from NSFontDescriptor.h. @(private) keeps them inside the font package.
+// NSFontWeight values, from NSFontDescriptor.h.
 @(private)
 weight_values := [Weight]f64 {
 	.Regular  = 0,
@@ -174,7 +171,6 @@ shape :: proc(
 	max_width_pixels: f32 = 0,
 	overflow := Overflow.Wrap,
 ) -> ^Shaped_Text {
-	// transmute reads the bytes of the string as a []u8, with no copy.
 	key :=
 		hash.fnv64a(transmute([]u8)text) ~
 		(u64(mac.CFHash(mac.Type_Ref(font.ct_font))) * 31) ~
@@ -203,7 +199,6 @@ shape :: proc(
 		return shaped
 	}
 
-	// defer runs the release when shape returns.
 	defer mac.CFRelease(cf_text)
 	keys := []mac.Type_Ref{mac.Type_Ref(mac.kCTFontAttributeName)}
 	values := []mac.Type_Ref{mac.Type_Ref(font.ct_font)}
@@ -284,7 +279,6 @@ to_shaped_line :: proc(ct_line: mac.Line_Ref, font: Font, top_y: f32) -> Shaped_
 		)
 		font_index := intern_font(run_font)
 
-		// The app frees context.temp_allocator at the start of each frame.
 		ids := make([]mac.Glyph, count, context.temp_allocator)
 		positions := make([]mac.Point, count, context.temp_allocator)
 		indices := make([]mac.Index, count, context.temp_allocator)

@@ -16,7 +16,6 @@ import "om:ui"
 
 NEW_RELEASE_DAYS :: 30
 
-// @(private = "file") hides a name outside this file. @(private) hides it outside package player.
 @(private = "file")
 Detail :: struct {
 	label, value: string,
@@ -28,6 +27,7 @@ Release :: struct {
 	is_new: bool,
 }
 
+// What Apple's catalog says of the song playing, for the Now Playing page.
 @(private)
 Song_Details :: struct {
 	song:                                   core.Catalog_Song,
@@ -42,6 +42,7 @@ Song_Details :: struct {
 @(private)
 song_details: map[string]Song_Details
 
+// The CREDITS and SOUND cards of the Now Playing page.
 @(private)
 build_detail_cards :: proc(
 	details: Song_Details,
@@ -260,7 +261,6 @@ read_song_details :: proc(path: string, data: ^core.Page_Data, body: string) {
 
 	// The old details point into the arena find_page_data just reset.
 	if len(resources) == 0 {
-		// delete_key hands back the map's own copy of the key, which is the one to free.
 		stored_path, _ := delete_key(&song_details, path)
 		delete(stored_path)
 		return

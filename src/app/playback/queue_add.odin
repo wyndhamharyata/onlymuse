@@ -16,7 +16,6 @@ ADD_POLL_SECONDS :: 1.5
 
 ADD_TIMEOUT_SECONDS :: 45.0
 
-// @(private = "file") hides Add_Job from other files. @(private) hides a name from other packages.
 @(private = "file")
 Add_Job :: struct {
 	catalog_id: string,
@@ -29,16 +28,10 @@ start_adding :: proc(catalog_id: string, play_count: int) {
 	job := new(Add_Job)
 	// The queue may free its song before the thread runs, so the job keeps its own copy of the ID.
 	job^ = {strings.clone(catalog_id), play_count}
-	// self_cleanup frees the thread when its procedure returns, so nothing waits for it.
-	thread.create_and_start_with_data(
-		job,
-		proc(data: rawptr) {
-			// cast turns the untyped pointer back into a pointer to the job.
+	thread.create_and_start_with_data(job, proc(data: rawptr) {
 			job := cast(^Add_Job)data
-			// Each defer runs when this procedure returns, the last one first.
 			defer free(job)
 			defer delete(job.catalog_id)
-			// Each thread has its own temp allocator, so this thread frees its own temp memory.
 			defer free_all(context.temp_allocator)
 
 			status :=
@@ -52,13 +45,10 @@ start_adding :: proc(catalog_id: string, play_count: int) {
 				)
 			}
 
-			// sync.guard holds the lock until this procedure returns.
 			sync.guard(&queue_state.add_mutex)
 			queue_state.added_play_count = job.play_count
 			platform.wake()
-		},
-		self_cleanup = true,
-	)
+		}, self_cleanup = true)
 }
 
 // A song matched from YouTube must start soon, or it goes back to YouTube.

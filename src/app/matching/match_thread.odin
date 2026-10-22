@@ -35,7 +35,6 @@ albums: struct {
 	songs:     map[string][]core.Catalog_Song,
 }
 
-// @(private) hides this from every package but matching.
 @(private)
 Match_Job :: struct {
 	song:     core.Catalog_Song,
@@ -46,7 +45,6 @@ Match_Job :: struct {
 @(private)
 start_matching :: proc(song: core.Catalog_Song, video_id: string) {
 	if !matcher.is_started {
-		// context.allocator is the heap. Its memory lasts until a call frees it.
 		thread.pool_init(&matcher.pool, context.allocator, 1)
 		thread.pool_start(&matcher.pool)
 		matcher.is_started = true
@@ -58,22 +56,18 @@ start_matching :: proc(song: core.Catalog_Song, video_id: string) {
 	append(&matcher.pending, job)
 
 	// Each task takes a batch. A task that finds its songs taken by an earlier task ends at once.
-	// The pool keeps each finished task until pool_pop_done takes it.
 	for _ in thread.pool_pop_done(&matcher.pool) {}
 	thread.pool_add_task(&matcher.pool, context.allocator, check_matches, nil)
 }
 
 // Runs on the one matching thread. It fetches the albums of the batch first, as one album answers
 // for each of its songs. A song that no album answers for gets a search of its own.
-// @(private = "file") hides this from every other file.
 @(private = "file")
 check_matches :: proc(task: thread.Task) {
-	// defer runs this on return, so this thread's temp memory goes after each batch.
 	defer free_all(context.temp_allocator)
 
 	jobs := make([dynamic]^Match_Job, context.temp_allocator)
 
-	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&matcher.mutex)
 		count := min(len(matcher.pending), MATCH_BATCH_COUNT)
@@ -241,7 +235,6 @@ find_in_albums :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, bool) {
 
 	candidates := make([dynamic]core.Catalog_Song, context.temp_allocator)
 
-	// or_else gives an empty list when the map holds no entry for the key.
 	for id in albums.found_ids[to_album_key(song)] or_else nil {
 		append(&candidates, ..albums.songs[id] or_else nil)
 	}
@@ -284,7 +277,6 @@ to_album_key :: proc(song: core.Catalog_Song) -> string {
 wait_to_search :: proc() {
 	resume_at: time.Tick
 
-	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&matcher.mutex)
 		resume_at = matcher.resume_at

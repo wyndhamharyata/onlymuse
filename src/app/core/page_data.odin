@@ -8,7 +8,6 @@ import "core:time"
 import "om:apple"
 
 unmarshal_text :: proc(text: string, value: ^$T) -> json.Unmarshal_Error {
-	// The temp allocator's memory lasts until the next frame starts.
 	return json.unmarshal_string(text, value, allocator = context.temp_allocator)
 }
 
@@ -50,7 +49,6 @@ find_page_data :: proc(
 	data: ^Page_Data,
 	is_stale: bool,
 ) {
-	// or_else gives nil when the map holds no entry for key.
 	data = page_data[key] or_else nil
 
 	if data == nil {
@@ -74,7 +72,6 @@ find_page_data :: proc(
 
 // Boxes point at their text until the frame ends. A page can read an answer again mid-frame.
 // So free_retired_memory frees the arena that the page let go of only when the next frame starts.
-// @(private = "file") hides this from every other file.
 @(private = "file")
 retired_arenas: [dynamic]virtual.Arena
 
@@ -98,7 +95,6 @@ free_retired_memory :: proc() {
 
 	for key in unused {
 		data := page_data[key]
-		// delete_key hands back the map's own copy of the key, which is the one to free.
 		stored_key, _ := delete_key(&page_data, key)
 		// The next frame frees its arena, as this frame has yet to start.
 		retire_arena(data.arena)

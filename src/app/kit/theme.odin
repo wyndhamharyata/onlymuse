@@ -134,6 +134,7 @@ ACCENT_RATE :: 8
 // artwork_source is the player's cover, empty when it has none.
 update_accent :: proc(dt_seconds: f32, artwork_source: string) {
 	target := core.app.system_accent
+
 	if source := artwork_source; source != "" {
 		if color, ok := image.find_color(source); ok && color.vividness >= MIN_COVER_VIVIDNESS {
 			target = to_cover_accent(color.rgb)
@@ -142,6 +143,7 @@ update_accent :: proc(dt_seconds: f32, artwork_source: string) {
 
 	t := 1 - math.exp(-ACCENT_RATE * min(dt_seconds, 0.1))
 	core.app.accent += (target - core.app.accent) * t
+
 	if abs(target.r - core.app.accent.r) +
 		   abs(target.g - core.app.accent.g) +
 		   abs(target.b - core.app.accent.b) >
@@ -157,6 +159,7 @@ to_cover_accent :: proc(rgb: [3]f32) -> [4]f32 {
 	saturation = clamp(saturation, COVER_ACCENT_SATURATION[0], COVER_ACCENT_SATURATION[1])
 	lightness = clamp(lightness, COVER_ACCENT_LIGHTNESS[0], COVER_ACCENT_LIGHTNESS[1])
 	color := from_hsl(hue, saturation, lightness)
+
 	for to_luminance(color) < MIN_ACCENT_LUMINANCE && lightness < MAX_COVER_ACCENT_LIGHTNESS {
 		lightness += 0.02
 		color = from_hsl(hue, saturation, lightness)
@@ -185,6 +188,7 @@ to_hsl :: proc(rgb: [3]f32) -> (hue, saturation, lightness: f32) {
 	if spread <= 0 do return 0, 0, lightness
 
 	saturation = spread / (1 - abs(2 * lightness - 1))
+
 	switch brightest {
 	case rgb.r:
 		hue = math.mod((rgb.g - rgb.b) / spread, 6)
@@ -193,6 +197,7 @@ to_hsl :: proc(rgb: [3]f32) -> (hue, saturation, lightness: f32) {
 	case:
 		hue = (rgb.r - rgb.g) / spread + 4
 	}
+
 	hue /= 6
 	if hue < 0 do hue += 1
 

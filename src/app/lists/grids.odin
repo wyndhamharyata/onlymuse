@@ -46,6 +46,7 @@ build_song_grid :: proc(
 					song := songs[index]
 					date :=
 						kit.to_date_text(dates[index]) if has_dates && index < len(dates) else ""
+
 					if build_song_row(
 						fmt.tprintf("%d %s", index, song.id),
 						song,
@@ -126,6 +127,7 @@ build_card_grid :: proc(page: ^ui.Box, cards: []apple.Card, is_round: bool) {
 				for column in 0 ..< columns {
 					index := row * columns + column
 					if index >= len(cards) do break
+
 					if build_card_tile(
 						fmt.tprintf("%d %s", index, cards[index].id),
 						cards[index],

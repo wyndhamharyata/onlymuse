@@ -107,6 +107,7 @@ find_next_change :: proc(lines: []lyrics.Line, position_seconds: f64) -> f64 {
 			is_later := word.begin_seconds > position_seconds
 			if is_later && (next < 0 || word.begin_seconds < next) do next = word.begin_seconds
 		}
+
 		for word in line.pronunciation_words {
 			is_later := word.begin_seconds > position_seconds
 			if is_later && (next < 0 || word.begin_seconds < next) do next = word.begin_seconds
@@ -202,12 +203,14 @@ build_lyrics :: proc() -> bool {
 	first_shown := max(0, lyrics_state.current_index - LINES_BEFORE_CURRENT)
 	target_offset: f32
 	column := ui.find_box("column", view)
+
 	if column != nil {
 		if first_line := ui.find_box(fmt.tprintf("line %d", first_shown), column);
 		   first_line != nil {
 			target_offset = first_line.rect.y - column.rect.y
 		}
 	}
+
 	offset := ui.animate("lyrics offset", target_offset, SLIDE_RATE)
 
 	if ui.scope(view) {
@@ -251,10 +254,12 @@ build_panel_note :: proc(text: string) {
 @(private = "file")
 build_lyric_toggles :: proc(lines: []lyrics.Line) {
 	has_romaji, has_translation := false, false
+
 	for line in lines {
 		has_romaji ||= line.pronunciation != ""
 		has_translation ||= line.translation != ""
 	}
+
 	if !has_romaji && !has_translation do return
 
 	toggles := ui.box(
@@ -273,6 +278,7 @@ build_lyric_toggles :: proc(lines: []lyrics.Line) {
 			lyrics_state.shows_romaji = !lyrics_state.shows_romaji
 			store.save_state("lyricsRomaji", "true" if lyrics_state.shows_romaji else "false")
 		}
+
 		if has_translation && kit.toggle_chip("Translation", lyrics_state.shows_translation) {
 			lyrics_state.shows_translation = !lyrics_state.shows_translation
 			store.save_state(

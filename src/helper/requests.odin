@@ -22,11 +22,13 @@ last_request_id: int
 // persistent ID, empty when the song is not in Music.app's library.
 request_play :: proc(song: Song_Match) -> int {
 	last_request_id += 1
+
 	Command :: struct {
 		type:       string,
 		request_id: int `json:"requestId"`,
 		song:       Song_Match,
 	}
+
 	send_value(Command{"playSong", last_request_id, song})
 
 	return last_request_id
@@ -41,14 +43,18 @@ request_set_next :: proc(
 	keeps_youtube: bool,
 ) -> int {
 	last_request_id += 1
+
 	after := after_persistent_id if after_persistent_id != "" else "null"
 	song_json := "null"
+
 	if match, ok := song.?; ok {
 		bytes, _ := json.marshal(match, allocator = context.temp_allocator)
 		song_json = string(bytes)
 	}
+
 	after_json :=
 		fmt.tprintf("\"%s\"", after_persistent_id) if after_persistent_id != "" else after
+
 	send(
 		fmt.tprintf(
 			`{{"type":"setNext","requestId":%d,"afterPersistentID":%s,"song":%s,"keepsYouTube":%v}}`,
@@ -68,6 +74,7 @@ request_track_info :: proc(persistent_id: string) {
 		type:          string,
 		persistent_id: string `json:"persistentID"`,
 	}
+
 	send_value(Command{"trackInfo", persistent_id})
 }
 
@@ -75,6 +82,7 @@ request_track_info :: proc(persistent_id: string) {
 // Its answer is setFavoriteResult, with a null persistent ID when Music.app found no such song.
 request_set_favorite :: proc(persistent_id: string, song: Song_Match, favorited: bool) -> int {
 	last_request_id += 1
+
 	Command :: struct {
 		type:          string,
 		request_id:    int `json:"requestId"`,
@@ -82,6 +90,7 @@ request_set_favorite :: proc(persistent_id: string, song: Song_Match, favorited:
 		song:          Song_Match,
 		favorited:     bool,
 	}
+
 	send_value(Command{"setFavorite", last_request_id, persistent_id, song, favorited})
 
 	return last_request_id

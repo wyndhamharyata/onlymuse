@@ -47,6 +47,7 @@ read_download :: proc(boot_path: string) -> (Download, bool) {
 	if !strings.contains(boot, "<Complete>YES</Complete>") do return {}, false
 
 	start := strings.index(boot, "_A")
+
 	for start >= 0 {
 		rest := boot[start + 2:]
 		digits := 0
@@ -81,6 +82,7 @@ scan_downloads :: proc() {
 
 			for song in songs {
 				if !strings.has_suffix(song.name, ".movpkg") do continue
+
 				if download, ok := read_download(fmt.tprintf("%s/boot.xml", song.fullpath)); ok {
 					append(&found, download)
 				}
@@ -99,13 +101,16 @@ scan_downloads :: proc() {
 build_downloaded_page :: proc() {
 	list: []Download
 	scan_version: int
+
 	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&downloads.mutex)
+
 		// Each visit scans again, so a song downloaded since shows.
 		is_new_visit :=
 			downloads.scanned_index != core.navigation.index ||
 			downloads.scanned_visit != core.navigation_visit
+
 		if !downloads.is_scanning && (downloads.version == 0 || is_new_visit) {
 			downloads.scanned_index = core.navigation.index
 			downloads.scanned_visit = core.navigation_visit
@@ -113,6 +118,7 @@ build_downloaded_page :: proc() {
 			// self_cleanup frees the thread when its procedure returns, so nothing waits for it.
 			thread.create_and_start(scan_downloads, self_cleanup = true)
 		}
+
 		list = downloads.list
 		scan_version = downloads.version
 	}
@@ -138,6 +144,7 @@ build_downloaded_page :: proc() {
 				strings.join(ids[:], ",", context.temp_allocator),
 			),
 		)
+
 		signature = signature * 31 + watched.version
 		if watched.phase != .Ready do phase = watched.phase
 		append(&bodies, watched.body)
@@ -147,6 +154,7 @@ build_downloaded_page :: proc() {
 
 	if is_stale && phase == .Ready {
 		core.read_library_songs(data, bodies[:])
+
 		lossless_count := 0
 
 		for &song in data.songs {
@@ -159,6 +167,7 @@ build_downloaded_page :: proc() {
 		}
 
 		slice.sort_by(data.songs, proc(a, b: core.Catalog_Song) -> bool {return a.name < b.name})
+
 		data.detail = fmt.aprintf(
 			"%d lossless",
 			lossless_count,

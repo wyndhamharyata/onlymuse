@@ -38,6 +38,7 @@ to_artwork :: proc(reader: ^Reader, url, video_id: string) -> apple.Artwork {
 	if dash < 0 do return {url = clone(reader, url)}
 
 	height_end := dash + 2
+
 	for height_end < len(rest) && rest[height_end] >= '0' && rest[height_end] <= '9' {
 		height_end += 1
 	}
@@ -131,6 +132,7 @@ to_text :: proc(value: json.Value) -> string {
 	if simple := as_string(child(value, "simpleText")); simple != "" do return simple
 
 	builder := strings.builder_make(context.temp_allocator)
+
 	for run in as_array(child(value, "runs")) {
 		strings.write_string(&builder, as_string(child(run, "text")))
 	}

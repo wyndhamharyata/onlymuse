@@ -33,6 +33,7 @@ main :: proc() {
 		MAIN_TEMP_BYTES,
 		context.allocator,
 	)
+
 	start_app_state()
 	start_parts()
 
@@ -48,6 +49,7 @@ main :: proc() {
 	font.start()
 	icon.start()
 	image.start()
+
 	core.app.last_frame = time.tick_now()
 	platform.run()
 }
@@ -58,18 +60,21 @@ start_app_state :: proc() {
 	core.app.accent = kit.DEFAULT_ACCENT
 	core.app.system_accent = kit.DEFAULT_ACCENT
 	core.app.panel = .Lyrics
+
 	core.app.capture_path = os.get_env("OM_CAPTURE", context.allocator)
 	core.app.is_bench = os.get_env("OM_BENCH", context.temp_allocator) == "1"
 	core.app.bench_frame_count =
 		strconv.parse_int(os.get_env("OM_BENCH_FRAMES", context.temp_allocator)) or_else 1200
 	core.app.bench_direction = 1
 	core.app.is_showing_frames = os.get_env("OM_FRAMES", context.temp_allocator) == "1"
+
 	capture_seconds :=
 		strconv.parse_f64(os.get_env("OM_CAPTURE_SECONDS", context.temp_allocator)) or_else 0
 	core.app.capture_time = time.tick_add(
 		time.tick_now(),
 		time.Duration(capture_seconds * f64(time.Second)),
 	)
+
 	core.app.test_typing = os.get_env("OM_TYPE", context.allocator)
 	core.app.started_at = time.tick_now()
 }
@@ -79,6 +84,7 @@ start_parts :: proc() {
 	store.start()
 	apple.start()
 	youtube.start()
+
 	playback.start_queue()
 	core.start_navigation()
 	start_saved_window_state()
@@ -88,6 +94,7 @@ start_parts :: proc() {
 	menus.start_song_menu()
 	palette.start_palette()
 	playback.start_shuffle_rules()
+
 	if term := os.get_env("OM_PALETTE", context.temp_allocator); term != "" {
 		palette.open_palette_for_test(term)
 	}
@@ -96,6 +103,7 @@ start_parts :: proc() {
 // OM_WINDOW=<width>x<height> opens the window at that size in points, for the tests.
 open_main_window :: proc(is_background: bool) {
 	window_size := [2]f32{1200, 800}
+
 	if size_text := os.get_env("OM_WINDOW", context.temp_allocator); size_text != "" {
 		if width_text, _, height_text := strings.partition(size_text, "x"); height_text != "" {
 			window_size = {
@@ -119,6 +127,7 @@ open_main_window :: proc(is_background: bool) {
 	for core.app.zoom > zoom_steps[0] && !does_zoom_fit(core.app.zoom) {
 		core.app.zoom = zoom_steps[max(find_zoom_step() - 1, 0)]
 	}
+
 	apply_min_window_size()
 }
 
@@ -182,6 +191,7 @@ build_sign_in_card :: proc() {
 			)
 
 			label := "Open the sign-in window again" if core.app.is_sign_in_open else "Sign In"
+
 			if kit.action_button(label, "person.crop.circle", true) {
 				core.app.is_sign_in_open = true
 				helper.send(`{"type":"signIn"}`)

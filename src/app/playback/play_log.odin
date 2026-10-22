@@ -35,6 +35,7 @@ update_play_log :: proc() {
 		if persistent_id != "" {
 			song := now_playing.song
 			queue_song, is_queue_song := find_queue_song(persistent_id)
+
 			listening.persistent_id = strings.clone(persistent_id)
 			listening.duration_seconds = song.duration_seconds
 			listening.song = {
@@ -48,6 +49,7 @@ update_play_log :: proc() {
 
 	if persistent_id != "" {
 		position := helper.position_seconds(now_playing)
+
 		listening.furthest_seconds = max(
 			listening.furthest_seconds,
 			min(position, listening.duration_seconds),

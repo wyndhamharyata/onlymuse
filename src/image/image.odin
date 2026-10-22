@@ -97,6 +97,7 @@ start :: proc() {
 		context.allocator,
 	)
 	os.make_directory_all(state.folder)
+
 	net.start()
 	thread.pool_init(&state.pool, context.allocator, WORKER_COUNT)
 	thread.pool_start(&state.pool)
@@ -175,9 +176,11 @@ find :: proc(
 @(private)
 to_family :: proc(url: string) -> u64 {
 	family := url
+
 	if !strings.has_prefix(url, "/") {
 		slash := strings.last_index_byte(url, '/')
 		equals := strings.last_index_byte(url, '=')
+
 		// Apple puts the size after the last slash. YouTube's googleusercontent.com puts it after "=", and the
 		// picture's ID before it, so the slash would make every YouTube picture one family.
 		if equals > slash {
@@ -218,6 +221,7 @@ start_waiting :: proc() {
 
 		entry.phase = .Loading
 		state.loading_count += 1
+
 		job := new(Job)
 		job^ = Job {
 			key         = key,
@@ -227,6 +231,7 @@ start_waiting :: proc() {
 		}
 		thread.pool_add_task(&state.pool, context.allocator, load, job)
 	}
+
 	clear(&state.waiting)
 }
 
@@ -255,6 +260,7 @@ take_finished :: proc() {
 		delete(job.url)
 		free(job)
 	}
+
 	clear(&state.finished)
 }
 
@@ -288,9 +294,11 @@ unload_extra :: proc() {
 
 		entry := state.entries[candidate.key]
 		ready_bytes -= entry.bytes
+
 		if state.families[entry.family] == candidate.key {
 			delete_key(&state.families, entry.family)
 		}
+
 		// A command buffer keeps the textures it draws alive until the GPU is done.
 		entry.texture->release()
 		delete(entry.url)

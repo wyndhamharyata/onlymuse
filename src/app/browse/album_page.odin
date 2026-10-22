@@ -28,13 +28,16 @@ build_album_page :: proc(album_id: string) {
 
 		if len(resources) == 0 {
 			page := kit.page_scroll("album")
+
 			if ui.scope(page) {
 				kit.note(
 					kit.phase_note(link.phase) if link.phase != .Ready else "This album is only on the Mac, so Apple Music has no page for it.",
 				)
 			}
+
 			return
 		}
+
 		catalog_id = resources[0].id
 	}
 
@@ -75,9 +78,11 @@ read_album :: proc(data: ^core.Page_Data, body: string) {
 
 	album := resources[0]
 	attributes := album.attributes
+
 	data.title = attributes.name
 	data.subtitle = attributes.artist_name
 	data.artwork = attributes.artwork
+
 	artists := apple.list_related(album, "artists")
 	if len(artists) > 0 do data.link_id = artists[0].id
 	data.is_in_library = len(apple.list_related(album, "library")) > 0
@@ -89,6 +94,7 @@ read_album :: proc(data: ^core.Page_Data, body: string) {
 
 	genre := attributes.genre_names[0] if len(attributes.genre_names) > 0 else ""
 	year := attributes.release_date[:min(4, len(attributes.release_date))]
+
 	data.detail = fmt.aprintf(
 		"%s · %s · %d songs",
 		genre,
@@ -98,11 +104,13 @@ read_album :: proc(data: ^core.Page_Data, body: string) {
 	)
 
 	badges := make([dynamic]string, allocator)
+
 	for label in badge_labels {
 		if slice.contains(attributes.audio_traits, label[0]) {
 			append(&badges, label[1])
 		}
 	}
+
 	data.badges = badges[:]
 }
 
@@ -112,6 +120,7 @@ build_album_header :: proc(data: ^core.Page_Data, width: f32) {
 	// The text goes under the cover when beside it, it would have too little room.
 	is_side_by_side :=
 		width <= 0 || width - cover_points - ALBUM_HEADER_GAP_POINTS >= MIN_ALBUM_INFO_POINTS
+
 	header := ui.box(
 		"header",
 		{
@@ -138,6 +147,7 @@ build_album_header :: proc(data: ^core.Page_Data, width: f32) {
 				width - cover_points - ALBUM_HEADER_GAP_POINTS if is_side_by_side && width > 0 else width
 			title_size: f32 =
 				32 if width <= 0 || info_width >= 360 else 26 if info_width >= 240 else 22
+
 			ui.box(
 				"",
 				{
@@ -165,6 +175,7 @@ build_album_header :: proc(data: ^core.Page_Data, width: f32) {
 				},
 				data.subtitle,
 			)
+
 			if ui.signal(artist).is_clicked {
 				core.navigate({kind = .Artist, id = data.link_id, title = data.subtitle})
 			}
@@ -206,6 +217,7 @@ build_album_header :: proc(data: ^core.Page_Data, width: f32) {
 				if kit.action_button("Play", "play.fill", true) {
 					playback.play_songs(data.songs, 0)
 				}
+
 				if kit.action_button("Shuffle", "shuffle", false) {
 					playback.shuffle_songs(data.songs)
 				}

@@ -120,6 +120,7 @@ to_position :: proc(event: ^NS.Event) -> [2]f32 {
 @(private)
 take_event :: proc(event: ^NS.Event) -> bool {
 	event_window := event->window()
+
 	if event_window != nil && event_window != state.ns_window do return false
 
 	arena_allocator := runtime.arena_allocator(&state.event_arena[state.event_arena_index])
@@ -130,6 +131,7 @@ take_event :: proc(event: ^NS.Event) -> bool {
 		append(&state.events, Mouse_Move{to_position(event)})
 	case .LeftMouseDown, .RightMouseDown, .OtherMouseDown:
 		button := to_button(event)
+
 		append(
 			&state.events,
 			Mouse_Press{to_position(event), button, int(event->clickCount()), to_modifiers(event)},
@@ -145,6 +147,7 @@ take_event :: proc(event: ^NS.Event) -> bool {
 		momentum_phase := msg_send(NS.UInteger, event, "momentumPhase")
 		// NSEventPhaseBegan and NSEventPhaseMayBegin.
 		phase := msg_send(NS.UInteger, event, "phase")
+
 		append(
 			&state.events,
 			Scroll {
@@ -165,6 +168,7 @@ take_event :: proc(event: ^NS.Event) -> bool {
 		}
 
 		characters := event->charactersIgnoringModifiers()->odinString()
+
 		append(
 			&state.events,
 			Key_Press {

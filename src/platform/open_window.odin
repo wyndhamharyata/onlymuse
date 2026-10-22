@@ -42,6 +42,7 @@ open_window :: proc(
 	layer := make_metal_layer(device)
 	state.view = make_metal_view(layer, content_rect)
 	blur->addSubview(state.view)
+
 	state.input_view = make_input_view()
 	blur->addSubview(state.input_view)
 
@@ -53,6 +54,7 @@ open_window :: proc(
 		device = device,
 		layer  = layer,
 	}
+
 	update_window_size()
 	show_window(is_background)
 
@@ -73,11 +75,13 @@ make_ns_window :: proc(
 		.FullSizeContentView,
 	}
 	ns_window := NS.Window.alloc()->initWithContentRect(content_rect, style, .Buffered, false)
+
 	ns_title := NS.String.alloc()->initWithOdinString(title)
 	defer ns_title->release()
 	ns_window->setTitle(ns_title)
 	ns_window->setTitlebarAppearsTransparent(true)
 	msg_send(nil, ns_window, "setTitleVisibility:", NS.Integer(TITLE_HIDDEN))
+
 	msg_send(nil, ns_window, "setReleasedWhenClosed:", NS.BOOL(false))
 	msg_send(nil, ns_window, "setAcceptsMouseMovedEvents:", NS.BOOL(true))
 	msg_send(
@@ -86,6 +90,7 @@ make_ns_window :: proc(
 		"setContentMinSize:",
 		NS.Size{NS.Float(min_size_points.x), NS.Float(min_size_points.y)},
 	)
+
 	ns_window->setOpaque(false)
 	ns_window->setBackgroundColor(msg_send(^NS.Color, NS.Color, "clearColor"))
 
@@ -101,6 +106,7 @@ make_blur_view :: proc(content_rect: NS.Rect) -> ^Blur_View {
 		"initWithFrame:",
 		content_rect,
 	)
+
 	msg_send(nil, blur, "setMaterial:", NS.Integer(MATERIAL_SELECTION))
 	msg_send(nil, blur, "setState:", NS.Integer(BLUR_ALWAYS_ACTIVE))
 
@@ -114,6 +120,7 @@ make_metal_layer :: proc(device: ^MTL.Device) -> ^CA.MetalLayer {
 	layer->setPixelFormat(.BGRA8Unorm)
 	layer->setOpaque(false)
 	layer->setFramebufferOnly(true)
+
 	srgb := mac.CGColorSpaceCreateWithName(mac.kCGColorSpaceSRGB)
 	defer mac.CGColorSpaceRelease(srgb)
 	msg_send(nil, layer, "setColorspace:", rawptr(srgb))
@@ -129,6 +136,7 @@ make_metal_view :: proc(layer: ^CA.MetalLayer, content_rect: NS.Rect) -> ^NS.Vie
 		"initWithFrame:",
 		content_rect,
 	)
+
 	view->setLayer(layer)
 	view->setWantsLayer(true)
 	msg_send(nil, view, "setAutoresizingMask:", NS.UInteger(SIZE_WITH_SUPERVIEW))
@@ -160,6 +168,7 @@ make_display_link :: proc(layer: ^CA.MetalLayer, target: ^Target) -> ^Display_Li
 		"initWithMetalLayer:",
 		layer,
 	)
+
 	msg_send(nil, link, "setDelegate:", target)
 	// Frames queued ahead of the screen. 1 is the shortest wait from input to screen.
 	msg_send(nil, link, "setPreferredFrameLatency:", f32(1))
@@ -180,5 +189,6 @@ show_window :: proc(is_background: bool) {
 		state.ns_window->makeKeyAndOrderFront(nil)
 		state.app->activate()
 	}
+
 	request_frame()
 }

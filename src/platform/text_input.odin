@@ -24,6 +24,7 @@ Text_View_acceptsFirstResponder :: proc "c" (self: ^Text_View) -> NS.BOOL {
 Text_View_keyDown :: proc "c" (self: ^Text_View, event: ^NS.Event) {
 	object := cast(^NS.Object)event
 	events := NS.Array.alloc()->initWithObjects(&object, 1)
+
 	msg_send(nil, self, "interpretKeyEvents:", events)
 	events->release()
 }
@@ -32,6 +33,7 @@ Text_View_keyDown :: proc "c" (self: ^Text_View, event: ^NS.Event) {
 to_odin_text :: proc "c" (text: ^NS.Object) -> string {
 	context = state.odin_context
 	plain := text
+
 	// An input method may send an NSAttributedString.
 	if msg_send(NS.BOOL, text, "respondsToSelector:", intrinsics.objc_find_selector("string")) {
 		plain = msg_send(^NS.Object, text, "string")
@@ -68,6 +70,7 @@ Text_View_setMarkedText :: proc "c" (
 ) {
 	context = state.odin_context
 	marked := to_odin_text(text)
+
 	state.marked_length = len(marked)
 	append(&state.events, Text_Marked{marked})
 	request_frame()
@@ -142,6 +145,7 @@ Text_View_firstRectForCharacterRange :: proc "c" (
 Text_View_doCommandBySelector :: proc "c" (self: ^Text_View, selector: NS.SEL) {
 	context = state.odin_context
 	name := string(sel_getName(selector))
+
 	append(
 		&state.events,
 		Text_Command {
@@ -160,6 +164,7 @@ set_text_input :: proc(is_on: bool, caret_rect: [4]f32 = {}) {
 	if is_on == state.is_text_input do return
 
 	state.is_text_input = is_on
+
 	if is_on {
 		msg_send(NS.BOOL, state.ns_window, "makeFirstResponder:", state.input_view)
 	} else {
@@ -174,8 +179,10 @@ set_text_input :: proc(is_on: bool, caret_rect: [4]f32 = {}) {
 type_for_test :: proc(text: string) -> bool {
 	input_context := msg_send(^NS.Object, state.input_view, "inputContext")
 	has_context := input_context != nil
+
 	// AppKit activates the context of the key window's first responder. A test window is never key.
 	if has_context do msg_send(nil, input_context, "activate")
+
 	window_number := msg_send(NS.Integer, state.ns_window, "windowNumber")
 
 	for character in text {
@@ -199,6 +206,7 @@ type_for_test :: proc(text: string) -> bool {
 			NS.BOOL(false),
 			u16(0),
 		)
+
 		msg_send(nil, state.input_view, "keyDown:", event)
 	}
 

@@ -105,12 +105,15 @@ fetch_once :: proc(
 	mac.curl_easy_setopt(handle, mac.CURLOPT_TIMEOUT_MS, c.long(TIMEOUT_MS))
 	mac.curl_easy_setopt(handle, mac.CURLOPT_WRITEFUNCTION, mac.Curl_Write_Proc(append_body))
 	mac.curl_easy_setopt(handle, mac.CURLOPT_WRITEDATA, rawptr(&body))
+
 	if header_list != nil {
 		mac.curl_easy_setopt(handle, mac.CURLOPT_HTTPHEADER, rawptr(header_list))
 	}
+
 	if method == .Post {
 		mac.curl_easy_setopt(handle, mac.CURLOPT_POST, c.long(1))
 		mac.curl_easy_setopt(handle, mac.CURLOPT_POSTFIELDSIZE, c.long(len(request_body)))
+
 		// curl reads the body during perform, which returns before request_body goes.
 		if request_body != "" {
 			mac.curl_easy_setopt(handle, mac.CURLOPT_POSTFIELDS, raw_data(request_body))
@@ -124,6 +127,7 @@ fetch_once :: proc(
 
 	status: c.long
 	content_type: cstring
+
 	mac.curl_easy_getinfo(handle, mac.CURLINFO_RESPONSE_CODE, &status)
 	mac.curl_easy_getinfo(handle, mac.CURLINFO_CONTENT_TYPE, &content_type)
 

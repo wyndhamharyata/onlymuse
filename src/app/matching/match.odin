@@ -115,6 +115,7 @@ find_library_match :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, bool,
 		core.retire_arena(library_index.arena)
 		library_index.arena = {}
 		library_index.by_title = {}
+
 		_ = virtual.arena_init_growing(&library_index.arena)
 		allocator := virtual.arena_allocator(&library_index.arena)
 		library_index.by_title = make(map[string][dynamic]core.Catalog_Song, allocator)
@@ -134,15 +135,18 @@ find_library_match :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, bool,
 						allocator,
 					)
 				}
+
 				append(&library_index.by_title[key], copied)
 			}
 		}
 	}
 
 	candidates := make([dynamic]core.Catalog_Song, context.temp_allocator)
+
 	for key in list_title_keys(song.name) {
 		if list, ok := library_index.by_title[key]; ok do append(&candidates, ..list[:])
 	}
+
 	best, is_found := find_closest(song, candidates[:])
 
 	return best, is_found, .Ready
@@ -223,10 +227,12 @@ keep_match :: proc(video_id, saved: string) {
 	}
 
 	song: core.Catalog_Song
+
 	if json.unmarshal_string(saved, &song) != nil {
 		matcher.missing[key] = true
 		return
 	}
+
 	song.youtube_id = key
 	matcher.found[key] = song
 }
@@ -235,10 +241,12 @@ keep_match :: proc(video_id, saved: string) {
 @(private)
 save_found_match :: proc(video_id: string, song: core.Catalog_Song, is_found: bool) {
 	saved := ""
+
 	if is_found {
 		bytes, _ := json.marshal(song, allocator = context.temp_allocator)
 		saved = string(bytes)
 	}
+
 	store.save_match(video_id, saved)
 	keep_match(video_id, saved)
 }

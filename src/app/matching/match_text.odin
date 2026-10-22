@@ -79,6 +79,7 @@ list_title_keys :: proc(name: string) -> []string {
 
 	for separator in ([]string{" - ", " / ", "／"}) {
 		if !strings.contains(name, separator) do continue
+
 		for part in strings.split(name, separator, context.temp_allocator) {
 			if key := to_match_key(part); key != "" {
 				append(&keys, key)
@@ -93,6 +94,7 @@ list_title_keys :: proc(name: string) -> []string {
 // "feat." with what follows are dropped. A name that is all brackets keeps them.
 to_match_key :: proc(text: string) -> string {
 	lower := strings.to_lower(text, context.temp_allocator)
+
 	for marker in ([]string{" feat.", " feat ", " ft.", " (feat", " [feat"}) {
 		if index := strings.index(lower, marker); index > 0 do lower = lower[:index]
 	}

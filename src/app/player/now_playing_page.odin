@@ -43,6 +43,7 @@ build_now_playing_page :: proc() {
 		if is_stale && watched.phase == .Ready do read_song_details(path, data, watched.body)
 
 		details, has_details := song_details[path]
+
 		if !has_details || watched.phase != .Ready {
 			// Until Apple answers, what Music.app gave.
 			details = {
@@ -73,6 +74,7 @@ build_now_playing_page :: proc() {
 			build_detail_cards(details, info, shown.persistent_id, width)
 			if watched.phase != .Ready do kit.note(kit.phase_note(watched.phase))
 			build_more_by(details)
+
 			if details.copyright != "" {
 				ui.box(
 					"",
@@ -98,9 +100,11 @@ build_current_lyric :: proc(shown: helper.Song) {
 
 	position := helper.position_seconds(core.app.now_playing) + f64(lyrics_state.lead_ms) / 1000
 	index := find_current_line(lines, position)
+
 	if next := find_next_change(lines, position); next >= 0 {
 		platform.request_frame_after(next - position + WORD_TIMER_SLACK_SECONDS)
 	}
+
 	if index < 0 || index >= len(lines) || lines[index].text == "" do return
 
 	line := lines[index]
@@ -128,6 +132,7 @@ build_current_lyric :: proc(shown: helper.Song) {
 			},
 			fmt.tprintf("♪ %s", line.text),
 		)
+
 		if line.pronunciation != "" {
 			ui.box(
 				"",
@@ -181,6 +186,7 @@ build_more_by :: proc(details: Song_Details) {
 				append(&cards, card)
 			}
 		}
+
 		data.cards = cards[:min(len(cards), MORE_BY_COUNT)]
 	}
 

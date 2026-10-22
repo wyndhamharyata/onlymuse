@@ -54,6 +54,7 @@ remove_layer_background :: proc "c" (layer: ^Layer) {
 
 			msg_send(nil, kept, "addObject:", filter)
 		}
+
 		msg_send(nil, layer, "setFilters:", kept)
 		kept->release()
 	}

@@ -120,6 +120,7 @@ build_artist_middle :: proc(data: ^core.Page_Data) {
 					},
 					"Latest Release",
 				)
+
 				if lists.build_card_tile("latest card", data.latest[0], LATEST_RELEASE_POINTS) {
 					lists.open_card(data.latest, 0)
 				}

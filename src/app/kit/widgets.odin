@@ -29,6 +29,7 @@ to_date_text :: proc(date: string) -> string {
 		"Nov",
 		"Dec",
 	}
+
 	parts := strings.split(date, "-", context.temp_allocator)
 	if len(parts) < 2 do return date
 
@@ -90,6 +91,7 @@ icon_button :: proc(
 		padding       = {4, 4, 4, 4},
 		corner_radius = 6,
 	}
+
 	if is_enabled {
 		style.hover_background = colors.hover
 		style.press_background = colors.selected
@@ -135,6 +137,7 @@ draw_bar :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	filled := track
 	filled.z = track.x + (track.z - track.x) * clamp(paint.ratio, 0, 1)
 	radius := track_height / 2
+
 	render.push(
 		{
 			rect = track,
@@ -230,6 +233,7 @@ scrolling_text :: proc(
 		},
 		text,
 	)
+
 	key := fmt.aprint(id, text)
 	defer delete(key)
 
@@ -237,6 +241,7 @@ scrolling_text :: proc(
 		if key in slides {
 			delete_key_and_value(&slides, key)
 		}
+
 		return box
 	}
 
@@ -244,6 +249,7 @@ scrolling_text :: proc(
 	if key not_in slides do slides[strings.clone(key)] = now
 
 	rested := now - slides[key] - SLIDE_REST_SECONDS
+
 	if rested < 0 {
 		platform.request_frame_after(-rested)
 		return box

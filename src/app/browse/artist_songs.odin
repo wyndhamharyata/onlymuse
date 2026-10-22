@@ -45,6 +45,7 @@ list_recent_songs :: proc(
 	)
 	albums := apple.watch(albums_path)
 	data, is_songs_stale := core.find_page_data(albums_path, albums.version, albums.phase)
+
 	if is_songs_stale && albums.phase == .Ready {
 		read_recent_songs(data, albums.body, release_data.link_id)
 	}
@@ -60,6 +61,7 @@ read_newest_release_ids :: proc(data: ^core.Page_Data, body: string) {
 	releases := make([dynamic]apple.Resource, context.temp_allocator)
 	append(&releases, ..apple.list_view(resources[0], "singles"))
 	append(&releases, ..apple.list_view(resources[0], "full-albums"))
+
 	slice.sort_by(
 		releases[:],
 		proc(a, b: apple.Resource) -> bool {return(
@@ -104,6 +106,7 @@ read_recent_songs :: proc(data: ^core.Page_Data, body: string, ids: string) {
 
 	data.songs = make([]core.Catalog_Song, len(dated), allocator)
 	data.dates = make([]string, len(dated), allocator)
+
 	for entry, index in dated {
 		data.songs[index] = entry.song
 		data.dates[index] = entry.date

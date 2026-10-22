@@ -62,6 +62,7 @@ draw :: proc(
 				ATLAS_SIZE
 			glyph_color := color_of(glyph.utf16_index, data) if color_of != nil else color
 			glyph_color.a *= opacity
+
 			render.push(
 				{rect = rect, uv = uv, color = glyph_color, clip = clip, kind = .Glyph},
 				state.atlas,
@@ -86,6 +87,7 @@ find_glyph :: proc(font_index: u16, glyph: mac.Glyph, subpixel: int) -> Atlas_En
 rasterize :: proc(ct_font: mac.Font_Ref, glyph: mac.Glyph, subpixel: int) -> Atlas_Entry {
 	glyph := glyph
 	bounds: mac.Rect
+
 	mac.CTFontGetBoundingRectsForGlyphs(ct_font, 0, &glyph, &bounds, 1)
 
 	if bounds.size.width <= 0 || bounds.size.height <= 0 do return {}
@@ -97,6 +99,7 @@ rasterize :: proc(ct_font: mac.Font_Ref, glyph: mac.Glyph, subpixel: int) -> Atl
 	height := int(math.ceil(bounds.origin.y + bounds.size.height)) - bottom + 1
 
 	rect, ok := allocate(width, height)
+
 	if !ok do return {}
 
 	pixels := make([]u8, width * height, context.temp_allocator)
@@ -120,6 +123,7 @@ rasterize :: proc(ct_font: mac.Font_Ref, glyph: mac.Glyph, subpixel: int) -> Atl
 	mac.CGContextSetGrayFillColor(ctx, 1, 1)
 
 	position := mac.Point{f64(-left) + f64(subpixel) / SUBPIXEL_STEPS, f64(-bottom)}
+
 	mac.CTFontDrawGlyphs(ct_font, &glyph, &position, 1, ctx)
 	render.upload_texture(state.atlas, rect, raw_data(pixels), width)
 

@@ -57,6 +57,7 @@ to_list :: proc(body: string, allocator := context.allocator) -> List {
 		shelves   = make([dynamic]apple.Shelf, allocator),
 		cards     = make([dynamic]apple.Card, allocator),
 	}
+
 	read_value(&reader, value)
 
 	// An album's rows name neither its artist nor its cover, which its header holds.
@@ -128,6 +129,7 @@ read_item :: proc(reader: ^Reader, key: string, value: json.Value) {
 		append(&reader.songs, card.song)
 		return
 	}
+
 	append(&reader.cards, card)
 }
 
@@ -168,16 +170,19 @@ read_header :: proc(reader: ^Reader, value: json.Value) {
 	if reader.title != "" do return
 
 	reader.title = clone(reader, to_text(child(value, "title")))
+
 	strapline := to_text(child(value, "straplineTextOne"))
 	reader.subtitle = clone(
 		reader,
 		strapline if strapline != "" else to_text(child(value, "subtitle")),
 	)
+
 	detail := to_text(child(value, "monthlyListenerCount"))
 	reader.detail = clone(
 		reader,
 		detail if detail != "" else to_text(child(value, "secondSubtitle")),
 	)
+
 	thumbnail := child(value, "thumbnail")
 	if thumbnail == nil do thumbnail = child(value, "foregroundThumbnail")
 	reader.artwork = to_artwork(reader, find_thumbnail_url(thumbnail), "")

@@ -134,6 +134,7 @@ build_song_menu :: proc() {
 					kit.show_toast(fmt.tprintf("%s plays from YouTube from now on", song.name))
 					is_closing = true
 				}
+
 				if is_from_youtube &&
 				   matching.is_match_rejected(song) &&
 				   kit.menu_item("try apple music", "Try Apple Music Again") {
@@ -143,7 +144,9 @@ build_song_menu :: proc() {
 				}
 
 				kit.menu_separator()
+
 				is_on := playback.is_favourite(song)
+
 				if kit.menu_item(
 					"favourite",
 					"Remove from Favourites" if is_on else "Favourite",
@@ -157,10 +160,12 @@ build_song_menu :: proc() {
 				}
 
 				kit.menu_separator()
+
 				if kit.menu_item("go to artist", "Go to Artist") {
 					core.navigate({kind = .Artist, title = strings.clone(song.artist_name)})
 					is_closing = true
 				}
+
 				if song.id != "" && kit.menu_item("copy link", "Copy Link") {
 					apple_link := fmt.tprintf(
 						"https://music.apple.com/%s/song/%s",
@@ -200,6 +205,7 @@ build_playlist_menu :: proc(
 			if playlist_name_field.is_cancelled do song_menu.is_naming = false
 
 			name := strings.trim_space(kit.field_text(&playlist_name_field))
+
 			if playlist_name_field.is_submitted && name != "" {
 				create_playlist_with(name, song)
 				is_done = true
@@ -247,6 +253,7 @@ build_playlist_menu :: proc(
 				if !playlist.can_edit do continue
 
 				shown += 1
+
 				if kit.menu_item(fmt.tprintf("playlist %s", playlist.id), playlist.name) {
 					add_to_playlist(playlist.id, playlist.name, song)
 					is_done = true

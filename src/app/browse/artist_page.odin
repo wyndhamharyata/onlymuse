@@ -63,6 +63,7 @@ find_artist_id :: proc(artist_name: string) -> (string, apple.Phase) {
 	}
 	answer: Search_Answer
 	_ = core.unmarshal_text(watched.body, &answer)
+
 	artists := answer.results.artists.data
 	id := artists[0].id if len(artists) > 0 else ""
 	for artist in artists do if artist.attributes.name == artist_name do id = artist.id
@@ -79,13 +80,16 @@ build_artist_page :: proc(page_id: string, name: string) {
 
 		if found == "" {
 			page := kit.page_scroll("artist")
+
 			if ui.scope(page) {
 				kit.note(
 					kit.phase_note(phase) if phase != .Ready else fmt.tprintf("Apple Music has no artist named %s.", name),
 				)
 			}
+
 			return
 		}
+
 		artist_id = found
 	}
 
@@ -97,6 +101,7 @@ build_artist_page :: proc(page_id: string, name: string) {
 	if watched.phase == .Ready {
 		ok: bool
 		catalog_name, ok = find_read_text(&catalog_artist_name, path, watched.version)
+
 		if !ok {
 			resources := apple.to_resources(watched.body, context.temp_allocator)
 			catalog_name = save_read_text(
@@ -128,6 +133,7 @@ build_artist_page :: proc(page_id: string, name: string) {
 		width := page.size.x - page.style.padding.x - page.style.padding.z
 		channel := youtube_lists.watch_youtube_artist(data.title)
 		detail := data.detail
+
 		if channel.detail != "" {
 			detail =
 				fmt.tprintf("%s · %s on YouTube", data.detail, channel.detail) if data.detail != "" else fmt.tprintf("%s on YouTube", channel.detail)
@@ -180,14 +186,17 @@ watch_library_albums_of :: proc(artist_name: string) -> apple.Watched {
 
 	longest := ""
 	word_start := -1
+
 	for character, index in artist_name {
 		is_letter := unicode.is_letter(character) || unicode.is_digit(character)
 		if is_letter && word_start < 0 do word_start = index
+
 		if !is_letter && word_start >= 0 {
 			if index - word_start > len(longest) do longest = artist_name[word_start:index]
 			word_start = -1
 		}
 	}
+
 	if word_start >= 0 && len(artist_name) - word_start > len(longest) {
 		longest = artist_name[word_start:]
 	}
@@ -201,6 +210,7 @@ watch_library_albums_of :: proc(artist_name: string) -> apple.Watched {
 	if search.phase != .Ready do return {phase = search.phase, version = search.version}
 
 	id, ok := find_read_text(&library_artist_id, artist_name, search.version)
+
 	if !ok {
 		id = save_read_text(
 			&library_artist_id,
@@ -209,6 +219,7 @@ watch_library_albums_of :: proc(artist_name: string) -> apple.Watched {
 			find_library_artist_id(search.body, artist_name),
 		)
 	}
+
 	if id == "" do return {phase = .Ready, version = search.version * 1000}
 
 	albums := apple.watch(fmt.tprintf("/v1/me/library/artists/%s/albums", id))
@@ -220,7 +231,6 @@ watch_library_albums_of :: proc(artist_name: string) -> apple.Watched {
 // The library artist with exactly this name, empty when there is none.
 @(private = "file")
 find_library_artist_id :: proc(body, artist_name: string) -> string {
-
 	Search_Answer :: struct {
 		results: struct {
 			library_artists: struct {
@@ -248,6 +258,7 @@ read_artist :: proc(data: ^core.Page_Data, body: string, library_albums: apple.W
 
 	artist := resources[0]
 	attributes := artist.attributes
+
 	data.title = attributes.name
 	data.detail = attributes.genre_names[0] if len(attributes.genre_names) > 0 else ""
 	data.artwork = attributes.artwork

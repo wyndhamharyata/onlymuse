@@ -38,9 +38,11 @@ add :: proc(source: string, format: string, args: ..any) {
 			delete(state.entries[0].text)
 			ordered_remove(&state.entries, 0)
 		}
+
 		append(&state.entries, Entry{time.now(), source, text})
 		state.version += 1
 	}
+
 	platform.wake()
 }
 

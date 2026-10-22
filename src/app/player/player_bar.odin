@@ -36,6 +36,7 @@ build_player_bar :: proc() {
 				flags = {.Floating},
 			},
 		)
+
 		build_song_info()
 		build_controls()
 		build_player_end()
@@ -53,6 +54,7 @@ find_player_artwork_source :: proc() -> string {
 
 	song, is_song := playback.find_shown_song()
 	queue_song, is_queue_song := playback.find_queue_song(song.persistent_id)
+
 	if is_queue_song && queue_song.artwork.url != "" {
 		return apple.to_artwork_url(
 			queue_song.artwork,
@@ -78,18 +80,22 @@ build_song_info :: proc() {
 	if ui.scope(info) {
 		artwork_source := find_player_artwork_source()
 		placeholder := kit.to_placeholder({}, song.album if is_song else "")
+
 		if is_queue_song {
 			placeholder = kit.to_placeholder(queue_song.artwork, queue_song.album_name)
 		}
+
 		if is_waiting {
 			placeholder = kit.to_placeholder(adding_song.artwork, adding_song.album_name)
 		}
+
 		if !is_song && !is_waiting {
 			placeholder = {
 				top    = kit.colors.card,
 				bottom = kit.colors.card,
 			}
 		}
+
 		// The cover opens the Now Playing page.
 		// odinfmt cannot read a set literal followed by if inside another literal, so it stands apart.
 		cover_flags: ui.Flags = {.Clickable} if is_song else {}
@@ -148,6 +154,7 @@ build_song_info :: proc() {
 					if row_width := title.rect.z - title.rect.x; row_width > 0 {
 						after_width: f32 = 22 + 7
 						if badge != "" do after_width += kit.measure_text(badge, 9.5, .Bold) + 8 + 7
+
 						// A point more than the text, as a box exactly as wide cuts a short name such as "If" to nothing.
 						name_width = ui.points(
 							min(
@@ -165,6 +172,7 @@ build_song_info :: proc() {
 						.Semibold,
 						width = name_width,
 					)
+
 					if badge != "" {
 						ui.box(
 							"",
@@ -186,6 +194,7 @@ build_song_info :: proc() {
 					// Music.app knows nothing of a song the YouTube page plays.
 					playing, persistent_id, _ := playback.find_playing_song()
 					if !is_from_youtube do playback.find_track_info(persistent_id)
+
 					if playback.favourite_button(
 						"favourite",
 						playback.is_favourite(playing, persistent_id),
@@ -210,6 +219,7 @@ build_song_info :: proc() {
 					12.5,
 					is_clickable = true,
 				)
+
 				if ui.signal(subtitle).is_clicked {
 					core.navigate({kind = .Artist, title = fmt.aprint(song.artist)})
 				}

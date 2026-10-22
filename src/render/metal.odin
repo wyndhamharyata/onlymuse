@@ -81,6 +81,7 @@ start :: proc(device: ^MTL.Device, layer: ^CA.MetalLayer) {
 		NS.String.alloc()->initWithOdinString(shader_source),
 		nil,
 	)
+
 	if library == nil {
 		fmt.panicf(
 			"render: shaders do not compile: %s",
@@ -102,9 +103,11 @@ start :: proc(device: ^MTL.Device, layer: ^CA.MetalLayer) {
 	attachment->setDestinationAlphaBlendFactor(.OneMinusSourceAlpha)
 
 	pipeline, pipeline_error := device->newRenderPipelineStateWithDescriptor(descriptor)
+
 	if pipeline == nil {
 		fmt.panicf("render: no pipeline: %s", pipeline_error->localizedDescription()->odinString())
 	}
+
 	state.pipeline = pipeline
 
 	sampler_descriptor := MTL.SamplerDescriptor.alloc()->init()
@@ -132,6 +135,7 @@ make_texture :: proc(size_pixels: [2]int, format: MTL.PixelFormat) -> ^MTL.Textu
 		NS.UInteger(size_pixels.y),
 		false,
 	)
+
 	descriptor->setUsage({.ShaderRead})
 
 	return state.device->newTextureWithDescriptor(descriptor)
@@ -143,6 +147,7 @@ upload_texture :: proc(texture: ^MTL.Texture, rect: [4]int, pixels: rawptr, byte
 		{NS.Integer(rect.x), NS.Integer(rect.y), 0},
 		{NS.Integer(rect.z), NS.Integer(rect.w), 1},
 	}
+
 	texture->replaceRegion(region, 0, pixels, NS.UInteger(bytes_per_row))
 }
 
@@ -165,6 +170,7 @@ push :: proc(instance: Instance, texture: ^MTL.Texture = nil) {
 	} else {
 		append(&state.batches, Batch{texture, len(state.instances), 1})
 	}
+
 	append(&state.instances, instance)
 }
 
@@ -190,6 +196,7 @@ encode_pass :: proc(
 	encoder->setRenderPipelineState(state.pipeline)
 	encoder->setVertexBuffer(buffer, 0, 0)
 	encoder->setFragmentBuffer(buffer, 0, 0)
+
 	viewport := state.size_pixels
 	encoder->setVertexBytes(([^]byte)(&viewport)[:size_of(viewport)], 1)
 	encoder->setFragmentSamplerState(state.sampler, 0)
@@ -204,6 +211,7 @@ encode_pass :: proc(
 			NS.UInteger(batch.first_index),
 		)
 	}
+
 	encoder->endEncoding()
 }
 
@@ -216,8 +224,10 @@ capture :: proc(buffer: ^MTL.Buffer) {
 		NS.UInteger(size.y),
 		false,
 	)
+
 	descriptor->setUsage({.RenderTarget, .ShaderRead})
 	descriptor->setStorageMode(.Shared)
+
 	target := state.device->newTextureWithDescriptor(descriptor)
 	defer target->release()
 
@@ -229,8 +239,10 @@ capture :: proc(buffer: ^MTL.Buffer) {
 	pixels := make([]u8, size.x * size.y * 4)
 	defer delete(pixels)
 	region := MTL.Region{{0, 0, 0}, {NS.Integer(size.x), NS.Integer(size.y), 1}}
+
 	target->getBytes(raw_data(pixels), NS.UInteger(size.x * 4), region, 0)
 	_ = os.write_entire_file(state.capture_path, pixels)
+
 	fmt.printfln("captured %dx%d to %s", size.x, size.y, state.capture_path)
 	state.capture_path = ""
 }

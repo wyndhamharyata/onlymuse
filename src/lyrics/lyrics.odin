@@ -70,6 +70,7 @@ find :: proc(persistent_id, name, artist: string) -> (Phase, []Line) {
 	state.phase = .Loading
 	state.lines = nil
 	state.songwriters = nil
+
 	virtual.arena_destroy(&state.last_arena)
 	state.last_arena = state.arena
 	state.arena = {}
@@ -86,6 +87,7 @@ find :: proc(persistent_id, name, artist: string) -> (Phase, []Line) {
 @(private)
 load :: proc(data: rawptr) {
 	request := cast(^Request)data
+
 	defer {
 		delete(request.persistent_id)
 		delete(request.name)
@@ -96,6 +98,7 @@ load :: proc(data: rawptr) {
 
 	arena: virtual.Arena
 	_ = virtual.arena_init_growing(&arena)
+
 	lines, songwriters, ok := fetch_lines(
 		request.name,
 		request.artist,
@@ -146,6 +149,7 @@ fetch_lines :: proc(name, artist: string, allocator: mem.Allocator) -> ([]Line, 
 			context.temp_allocator,
 		)
 	}
+
 	if answer.status != 200 do return nil, nil, false
 
 	Lyrics_Answer :: struct {
@@ -158,6 +162,7 @@ fetch_lines :: proc(name, artist: string, allocator: mem.Allocator) -> ([]Line, 
 	}
 
 	parsed: Lyrics_Answer
+
 	if json.unmarshal_string(answer.body, &parsed, allocator = context.temp_allocator) != nil ||
 	   len(parsed.data) == 0 {
 		return nil, nil, false
@@ -204,6 +209,7 @@ find_song_id :: proc(name, artist: string) -> (string, bool) {
 	}
 
 	parsed: Search_Answer
+
 	if json.unmarshal_string(answer.body, &parsed, allocator = context.temp_allocator) != nil {
 		return "", false
 	}
@@ -238,6 +244,7 @@ find_queue_song_id :: proc(
 	if !ok do return "", false
 
 	queue: Queue
+
 	if json.unmarshal_string(text, &queue, allocator = context.temp_allocator) != nil {
 		return "", false
 	}

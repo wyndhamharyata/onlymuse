@@ -165,6 +165,7 @@ to_catalog_song :: proc(resource: Resource) -> Catalog_Song {
 // A library song plays by its catalog ID. A song uploaded from a Mac has none, so it keeps its library ID.
 to_library_song :: proc(resource: Resource) -> Catalog_Song {
 	song := to_catalog_song(resource)
+
 	if resource.attributes.play_params.catalog_id != "" {
 		song.id = resource.attributes.play_params.catalog_id
 	}
@@ -181,6 +182,7 @@ to_card :: proc(resource: Resource) -> Card {
 		subtitle = attributes.curator_name if attributes.curator_name != "" else attributes.artist_name,
 		artwork  = attributes.artwork,
 	}
+
 	if card.kind == .Song do card.song = to_catalog_song(resource)
 	card.can_edit = attributes.can_edit.? or_else false
 
@@ -219,6 +221,7 @@ to_home_shelves :: proc(body: string, allocator := context.allocator) -> []Shelf
 
 	for resource in to_resources(body, allocator) {
 		cards := list_cards(list_related(resource, "contents"), allocator)
+
 		if len(cards) > 0 {
 			append(
 				&shelves,
@@ -241,6 +244,7 @@ to_new_shelves :: proc(body: string, allocator := context.allocator) -> []Shelf 
 
 	for element in list_related(tabs[0], "children") {
 		cards := list_cards(list_related(element, "contents"), allocator)
+
 		if element.attributes.name != "" && len(cards) > 0 {
 			append(&shelves, Shelf{title = element.attributes.name, cards = cards})
 		}
@@ -271,6 +275,7 @@ to_artwork_url :: proc(
 		fmt.tprintf("%d", height),
 		context.temp_allocator,
 	)
+
 	// "ac" puts an artist's album cover on a square of its colour. "cc" crops it to fill.
 	size := fmt.tprintf("%dx%d", width_pixels, height)
 	cropped, _ := strings.replace_all(

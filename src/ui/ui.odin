@@ -223,6 +223,7 @@ box :: proc(id: string, style: Style, text: string = "") -> ^Box {
 	parent := current_parent()
 	key := to_key(id, parent.key) if id != "" else 0
 	box := make_box(key, style)
+
 	box.text = text
 	box.parent = parent
 
@@ -270,7 +271,6 @@ make_box :: proc(key: u64, style: Style) -> ^Box {
 @(deferred_none = pop_parent)
 scope :: proc(box: ^Box) -> bool {
 	append(&state.parents, box)
-
 	return true
 }
 

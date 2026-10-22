@@ -64,7 +64,6 @@ build_sidebar :: proc() {
 				)
 			}
 		}
-
 	}
 }
 

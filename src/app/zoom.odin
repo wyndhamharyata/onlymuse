@@ -35,6 +35,7 @@ start_saved_window_state :: proc() {
 // The step nearest the zoom.
 find_zoom_step :: proc() -> int {
 	nearest := 0
+
 	for step, index in zoom_steps {
 		if abs(step - core.app.zoom) < abs(zoom_steps[nearest] - core.app.zoom) {
 			nearest = index

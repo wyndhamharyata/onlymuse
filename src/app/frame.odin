@@ -57,6 +57,7 @@ draw_frame :: proc() -> bool {
 	kit.build_toast()
 	if core.app.is_sign_in_needed do build_sign_in_card()
 	build_frame_time()
+
 	ui.end_frame()
 	kit.finish_text_fields()
 
@@ -98,6 +99,7 @@ apply_input :: proc() {
 		fmt.eprintfln("typed %q, input context: %v", core.app.test_typing, has_context)
 		core.app.test_typing = ""
 	}
+
 	apply_helper_messages()
 	playback.update_queue()
 	playback.update_play_log()
@@ -121,9 +123,11 @@ finish_frame :: proc(start: time.Tick) {
 		core.app.frame_count >= 3 &&
 		time.tick_diff(core.app.capture_time, start) >= 0
 	if is_capture_frame do render.request_capture(core.app.capture_path)
+
 	// Only the bench reads more than the last duration.
 	if !core.app.is_bench do clear(&core.app.build_durations)
 	append(&core.app.build_durations, time.tick_since(start))
+
 	render.end_frame(core.app.window.drawable)
 	if is_capture_frame do platform.quit()
 	if core.app.is_bench && core.app.frame_count == core.app.bench_frame_count do finish_bench()

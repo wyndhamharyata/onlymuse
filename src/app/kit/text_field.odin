@@ -245,6 +245,7 @@ build_text_field :: proc(
 			flags = {.Clickable},
 		},
 	)
+
 	field.is_hovered = ui.signal(box).is_hovered
 
 	if ui.scope(box) {
@@ -254,6 +255,7 @@ build_text_field :: proc(
 		cursor := field.cursor
 		shown := fmt.tprintf("%s%s%s", text[:cursor], field.marked, text[cursor:])
 		is_empty := shown == ""
+
 		line := ui.box(
 			"line",
 			{
@@ -305,6 +307,7 @@ build_caret :: proc(line: ^ui.Box, before, marked: string, font_size: f32) {
 	}
 
 	caret_x := before_width + marked_width
+
 	ui.box(
 		"",
 		{

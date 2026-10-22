@@ -48,6 +48,7 @@ children_extent :: proc(box: ^Box, axis: Axis) -> f32 {
 		if .Floating in child.style.flags do continue
 
 		count += 1
+
 		if axis == box.style.axis {
 			total += child.size[int(axis)]
 		} else {
@@ -66,6 +67,7 @@ children_extent :: proc(box: ^Box, axis: Axis) -> f32 {
 @(private)
 resolve :: proc(box: ^Box) {
 	style := box.style
+
 	resolve_children(
 		box,
 		{
@@ -79,6 +81,7 @@ resolve :: proc(box: ^Box) {
 	if style.width.kind == .Children && style.axis == .Y {
 		box.size.x = children_extent(box, .X) + style.padding.x + style.padding.z
 	}
+
 	if style.height.kind == .Children {
 		extent := wrap_lines(box, nil) if is_wrapping(box) else children_extent(box, .Y)
 		box.size.y = extent + style.padding.y + style.padding.w
@@ -130,6 +133,7 @@ wrap_lines :: proc(box: ^Box, clip: ^[4]f32) -> f32 {
 				}
 
 				origin := pen
+
 				switch style.align {
 				case .Start:
 				case .Center:
@@ -137,6 +141,7 @@ wrap_lines :: proc(box: ^Box, clip: ^[4]f32) -> f32 {
 				case .End:
 					origin.y += height - child.size.y
 				}
+
 				place(child, origin, clip^)
 				pen.x += child.size.x + style.gap
 			}
@@ -166,6 +171,7 @@ place :: proc(box: ^Box, origin: [2]f32, clip: [4]f32) {
 
 	child_clip := intersect(clip, box.rect) if .Clip in style.flags else clip
 	extent := children_extent(box, style.axis)
+
 	box.content_size = {0, 0}
 	box.content_size[main] = extent + style.padding[main] + style.padding[main + 2]
 
@@ -192,6 +198,7 @@ place :: proc(box: ^Box, origin: [2]f32, clip: [4]f32) {
 
 		child_origin := pen
 		free_space := inner[cross] - child.size[cross]
+
 		switch style.align {
 		case .Start:
 		case .Center:
@@ -267,6 +274,7 @@ fit_text_to_width :: proc(box: ^Box) {
 
 	inner_width := box.size.x - box.style.padding.x - box.style.padding.z
 	overflow := font.Overflow.Truncate if .Truncate_Text in box.style.flags else font.Overflow.Wrap
+
 	box.shaped = font.shape(box.text, to_font(box.style), inner_width * state.scale, overflow)
 
 	if box.style.height.kind == .Text {

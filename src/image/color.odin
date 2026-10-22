@@ -56,6 +56,7 @@ guess_color :: proc(pixels: []u8) -> Color {
 @(private)
 to_hue :: proc(rgb: [3]f32, brightest, spread: f32) -> f32 {
 	hue: f32
+
 	switch brightest {
 	case rgb.r:
 		hue = (rgb.g - rgb.b) / spread
@@ -64,6 +65,7 @@ to_hue :: proc(rgb: [3]f32, brightest, spread: f32) -> f32 {
 	case:
 		hue = (rgb.r - rgb.g) / spread + 4
 	}
+
 	hue /= 6
 
 	return hue + 1 if hue < 0 else hue

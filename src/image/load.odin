@@ -18,6 +18,7 @@ import MTL "vendor:darwin/Metal"
 @(private)
 load :: proc(task: thread.Task) {
 	job := cast(^Job)task.data
+
 	defer {
 		sync.guard(&state.mutex)
 		append(&state.finished, job)
@@ -27,6 +28,7 @@ load :: proc(task: thread.Task) {
 
 	// A file path, such as the artwork the helper saves from Music.app, needs no download.
 	path := job.url
+
 	if !strings.has_prefix(path, "/") {
 		path = fmt.tprintf("%s/%x.jpg", state.folder, hash.fnv64a(transmute([]u8)job.url))
 		if !os.exists(path) && !download(job.url, path) do return
@@ -56,6 +58,7 @@ download :: proc(url, path: string) -> bool {
 decode :: proc(path: string, size_pixels: int, crop: Crop) -> (^MTL.Texture, Color) {
 	url := mac.CFURLCreateFromFileSystemRepresentation(nil, raw_data(path), len(path), false)
 	defer mac.CFRelease(url)
+
 	source := mac.CGImageSourceCreateWithURL(url, nil)
 	if source == nil do return nil, {}
 	defer mac.CFRelease(source)
@@ -63,6 +66,7 @@ decode :: proc(path: string, size_pixels: int, crop: Crop) -> (^MTL.Texture, Col
 	max_size := i32(size_pixels)
 	size_number := mac.CFNumberCreate(nil, mac.NUMBER_INT32, &max_size)
 	defer mac.CFRelease(size_number)
+
 	keys := []mac.Type_Ref {
 		mac.kCGImageSourceCreateThumbnailFromImageAlways,
 		mac.kCGImageSourceThumbnailMaxPixelSize,
@@ -83,6 +87,7 @@ decode :: proc(path: string, size_pixels: int, crop: Crop) -> (^MTL.Texture, Col
 	width := int(mac.CGImageGetWidth(image))
 	height := int(mac.CGImageGetHeight(image))
 	pixels := make([]u8, width * height * 4, context.temp_allocator)
+
 	space := mac.CGColorSpaceCreateWithName(mac.kCGColorSpaceSRGB)
 	defer mac.CGColorSpaceRelease(space)
 	// BGRA with premultiplied alpha, as the shader and BGRA8Unorm expect.

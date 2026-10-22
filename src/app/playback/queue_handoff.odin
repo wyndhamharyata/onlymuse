@@ -50,6 +50,7 @@ sync_handoff :: proc() {
 	queue_state.has_handoff = false
 
 	match: Maybe(helper.Song_Match)
+
 	if next_index >= 0 {
 		set_playable(next_index)
 		match = to_song_match(queue.songs[next_index])
@@ -129,6 +130,7 @@ apply_playing_song :: proc(now_playing: helper.Now_Playing, now_ms: f64) {
 	// The helper started the queue's next song itself, so the queue only moves on.
 	if is_handed_off {
 		handoff := queue_state.handoff
+
 		queue_state.play_count += 1
 		queue_state.has_handoff = false
 		delete(queue_state.handoff_key)
@@ -163,10 +165,12 @@ apply_queue_now_playing :: proc() {
 		to_estimate_seconds(finished, now_ms) >= finished.duration_seconds - END_TOLERANCE_SECONDS
 
 	queue_state.has_tracking = false
+
 	if has_ended && queue.resume_point.song.persistent_id != "" {
 		queue.resume_point.position_seconds = 0
 		save_resume_point()
 	}
+
 	if is_queue_song && has_ended do play_next_after_end()
 }
 
@@ -186,8 +190,10 @@ apply_resume_point :: proc() {
 	if !has_song || !queue_state.has_tracking do return
 
 	queue_state.last_resume_save = helper.now_ms()
+
 	song := now_playing.song
 	old := queue.resume_point.song
+
 	queue.resume_point = {
 		song             = {
 			strings.clone(song.name),
@@ -199,12 +205,14 @@ apply_resume_point :: proc() {
 		},
 		position_seconds = to_estimate_seconds(queue_state.tracking, helper.now_ms()),
 	}
+
 	// This runs before the frame builds its boxes, so nothing shows the old text any more.
 	delete(old.name)
 	delete(old.artist)
 	delete(old.album)
 	delete(old.persistent_id)
 	delete(old.artwork_path)
+
 	save_resume_point()
 }
 
@@ -238,6 +246,7 @@ restart_stalled_song :: proc(has_started: bool) {
 // Called each frame: starts polling once a song is added, and asks Music.app again when a poll is due.
 update_queue :: proc() {
 	added: int
+
 	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&queue_state.add_mutex)
@@ -272,6 +281,7 @@ update_queue :: proc() {
 		!now_playing.has_started &&
 		now_playing.stall_count >= UNSTARTED_POSITION_COUNT
 	can_restart := is_queue_leading() && queue_state.restart_count < MAX_RESTART_COUNT
+
 	if (has_stalled || has_not_started) && can_restart {
 		restart_stalled_song(now_playing.has_started)
 	}

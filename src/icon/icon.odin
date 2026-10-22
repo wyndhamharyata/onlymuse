@@ -72,6 +72,7 @@ start :: proc() {
 // Draws the symbol centred in rect, all in pixels.
 draw :: proc(name: string, size_pixels: f32, rect, clip: [4]f32, color: [4]f32) {
 	entry := find(name, size_pixels)
+
 	if entry.rect.z == 0 do return
 
 	width := f32(entry.rect.z)
@@ -86,6 +87,7 @@ draw :: proc(name: string, size_pixels: f32, rect, clip: [4]f32, color: [4]f32) 
 			f32(entry.rect.y + entry.rect.w),
 		} /
 		ATLAS_SIZE
+
 	render.push(
 		{
 			rect = {left, top, left + width, top + height},
@@ -131,6 +133,7 @@ rasterize :: proc(name: string, size_pixels: f32) -> Entry {
 		ns_name,
 		rawptr(nil),
 	)
+
 	if symbol == nil do return {}
 
 	configuration := msg_send(
@@ -141,10 +144,12 @@ rasterize :: proc(name: string, size_pixels: f32) -> Entry {
 		NS.Float(SYMBOL_WEIGHT),
 	)
 	image := msg_send(^NS.Image, symbol, "imageWithSymbolConfiguration:", configuration)
+
 	size := msg_send(NS.Size, image, "size")
 	width := int(math.ceil(f64(size.width))) + 2
 	height := int(math.ceil(f64(size.height))) + 2
 	rect, ok := allocate(width, height)
+
 	if !ok {
 		state.is_full = true
 		return {}
@@ -172,6 +177,7 @@ rasterize :: proc(name: string, size_pixels: f32) -> Entry {
 		rawptr(ctx),
 		NS.BOOL(false),
 	)
+
 	msg_send(nil, Graphics_Context, "saveGraphicsState")
 	msg_send(nil, Graphics_Context, "setCurrentContext:", graphics)
 	target := NS.Rect{{1, 1}, size}

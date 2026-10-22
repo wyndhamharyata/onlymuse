@@ -33,6 +33,7 @@ fit_tile_size :: proc(width, target, gap: f32) -> f32 {
 // A shelf of Apple's or YouTube's, its videos in wide tiles. width is the page's.
 build_shelf :: proc(id: string, shelf: apple.Shelf, width, target_points: f32) {
 	target := WIDE_TILE_POINTS if shelf.is_wide else target_points
+
 	build_card_row(
 		id,
 		shelf.title,
@@ -192,6 +193,7 @@ build_card_tile :: proc(
 		}
 
 		ui.box("", {width = ui.points(1), height = ui.points(4)})
+
 		text_align := ui.Align.Center if is_round else .Start
 		ui.box(
 			"",
@@ -205,6 +207,7 @@ build_card_tile :: proc(
 			},
 			card.name,
 		)
+
 		if !is_round {
 			ui.box(
 				"",
@@ -246,11 +249,13 @@ open_card :: proc(cards: []apple.Card, index: int) {
 	case .Song:
 		songs := make([dynamic]core.Catalog_Song, context.temp_allocator)
 		first := 0
+
 		for other, other_index in cards {
 			if other.kind != .Song do continue
 			if other_index == index do first = len(songs)
 			append(&songs, other.song)
 		}
+
 		playback.play_songs(songs[:], first)
 	case .Other:
 	}

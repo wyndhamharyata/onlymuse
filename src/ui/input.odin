@@ -16,11 +16,13 @@ apply_events :: proc() {
 			state.mouse = e.position / state.zoom
 		case platform.Mouse_Press:
 			state.mouse = e.position / state.zoom
+
 			if e.button == .Right || .Control in e.modifiers {
 				state.right_clicked_key = state.hot_key
 				state.is_right_press = true
 				continue
 			}
+
 			state.press_position = state.mouse
 			state.active_key = state.hot_key
 			state.pressed_key = state.hot_key
@@ -30,9 +32,11 @@ apply_events :: proc() {
 				state.is_right_press = false
 				continue
 			}
+
 			if state.active_key != 0 && state.active_key == state.hot_key {
 				state.clicked_key = state.active_key
 			}
+
 			state.active_key = 0
 		case platform.Mouse_Exit:
 			state.mouse = {-1, -1}
@@ -49,6 +53,7 @@ apply_events :: proc() {
 
 				if !is_known {
 					state.swipe_pending += delta
+
 					pending := state.swipe_pending
 					if abs(pending.x) + abs(pending.y) < SWIPE_DECIDE_POINTS do continue
 
@@ -97,6 +102,7 @@ find_hot :: proc() {
 	for _, box in state.boxes {
 		is_hot :=
 			box.key == state.hot_key && (state.active_key == 0 || state.active_key == box.key)
+
 		box.hot_t = approach(box.hot_t, 1 if is_hot else 0, HOT_RATE)
 		box.active_t = approach(box.active_t, 1 if box.key == state.active_key else 0, HOT_RATE)
 	}

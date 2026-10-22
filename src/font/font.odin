@@ -98,12 +98,14 @@ system_font :: proc(weight: Weight, size_pixels: f32) -> Font {
 		NS.Float(size_pixels),
 		NS.Float(weight_values[weight]),
 	)
+
 	// NSFont and CTFont are the same object.
 	ct_font := mac.Font_Ref(mac.CFRetain(mac.Type_Ref(ns_font)))
 	ascent := f32(mac.CTFontGetAscent(ct_font))
 	descent := f32(mac.CTFontGetDescent(ct_font))
 	leading := f32(mac.CTFontGetLeading(ct_font))
 	font := Font{ct_font, size_pixels, ascent, descent, math.ceil(ascent + descent + leading)}
+
 	state.system_fonts[key] = font
 
 	return font
@@ -195,6 +197,7 @@ shape :: proc(
 		shaped.size = {0, font.line_height}
 		return shaped
 	}
+
 	defer mac.CFRelease(cf_text)
 	keys := []mac.Type_Ref{mac.Type_Ref(mac.kCTFontAttributeName)}
 	values := []mac.Type_Ref{mac.Type_Ref(font.ct_font)}
@@ -226,6 +229,7 @@ shape :: proc(
 			TRUNCATE_END,
 			ellipsis_line,
 		)
+
 		if truncated != nil {
 			append(&lines, to_shaped_line(truncated, font, 0))
 			mac.CFRelease(truncated)
@@ -277,6 +281,7 @@ to_shaped_line :: proc(ct_line: mac.Line_Ref, font: Font, top_y: f32) -> Shaped_
 		ids := make([]mac.Glyph, count, context.temp_allocator)
 		positions := make([]mac.Point, count, context.temp_allocator)
 		indices := make([]mac.Index, count, context.temp_allocator)
+
 		mac.CTRunGetGlyphs(run, {0, 0}, raw_data(ids))
 		mac.CTRunGetPositions(run, {0, 0}, raw_data(positions))
 		mac.CTRunGetStringIndices(run, {0, 0}, raw_data(indices))

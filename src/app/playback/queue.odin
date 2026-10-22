@@ -107,6 +107,7 @@ start_queue :: proc() {
 	if text, ok := store.find_state("queue", context.temp_allocator); ok {
 		_ = json.unmarshal_string(text, &queue)
 	}
+
 	if text, ok := store.find_state("resumePoint", context.temp_allocator); ok {
 		_ = json.unmarshal_string(text, &queue.resume_point)
 	}
@@ -186,6 +187,7 @@ apply_queue_answer :: proc(request_id: int, answered_id: string) {
 	persistent_id := strings.clone(answered_id)
 
 	delete_key(&queue_state.requests, request_id)
+
 	is_current := request.play_count == queue_state.play_count
 
 	switch request.kind {
@@ -199,6 +201,7 @@ apply_queue_answer :: proc(request_id: int, answered_id: string) {
 		queue_state.has_handoff = is_wanted
 	case .Play:
 		if !is_current do return
+
 		if persistent_id != "" {
 			queue.playing_persistent_id = persistent_id
 			queue_state.is_starting_youtube = youtube.is_song_id(persistent_id)
@@ -213,6 +216,7 @@ apply_queue_answer :: proc(request_id: int, answered_id: string) {
 		start_adding(queue.songs[queue.index].id, queue_state.play_count)
 	case .Poll:
 		if !is_current do return
+
 		if persistent_id != "" || helper.now_ms() > queue_state.poll_deadline_ms {
 			if persistent_id == "" {
 				console.add(
@@ -221,6 +225,7 @@ apply_queue_answer :: proc(request_id: int, answered_id: string) {
 					queue.songs[queue.index].name,
 				)
 			}
+
 			if persistent_id == "" && fall_back_to_youtube() do return
 
 			queue_state.is_polling = false
@@ -240,6 +245,7 @@ apply_queue_answer :: proc(request_id: int, answered_id: string) {
 			queue.playing_persistent_id = persistent_id
 			set_queue()
 		}
+
 		helper.send(
 			fmt.tprintf(
 				`{{"type":"seek","positionSeconds":%.3f}}`,
@@ -274,6 +280,7 @@ resume_last_song :: proc() {
 	if resume.song.persistent_id == "" do return
 
 	queue_state.play_count += 1
+
 	is_queue_song := resume.song.persistent_id == queue.playing_persistent_id
 	request_id := helper.request_play(
 		{

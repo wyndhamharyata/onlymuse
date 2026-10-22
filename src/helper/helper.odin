@@ -114,6 +114,7 @@ start :: proc(is_background: bool) {
 
 	child_stdin, to_helper, _ := os.pipe()
 	from_helper, child_stdout, _ := os.pipe()
+
 	environment, _ := os.environ(context.temp_allocator)
 	env := make([dynamic]string, context.temp_allocator)
 	append(&env, ..environment)
@@ -163,6 +164,7 @@ read_lines :: proc() {
 			sync.guard(&state.mutex)
 			append(&state.lines, line)
 		}
+
 		platform.wake()
 	}
 
@@ -172,12 +174,14 @@ read_lines :: proc() {
 // The messages since the last call. They live until the next frame.
 take_messages :: proc() -> []Message {
 	lines: [dynamic]string
+
 	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&state.mutex)
 		lines = state.lines
 		state.lines = {}
 	}
+
 	defer {
 		for line in lines do delete(line)
 		delete(lines)
@@ -187,6 +191,7 @@ take_messages :: proc() -> []Message {
 
 	for line in lines {
 		message: Message
+
 		if json.unmarshal_string(line, &message, allocator = context.temp_allocator) != nil {
 			continue
 		}
@@ -204,6 +209,7 @@ apply :: proc(now_playing: ^Now_Playing, message: Message) {
 		now_playing.volume_percent = message.volume_percent
 	case "nowPlaying":
 		now_playing.volume_percent = message.volume_percent
+
 		switch message.state {
 		case "playing":
 			now_playing.playback = .Playing
@@ -214,8 +220,10 @@ apply :: proc(now_playing: ^Now_Playing, message: Message) {
 		case:
 			now_playing.playback = .Closed
 		}
+
 		delete_song(now_playing.song)
 		now_playing.song = clone_song(message.song)
+
 		now_playing.position_seconds = message.position_seconds
 		now_playing.position_read_at_ms =
 			min(message.position_read_at_ms, now_ms()) if message.position_read_at_ms > 0 else now_ms()
@@ -271,6 +279,7 @@ position_seconds :: proc(now_playing: Now_Playing) -> f64 {
 		if now_playing.stall_count > 0 || !now_playing.has_started {
 			return now_playing.position_seconds
 		}
+
 		elapsed_seconds := max(0, now_ms() - now_playing.position_read_at_ms) / 1000
 		return min(
 			now_playing.position_seconds + elapsed_seconds,

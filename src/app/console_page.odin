@@ -46,6 +46,7 @@ build_console_page :: proc() {
 				platform.write_clipboard(to_console_text(entries))
 				kit.show_toast(fmt.tprintf("Copied %s", count_text))
 			}
+
 			if len(entries) > 0 && kit.action_button("Clear", "trash", false) {
 				console.clear_entries()
 			}
@@ -117,6 +118,7 @@ build_console_row :: proc(index: int, entry: console.Entry) {
 @(private = "file")
 to_console_text :: proc(entries: []console.Entry) -> string {
 	builder := strings.builder_make(context.temp_allocator)
+
 	for entry in entries {
 		fmt.sbprintf(&builder, "%s %s: %s\n", to_console_time(entry.at), entry.source, entry.text)
 	}

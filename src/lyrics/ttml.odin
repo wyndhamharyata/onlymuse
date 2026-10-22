@@ -176,6 +176,7 @@ to_line_texts :: proc(ttml: string, block_name: string) -> map[string]string {
 	if start < 0 do return pronunciations
 
 	block := ttml[start:]
+
 	if end := strings.index(block, fmt.tprintf("</%s>", block_name)); end >= 0 {
 		block = block[:end]
 	}
@@ -222,6 +223,7 @@ to_lines :: proc(ttml: string, allocator: mem.Allocator) -> []Line {
 		}
 
 		key := find_attribute(attributes, "itunes:key")
+
 		if markup, ok := translations[key]; ok {
 			line.translation, _ = to_words(markup, begin_seconds, allocator)
 		}

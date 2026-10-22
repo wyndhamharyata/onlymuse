@@ -179,6 +179,7 @@ to_page :: proc(saved: Saved_Page) -> (Page, bool) {
 		page := Page {
 			kind = kind,
 		}
+
 		#partial switch kind {
 		case .Playlist, .YouTube_Playlist, .Bring_Over:
 			page.id = saved.playlist.id
@@ -215,6 +216,7 @@ save_navigation :: proc() {
 start_navigation :: proc() {
 	if text, ok := store.find_state("navigation"); ok {
 		saved: Saved_Navigation
+
 		if json.unmarshal_string(text, &saved) == nil {
 			for saved_page, index in saved.pages {
 				page, is_page := to_page(saved_page)
@@ -226,6 +228,7 @@ start_navigation :: proc() {
 					saved.scrolls[index] if index < len(saved.scrolls) else 0,
 				)
 			}
+
 			navigation.index = clamp(saved.index, 0, len(navigation.pages) - 1)
 		}
 	}
@@ -268,6 +271,7 @@ keep_scroll :: proc(page_box: ^ui.Box) {
 			ui.set_scroll(page_box, saved)
 			return
 		}
+
 		restore.frames_left = 0
 	}
 

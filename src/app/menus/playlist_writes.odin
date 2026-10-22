@@ -46,6 +46,7 @@ start_write :: proc(job: Write_Job) {
 		strings.clone(job.failed_text),
 		strings.clone(job.refresh_path),
 	}
+
 	// self_cleanup frees the thread when its procedure returns, so nothing waits for it.
 	thread.create_and_start_with_data(copied, run_write, self_cleanup = true)
 }
@@ -60,10 +61,12 @@ run_write :: proc(data: rawptr) {
 	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&write_results.mutex)
+
 		failed :=
 			fmt.aprintf("%s: no answer from Apple.", job.failed_text) if status == 0 else fmt.aprintf("%s: Apple answered %d.", job.failed_text, status)
 		append(&write_results.toasts, strings.clone(job.done_text) if is_done else failed)
 		if is_done do delete(failed)
+
 		if is_done && job.refresh_path != "" {
 			append(&write_results.refresh, strings.clone(job.refresh_path))
 		}
@@ -87,20 +90,25 @@ apply_write_results :: proc() {
 		kit.show_toast(text)
 		delete(text)
 	}
+
 	for path in write_results.refresh {
 		apple.refresh(path)
 		delete(path)
 	}
+
 	for created in write_results.created {
 		if len(created.youtube_songs) > 0 {
 			youtube_lists.add_playlist_youtube_songs(created.id, created.youtube_songs)
 		}
+
 		kit.show_toast(created.done_text)
 		apple.refresh(PLAYLISTS_PATH)
+
 		if created.opens_page {
 			core.navigate({kind = .Playlist, id = created.id, title = created.name})
 		}
 	}
+
 	clear(&write_results.toasts)
 	clear(&write_results.refresh)
 	clear(&write_results.created)
@@ -184,13 +192,16 @@ create_playlist :: proc(
 		},
 	}
 	value: Body
+
 	value.attributes.name = name
 	references := make([]Song_Reference, len(songs), context.temp_allocator)
 	for song, index in songs do references[index] = {song.id, "songs"}
 	value.relationships.tracks.data = references
+
 	body, _ := json.marshal(value, allocator = context.temp_allocator)
 
 	kept := make([]youtube_lists.Playlist_YouTube_Song, len(youtube_songs))
+
 	for song, index in youtube_songs {
 		kept[index] = {strings.clone(song.after), core.copy_song(song.song)}
 	}
@@ -203,6 +214,7 @@ create_playlist :: proc(
 		kept,
 		opens_page,
 	}
+
 	// self_cleanup frees the thread when its procedure returns, so nothing waits for it.
 	thread.create_and_start_with_data(job, run_create, self_cleanup = true)
 }
@@ -211,6 +223,7 @@ create_playlist :: proc(
 @(private = "file")
 run_create :: proc(data: rawptr) {
 	job := cast(^Create_Job)data
+
 	defer free_all(context.temp_allocator)
 	defer free(job)
 	defer delete(job.body)

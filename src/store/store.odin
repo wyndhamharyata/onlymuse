@@ -70,6 +70,7 @@ start :: proc() {
 	path := fmt.tprintf("%s/onlymuse.sqlite", folder())
 
 	flags := i32(mac.SQLITE_OPEN_READWRITE | mac.SQLITE_OPEN_CREATE | mac.SQLITE_OPEN_FULLMUTEX)
+
 	if mac.sqlite3_open_v2(
 		   strings.clone_to_cstring(path, context.temp_allocator),
 		   &state.db,
@@ -89,6 +90,7 @@ start :: proc() {
 @(private)
 run :: proc(sql: cstring) {
 	error_text: cstring
+
 	if mac.sqlite3_exec(state.db, sql, nil, nil, &error_text) != mac.SQLITE_OK {
 		console.add("Store", "%s", error_text)
 	}
@@ -138,6 +140,7 @@ find_answer :: proc(path: string, allocator := context.allocator) -> (Saved_Answ
 	statement, ok := prepare("select body, fetched_at from responses where path = ?")
 	if !ok do return {}, false
 	defer mac.sqlite3_finalize(statement)
+
 	bind_text(statement, 1, path)
 
 	if mac.sqlite3_step(statement) != mac.SQLITE_ROW do return {}, false
@@ -164,6 +167,7 @@ find_state :: proc(key: string, allocator := context.allocator) -> (string, bool
 	statement, ok := prepare("select value from state where key = ?")
 	if !ok do return "", false
 	defer mac.sqlite3_finalize(statement)
+
 	bind_text(statement, 1, key)
 
 	if mac.sqlite3_step(statement) != mac.SQLITE_ROW do return "", false
@@ -173,6 +177,7 @@ find_state :: proc(key: string, allocator := context.allocator) -> (string, bool
 
 save_state :: proc(key, value: string) {
 	sync.guard(&state.mutex)
+
 	statement, ok := prepare(
 		"insert into state (key, value, saved_at) values (?1, ?2, ?3) on conflict (key) do update set value = ?2, saved_at = ?3",
 	)
@@ -190,6 +195,7 @@ find_match :: proc(youtube_id: string, allocator := context.allocator) -> (strin
 	statement, ok := prepare("select song from matches where youtube_id = ?")
 	if !ok do return "", false
 	defer mac.sqlite3_finalize(statement)
+
 	bind_text(statement, 1, youtube_id)
 
 	if mac.sqlite3_step(statement) != mac.SQLITE_ROW do return "", false
@@ -202,6 +208,7 @@ is_match_rejected :: proc(youtube_id: string) -> bool {
 	statement, ok := prepare("select 1 from rejected_matches where youtube_id = ?")
 	if !ok do return false
 	defer mac.sqlite3_finalize(statement)
+
 	bind_text(statement, 1, youtube_id)
 
 	return mac.sqlite3_step(statement) == mac.SQLITE_ROW
@@ -277,9 +284,11 @@ list_plays :: proc(since_ms: i64, allocator := context.allocator) -> []Play {
 	)
 	if !ok do return nil
 	defer mac.sqlite3_finalize(statement)
+
 	mac.sqlite3_bind_int64(statement, 1, since_ms)
 
 	plays := make([dynamic]Play, allocator)
+
 	for mac.sqlite3_step(statement) == mac.SQLITE_ROW {
 		append(
 			&plays,

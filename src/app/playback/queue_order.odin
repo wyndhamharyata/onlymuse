@@ -19,6 +19,7 @@ to_play_order :: proc(songs: []core.Catalog_Song, first_index: int) -> []core.Ca
 
 	shuffled := to_shuffled(others[:])
 	defer delete(shuffled)
+
 	order := make([]core.Catalog_Song, len(songs))
 	order[0] = core.copy_song(songs[first_index])
 	for song, index in shuffled do order[index + 1] = core.copy_song(song)
@@ -138,6 +139,7 @@ play_next :: proc(song: core.Catalog_Song) {
 	append(&retired.lists, queue.songs, queue.original_songs)
 	queue.songs = songs
 	queue.original_songs = original
+
 	sync_handoff()
 	save_queue()
 }
@@ -182,6 +184,7 @@ toggle_shuffle :: proc() {
 	// The queue may hold Apple's match of a YouTube song in the original list.
 	current := queue.songs[queue.index]
 	original_index := 0
+
 	for song, index in queue.original_songs {
 		if matching.is_same_queue_song(current, song) {
 			original_index = index
@@ -213,6 +216,7 @@ cycle_repeat :: proc() {
 	case:
 		queue.repeat = "off"
 	}
+
 	set_queue()
 }
 

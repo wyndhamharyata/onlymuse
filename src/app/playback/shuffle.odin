@@ -62,10 +62,12 @@ shuffle_by_rules :: proc(songs: []core.Catalog_Song) -> []core.Catalog_Song {
 			song: core.Catalog_Song,
 		}
 		keyed := make([]Keyed, len(shuffled), context.temp_allocator)
+
 		for song, index in shuffled {
 			weight := FAVOURITE_WEIGHT if is_favourite(song) else 1
 			keyed[index] = {math.pow(rand.float64(), 1 / weight), song}
 		}
+
 		slice.sort_by(keyed, proc(a, b: Keyed) -> bool {return a.key > b.key})
 		for item, index in keyed do shuffled[index] = item.song
 	} else {
@@ -79,6 +81,7 @@ shuffle_by_rules :: proc(songs: []core.Catalog_Song) -> []core.Catalog_Song {
 
 	for song in shuffled {
 		key := to_song_key(song)
+
 		switch {
 		case shuffle_rules.recent_hours > 0 && recent[key]:
 			recent_count += 1
@@ -98,6 +101,7 @@ shuffle_by_rules :: proc(songs: []core.Catalog_Song) -> []core.Catalog_Song {
 	}
 
 	apart_count := 0
+
 	// Each part on its own, so a song that plays last never moves ahead.
 	if shuffle_rules.albums_apart {
 		apart_count =
@@ -126,6 +130,7 @@ find_song_history :: proc() -> (recent, skipped: map[string]bool) {
 
 	for play in play_log {
 		key := fmt.tprintf("%s\x1f%s", play.name, play.artist)
+
 		if play.is_skip {
 			skips[key] += 1
 		} else {
@@ -167,12 +172,14 @@ keep_albums_apart :: proc(songs: []core.Catalog_Song) -> int {
 set_shuffle_note :: proc(recent_count, skipped_count, apart_count: int) {
 	// "4 recent songs and 1 often-skipped song play last."
 	parts := make([dynamic]string, context.temp_allocator)
+
 	if recent_count > 0 {
 		append(
 			&parts,
 			fmt.tprintf("%d recent %s", recent_count, "song" if recent_count == 1 else "songs"),
 		)
 	}
+
 	if skipped_count > 0 {
 		append(
 			&parts,
@@ -185,6 +192,7 @@ set_shuffle_note :: proc(recent_count, skipped_count, apart_count: int) {
 	}
 
 	note := ""
+
 	if len(parts) > 0 {
 		note = fmt.tprintf(
 			"%s %s last.",
@@ -192,6 +200,7 @@ set_shuffle_note :: proc(recent_count, skipped_count, apart_count: int) {
 			"plays" if recent_count + skipped_count == 1 else "play",
 		)
 	}
+
 	if apart_count > 0 {
 		note = fmt.tprintf(
 			"%s%sSongs from one album don't play back to back.",
@@ -220,6 +229,7 @@ build_shuffle_rules :: proc() {
 
 	root := ui.current_parent()
 	window_size := [2]f32{root.style.width.value, root.style.height.value}
+
 	cover := ui.box(
 		"rules cover",
 		{
@@ -229,6 +239,7 @@ build_shuffle_rules :: proc() {
 			flags = {.Floating, .Clickable},
 		},
 	)
+
 	is_closing :=
 		(ui.signal(cover).is_clicked || ui.signal(cover).is_right_clicked) &&
 		core.app.frame_count > rules_menu.opened_frame + 1
@@ -252,17 +263,21 @@ build_shuffle_rules :: proc() {
 
 			hours := shuffle_rules.recent_hours
 			hours_text := "Off" if hours == 0 else fmt.tprintf("Past %d h", hours)
+
 			if kit.menu_item("recent", "Play recent songs last", hours_text) {
 				choices := RECENT_HOUR_CHOICES
 				next := 0
+
 				for choice, index in choices {
 					if choice == hours {
 						next = (index + 1) % len(choices)
 					}
 				}
+
 				shuffle_rules.recent_hours = choices[next]
 				save_shuffle_rules()
 			}
+
 			if kit.menu_item(
 				"skipped",
 				"Play often-skipped songs last",
@@ -271,6 +286,7 @@ build_shuffle_rules :: proc() {
 				shuffle_rules.skipped_go_last = !shuffle_rules.skipped_go_last
 				save_shuffle_rules()
 			}
+
 			if kit.menu_item(
 				"albums",
 				"Spread out songs from one album",
@@ -279,6 +295,7 @@ build_shuffle_rules :: proc() {
 				shuffle_rules.albums_apart = !shuffle_rules.albums_apart
 				save_shuffle_rules()
 			}
+
 			if kit.menu_item(
 				"favourites",
 				"Play favourites earlier",

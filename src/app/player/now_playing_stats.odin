@@ -32,6 +32,7 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Track_Info, width: f
 		weeks:                  [STAT_WEEKS]int,
 		has_spark:              bool,
 	}
+
 	stats := [4]Stat {
 		{
 			"plays",
@@ -96,6 +97,7 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Track_Info, width: f
 					stat.weight,
 					is_stacked,
 				)
+
 				if stat.has_spark {
 					if ui.scope(card) do build_spark(stat.weeks)
 				}
@@ -246,6 +248,7 @@ build_spark :: proc(weeks: [STAT_WEEKS]int) {
 	if ui.scope(spark) {
 		for count, index in weeks {
 			height := max(3, 30 * f32(count) / f32(most))
+
 			ui.box(
 				fmt.tprintf("week %d", index),
 				{

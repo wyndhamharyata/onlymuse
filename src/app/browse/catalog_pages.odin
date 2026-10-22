@@ -65,6 +65,7 @@ build_playlist_page :: proc(page: core.Page) {
 
 	if is_stale && phase == .Ready {
 		core.read_library_songs(data, bodies)
+
 		if !is_catalog {
 			data.songs = youtube_lists.merge_playlist_youtube_songs(
 				page.id,
@@ -72,8 +73,10 @@ build_playlist_page :: proc(page: core.Page) {
 				core.page_allocator(data),
 			)
 		}
+
 		resources :=
 			apple.to_resources(header.body, core.page_allocator(data)) if is_catalog && header.phase == .Ready else nil
+
 		if len(resources) > 0 {
 			data.title = resources[0].attributes.name
 			data.subtitle = resources[0].attributes.curator_name

@@ -78,6 +78,7 @@ build_detail_cards :: proc(
 		if format := to_format(details, info); format != "" {
 			append(&sound, Detail{"Format", format})
 		}
+
 		rates := make([dynamic]string, context.temp_allocator)
 		if info.sample_rate > 0 {
 			append(&rates, fmt.tprintf("%.1f kHz", f64(info.sample_rate) / 1000))
@@ -92,6 +93,7 @@ build_detail_cards :: proc(
 				},
 			)
 		}
+
 		length := kit.to_clock_text(details.song.duration_seconds)
 		append(
 			&sound,
@@ -237,6 +239,7 @@ find_catalog_id :: proc(name, artist, queue_id: string) -> (string, apple.Phase)
 			songs: apple.Related,
 		},
 	}
+
 	answer: Search_Answer
 	_ = core.unmarshal_text(watched.body, &answer)
 	songs := answer.results.songs.data
@@ -289,6 +292,7 @@ read_song_details :: proc(path: string, data: ^core.Page_Data, body: string) {
 		is_digital_master = attributes.is_apple_digital_master,
 		is_explicit       = attributes.content_rating == "explicit",
 	}
+
 	// The artist page asks for these views, so the answer is shared.
 	if artist_id != "" {
 		details.artist_path = fmt.aprintf(
@@ -325,6 +329,7 @@ to_date_text :: proc(date: string, allocator := context.allocator) -> string {
 		"November",
 		"December",
 	}
+
 	month, month_ok := strconv.parse_int(date[5:7])
 	day, day_ok := strconv.parse_int(date[8:10])
 	if !month_ok || !day_ok || month < 1 || month > 12 do return date
@@ -348,6 +353,7 @@ to_language_name :: proc(locale: string) -> string {
 		{"pt", "Portuguese"},
 		{"zxx", ""},
 	}
+
 	language := locale
 	if dash := strings.index_byte(locale, '-'); dash > 0 do language = locale[:dash]
 

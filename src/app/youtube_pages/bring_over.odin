@@ -26,6 +26,7 @@ build_bring_over_page :: proc(page: core.Page) {
 			youtube.browse_path(youtube.LIBRARY_PLAYLISTS_ID),
 		)
 		playlists := make([dynamic]apple.Card, context.temp_allocator)
+
 		// Episodes for Later holds podcasts, which Apple Music has no place for.
 		for card in list.cards {
 			if card.id != youtube.PODCAST_EPISODES_ID {
@@ -68,6 +69,7 @@ build_bring_over_page :: proc(page: core.Page) {
 			}
 
 			is_ready := phase == .Ready && counts[.Checking] == 0 && len(songs) > 0
+
 			if is_ready && kit.action_button("Bring Over", "square.and.arrow.down", true) {
 				bring_over(title, songs)
 			}
@@ -85,6 +87,7 @@ build_bring_over_page :: proc(page: core.Page) {
 @(private = "file")
 count_matches :: proc(songs: []core.Catalog_Song) -> [matching.Match_State]int {
 	counts: [matching.Match_State]int
+
 	for song in songs {
 		_, state := matching.find_match(song)
 		counts[state] += 1
@@ -101,6 +104,7 @@ to_match_summary :: proc(counts: [matching.Match_State]int, total: int) -> strin
 		counts[.Found],
 		counts[.Missing],
 	)
+
 	if counts[.Checking] > 0 do text = fmt.tprintf("%s · checking %d", text, counts[.Checking])
 
 	return text
@@ -131,5 +135,6 @@ bring_over :: proc(name: string, songs: []core.Catalog_Song) {
 		len(apple_songs),
 		len(extra),
 	)
+
 	menus.create_playlist(name, apple_songs[:], extra[:], done_text, true)
 }

@@ -33,6 +33,7 @@ color_lyric_glyph :: proc(utf16_index: int, data: rawptr) -> [4]f32 {
 		   word.begin_seconds <= lyrics_state.position_seconds {
 			lit = 1 - to_fade(lyrics_state.lines[current].begin_seconds)
 		}
+
 		break
 	}
 
@@ -54,6 +55,7 @@ build_lyric_line :: proc(line: ^lyrics.Line, index: int) {
 	if ui.scope(line_box) {
 		paint := new(Line_Paint, context.temp_allocator)
 		paint^ = {index, line.words}
+
 		text := ui.box(
 			"",
 			{
@@ -72,6 +74,7 @@ build_lyric_line :: proc(line: ^lyrics.Line, index: int) {
 		if line.pronunciation != "" && lyrics_state.shows_romaji {
 			pronunciation_paint := new(Line_Paint, context.temp_allocator)
 			pronunciation_paint^ = {index, line.pronunciation_words}
+
 			pronunciation := ui.box(
 				"",
 				{
@@ -112,6 +115,7 @@ build_lead_note :: proc() {
 	if shown_seconds > LEAD_NOTE_SECONDS do return
 
 	platform.request_frame_after(LEAD_NOTE_SECONDS - shown_seconds + 0.01)
+
 	text := fmt.tprintf(
 		"Lyrics %.2f s ahead of Music.app. Cmd [ and Cmd ] change it.",
 		f64(lyrics_state.lead_ms) / 1000,

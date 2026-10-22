@@ -48,6 +48,7 @@ build_song_list_page :: proc(
 
 			if ui.scope(heading) {
 				kit.page_heading(title)
+
 				count := fmt.tprintf("%d songs", len(songs))
 				if description != "" do count = fmt.tprintf("%s · %s", count, description)
 				kit.text_box(count if phase == .Ready else kit.phase_note(phase), kit.colors.dim)
@@ -85,6 +86,7 @@ build_song_rows :: proc(page: ^ui.Box, songs: []core.Catalog_Song, dates: []stri
 			is_current := is_playing && matching.is_same_queue_song(current, song)
 			subtitle := song.album_name if dates != nil else to_song_subtitle(song)
 			date := kit.to_date_text(dates[index]) if index < len(dates) else ""
+
 			if build_song_row(
 				fmt.tprintf("%d %s", index, song.id),
 				song,
@@ -168,6 +170,7 @@ build_song_row :: proc(
 				date,
 			)
 		}
+
 		build_row_heart(row, song, is_current)
 		ui.box(
 			"",
@@ -200,6 +203,7 @@ build_row_heart :: proc(row: ^ui.Box, chosen: core.Catalog_Song, is_current: boo
 			{padding = {4, 4, 4, 4}},
 		)
 	}
+
 	// Until Apple's catalog is checked, the song may yet be Apple's, whose heart it would take.
 	if state == .Checking do return
 

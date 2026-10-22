@@ -25,6 +25,7 @@ build_toast :: proc() {
 	if toast.text == "" do return
 
 	seconds := f32(time.duration_seconds(time.tick_since(toast.shown_at)))
+
 	if seconds > TOAST_SECONDS {
 		delete(toast.text)
 		toast.text = ""
@@ -35,6 +36,7 @@ build_toast :: proc() {
 	root := ui.current_parent()
 	window_size := [2]f32{root.style.width.value, root.style.height.value}
 	width := measure_text(toast.text, 12.5) + 28
+
 	ui.box(
 		"toast",
 		{

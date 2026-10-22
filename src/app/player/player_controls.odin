@@ -45,6 +45,7 @@ build_controls :: proc() {
 					flags = {.Clickable},
 				},
 			)
+
 			shuffle_signal := ui.signal(shuffle)
 			if shuffle_signal.is_clicked do playback.toggle_shuffle()
 			if shuffle_signal.is_right_clicked {
@@ -53,6 +54,7 @@ build_controls :: proc() {
 
 			resume_seconds :=
 				playback.queue.resume_point.position_seconds if playback.is_resume_shown() else helper.position_seconds(now_playing)
+
 			if kit.icon_button("previous", "backward.fill", 17, kit.colors.text) {
 				playback.skip_to_previous(resume_seconds)
 			}
@@ -68,10 +70,12 @@ build_controls :: proc() {
 					flags = {.Clickable},
 				},
 			)
+
 			paint := new(kit.Icon_Paint, context.temp_allocator)
 			paint^ = {"pause.fill" if is_playing else "play.fill", 15, kit.colors.ink}
 			play.draw = kit.draw_icon
 			play.data = paint
+
 			if ui.signal(play).is_clicked {
 				if playback.is_resume_shown() {
 					playback.resume_last_song()
@@ -85,6 +89,7 @@ build_controls :: proc() {
 			}
 
 			repeat_symbol := "repeat.1" if playback.queue.repeat == "one" else "repeat"
+
 			if kit.icon_button(
 				"repeat",
 				repeat_symbol,

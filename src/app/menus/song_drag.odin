@@ -22,6 +22,7 @@ track_song_row :: proc(signal: ui.Signal, song: core.Catalog_Song) -> bool {
 
 	press, is_down := ui.press_position()
 	moved := ui.mouse_position() - press
+
 	if signal.is_held &&
 	   is_down &&
 	   !drag.is_dragging &&
@@ -104,5 +105,6 @@ build_drag_ghost :: proc() {
 			drag.song.name,
 		)
 	}
+
 	platform.request_frame()
 }

@@ -12,6 +12,7 @@ import "om:youtube"
 // With Music.app stopped or closed, the player shows the last song, paused where it was.
 find_shown_song :: proc() -> (helper.Song, bool) {
 	now_playing := core.app.now_playing
+
 	if now_playing.playback == .Playing || now_playing.playback == .Paused {
 		return now_playing.song, true
 	}
@@ -66,6 +67,7 @@ find_track_info :: proc(persistent_id: string) -> (Track_Info, bool) {
 		} else {
 			asked_at[strings.clone(persistent_id)] = now
 		}
+
 		helper.request_track_info(persistent_id)
 	}
 
@@ -145,6 +147,7 @@ favourite_ids :: proc() -> map[string]bool {
 	if favourite_set.checked_frame == core.app.frame_count + 1 do return favourite_set.ids
 
 	favourite_set.checked_frame = core.app.frame_count + 1
+
 	_, playlist_id, _ := core.list_playlists()
 	if playlist_id == "" do return favourite_set.ids
 
@@ -172,6 +175,7 @@ is_favourite :: proc(song: core.Catalog_Song, persistent_id := "") -> bool {
 	if persistent_id != "" {
 		if info, ok := track_infos[persistent_id]; ok do return info.favorited
 	}
+
 	if changed, ok := favourite_changes[song.id]; ok do return changed
 	if youtube.is_song_id(song.id) do return youtube_lists.is_youtube_favourite(song)
 
@@ -214,6 +218,7 @@ set_favourite_change :: proc(catalog_id: string, favorited: bool) {
 apply_favourite_answer :: proc(message: helper.Message) {
 	request, ok := favourite_requests[message.request_id]
 	if !ok do return
+
 	delete_key(&favourite_requests, message.request_id)
 	defer delete(request.catalog_id)
 

@@ -53,6 +53,7 @@ list_library_artists :: proc() -> (cards: []apple.Card, signature: int, phase: a
 				append(&cards, apple.to_card(catalog[0]))
 			}
 		}
+
 		data.cards = cards[:]
 	}
 
@@ -82,8 +83,10 @@ list_playlists :: proc(
 				data.link_id = resource.id
 				continue
 			}
+
 			append(&cards, apple.to_card(resource))
 		}
+
 		data.cards = cards[:]
 	}
 

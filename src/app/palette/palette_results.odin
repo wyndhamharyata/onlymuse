@@ -26,6 +26,7 @@ update_results :: proc() {
 	catalog: apple.Watched
 	is_settled := helper.now_ms() - palette.typed_at >= PALETTE_SETTLE_MS
 	if term != "" && !is_settled do platform.request_frame_after(PALETTE_SETTLE_MS / 1000.0)
+
 	if term != "" && is_settled {
 		catalog = apple.watch(
 			fmt.tprintf(
@@ -46,6 +47,7 @@ update_results :: proc() {
 	palette.arena = {}
 	_ = virtual.arena_init_growing(&palette.arena)
 	allocator := virtual.arena_allocator(&palette.arena)
+
 	palette.built_term = strings.clone(term, allocator)
 	palette.built_signature = signature
 	results := make([dynamic]Palette_Result, allocator)
@@ -56,6 +58,7 @@ update_results :: proc() {
 	if term != "" {
 		names := make([]string, len(artists), context.temp_allocator)
 		for card, index in artists do names[index] = card.name
+
 		for index in find_best(names, nil, term) {
 			card := artists[index]
 			append(
@@ -73,6 +76,7 @@ update_results :: proc() {
 
 		names = make([]string, len(albums), context.temp_allocator)
 		for card, index in albums do names[index] = card.name
+
 		for index in find_best(names, nil, term) {
 			card := albums[index]
 			append(
@@ -90,10 +94,12 @@ update_results :: proc() {
 
 		names = make([]string, len(songs), context.temp_allocator)
 		others := make([]string, len(songs), context.temp_allocator)
+
 		for song, index in songs {
 			names[index] = song.name
 			others[index] = song.artist_name
 		}
+
 		for index in find_best(names, others, term) {
 			song := songs[index]
 			append(
@@ -154,12 +160,14 @@ find_best :: proc(names, second_names: []string, term: string) -> []int {
 
 	for name, index in names {
 		score := to_match_score(name, term)
+
 		if second_names != nil {
 			if second := to_match_score(second_names[index], term);
 			   second >= 0 && (score < 0 || second + 1 < score) {
 				score = second + 1
 			}
 		}
+
 		if score >= 0 do append(&found, Match{index, score})
 	}
 
@@ -194,6 +202,7 @@ add_actions :: proc(
 	}
 
 	count := 0
+
 	for action in actions {
 		if action.action == .Favourite && !has_song do continue
 		if !matches(action.title, term) ||
@@ -208,10 +217,12 @@ add_actions :: proc(
 			shortcut = action.shortcut,
 			action   = action.action,
 		}
+
 		if action.action == .Navigate do result.page = {
 			kind = .Now_Playing,
 		}
 		if action.action == .Favourite do result.subtitle = strings.clone(playing.name, allocator)
+
 		append(results, result)
 		count += 1
 	}
@@ -225,6 +236,7 @@ add_pages :: proc(
 	allocator := context.allocator,
 ) {
 	count := 0
+
 	for items in ([][]core.Sidebar_Item {
 			core.apple_music_items,
 			core.library_items,
@@ -232,6 +244,7 @@ add_pages :: proc(
 		}) {
 		for item in items {
 			if !matches(item.label, term) || count >= PALETTE_GROUP_LIMIT * 2 do continue
+
 			append(
 				results,
 				Palette_Result {
@@ -249,6 +262,7 @@ add_pages :: proc(
 	count = 0
 	for playlist in playlists {
 		if term == "" || !matches(playlist.name, term) || count >= PALETTE_GROUP_LIMIT do continue
+
 		name := strings.clone(playlist.name, allocator)
 		append(
 			results,
@@ -299,6 +313,7 @@ add_catalog :: proc(
 			},
 		)
 	}
+
 	for album in answer.results.albums.data[:min(2, len(answer.results.albums.data))] {
 		card := apple.to_card(album)
 		append(
@@ -313,6 +328,7 @@ add_catalog :: proc(
 			},
 		)
 	}
+
 	for resource in answer.results.songs.data[:min(4, len(answer.results.songs.data))] {
 		song := apple.to_catalog_song(resource)
 		append(

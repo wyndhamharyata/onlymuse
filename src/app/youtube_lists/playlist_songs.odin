@@ -30,6 +30,7 @@ read_playlist_youtube_songs :: proc() {
 	if is_playlist_songs_read do return
 
 	is_playlist_songs_read = true
+
 	if text, ok := store.find_state("playlistYouTubeSongs", context.temp_allocator); ok {
 		_ = json.unmarshal_string(text, &playlist_youtube_songs)
 	}
@@ -38,6 +39,7 @@ read_playlist_youtube_songs :: proc() {
 @(private = "file")
 save_playlist_youtube_songs :: proc() {
 	playlist_youtube_version += 1
+
 	bytes, error := json.marshal(playlist_youtube_songs, allocator = context.temp_allocator)
 	if error == nil do store.save_state("playlistYouTubeSongs", string(bytes))
 }
@@ -50,9 +52,11 @@ add_playlist_youtube_songs :: proc(playlist_id: string, songs: []Playlist_YouTub
 	}
 
 	list := &playlist_youtube_songs[playlist_id]
+
 	for song in songs {
 		append(list, Playlist_YouTube_Song{strings.clone(song.after), core.copy_song(song.song)})
 	}
+
 	save_playlist_youtube_songs()
 }
 
@@ -68,6 +72,7 @@ remove_playlist_youtube_song :: proc(playlist_id, song_id: string) {
 		ordered_remove(list, index)
 		break
 	}
+
 	save_playlist_youtube_songs()
 }
 
@@ -98,10 +103,12 @@ merge_playlist_youtube_songs :: proc(
 	placed := make([]bool, len(extra), context.temp_allocator)
 
 	place_after(&merged, extra, placed, PLAYLIST_START)
+
 	for song in songs {
 		append(&merged, song)
 		place_after(&merged, extra, placed, song.id)
 	}
+
 	for song, index in extra do if !placed[index] do append(&merged, song.song)
 
 	return merged[:]

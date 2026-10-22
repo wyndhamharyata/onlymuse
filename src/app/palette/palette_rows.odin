@@ -37,6 +37,7 @@ build_results :: proc() -> int {
 
 	if ui.scope(list) {
 		group := ""
+
 		for result, index in palette.results {
 			if result.group != group {
 				group = result.group
@@ -53,6 +54,7 @@ build_results :: proc() -> int {
 					strings.to_upper(group, context.temp_allocator),
 				)
 			}
+
 			if build_result_row(result, index) do picked = index
 		}
 	}
@@ -64,6 +66,7 @@ build_results :: proc() -> int {
 palette_list_height :: proc() -> f32 {
 	groups := 0
 	group := ""
+
 	for result in palette.results {
 		if result.group != group {
 			group = result.group
@@ -93,6 +96,7 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 		},
 	)
 	signal := ui.signal(row)
+
 	// The pointer selects only when it moves, so a row under a still pointer leaves the arrow keys' choice.
 	if signal.is_hovered && ui.mouse_position() != palette.last_mouse do palette.selected = index
 
@@ -136,6 +140,7 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 			},
 			result.subtitle,
 		)
+
 		if result.shortcut != "" {
 			ui.box(
 				"",
@@ -148,6 +153,7 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 				result.shortcut,
 			)
 		}
+
 		if is_selected {
 			ui.box(
 				"",

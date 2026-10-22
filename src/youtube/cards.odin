@@ -28,6 +28,7 @@ to_list_item :: proc(reader: ^Reader, value: json.Value) -> (apple.Card, bool) {
 
 	name := to_text(child(columns[0], "musicResponsiveListItemFlexColumnRenderer", "text"))
 	video_id := as_string(child(value, "playlistItemData", "videoId"))
+
 	if video_id == "" {
 		video_id = as_string(
 			child(
@@ -42,6 +43,7 @@ to_list_item :: proc(reader: ^Reader, value: json.Value) -> (apple.Card, bool) {
 			),
 		)
 	}
+
 	thumbnail := find_thumbnail_url(child(value, "thumbnail"))
 
 	if video_id == "" {
@@ -53,6 +55,7 @@ to_list_item :: proc(reader: ^Reader, value: json.Value) -> (apple.Card, bool) {
 	}
 
 	byline := make([dynamic]json.Value, context.temp_allocator)
+
 	for column in columns[1:] {
 		for run in as_array(
 			child(column, "musicResponsiveListItemFlexColumnRenderer", "text", "runs"),
@@ -60,6 +63,7 @@ to_list_item :: proc(reader: ^Reader, value: json.Value) -> (apple.Card, bool) {
 			append(&byline, run)
 		}
 	}
+
 	for column in as_array(child(value, "fixedColumns")) {
 		for run in as_array(
 			child(column, "musicResponsiveListItemFixedColumnRenderer", "text", "runs"),
@@ -235,13 +239,17 @@ to_seconds :: proc(text: string) -> f64 {
 	if len(text) < 4 || len(text) > 8 do return 0
 
 	seconds: f64
+
 	for part in strings.split(text, ":", context.temp_allocator) {
 		if len(part) == 0 do return 0
+
 		value := 0
+
 		for character in part {
 			if character < '0' || character > '9' do return 0
 			value = value * 10 + int(character - '0')
 		}
+
 		seconds = seconds * 60 + f64(value)
 	}
 

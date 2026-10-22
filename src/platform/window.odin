@@ -122,8 +122,10 @@ update_window_size :: proc() {
 	bounds := state.view->bounds()
 	pixels_per_point := f32(state.ns_window->backingScaleFactor())
 	window := &state.window
+
 	window.size_points = {f32(bounds.size.width), f32(bounds.size.height)}
 	window.pixels_per_point = pixels_per_point
+
 	window.layer->setDrawableSize(
 		{
 			bounds.size.width * NS.Float(pixels_per_point),
@@ -146,6 +148,7 @@ request_frame :: proc "contextless" () {
 	}
 
 	FRAME_SECONDS :: 1.0 / 60
+
 	state.frame_timer = msg_send(
 		^NS.Timer,
 		NS.Timer,
@@ -208,6 +211,7 @@ run :: proc() {
 
 			if !is_taken do state.app->sendEvent(event)
 		}
+
 		pool->drain()
 	}
 }
@@ -224,6 +228,7 @@ request_frame_after :: proc(seconds: f64) {
 	// An earlier timer stays. The frame it draws asks again for the later one.
 	if state.timer != nil {
 		pending := msg_send(^NS.Date, state.timer, "fireDate")
+
 		if msg_send(NS.TimeInterval, pending, "timeIntervalSinceDate:", fire_date) <= 0 do return
 
 		msg_send(nil, state.timer, "invalidate")
@@ -270,10 +275,12 @@ screen_size_points :: proc() -> [2]f32 {
 // is, and moves only as far as it must to stay on its screen.
 set_min_size :: proc(min_size_points: [2]f32) {
 	min_size := NS.Size{NS.Float(min_size_points.x), NS.Float(min_size_points.y)}
+
 	msg_send(nil, state.ns_window, "setContentMinSize:", min_size)
 
 	// The content fills the window, title bar included.
 	frame := state.ns_window->frame()
+
 	if frame.size.width >= min_size.width && frame.size.height >= min_size.height do return
 
 	visible := find_visible_frame()
@@ -281,6 +288,7 @@ set_min_size :: proc(min_size_points: [2]f32) {
 	// AppKit's y goes up, so the top is the origin plus the height.
 	top := frame.origin.y + frame.size.height
 	origin := NS.Point{frame.origin.x, top - size.height}
+
 	origin.x = max(
 		visible.origin.x,
 		min(origin.x, visible.origin.x + visible.size.width - size.width),

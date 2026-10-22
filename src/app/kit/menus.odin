@@ -65,6 +65,7 @@ menu_item_signal :: proc(
 			flags = {.Clickable},
 		},
 	)
+
 	text_color := color if color.a > 0 else colors.text
 	if is_selected || item.hot_t > 0.5 do text_color = to_color(0xffffffff)
 
@@ -80,6 +81,7 @@ menu_item_signal :: proc(
 			},
 			label,
 		)
+
 		if hint != "" {
 			ui.box(
 				"",

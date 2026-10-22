@@ -23,6 +23,7 @@ Pasteboard :: struct {
 read_clipboard :: proc() -> string {
 	board := msg_send(^Pasteboard, Pasteboard, "generalPasteboard")
 	text := msg_send(^NS.String, board, "stringForType:", NS.AT("public.utf8-plain-text"))
+
 	if text == nil do return ""
 
 	return strings.clone(text->odinString(), context.temp_allocator)
@@ -44,9 +45,11 @@ format_date :: proc(unix_ms: f64, template: string) -> string {
 			msg_send(^Date_Formatter, Date_Formatter, "alloc"),
 			"init",
 		)
+
 		ns_template := NS.String.alloc()->initWithOdinString(template)
 		defer ns_template->release()
 		msg_send(nil, formatter, "setLocalizedDateFormatFromTemplate:", ns_template)
+
 		date_formatters[strings.clone(template)] = formatter
 	}
 
@@ -70,6 +73,7 @@ local_offset_seconds :: proc() -> int {
 
 write_clipboard :: proc(text: string) {
 	board := msg_send(^Pasteboard, Pasteboard, "generalPasteboard")
+
 	msg_send(NS.Integer, board, "clearContents")
 
 	ns_text := NS.String.alloc()->initWithOdinString(text)

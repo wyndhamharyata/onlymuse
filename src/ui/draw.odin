@@ -91,8 +91,10 @@ draw_text :: proc(box: ^Box, rect: [4]f32, clip_pixels: [4]f32, opacity: f32) {
 	}
 
 	left -= style.text_offset
+
 	top := inner.y + (inner.w - inner.y - text_size.y) / 2
 	origin := [2]f32{math.round(left * scale), math.round(top * scale)}
+
 	font.draw(
 		box.shaped,
 		origin,

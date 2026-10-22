@@ -64,6 +64,7 @@ build_hero :: proc(
 					flags = {.Floating},
 				},
 			)
+
 			source := apple.to_artwork_url(
 				details.song.artwork,
 				kit.to_artwork_pixels(cover_points),
@@ -111,6 +112,7 @@ build_hero :: proc(
 				},
 				details.song.artist_name,
 			)
+
 			if ui.signal(artist).is_clicked {
 				core.navigate(
 					{kind = .Artist, id = details.artist_id, title = details.song.artist_name},
@@ -162,9 +164,11 @@ build_pills :: proc(details: Song_Details, info: playback.Track_Info) {
 	} else if slice.contains(details.traits, "lossless") {
 		quality = "Lossless"
 	}
+
 	if quality != "" {
 		append(&pills, quality if rate == "" else fmt.tprintf("%s · %s", quality, rate))
 	}
+
 	if slice.contains(details.traits, "atmos") do append(&pills, "Dolby Atmos")
 	if details.is_digital_master do append(&pills, "Apple Digital Master")
 	if details.language != "" do append(&pills, details.language)
@@ -190,6 +194,7 @@ build_pills :: proc(details: Song_Details, info: playback.Track_Info) {
 	if ui.scope(row) {
 		for pill, index in pills {
 			is_quality := index == 0 && quality != ""
+
 			ui.box(
 				pill,
 				{
@@ -226,6 +231,7 @@ build_actions :: proc(details: Song_Details, persistent_id: string) {
 
 	if ui.scope(row) {
 		is_on := playback.is_favourite(details.song, persistent_id)
+
 		if kit.action_button(
 			"Favourite",
 			"heart.circle.fill" if is_on else "heart.circle",
@@ -237,6 +243,7 @@ build_actions :: proc(details: Song_Details, persistent_id: string) {
 
 		if details.song.id != "" && kit.action_button("Add to Playlist", "plus", false) {
 			button := ui.find_box("Add to Playlist", row)
+
 			if button != nil {
 				menus.open_song_menu(details.song, {button.rect.x, button.rect.w + 4}, true)
 			}

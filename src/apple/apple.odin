@@ -95,9 +95,11 @@ send_request :: proc(
 
 	// Another request's refusal may have brought new tokens while this one waited. Those still hold.
 	is_refresh_needed := false
+
 	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&state.mutex)
+
 		if state.token_version == sent_version && state.developer_token != "" {
 			delete(state.developer_token)
 			state.developer_token = ""
@@ -105,6 +107,7 @@ send_request :: proc(
 			is_refresh_needed = true
 		}
 	}
+
 	if is_refresh_needed do helper.send(`{"type":"refreshTokens"}`)
 	delete(answer.body, allocator)
 
@@ -125,9 +128,11 @@ send_once :: proc(
 
 	headers: [5]string
 	header_count := 4
+
 	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&state.mutex)
+
 		if state.developer_token == "" {
 			console.add("Apple", "No token from the web player, so %s was not asked.", path)
 			return {}
@@ -142,12 +147,14 @@ send_once :: proc(
 			"Content-Type: application/json",
 		}
 	}
+
 	if body != "" do header_count = 5
 
 	separator := "&" if strings.contains(path, "?") else "?"
 	url := fmt.tprintf("%s%s%sl=%s", BASE_URL, path, separator, LANGUAGE)
 	response := net.fetch(url, headers[:header_count], context.temp_allocator, method, body)
 	is_refused := response.status < 200 || response.status >= 300
+
 	if is_refused {
 		console.add(
 			"Apple",

@@ -145,6 +145,7 @@ watch :: proc(path: string) -> Watched {
 	cache.entries[entry.path] = entry
 
 	saved, is_saved := store.find_answer(path)
+
 	if is_saved {
 		entry.phase = .Ready
 		entry.body = saved.body
@@ -201,6 +202,7 @@ check :: proc(task: thread.Task) {
 // Asks again for every answer whose path starts with prefix, such as YouTube's after a sign-in.
 refresh_all :: proc(prefix: string) {
 	paths := make([dynamic]string, context.temp_allocator)
+
 	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&cache.mutex)
@@ -226,11 +228,13 @@ free_retired_bodies :: proc() {
 
 	for body in retired_bodies do delete(body)
 	clear(&retired_bodies)
+
 	// A thread pool keeps each finished task until it is taken.
 	for _ in thread.pool_pop_done(&cache.pool) {}
 
 	now := now_ms()
 	unused := make([dynamic]string, context.temp_allocator)
+
 	for path, entry in cache.entries {
 		if !entry.is_checking && now - entry.used_at > UNUSED_ANSWER_MS {
 			append(&unused, path)

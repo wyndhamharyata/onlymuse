@@ -86,6 +86,7 @@ build_up_next :: proc() {
 				},
 				playback.shuffle_note if playback.shuffle_note != "" else "Shuffled.",
 			)
+
 			rules := ui.box(
 				"rules",
 				{
@@ -102,6 +103,7 @@ build_up_next :: proc() {
 				},
 				"Rules",
 			)
+
 			if ui.signal(rules).is_clicked {
 				playback.open_shuffle_rules({rules.rect.x - 240, rules.rect.w + 4})
 			}
@@ -178,6 +180,7 @@ build_queue_row :: proc(index: int, row_points: f32) {
 
 		if ui.scope(text) {
 			is_hovered := ui.signal(row).is_hovered
+
 			kit.scrolling_text(
 				"name",
 				song.name,

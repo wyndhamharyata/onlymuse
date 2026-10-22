@@ -137,6 +137,7 @@ send_request :: proc(path: string, allocator: mem.Allocator) -> apple.Answer {
 	if len(body_json) < 2 do return {}
 
 	section_token := ""
+
 	if strings.has_prefix(body_json, `{"ctoken":`) {
 		Section :: struct {
 			ctoken: string,
@@ -156,12 +157,14 @@ send_request :: proc(path: string, allocator: mem.Allocator) -> apple.Answer {
 	// body_json is an object, so its "{" gives way to the context's.
 	body :=
 		fmt.tprintf("%s,%s", client, body_json[1:]) if len(body_json) > 2 else fmt.tprintf("%s}", client)
+
 	headers := make([dynamic]string, context.temp_allocator)
 	append(&headers, "Content-Type: application/json", "Origin: " + ORIGIN, "X-Origin: " + ORIGIN)
 
 	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&state.mutex)
+
 		if api_id := find_cookie_value(state.cookie, "SAPISID"); api_id != "" {
 			append(
 				&headers,
@@ -173,6 +176,7 @@ send_request :: proc(path: string, allocator: mem.Allocator) -> apple.Answer {
 	}
 
 	url := fmt.tprintf("%s%s?prettyPrint=false", BASE_URL, endpoint)
+
 	if section_token != "" {
 		url = fmt.tprintf(
 			"%s&ctoken=%s&continuation=%s&type=next",
@@ -181,7 +185,9 @@ send_request :: proc(path: string, allocator: mem.Allocator) -> apple.Answer {
 			section_token,
 		)
 	}
+
 	response := net.fetch(url, headers[:], context.temp_allocator, .Post, body)
+
 	if response.status != 200 {
 		console.add("YouTube", "%s: %s", path, console.to_status_text(response.status))
 	}
@@ -195,6 +201,7 @@ to_authorization :: proc(api_id: string) -> string {
 	seconds := time.to_unix_seconds(time.now())
 	digest: [sha1.DIGEST_SIZE]u8
 	context_value: sha1.Context
+
 	sha1.init(&context_value)
 	sha1.update(&context_value, transmute([]u8)fmt.tprintf("%d %s %s", seconds, api_id, ORIGIN))
 	sha1.final(&context_value, digest[:])

@@ -37,6 +37,7 @@ start_adding :: proc(catalog_id: string, play_count: int) {
 
 			status :=
 				apple.post(fmt.tprintf("/v1/me/library?ids[songs]=%s", job.catalog_id)).status
+
 			if status != 202 && status != 200 {
 				console.add(
 					"Queue",
@@ -64,6 +65,7 @@ await_start :: proc() {
 @(private)
 fall_back_to_youtube :: proc() -> bool {
 	queue_state.start_deadline_ms = 0
+
 	song := queue.songs[queue.index]
 	if song.youtube_id == "" do return false
 
@@ -71,6 +73,7 @@ fall_back_to_youtube :: proc() -> bool {
 	matching.reject_match(youtube_song)
 	retire_song(queue.songs[queue.index])
 	queue.songs[queue.index] = youtube_song
+
 	kit.show_toast(
 		fmt.tprintf("Apple Music could not play %s, so it plays from YouTube", youtube_song.name),
 	)
@@ -80,6 +83,7 @@ fall_back_to_youtube :: proc() -> bool {
 		youtube_song.name,
 		START_TIMEOUT_SECONDS,
 	)
+
 	play_at(queue.index)
 
 	return true

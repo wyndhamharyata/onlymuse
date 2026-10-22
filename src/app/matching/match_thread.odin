@@ -53,6 +53,7 @@ start_matching :: proc(song: core.Catalog_Song, video_id: string) {
 	job^ = {core.copy_song(song), strings.clone(video_id)}
 	matcher.checking[job.video_id] = true
 	append(&matcher.pending, job)
+
 	// Each task takes a batch, so a task that comes after its songs were taken finds none and ends.
 	// The pool keeps each finished task until it is taken.
 	for _ in thread.pool_pop_done(&matcher.pool) {}
@@ -67,6 +68,7 @@ check_matches :: proc(task: thread.Task) {
 	defer free_all(context.temp_allocator)
 
 	jobs := make([dynamic]^Match_Job, context.temp_allocator)
+
 	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&matcher.mutex)
@@ -92,6 +94,7 @@ check_matches :: proc(task: thread.Task) {
 finish_job :: proc(job: ^Match_Job, best: core.Catalog_Song, is_found: bool, status: int) {
 	sync.guard(&matcher.mutex)
 	delete_key(&matcher.checking, job.video_id)
+
 	defer {
 		core.delete_song(job.song)
 		free(job)
@@ -108,6 +111,7 @@ finish_job :: proc(job: ^Match_Job, best: core.Catalog_Song, is_found: bool, sta
 			)
 			matcher.resume_at = time.tick_add(time.tick_now(), pause)
 		}
+
 		matcher.failed[job.video_id] = matcher.resume_at
 		return
 	}
@@ -186,6 +190,7 @@ search_albums :: proc(song: core.Catalog_Song) -> ([]string, int) {
 		is_same_album :=
 			has_same_title(song.album_name, album.attributes.name) &&
 			is_same_artist(song.artist_name, album.attributes.artist_name)
+
 		if is_same_album && len(ids) < MAX_FOUND_ALBUM_COUNT {
 			append(&ids, strings.clone(album.id))
 		}
@@ -208,11 +213,13 @@ fetch_albums :: proc(ids: []string) -> int {
 
 	for album in apple.to_resources(answer.body, context.temp_allocator) {
 		songs := make([dynamic]core.Catalog_Song)
+
 		for track in apple.list_related(album, "tracks") {
 			if track.type == "songs" {
 				append(&songs, core.copy_song(apple.to_catalog_song(track)))
 			}
 		}
+
 		if album.id not_in albums.songs do albums.songs[strings.clone(album.id)] = songs[:]
 	}
 
@@ -227,6 +234,7 @@ find_in_albums :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, bool) {
 	if song.album_name == "" do return {}, false
 
 	candidates := make([dynamic]core.Catalog_Song, context.temp_allocator)
+
 	for id in albums.found_ids[to_album_key(song)] or_else nil {
 		append(&candidates, ..albums.songs[id] or_else nil)
 	}
@@ -268,6 +276,7 @@ to_album_key :: proc(song: core.Catalog_Song) -> string {
 @(private = "file")
 wait_to_search :: proc() {
 	resume_at: time.Tick
+
 	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&matcher.mutex)
@@ -287,11 +296,13 @@ find_best_match :: proc(song: core.Catalog_Song, body: string) -> (core.Catalog_
 		},
 	}
 	answer: Search_Answer
+
 	if json.unmarshal_string(body, &answer, allocator = context.temp_allocator) != nil {
 		return {}, false
 	}
 
 	candidates := make([]core.Catalog_Song, len(answer.results.songs.data), context.temp_allocator)
+
 	for resource, index in answer.results.songs.data {
 		candidates[index] = apple.to_catalog_song(resource)
 	}

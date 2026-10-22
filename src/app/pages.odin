@@ -14,6 +14,7 @@ build_page_area :: proc() {
 
 	if ui.scope(area) {
 		player.build_page_backdrop()
+
 		toolbar := ui.box(
 			"toolbar",
 			{
@@ -30,6 +31,7 @@ build_page_area :: proc() {
 			if kit.icon_button("back", "chevron.left", 16, kit.colors.text, core.can_go_back()) {
 				core.go_back()
 			}
+
 			if kit.icon_button(
 				"forward",
 				"chevron.right",

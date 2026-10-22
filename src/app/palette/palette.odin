@@ -109,10 +109,12 @@ build_palette :: proc() {
 	if !palette.is_open do return
 
 	field := &palette.field
+
 	if field.is_cancelled {
 		close_palette()
 		return
 	}
+
 	if field.is_changed {
 		palette.typed_at = helper.now_ms()
 		palette.selected = 0
@@ -147,6 +149,7 @@ build_palette :: proc() {
 	if ui.scope(cover) {
 		width := min(PALETTE_POINTS, window_size.x - 40)
 		position := [2]f32{(window_size.x - width) / 2, PALETTE_TOP_POINTS}
+
 		ui.box(
 			"palette shadow",
 			{
@@ -196,6 +199,7 @@ build_palette :: proc() {
 		run_result(palette.results[picked])
 		is_closing = true
 	}
+
 	if is_closing do close_palette()
 }
 

@@ -37,7 +37,8 @@ Mouse_Release :: struct {
 	button:   Mouse_Button,
 }
 
-Mouse_Exit :: struct {}
+Mouse_Exit :: struct {
+}
 
 Scroll :: struct {
 	position:    [2]f32,
@@ -129,7 +130,10 @@ take_event :: proc(event: ^NS.Event) -> bool {
 		append(&state.events, Mouse_Move{to_position(event)})
 	case .LeftMouseDown, .RightMouseDown, .OtherMouseDown:
 		button := to_button(event)
-		append(&state.events, Mouse_Press{to_position(event), button, int(event->clickCount()), to_modifiers(event)})
+		append(
+			&state.events,
+			Mouse_Press{to_position(event), button, int(event->clickCount()), to_modifiers(event)},
+		)
 	case .LeftMouseUp, .RightMouseUp, .OtherMouseUp:
 		append(&state.events, Mouse_Release{to_position(event), to_button(event)})
 	case .ApplicationDefined:
@@ -141,13 +145,16 @@ take_event :: proc(event: ^NS.Event) -> bool {
 		momentum_phase := msg_send(NS.UInteger, event, "momentumPhase")
 		// NSEventPhaseBegan and NSEventPhaseMayBegin.
 		phase := msg_send(NS.UInteger, event, "phase")
-		append(&state.events, Scroll {
-			is_start    = phase == 1 || phase == 32,
-			position    = to_position(event),
-			delta       = {f32(event->scrollingDeltaX()), f32(event->scrollingDeltaY())},
-			is_precise  = bool(event->hasPreciseScrollingDeltas()),
-			is_momentum = momentum_phase != 0,
-		})
+		append(
+			&state.events,
+			Scroll {
+				is_start = phase == 1 || phase == 32,
+				position = to_position(event),
+				delta = {f32(event->scrollingDeltaX()), f32(event->scrollingDeltaY())},
+				is_precise = bool(event->hasPreciseScrollingDeltas()),
+				is_momentum = momentum_phase != 0,
+			},
+		)
 	case .KeyDown:
 		modifiers := to_modifiers(event)
 
@@ -158,12 +165,15 @@ take_event :: proc(event: ^NS.Event) -> bool {
 		}
 
 		characters := event->charactersIgnoringModifiers()->odinString()
-		append(&state.events, Key_Press {
-			key_code   = u16(event->keyCode()),
-			characters = strings.clone(characters, arena_allocator),
-			modifiers  = modifiers,
-			is_repeat  = bool(event->isARepeat()),
-		})
+		append(
+			&state.events,
+			Key_Press {
+				key_code = u16(event->keyCode()),
+				characters = strings.clone(characters, arena_allocator),
+				modifiers = modifiers,
+				is_repeat = bool(event->isARepeat()),
+			},
+		)
 		is_taken = true
 	case:
 		return false

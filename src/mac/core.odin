@@ -63,9 +63,9 @@ Dictionary_Callbacks :: struct {
 
 @(default_calling_convention = "c")
 foreign core_foundation {
-	kCFTypeDictionaryKeyCallBacks:   Dictionary_Callbacks
+	kCFTypeDictionaryKeyCallBacks: Dictionary_Callbacks
 	kCFTypeDictionaryValueCallBacks: Dictionary_Callbacks
-	kCFBooleanTrue:                  Type_Ref
+	kCFBooleanTrue: Type_Ref
 
 	CFRelease :: proc(object: Type_Ref) ---
 	CFRetain :: proc(object: Type_Ref) -> Type_Ref ---
@@ -103,7 +103,7 @@ foreign core_graphics {
 
 @(default_calling_convention = "c")
 foreign core_text {
-	kCTFontAttributeName:  String_Ref
+	kCTFontAttributeName: String_Ref
 
 	CTFontGetAscent :: proc(font: Font_Ref) -> f64 ---
 	CTFontGetDescent :: proc(font: Font_Ref) -> f64 ---
@@ -128,8 +128,8 @@ foreign core_text {
 @(default_calling_convention = "c")
 foreign image_io {
 	kCGImageSourceCreateThumbnailFromImageAlways: String_Ref
-	kCGImageSourceThumbnailMaxPixelSize:          String_Ref
-	kCGImageSourceCreateThumbnailWithTransform:   String_Ref
+	kCGImageSourceThumbnailMaxPixelSize: String_Ref
+	kCGImageSourceCreateThumbnailWithTransform: String_Ref
 
 	CGImageSourceCreateWithURL :: proc(url: Url_Ref, options: Dictionary_Ref) -> Image_Source_Ref ---
 	CGImageSourceCreateThumbnailAtIndex :: proc(source: Image_Source_Ref, index: uint, options: Dictionary_Ref) -> Image_Ref ---
@@ -140,5 +140,12 @@ to_cf_string :: proc(text: string) -> String_Ref {
 }
 
 make_dictionary :: proc(keys: []Type_Ref, values: []Type_Ref) -> Dictionary_Ref {
-	return CFDictionaryCreate(nil, raw_data(keys), raw_data(values), len(keys), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks)
+	return CFDictionaryCreate(
+		nil,
+		raw_data(keys),
+		raw_data(values),
+		len(keys),
+		&kCFTypeDictionaryKeyCallBacks,
+		&kCFTypeDictionaryValueCallBacks,
+	)
 }

@@ -19,9 +19,9 @@ to_artwork_pixels :: proc(size_points: f32) -> int {
 
 Artwork_Paint :: struct {
 	// A URL of Apple's or a file path. Empty for the placeholder alone.
-	source:      string,
-	size_pixels: int,
-	symbol:      string,
+	source:        string,
+	size_pixels:   int,
+	symbol:        string,
 	// The symbol shows until the picture fades in over it.
 	symbol_points: f32,
 	symbol_color:  [4]f32,
@@ -35,7 +35,11 @@ draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	texture: ^MTL.Texture
 	image_opacity: f32
 	if paint.source != "" {
-		texture, image_opacity = image.find(paint.source, paint.size_pixels, to_crop(rect, paint.focus_y))
+		texture, image_opacity = image.find(
+			paint.source,
+			paint.size_pixels,
+			to_crop(rect, paint.focus_y),
+		)
 	}
 
 	if image_opacity < 1 && paint.symbol != "" {
@@ -46,7 +50,17 @@ draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 
 	if texture == nil do return
 
-	render.push({rect = rect, uv = to_fill_uv(rect, texture, paint.focus_y), color = {1, 1, 1, opacity * image_opacity}, corner_radius = ui.to_pixels(box.style.corner_radius), clip = clip, kind = .Image}, texture)
+	render.push(
+		{
+			rect = rect,
+			uv = to_fill_uv(rect, texture, paint.focus_y),
+			color = {1, 1, 1, opacity * image_opacity},
+			corner_radius = ui.to_pixels(box.style.corner_radius),
+			clip = clip,
+			kind = .Image,
+		},
+		texture,
+	)
 }
 
 // The box's shape, rounded down to a quarter, so a box that resizes reuses a few textures. A texture a
@@ -91,12 +105,21 @@ Placeholder :: struct {
 
 // Catalog artwork brings its colours, so the gradient previews the cover. Library artwork has none, so
 // the name picks the hues, and the same album gets the same colours everywhere.
-to_placeholder :: proc(artwork: apple.Artwork, seed: string, symbol := "music.note") -> Placeholder {
+to_placeholder :: proc(
+	artwork: apple.Artwork,
+	seed: string,
+	symbol := "music.note",
+) -> Placeholder {
 	if background, ok := parse_hex_color(artwork.bg_color); ok {
 		ink, has_ink := parse_hex_color(artwork.text_color1)
 		if !has_ink do ink = colors.text
 
-		return {top = mix_color(background, ink, 0.18), bottom = mix_color(background, {0, 0, 0, 1}, 0.25), symbol = symbol, mark = {ink.r, ink.g, ink.b, 0.5}}
+		return {
+			top = mix_color(background, ink, 0.18),
+			bottom = mix_color(background, {0, 0, 0, 1}, 0.25),
+			symbol = symbol,
+			mark = {ink.r, ink.g, ink.b, 0.5},
+		}
 	}
 
 	hash := u32(2166136261)
@@ -105,23 +128,41 @@ to_placeholder :: proc(artwork: apple.Artwork, seed: string, symbol := "music.no
 	hue := f32(hash % 360)
 	turn := 30 + f32((hash >> 9) % 70)
 
-	return {top = to_color_from_hsl(hue, 0.34, 0.33), bottom = to_color_from_hsl(hue + turn, 0.3, 0.19), symbol = symbol, mark = {1, 1, 1, 0.28}}
+	return {
+		top = to_color_from_hsl(hue, 0.34, 0.33),
+		bottom = to_color_from_hsl(hue + turn, 0.3, 0.19),
+		symbol = symbol,
+		mark = {1, 1, 1, 0.28},
+	}
 }
 
 // A square of artwork over its placeholder. An empty source shows the placeholder only.
-artwork_box :: proc(source: string, size_points: f32, radius_points: f32, placeholder: Placeholder) -> ^ui.Box {
+artwork_box :: proc(
+	source: string,
+	size_points: f32,
+	radius_points: f32,
+	placeholder: Placeholder,
+) -> ^ui.Box {
 	return artwork_rect_box(source, {size_points, size_points}, radius_points, placeholder)
 }
 
-artwork_rect_box :: proc(source: string, size_points: [2]f32, radius_points: f32, placeholder: Placeholder) -> ^ui.Box {
-	box := ui.box("", {
-		width          = ui.points(size_points.x),
-		height         = ui.points(size_points.y),
-		corner_radius  = radius_points,
-		background     = placeholder.top,
-		end_background = placeholder.bottom,
-		gradient       = {0, 1},
-	})
+artwork_rect_box :: proc(
+	source: string,
+	size_points: [2]f32,
+	radius_points: f32,
+	placeholder: Placeholder,
+) -> ^ui.Box {
+	box := ui.box(
+		"",
+		{
+			width = ui.points(size_points.x),
+			height = ui.points(size_points.y),
+			corner_radius = radius_points,
+			background = placeholder.top,
+			end_background = placeholder.bottom,
+			gradient = {0, 1},
+		},
+	)
 
 	if source == "" && placeholder.symbol == "" do return box
 

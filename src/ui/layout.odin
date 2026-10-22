@@ -23,7 +23,8 @@ measure :: proc(box: ^Box) {
 @(private)
 measure_axis :: proc(box: ^Box, axis: Axis) -> f32 {
 	size := box.style.width if axis == .X else box.style.height
-	padding := box.style.padding.x + box.style.padding.z if axis == .X else box.style.padding.y + box.style.padding.w
+	padding :=
+		box.style.padding.x + box.style.padding.z if axis == .X else box.style.padding.y + box.style.padding.w
 
 	#partial switch size.kind {
 	case .Points:
@@ -65,7 +66,13 @@ children_extent :: proc(box: ^Box, axis: Axis) -> f32 {
 @(private)
 resolve :: proc(box: ^Box) {
 	style := box.style
-	resolve_children(box, {box.size.x - style.padding.x - style.padding.z, box.size.y - style.padding.y - style.padding.w})
+	resolve_children(
+		box,
+		{
+			box.size.x - style.padding.x - style.padding.z,
+			box.size.y - style.padding.y - style.padding.w,
+		},
+	)
 
 	for child := box.first; child != nil; child = child.next do resolve(child)
 
@@ -150,7 +157,10 @@ place :: proc(box: ^Box, origin: [2]f32, clip: [4]f32) {
 	box.clip = clip
 
 	style := box.style
-	inner := [2]f32{box.size.x - style.padding.x - style.padding.z, box.size.y - style.padding.y - style.padding.w}
+	inner := [2]f32 {
+		box.size.x - style.padding.x - style.padding.z,
+		box.size.y - style.padding.y - style.padding.w,
+	}
 	main := int(style.axis)
 	cross := 1 - main
 
@@ -260,7 +270,8 @@ fit_text_to_width :: proc(box: ^Box) {
 	box.shaped = font.shape(box.text, to_font(box.style), inner_width * state.scale, overflow)
 
 	if box.style.height.kind == .Text {
-		box.size.y = math.ceil(box.shaped.size.y / state.scale) + box.style.padding.y + box.style.padding.w
+		box.size.y =
+			math.ceil(box.shaped.size.y / state.scale) + box.style.padding.y + box.style.padding.w
 	}
 }
 

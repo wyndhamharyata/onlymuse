@@ -19,15 +19,19 @@ build_frame_time :: proc() {
 
 	last := time.duration_milliseconds(core.app.build_durations[count - 1])
 	root := ui.current_parent()
-	ui.box("", {
-		width      = ui.points(110),
-		height     = ui.points(20),
-		position   = {root.style.width.value - 120, 8},
-		text_align = .End,
-		text_color = kit.colors.faint,
-		font_size  = 11,
-		flags      = {.Floating},
-	}, fmt.tprintf("frame %.2f ms", last))
+	ui.box(
+		"",
+		{
+			width = ui.points(110),
+			height = ui.points(20),
+			position = {root.style.width.value - 120, 8},
+			text_align = .End,
+			text_color = kit.colors.faint,
+			font_size = 11,
+			flags = {.Floating},
+		},
+		fmt.tprintf("frame %.2f ms", last),
+	)
 }
 
 finish_bench :: proc() {
@@ -38,16 +42,29 @@ finish_bench :: proc() {
 	slice.sort(builds)
 	gaps: [dynamic]time.Duration
 	for index in 1 ..< len(core.app.frame_starts) {
-		append(&gaps, time.tick_diff(core.app.frame_starts[index - 1], core.app.frame_starts[index]))
+		append(
+			&gaps,
+			time.tick_diff(core.app.frame_starts[index - 1], core.app.frame_starts[index]),
+		)
 	}
 	slice.sort(gaps[:])
 
 	to_ms :: proc(values: []time.Duration, fraction: f64) -> f64 {
 		return time.duration_milliseconds(values[int(math.floor(f64(len(values) - 1) * fraction))])
 	}
-	fmt.printfln("build per frame ms: p50 %.2f p99 %.2f max %.2f", to_ms(builds, 0.5), to_ms(builds, 0.99), to_ms(builds, 1))
+	fmt.printfln(
+		"build per frame ms: p50 %.2f p99 %.2f max %.2f",
+		to_ms(builds, 0.5),
+		to_ms(builds, 0.99),
+		to_ms(builds, 1),
+	)
 	ready, total := image.count()
 	fmt.printfln("covers on the GPU %d, known %d", ready, total)
-	fmt.printfln("gap between frames ms: p50 %.2f p99 %.2f max %.2f", to_ms(gaps[:], 0.5), to_ms(gaps[:], 0.99), to_ms(gaps[:], 1))
+	fmt.printfln(
+		"gap between frames ms: p50 %.2f p99 %.2f max %.2f",
+		to_ms(gaps[:], 0.5),
+		to_ms(gaps[:], 0.99),
+		to_ms(gaps[:], 1),
+	)
 	platform.quit()
 }

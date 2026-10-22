@@ -51,6 +51,10 @@ toggle_side_panel :: proc() {
 set_panel :: proc(panel: Panel) {
 	app.panel = panel
 	if panel != .None do app.last_panel = panel
-	saved := [Panel]string{.None = "null", .Lyrics = `"lyrics"`, .Up_Next = `"queue"`}
+	saved := [Panel]string {
+		.None    = "null",
+		.Lyrics  = `"lyrics"`,
+		.Up_Next = `"queue"`,
+	}
 	store.save_state("panel", saved[panel])
 }

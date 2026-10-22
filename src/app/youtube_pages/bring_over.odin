@@ -14,12 +14,17 @@ import "om:youtube"
 // The YouTube playlists in the library, or one of them with what each song plays from.
 build_bring_over_page :: proc(page: core.Page) {
 	if !youtube.is_signed_in() {
-		build_youtube_sign_in_page("Bring Over", "Sign in to YouTube Music to bring your playlists over to Apple Music.")
+		build_youtube_sign_in_page(
+			"Bring Over",
+			"Sign in to YouTube Music to bring your playlists over to Apple Music.",
+		)
 		return
 	}
 
 	if page.id == "" {
-		list, watched := youtube_lists.watch_youtube_list(youtube.browse_path(youtube.LIBRARY_PLAYLISTS_ID))
+		list, watched := youtube_lists.watch_youtube_list(
+			youtube.browse_path(youtube.LIBRARY_PLAYLISTS_ID),
+		)
 		playlists := make([dynamic]apple.Card, context.temp_allocator)
 		// Episodes for Later holds podcasts, which Apple Music has no place for.
 		for card in list.cards {
@@ -28,7 +33,12 @@ build_bring_over_page :: proc(page: core.Page) {
 			}
 		}
 
-		lists.build_card_grid_page("Bring Over from YouTube Music", playlists[:], watched.phase, false)
+		lists.build_card_grid_page(
+			"Bring Over from YouTube Music",
+			playlists[:],
+			watched.phase,
+			false,
+		)
 		return
 	}
 
@@ -38,14 +48,23 @@ build_bring_over_page :: proc(page: core.Page) {
 	scroll := kit.page_scroll("bring over")
 
 	if ui.scope(scroll) {
-		header := ui.box("header", {width = ui.fill(), height = ui.fit_children(), axis = .X, align = .End, gap = 10})
+		header := ui.box(
+			"header",
+			{width = ui.fill(), height = ui.fit_children(), axis = .X, align = .End, gap = 10},
+		)
 
 		if ui.scope(header) {
-			heading := ui.box("heading", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 2})
+			heading := ui.box(
+				"heading",
+				{width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 2},
+			)
 
 			if ui.scope(heading) {
 				kit.page_heading(title)
-				kit.text_box(to_match_summary(counts, len(songs)) if phase == .Ready else youtube_lists.youtube_phase_note(phase), kit.colors.dim)
+				kit.text_box(
+					to_match_summary(counts, len(songs)) if phase == .Ready else youtube_lists.youtube_phase_note(phase),
+					kit.colors.dim,
+				)
 			}
 
 			is_ready := phase == .Ready && counts[.Checking] == 0 && len(songs) > 0
@@ -55,7 +74,9 @@ build_bring_over_page :: proc(page: core.Page) {
 		}
 
 		if phase == .Ready {
-			kit.note("Each song Apple Music has goes into a new Apple Music playlist, and plays in its quality. The others stay in the playlist and play from YouTube.")
+			kit.note(
+				"Each song Apple Music has goes into a new Apple Music playlist, and plays in its quality. The others stay in the playlist and play from YouTube.",
+			)
 			lists.build_song_rows(scroll, songs)
 		}
 	}
@@ -74,7 +95,12 @@ count_matches :: proc(songs: []core.Catalog_Song) -> [matching.Match_State]int {
 
 @(private = "file")
 to_match_summary :: proc(counts: [matching.Match_State]int, total: int) -> string {
-	text := fmt.tprintf("%d songs · %d on Apple Music · %d only on YouTube", total, counts[.Found], counts[.Missing])
+	text := fmt.tprintf(
+		"%d songs · %d on Apple Music · %d only on YouTube",
+		total,
+		counts[.Found],
+		counts[.Missing],
+	)
 	if counts[.Checking] > 0 do text = fmt.tprintf("%s · checking %d", text, counts[.Checking])
 
 	return text
@@ -99,6 +125,11 @@ bring_over :: proc(name: string, songs: []core.Catalog_Song) {
 		after = playable.id
 	}
 
-	done_text := fmt.tprintf("Brought over %s: %d songs from Apple Music, %d from YouTube", name, len(apple_songs), len(extra))
+	done_text := fmt.tprintf(
+		"Brought over %s: %d songs from Apple Music, %d from YouTube",
+		name,
+		len(apple_songs),
+		len(extra),
+	)
 	menus.create_playlist(name, apple_songs[:], extra[:], done_text, true)
 }

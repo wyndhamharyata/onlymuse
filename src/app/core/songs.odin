@@ -37,7 +37,12 @@ copy_shelf :: proc(shelf: apple.Shelf, allocator: mem.Allocator) -> apple.Shelf 
 	cards := make([]apple.Card, len(shelf.cards), allocator)
 	for card, index in shelf.cards do cards[index] = copy_card(card, allocator)
 
-	return {title = strings.clone(shelf.title, allocator), cards = cards, is_youtube = shelf.is_youtube, is_wide = shelf.is_wide}
+	return {
+		title = strings.clone(shelf.title, allocator),
+		cards = cards,
+		is_youtube = shelf.is_youtube,
+		is_wide = shelf.is_wide,
+	}
 }
 
 Catalog_Song :: apple.Catalog_Song

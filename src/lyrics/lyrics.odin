@@ -96,7 +96,11 @@ load :: proc(data: rawptr) {
 
 	arena: virtual.Arena
 	_ = virtual.arena_init_growing(&arena)
-	lines, songwriters, ok := fetch_lines(request.name, request.artist, virtual.arena_allocator(&arena))
+	lines, songwriters, ok := fetch_lines(
+		request.name,
+		request.artist,
+		virtual.arena_allocator(&arena),
+	)
 
 	sync.guard(&state.mutex)
 
@@ -124,12 +128,23 @@ fetch_lines :: proc(name, artist: string, allocator: mem.Allocator) -> ([]Line, 
 	// A song from YouTube has the ID "yt:" and its video, which Apple's catalog has no lyrics for.
 	for character in song_id do if character < '0' || character > '9' do return nil, nil, false
 
-	answer := apple.fetch(fmt.tprintf("/v1/catalog/%s/songs/%s/syllable-lyrics%s", apple.STOREFRONT, song_id, LYRICS_QUERY), context.temp_allocator)
+	answer := apple.fetch(
+		fmt.tprintf(
+			"/v1/catalog/%s/songs/%s/syllable-lyrics%s",
+			apple.STOREFRONT,
+			song_id,
+			LYRICS_QUERY,
+		),
+		context.temp_allocator,
+	)
 	is_syllable := answer.status == 200
 
 	// A song with no word timing has only lyrics by line.
 	if !is_syllable {
-		answer = apple.fetch(fmt.tprintf("/v1/catalog/%s/songs/%s/lyrics", apple.STOREFRONT, song_id), context.temp_allocator)
+		answer = apple.fetch(
+			fmt.tprintf("/v1/catalog/%s/songs/%s/lyrics", apple.STOREFRONT, song_id),
+			context.temp_allocator,
+		)
 	}
 	if answer.status != 200 do return nil, nil, false
 
@@ -143,12 +158,14 @@ fetch_lines :: proc(name, artist: string, allocator: mem.Allocator) -> ([]Line, 
 	}
 
 	parsed: Lyrics_Answer
-	if json.unmarshal_string(answer.body, &parsed, allocator = context.temp_allocator) != nil || len(parsed.data) == 0 {
+	if json.unmarshal_string(answer.body, &parsed, allocator = context.temp_allocator) != nil ||
+	   len(parsed.data) == 0 {
 		return nil, nil, false
 	}
 
 	attributes := parsed.data[0].attributes
-	ttml := attributes.ttml_localizations if attributes.ttml_localizations != "" else attributes.ttml
+	ttml :=
+		attributes.ttml_localizations if attributes.ttml_localizations != "" else attributes.ttml
 
 	return to_lines(ttml, allocator), to_songwriters(ttml, allocator), true
 }
@@ -166,7 +183,10 @@ find_song_id :: proc(name, artist: string) -> (string, bool) {
 	if id, ok := find_queue_song_id(name, artist, context.temp_allocator); ok do return id, true
 
 	term := apple.to_query_text(fmt.tprintf("%s %s", name, artist))
-	answer := apple.fetch(fmt.tprintf("/v1/catalog/%s/search?term=%s&types=songs&limit=25", apple.STOREFRONT, term), context.temp_allocator)
+	answer := apple.fetch(
+		fmt.tprintf("/v1/catalog/%s/search?term=%s&types=songs&limit=25", apple.STOREFRONT, term),
+		context.temp_allocator,
+	)
 	if answer.status != 200 do return "", false
 
 	Search_Answer :: struct {
@@ -199,7 +219,13 @@ find_song_id :: proc(name, artist: string) -> (string, bool) {
 
 // The catalog ID of a song in the saved queue, found by its name and artist.
 @(private)
-find_queue_song_id :: proc(name, artist: string, allocator := context.allocator) -> (string, bool) {
+find_queue_song_id :: proc(
+	name, artist: string,
+	allocator := context.allocator,
+) -> (
+	string,
+	bool,
+) {
 	Queue :: struct {
 		songs: []struct {
 			id:          string,

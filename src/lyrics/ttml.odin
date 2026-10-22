@@ -40,7 +40,13 @@ to_seconds :: proc(text: string) -> f64 {
 @(private)
 to_plain_text :: proc(markup: string) -> string {
 	text := markup
-	entities := [][2]string{{"&lt;", "<"}, {"&gt;", ">"}, {"&apos;", "'"}, {"&quot;", "\""}, {"&amp;", "&"}}
+	entities := [][2]string {
+		{"&lt;", "<"},
+		{"&gt;", ">"},
+		{"&apos;", "'"},
+		{"&quot;", "\""},
+		{"&amp;", "&"},
+	}
 
 	for entity in entities {
 		text, _ = strings.replace_all(text, entity[0], entity[1], context.temp_allocator)
@@ -72,7 +78,14 @@ utf16_length :: proc(text: string) -> int {
 
 // A word is a span with its own start. The space after it stays with it, so the words join back into the line.
 @(private)
-to_words :: proc(markup: string, line_begin_seconds: f64, allocator: mem.Allocator) -> (text: string, words: []Word) {
+to_words :: proc(
+	markup: string,
+	line_begin_seconds: f64,
+	allocator: mem.Allocator,
+) -> (
+	text: string,
+	words: []Word,
+) {
 	builder := strings.builder_make(allocator)
 	word_list := make([dynamic]Word, allocator)
 	utf16_index := 0
@@ -139,7 +152,15 @@ to_letters :: proc(text: string) -> string {
 	builder := strings.builder_make(context.temp_allocator)
 
 	for character in strings.to_lower(text, context.temp_allocator) {
-		is_space_or_mark := character == ' ' || character == ',' || character == '.' || character == '!' || character == '?' || character == '\'' || character == '"' || character == '-'
+		is_space_or_mark :=
+			character == ' ' ||
+			character == ',' ||
+			character == '.' ||
+			character == '!' ||
+			character == '?' ||
+			character == '\'' ||
+			character == '"' ||
+			character == '-'
 		if !is_space_or_mark do strings.write_rune(&builder, character)
 	}
 
@@ -194,7 +215,11 @@ to_lines :: proc(ttml: string, allocator: mem.Allocator) -> []Line {
 		attributes := body[3:tag_end]
 		begin_seconds := to_seconds(find_attribute(attributes, "begin"))
 		text, words := to_words(body[tag_end + 1:end], begin_seconds, allocator)
-		line := Line{begin_seconds = begin_seconds, text = text, words = words}
+		line := Line {
+			begin_seconds = begin_seconds,
+			text          = text,
+			words         = words,
+		}
 
 		key := find_attribute(attributes, "itunes:key")
 		if markup, ok := translations[key]; ok {

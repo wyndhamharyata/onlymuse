@@ -39,14 +39,23 @@ format_date :: proc(unix_ms: f64, template: string) -> string {
 
 	// A formatter is slow to make, and the Console page formats each of its rows every frame.
 	if formatter == nil {
-		formatter = msg_send(^Date_Formatter, msg_send(^Date_Formatter, Date_Formatter, "alloc"), "init")
+		formatter = msg_send(
+			^Date_Formatter,
+			msg_send(^Date_Formatter, Date_Formatter, "alloc"),
+			"init",
+		)
 		ns_template := NS.String.alloc()->initWithOdinString(template)
 		defer ns_template->release()
 		msg_send(nil, formatter, "setLocalizedDateFormatFromTemplate:", ns_template)
 		date_formatters[strings.clone(template)] = formatter
 	}
 
-	date := msg_send(^NS.Object, NS.Date, "dateWithTimeIntervalSince1970:", NS.TimeInterval(unix_ms / 1000))
+	date := msg_send(
+		^NS.Object,
+		NS.Date,
+		"dateWithTimeIntervalSince1970:",
+		NS.TimeInterval(unix_ms / 1000),
+	)
 	text := msg_send(^NS.String, formatter, "stringFromDate:", date)
 
 	return strings.clone(text->odinString(), context.temp_allocator)

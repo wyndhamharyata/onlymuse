@@ -62,7 +62,15 @@ draw_frame :: proc() -> bool {
 
 	finish_frame(start)
 
-	return core.app.capture_path != "" || core.app.is_bench || ui.is_animating() || font.is_redraw_needed() || icon.is_redraw_needed() || image.is_animating() || is_lyrics_moving
+	return(
+		core.app.capture_path != "" ||
+		core.app.is_bench ||
+		ui.is_animating() ||
+		font.is_redraw_needed() ||
+		icon.is_redraw_needed() ||
+		image.is_animating() ||
+		is_lyrics_moving \
+	)
 }
 
 // Frees what the last frame let go of, and times this one.
@@ -84,7 +92,8 @@ begin_frame :: proc() -> (start: time.Tick, dt_seconds: f32) {
 // What changed since the last frame: the helper's messages, the queue, finished writes, typing and keys.
 apply_input :: proc() {
 	// Before the frame reads its events, so the typed keys are among them.
-	if core.app.test_typing != "" && time.duration_seconds(time.tick_since(core.app.started_at)) > 1 {
+	if core.app.test_typing != "" &&
+	   time.duration_seconds(time.tick_since(core.app.started_at)) > 1 {
 		has_context := platform.type_for_test(core.app.test_typing)
 		fmt.eprintfln("typed %q, input context: %v", core.app.test_typing, has_context)
 		core.app.test_typing = ""
@@ -107,7 +116,10 @@ finish_frame :: proc(start: time.Tick) {
 
 	core.app.frame_count += 1
 
-	is_capture_frame := core.app.capture_path != "" && core.app.frame_count >= 3 && time.tick_diff(core.app.capture_time, start) >= 0
+	is_capture_frame :=
+		core.app.capture_path != "" &&
+		core.app.frame_count >= 3 &&
+		time.tick_diff(core.app.capture_time, start) >= 0
 	if is_capture_frame do render.request_capture(core.app.capture_path)
 	// Only the bench reads more than the last duration.
 	if !core.app.is_bench do clear(&core.app.build_durations)

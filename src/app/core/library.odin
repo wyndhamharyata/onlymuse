@@ -60,7 +60,12 @@ list_library_artists :: proc() -> (cards: []apple.Card, signature: int, phase: a
 }
 
 // Favourite Songs is the one library playlist a person can neither edit nor delete. The sidebar leaves it out.
-list_playlists :: proc() -> (playlists: []apple.Card, favourite_songs_id: string, phase: apple.Phase) {
+list_playlists :: proc(
+) -> (
+	playlists: []apple.Card,
+	favourite_songs_id: string,
+	phase: apple.Phase,
+) {
 	path := "/v1/me/library/playlists?limit=100"
 	watched := apple.watch(path)
 	data, is_stale := find_page_data(path, watched.version, watched.phase)
@@ -102,7 +107,10 @@ watch_all_pages :: proc(path: string) -> (bodies: []string, signature: int, phas
 
 		append(&list, watched.body)
 
-		next_offset := find_next_offset(fmt.tprintf("%s%slimit=100&offset=%s", path, separator, offset), watched)
+		next_offset := find_next_offset(
+			fmt.tprintf("%s%slimit=100&offset=%s", path, separator, offset),
+			watched,
+		)
 		if next_offset == "" do break
 
 		offset = next_offset

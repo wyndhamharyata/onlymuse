@@ -18,8 +18,15 @@ GRID_GAP_POINTS :: 20
 
 // Two columns, filled row by row, or one when the page is narrow. A click plays all of playing from
 // that song. With dates, each row shows its date, when there is room for it.
-build_song_grid :: proc(songs: []core.Catalog_Song, dates: []string, playing: []core.Catalog_Song) {
-	grid := ui.box("grid", {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = GRID_GAP_POINTS})
+build_song_grid :: proc(
+	songs: []core.Catalog_Song,
+	dates: []string,
+	playing: []core.Catalog_Song,
+) {
+	grid := ui.box(
+		"grid",
+		{width = ui.fill(), height = ui.fit_children(), axis = .X, gap = GRID_GAP_POINTS},
+	)
 	current, is_playing := playback.find_queue_song(core.app.now_playing.song.persistent_id)
 	// The grid's width from the last frame, 0 on the first.
 	width := grid.size.x
@@ -29,13 +36,23 @@ build_song_grid :: proc(songs: []core.Catalog_Song, dates: []string, playing: []
 
 	if ui.scope(grid) {
 		for column in 0 ..< column_count {
-			column_box := ui.box(fmt.tprintf("column %d", column), {width = ui.fill(), height = ui.fit_children(), axis = .Y})
+			column_box := ui.box(
+				fmt.tprintf("column %d", column),
+				{width = ui.fill(), height = ui.fit_children(), axis = .Y},
+			)
 
 			if ui.scope(column_box) {
 				for index := column; index < len(songs); index += column_count {
 					song := songs[index]
-					date := kit.to_date_text(dates[index]) if has_dates && index < len(dates) else ""
-					if build_song_row(fmt.tprintf("%d %s", index, song.id), song, song.album_name, is_playing && matching.is_same_queue_song(current, song), date) {
+					date :=
+						kit.to_date_text(dates[index]) if has_dates && index < len(dates) else ""
+					if build_song_row(
+						fmt.tprintf("%d %s", index, song.id),
+						song,
+						song.album_name,
+						is_playing && matching.is_same_queue_song(current, song),
+						date,
+					) {
 						playback.play_songs(playing, index)
 					}
 				}
@@ -52,7 +69,12 @@ TILE_GAP_POINTS :: 14
 // The title and the artist under a tile.
 TILE_TEXT_POINTS :: 46
 
-build_card_grid_page :: proc(title: string, cards: []apple.Card, phase: apple.Phase, is_round: bool) {
+build_card_grid_page :: proc(
+	title: string,
+	cards: []apple.Card,
+	phase: apple.Phase,
+	is_round: bool,
+) {
 	page := kit.page_scroll("grid page")
 	kit.run_bench_scroll(page)
 
@@ -61,7 +83,10 @@ build_card_grid_page :: proc(title: string, cards: []apple.Card, phase: apple.Ph
 
 		if ui.scope(heading) {
 			kit.page_heading(title)
-			kit.text_box(fmt.tprintf("%d items", len(cards)) if phase == .Ready else kit.phase_note(phase), kit.colors.dim)
+			kit.text_box(
+				fmt.tprintf("%d items", len(cards)) if phase == .Ready else kit.phase_note(phase),
+				kit.colors.dim,
+			)
 		}
 
 		if phase == .Ready do build_card_grid(page, cards, is_round)
@@ -87,13 +112,26 @@ build_card_grid :: proc(page: ^ui.Box, cards: []apple.Card, is_round: bool) {
 		if first > 0 do ui.box("", {width = ui.fill(), height = ui.points(f32(first) * row_points)})
 
 		for row in first ..= last {
-			row_box := ui.box(fmt.tprintf("row %d", row), {width = ui.fill(), height = ui.points(row_points), axis = .X, gap = TILE_GAP_POINTS})
+			row_box := ui.box(
+				fmt.tprintf("row %d", row),
+				{
+					width = ui.fill(),
+					height = ui.points(row_points),
+					axis = .X,
+					gap = TILE_GAP_POINTS,
+				},
+			)
 
 			if ui.scope(row_box) {
 				for column in 0 ..< columns {
 					index := row * columns + column
 					if index >= len(cards) do break
-					if build_card_tile(fmt.tprintf("%d %s", index, cards[index].id), cards[index], tile, is_round) {
+					if build_card_tile(
+						fmt.tprintf("%d %s", index, cards[index].id),
+						cards[index],
+						tile,
+						is_round,
+					) {
 						open_card(cards, index)
 					}
 				}
@@ -101,7 +139,10 @@ build_card_grid :: proc(page: ^ui.Box, cards: []apple.Card, is_round: bool) {
 		}
 
 		if last < row_count - 1 {
-			ui.box("", {width = ui.fill(), height = ui.points(f32(row_count - 1 - last) * row_points)})
+			ui.box(
+				"",
+				{width = ui.fill(), height = ui.points(f32(row_count - 1 - last) * row_points)},
+			)
 		}
 	}
 }

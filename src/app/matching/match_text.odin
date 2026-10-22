@@ -10,14 +10,23 @@ MATCH_SECONDS :: 3
 
 // The closest in length of the candidates that are the same recording.
 @(private)
-find_closest :: proc(song: core.Catalog_Song, candidates: []core.Catalog_Song) -> (core.Catalog_Song, bool) {
+find_closest :: proc(
+	song: core.Catalog_Song,
+	candidates: []core.Catalog_Song,
+) -> (
+	core.Catalog_Song,
+	bool,
+) {
 	best: core.Catalog_Song
 	is_found := false
 
 	for candidate in candidates {
 		if !is_same_recording(song, candidate) do continue
 
-		is_closer := !is_found || abs(candidate.duration_seconds - song.duration_seconds) < abs(best.duration_seconds - song.duration_seconds)
+		is_closer :=
+			!is_found ||
+			abs(candidate.duration_seconds - song.duration_seconds) <
+				abs(best.duration_seconds - song.duration_seconds)
 		if is_closer do best = candidate
 		is_found = true
 	}
@@ -44,7 +53,11 @@ is_same_artist :: proc(youtube_artist, apple_artist: string) -> bool {
 	youtube_key := to_match_key(youtube_artist)
 	apple_key := to_match_key(apple_artist)
 
-	return youtube_key != "" && apple_key != "" && (strings.contains(apple_key, youtube_key) || strings.contains(youtube_key, apple_key))
+	return(
+		youtube_key != "" &&
+		apple_key != "" &&
+		(strings.contains(apple_key, youtube_key) || strings.contains(youtube_key, apple_key)) \
+	)
 }
 
 @(private)
@@ -115,7 +128,12 @@ to_letters :: proc(text: string, skips_brackets: bool) -> string {
 // with an apostrophe, such as "She's", so apostrophes go.
 @(private)
 to_search_term :: proc(song: core.Catalog_Song, album: string) -> string {
-	return fmt.tprintf("%s %s %s", to_plain_text(song.name), to_plain_text(album), to_plain_text(song.artist_name))
+	return fmt.tprintf(
+		"%s %s %s",
+		to_plain_text(song.name),
+		to_plain_text(album),
+		to_plain_text(song.artist_name),
+	)
 }
 
 // The text without its bracketed parts and apostrophes. Text that is all brackets keeps them.

@@ -49,13 +49,13 @@ retired_bodies: [dynamic]string
 
 @(private)
 cache: struct {
-	mutex:   sync.Mutex,
-	entries: map[string]^Entry,
-	pool:    thread.Pool,
+	mutex:        sync.Mutex,
+	entries:      map[string]^Entry,
+	pool:         thread.Pool,
 	// Each new body takes the next number as its version. A version is never used twice, so a page that read an
 	// answer let go of earlier never takes a new one for the same.
 	last_version: int,
-	is_started: bool,
+	is_started:   bool,
 }
 
 // Another package that answers the paths starting with its prefix, such as src/youtube. It blocks, and its body uses allocator.
@@ -86,6 +86,8 @@ fresh_rules := [?]struct {
 	part:     string,
 	duration: time.Duration,
 } {
+
+
 	// YouTube's home, mixes and library, and then the rest of YouTube.
 	{`"FEmusic_home"`, 10 * time.Minute},
 	{`"FEmusic_liked`, 0},
@@ -118,7 +120,10 @@ watch :: proc(path: string) -> Watched {
 
 	if entry, ok := cache.entries[path]; ok {
 		entry.used_at = now_ms()
-		can_retry := entry.phase == .Failed && !entry.is_checking && entry.used_at - entry.failed_at > FAILED_RETRY_MS
+		can_retry :=
+			entry.phase == .Failed &&
+			!entry.is_checking &&
+			entry.used_at - entry.failed_at > FAILED_RETRY_MS
 
 		if can_retry {
 			entry.is_checking = true

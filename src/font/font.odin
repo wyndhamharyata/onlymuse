@@ -5,9 +5,9 @@ import "base:intrinsics"
 import "core:hash"
 import "core:math"
 import NS "core:sys/darwin/Foundation"
-import MTL "vendor:darwin/Metal"
 import "om:mac"
 import "om:render"
+import MTL "vendor:darwin/Metal"
 
 msg_send :: intrinsics.objc_send
 
@@ -33,11 +33,11 @@ weight_values := [Weight]f64 {
 }
 
 Font :: struct {
-	ct_font:       mac.Font_Ref,
-	size_pixels:   f32,
-	ascent:        f32,
-	descent:       f32,
-	line_height:   f32,
+	ct_font:     mac.Font_Ref,
+	size_pixels: f32,
+	ascent:      f32,
+	descent:     f32,
+	line_height: f32,
 }
 
 Placed_Glyph :: struct {
@@ -58,8 +58,8 @@ Shaped_Line :: struct {
 }
 
 Shaped_Text :: struct {
-	lines:          []Shaped_Line,
-	size:           [2]f32,
+	lines:           []Shaped_Line,
+	size:            [2]f32,
 	last_used_frame: int,
 }
 
@@ -91,7 +91,13 @@ system_font :: proc(weight: Weight, size_pixels: f32) -> Font {
 
 	if font, ok := state.system_fonts[key]; ok do return font
 
-	ns_font := msg_send(^NS_Font, NS_Font, "systemFontOfSize:weight:", NS.Float(size_pixels), NS.Float(weight_values[weight]))
+	ns_font := msg_send(
+		^NS_Font,
+		NS_Font,
+		"systemFontOfSize:weight:",
+		NS.Float(size_pixels),
+		NS.Float(weight_values[weight]),
+	)
 	// NSFont and CTFont are the same object.
 	ct_font := mac.Font_Ref(mac.CFRetain(mac.Type_Ref(ns_font)))
 	ascent := f32(mac.CTFontGetAscent(ct_font))
@@ -156,8 +162,17 @@ Overflow :: enum {
 TRUNCATE_END :: 1
 
 // Shapes text once and keeps it while it is drawn. max_width_pixels 0 keeps it on one line, whole.
-shape :: proc(text: string, font: Font, max_width_pixels: f32 = 0, overflow := Overflow.Wrap) -> ^Shaped_Text {
-	key := hash.fnv64a(transmute([]u8)text) ~ (u64(mac.CFHash(mac.Type_Ref(font.ct_font))) * 31) ~ (u64(max_width_pixels) << 40) ~ (u64(overflow) << 62)
+shape :: proc(
+	text: string,
+	font: Font,
+	max_width_pixels: f32 = 0,
+	overflow := Overflow.Wrap,
+) -> ^Shaped_Text {
+	key :=
+		hash.fnv64a(transmute([]u8)text) ~
+		(u64(mac.CFHash(mac.Type_Ref(font.ct_font))) * 31) ~
+		(u64(max_width_pixels) << 40) ~
+		(u64(overflow) << 62)
 
 	if shaped, ok := state.shaped[key]; ok {
 		shaped.last_used_frame = state.frame_index
@@ -205,7 +220,12 @@ shape :: proc(text: string, font: Font, max_width_pixels: f32 = 0, overflow := O
 		defer mac.CFRelease(ellipsis_line)
 
 		// Nil when even the ellipsis does not fit.
-		truncated := mac.CTLineCreateTruncatedLine(ct_line, f64(max_width_pixels), TRUNCATE_END, ellipsis_line)
+		truncated := mac.CTLineCreateTruncatedLine(
+			ct_line,
+			f64(max_width_pixels),
+			TRUNCATE_END,
+			ellipsis_line,
+		)
 		if truncated != nil {
 			append(&lines, to_shaped_line(truncated, font, 0))
 			mac.CFRelease(truncated)
@@ -246,7 +266,12 @@ to_shaped_line :: proc(ct_line: mac.Line_Ref, font: Font, top_y: f32) -> Shaped_
 	for run_index in 0 ..< mac.CFArrayGetCount(runs) {
 		run := mac.Run_Ref(mac.CFArrayGetValueAtIndex(runs, run_index))
 		count := mac.CTRunGetGlyphCount(run)
-		run_font := mac.Font_Ref(mac.CFDictionaryGetValue(mac.CTRunGetAttributes(run), mac.Type_Ref(mac.kCTFontAttributeName)))
+		run_font := mac.Font_Ref(
+			mac.CFDictionaryGetValue(
+				mac.CTRunGetAttributes(run),
+				mac.Type_Ref(mac.kCTFontAttributeName),
+			),
+		)
 		font_index := intern_font(run_font)
 
 		ids := make([]mac.Glyph, count, context.temp_allocator)
@@ -257,11 +282,15 @@ to_shaped_line :: proc(ct_line: mac.Line_Ref, font: Font, top_y: f32) -> Shaped_
 		mac.CTRunGetStringIndices(run, {0, 0}, raw_data(indices))
 
 		for index in 0 ..< count {
-			append(&glyphs, Placed_Glyph{font_index, ids[index], f32(positions[index].x), indices[index]})
+			append(
+				&glyphs,
+				Placed_Glyph{font_index, ids[index], f32(positions[index].x), indices[index]},
+			)
 		}
 	}
 
-	baseline_y := top_y + math.round((font.line_height - font.ascent - font.descent) / 2 + font.ascent)
+	baseline_y :=
+		top_y + math.round((font.line_height - font.ascent - font.descent) / 2 + font.ascent)
 	utf16_range := [2]int{string_range.location, string_range.location + string_range.length}
 
 	return Shaped_Line{glyphs[:], width, baseline_y, utf16_range}

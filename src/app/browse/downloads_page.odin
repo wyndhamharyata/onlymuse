@@ -18,11 +18,11 @@ Download :: struct {
 }
 
 downloads: struct {
-	mutex:       sync.Mutex,
-	list:        []Download,
+	mutex:         sync.Mutex,
+	list:          []Download,
 	// Counts up with each finished scan.
-	version:     int,
-	is_scanning: bool,
+	version:       int,
+	is_scanning:   bool,
 	// The visit that started the last scan.
 	scanned_index: int,
 	scanned_visit: int,
@@ -31,7 +31,10 @@ downloads: struct {
 // Music.app keeps each downloaded Apple Music song as a package of its own, two folders down.
 @(private = "file")
 download_folder :: proc() -> string {
-	return fmt.tprintf("%s/Music/Music/Media.localized/Apple Music", os.get_env("HOME", context.temp_allocator))
+	return fmt.tprintf(
+		"%s/Music/Music/Media.localized/Apple Music",
+		os.get_env("HOME", context.temp_allocator),
+	)
 }
 
 // The stream's file name holds the catalog ID after "_A", and ends in "_alac" for a lossless download.
@@ -100,7 +103,9 @@ build_downloaded_page :: proc() {
 	{
 		sync.guard(&downloads.mutex)
 		// Each visit scans again, so a song downloaded since shows.
-		is_new_visit := downloads.scanned_index != core.navigation.index || downloads.scanned_visit != core.navigation_visit
+		is_new_visit :=
+			downloads.scanned_index != core.navigation.index ||
+			downloads.scanned_visit != core.navigation_visit
 		if !downloads.is_scanning && (downloads.version == 0 || is_new_visit) {
 			downloads.scanned_index = core.navigation.index
 			downloads.scanned_visit = core.navigation_visit
@@ -126,7 +131,13 @@ build_downloaded_page :: proc() {
 		ids := make([dynamic]string, context.temp_allocator)
 		for download in list[first:min(first + 100, len(list))] do append(&ids, download.catalog_id)
 
-		watched := apple.watch(fmt.tprintf("/v1/catalog/%s/songs?ids=%s", apple.STOREFRONT, strings.join(ids[:], ",", context.temp_allocator)))
+		watched := apple.watch(
+			fmt.tprintf(
+				"/v1/catalog/%s/songs?ids=%s",
+				apple.STOREFRONT,
+				strings.join(ids[:], ",", context.temp_allocator),
+			),
+		)
 		signature = signature * 31 + watched.version
 		if watched.phase != .Ready do phase = watched.phase
 		append(&bodies, watched.body)
@@ -148,7 +159,11 @@ build_downloaded_page :: proc() {
 		}
 
 		slice.sort_by(data.songs, proc(a, b: core.Catalog_Song) -> bool {return a.name < b.name})
-		data.detail = fmt.aprintf("%d lossless", lossless_count, allocator = core.page_allocator(data))
+		data.detail = fmt.aprintf(
+			"%d lossless",
+			lossless_count,
+			allocator = core.page_allocator(data),
+		)
 	}
 
 	lists.build_song_list_page("Downloaded", data.detail, data.songs, phase)

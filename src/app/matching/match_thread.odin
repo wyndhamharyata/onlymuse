@@ -102,7 +102,10 @@ finish_job :: proc(job: ^Match_Job, best: core.Catalog_Song, is_found: bool, sta
 	if status == 429 {
 		if time.tick_diff(matcher.resume_at, time.tick_now()) >= 0 {
 			matcher.refusal_count += 1
-			pause := min(REFUSED_PAUSE * time.Duration(1 << uint(min(matcher.refusal_count - 1, 5))), MAX_REFUSED_PAUSE)
+			pause := min(
+				REFUSED_PAUSE * time.Duration(1 << uint(min(matcher.refusal_count - 1, 5))),
+				MAX_REFUSED_PAUSE,
+			)
 			matcher.resume_at = time.tick_add(time.tick_now(), pause)
 		}
 		matcher.failed[job.video_id] = matcher.resume_at
@@ -160,7 +163,14 @@ search_albums :: proc(song: core.Catalog_Song) -> ([]string, int) {
 	wait_to_search()
 
 	term := fmt.tprintf("%s %s", to_plain_text(song.album_name), to_plain_text(song.artist_name))
-	answer := apple.fetch(fmt.tprintf("/v1/catalog/%s/search?term=%s&types=albums&limit=10", apple.STOREFRONT, apple.to_query_text(term)), context.temp_allocator)
+	answer := apple.fetch(
+		fmt.tprintf(
+			"/v1/catalog/%s/search?term=%s&types=albums&limit=10",
+			apple.STOREFRONT,
+			apple.to_query_text(term),
+		),
+		context.temp_allocator,
+	)
 	if answer.status != 200 do return nil, answer.status
 
 	Search_Answer :: struct {
@@ -173,7 +183,9 @@ search_albums :: proc(song: core.Catalog_Song) -> ([]string, int) {
 	ids := make([dynamic]string)
 
 	for album in parsed.results.albums.data {
-		is_same_album := has_same_title(song.album_name, album.attributes.name) && is_same_artist(song.artist_name, album.attributes.artist_name)
+		is_same_album :=
+			has_same_title(song.album_name, album.attributes.name) &&
+			is_same_artist(song.artist_name, album.attributes.artist_name)
 		if is_same_album && len(ids) < MAX_FOUND_ALBUM_COUNT {
 			append(&ids, strings.clone(album.id))
 		}
@@ -186,7 +198,11 @@ search_albums :: proc(song: core.Catalog_Song) -> ([]string, int) {
 fetch_albums :: proc(ids: []string) -> int {
 	wait_to_search()
 
-	path := fmt.tprintf("/v1/catalog/%s/albums?ids=%s&include=tracks", apple.STOREFRONT, strings.join(ids, ",", context.temp_allocator))
+	path := fmt.tprintf(
+		"/v1/catalog/%s/albums?ids=%s&include=tracks",
+		apple.STOREFRONT,
+		strings.join(ids, ",", context.temp_allocator),
+	)
 	answer := apple.fetch(path, context.temp_allocator)
 	if answer.status != 200 do return answer.status
 
@@ -229,7 +245,11 @@ search_song :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, bool, int) {
 	for album in album_terms {
 		wait_to_search()
 
-		path := fmt.tprintf("/v1/catalog/%s/search?term=%s&types=songs&limit=10", apple.STOREFRONT, apple.to_query_text(to_search_term(song, album)))
+		path := fmt.tprintf(
+			"/v1/catalog/%s/search?term=%s&types=songs&limit=10",
+			apple.STOREFRONT,
+			apple.to_query_text(to_search_term(song, album)),
+		)
 		answer := apple.fetch(path, context.temp_allocator)
 		if answer.status != 200 do return {}, false, answer.status
 

@@ -84,7 +84,11 @@ is_playlist_youtube_song :: proc(playlist_id, song_id: string) -> bool {
 }
 
 // The playlist's Apple songs with its YouTube songs back in their places.
-merge_playlist_youtube_songs :: proc(playlist_id: string, songs: []core.Catalog_Song, allocator := context.allocator) -> []core.Catalog_Song {
+merge_playlist_youtube_songs :: proc(
+	playlist_id: string,
+	songs: []core.Catalog_Song,
+	allocator := context.allocator,
+) -> []core.Catalog_Song {
 	read_playlist_youtube_songs()
 
 	extra := playlist_youtube_songs[playlist_id] or_else {}
@@ -104,7 +108,12 @@ merge_playlist_youtube_songs :: proc(playlist_id: string, songs: []core.Catalog_
 }
 
 @(private = "file")
-place_after :: proc(merged: ^[dynamic]core.Catalog_Song, extra: [dynamic]Playlist_YouTube_Song, placed: []bool, after: string) {
+place_after :: proc(
+	merged: ^[dynamic]core.Catalog_Song,
+	extra: [dynamic]Playlist_YouTube_Song,
+	placed: []bool,
+	after: string,
+) {
 	for song, index in extra {
 		if placed[index] || song.after != after do continue
 

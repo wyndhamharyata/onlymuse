@@ -3,8 +3,8 @@ package platform
 import "base:intrinsics"
 import "base:runtime"
 import "core:strings"
-import "core:unicode/utf8"
 import NS "core:sys/darwin/Foundation"
+import "core:unicode/utf8"
 
 // A 1-point view of its own, apart from the one that draws, that takes the keyboard while a text field is
 // focused, so an input method such as Japanese can compose text in it (NSTextInputClient). Made the
@@ -37,7 +37,10 @@ to_odin_text :: proc "c" (text: ^NS.Object) -> string {
 		plain = msg_send(^NS.Object, text, "string")
 	}
 
-	return strings.clone((cast(^NS.String)plain)->odinString(), runtime.arena_allocator(&state.event_arena[state.event_arena_index]))
+	return strings.clone(
+		(cast(^NS.String)plain)->odinString(),
+		runtime.arena_allocator(&state.event_arena[state.event_arena_index]),
+	)
 }
 
 // NSResponder's form, which AppKit uses when it finds no input context.
@@ -58,7 +61,11 @@ Text_View_insertText :: proc "c" (self: ^Text_View, text: ^NS.Object, replacemen
 }
 
 @(objc_type = Text_View, objc_implement, objc_name = "setMarkedText", objc_selector = "setMarkedText:selectedRange:replacementRange:")
-Text_View_setMarkedText :: proc "c" (self: ^Text_View, text: ^NS.Object, selected, replacement: NS.Range) {
+Text_View_setMarkedText :: proc "c" (
+	self: ^Text_View,
+	text: ^NS.Object,
+	selected, replacement: NS.Range,
+) {
 	context = state.odin_context
 	marked := to_odin_text(text)
 	state.marked_length = len(marked)
@@ -101,7 +108,11 @@ Text_View_validAttributesForMarkedText :: proc "c" (self: ^Text_View) -> ^NS.Arr
 }
 
 @(objc_type = Text_View, objc_implement, objc_name = "attributedSubstringForProposedRange", objc_selector = "attributedSubstringForProposedRange:actualRange:")
-Text_View_attributedSubstringForProposedRange :: proc "c" (self: ^Text_View, range: NS.Range, actual: ^NS.Range) -> ^NS.Object {
+Text_View_attributedSubstringForProposedRange :: proc "c" (
+	self: ^Text_View,
+	range: NS.Range,
+	actual: ^NS.Range,
+) -> ^NS.Object {
 	return nil
 }
 
@@ -112,10 +123,17 @@ Text_View_characterIndexForPoint :: proc "c" (self: ^Text_View, point: NS.Point)
 
 // Where the input method opens its list of candidates: under the caret, on the screen.
 @(objc_type = Text_View, objc_implement, objc_name = "firstRectForCharacterRange", objc_selector = "firstRectForCharacterRange:actualRange:")
-Text_View_firstRectForCharacterRange :: proc "c" (self: ^Text_View, range: NS.Range, actual: ^NS.Range) -> NS.Rect {
+Text_View_firstRectForCharacterRange :: proc "c" (
+	self: ^Text_View,
+	range: NS.Range,
+	actual: ^NS.Range,
+) -> NS.Rect {
 	caret := state.caret_rect
 	height := f64(state.window.size_points.y)
-	in_window := NS.Rect{{NS.Float(caret.x), NS.Float(height - f64(caret.w))}, {NS.Float(caret.z - caret.x), NS.Float(caret.w - caret.y)}}
+	in_window := NS.Rect {
+		{NS.Float(caret.x), NS.Float(height - f64(caret.w))},
+		{NS.Float(caret.z - caret.x), NS.Float(caret.w - caret.y)},
+	}
 
 	return msg_send(NS.Rect, state.ns_window, "convertRectToScreen:", in_window)
 }
@@ -124,7 +142,15 @@ Text_View_firstRectForCharacterRange :: proc "c" (self: ^Text_View, range: NS.Ra
 Text_View_doCommandBySelector :: proc "c" (self: ^Text_View, selector: NS.SEL) {
 	context = state.odin_context
 	name := string(sel_getName(selector))
-	append(&state.events, Text_Command{strings.clone(name, runtime.arena_allocator(&state.event_arena[state.event_arena_index]))})
+	append(
+		&state.events,
+		Text_Command {
+			strings.clone(
+				name,
+				runtime.arena_allocator(&state.event_arena[state.event_arena_index]),
+			),
+		},
+	)
 	request_frame()
 }
 
@@ -158,7 +184,21 @@ type_for_test :: proc(text: string) -> bool {
 		defer ns_character->release()
 
 		// NSEventTypeKeyDown is 10.
-		event := msg_send(^NS.Event, NS.Event, "keyEventWithType:location:modifierFlags:timestamp:windowNumber:context:characters:charactersIgnoringModifiers:isARepeat:keyCode:", NS.UInteger(10), NS.Point{}, NS.UInteger(0), NS.TimeInterval(0), window_number, rawptr(nil), ns_character, ns_character, NS.BOOL(false), u16(0))
+		event := msg_send(
+			^NS.Event,
+			NS.Event,
+			"keyEventWithType:location:modifierFlags:timestamp:windowNumber:context:characters:charactersIgnoringModifiers:isARepeat:keyCode:",
+			NS.UInteger(10),
+			NS.Point{},
+			NS.UInteger(0),
+			NS.TimeInterval(0),
+			window_number,
+			rawptr(nil),
+			ns_character,
+			ns_character,
+			NS.BOOL(false),
+			u16(0),
+		)
 		msg_send(nil, state.input_view, "keyDown:", event)
 	}
 

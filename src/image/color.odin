@@ -17,7 +17,9 @@ guess_color :: proc(pixels: []u8) -> Color {
 		alpha := f32(pixels[index + 3]) / 255
 		if alpha < 0.5 do continue
 
-		rgb := [3]f32{f32(pixels[index + 2]), f32(pixels[index + 1]), f32(pixels[index])} / (255 * alpha)
+		rgb :=
+			[3]f32{f32(pixels[index + 2]), f32(pixels[index + 1]), f32(pixels[index])} /
+			(255 * alpha)
 		brightest := max(rgb.r, rgb.g, rgb.b)
 		spread := brightest - min(rgb.r, rgb.g, rgb.b)
 		count += 1
@@ -37,7 +39,10 @@ guess_color :: proc(pixels: []u8) -> Color {
 	// Hue goes round, so the bucket before the first is the last.
 	best, best_weight := 0, f32(0)
 	for bucket in 0 ..< HUE_BUCKETS {
-		weight := weights[(bucket + HUE_BUCKETS - 1) % HUE_BUCKETS] + weights[bucket] + weights[(bucket + 1) % HUE_BUCKETS]
+		weight :=
+			weights[(bucket + HUE_BUCKETS - 1) % HUE_BUCKETS] +
+			weights[bucket] +
+			weights[(bucket + 1) % HUE_BUCKETS]
 		if weight > best_weight do best, best_weight = bucket, weight
 	}
 

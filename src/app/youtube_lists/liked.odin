@@ -69,13 +69,13 @@ start_youtube_like :: proc(video_id: string, is_liked: bool) {
 	job^ = {strings.clone(video_id), is_liked}
 	// self_cleanup frees the thread when its procedure returns, so nothing waits for it.
 	thread.create_and_start_with_data(job, proc(data: rawptr) {
-		job := cast(^Like_Job)data
-		defer free(job)
-		defer delete(job.video_id)
-		defer free_all(context.temp_allocator)
+			job := cast(^Like_Job)data
+			defer free(job)
+			defer delete(job.video_id)
+			defer free_all(context.temp_allocator)
 
-		if youtube.send_like(job.video_id, job.is_liked) == 200 {
-			apple.refresh(youtube.list_path(youtube.LIKED_ID))
-		}
-	}, self_cleanup = true)
+			if youtube.send_like(job.video_id, job.is_liked) == 200 {
+				apple.refresh(youtube.list_path(youtube.LIKED_ID))
+			}
+		}, self_cleanup = true)
 }

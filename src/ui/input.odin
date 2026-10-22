@@ -95,7 +95,8 @@ find_hot :: proc() {
 	visit_hot(state.root)
 
 	for _, box in state.boxes {
-		is_hot := box.key == state.hot_key && (state.active_key == 0 || state.active_key == box.key)
+		is_hot :=
+			box.key == state.hot_key && (state.active_key == 0 || state.active_key == box.key)
 		box.hot_t = approach(box.hot_t, 1 if is_hot else 0, HOT_RATE)
 		box.active_t = approach(box.active_t, 1 if box.key == state.active_key else 0, HOT_RATE)
 	}

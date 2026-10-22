@@ -14,7 +14,11 @@ import "om:ui"
 SHOWN_SEARCH_SONG_COUNT :: 6
 
 build_search_page :: proc(term: string) {
-	path := fmt.tprintf("/v1/catalog/%s/search?term=%s&types=songs,albums,artists&limit=12", apple.STOREFRONT, apple.to_query_text(term))
+	path := fmt.tprintf(
+		"/v1/catalog/%s/search?term=%s&types=songs,albums,artists&limit=12",
+		apple.STOREFRONT,
+		apple.to_query_text(term),
+	)
 	watched := apple.watch(path)
 	data, is_stale := core.find_page_data(path, watched.version, watched.phase)
 
@@ -60,8 +64,19 @@ build_search_page :: proc(term: string) {
 		youtube_pages.build_youtube_search_results(term, data.songs, width)
 
 		if width > 0 {
-			lists.build_card_row("albums", "Albums", data.cards, lists.fit_tile_size(width, ARTIST_ALBUM_POINTS, lists.CARD_GAP_POINTS))
-			lists.build_card_row("artists", "Artists", data.similar, lists.fit_tile_size(width, SIMILAR_ARTIST_POINTS, lists.CARD_GAP_POINTS), true)
+			lists.build_card_row(
+				"albums",
+				"Albums",
+				data.cards,
+				lists.fit_tile_size(width, ARTIST_ALBUM_POINTS, lists.CARD_GAP_POINTS),
+			)
+			lists.build_card_row(
+				"artists",
+				"Artists",
+				data.similar,
+				lists.fit_tile_size(width, SIMILAR_ARTIST_POINTS, lists.CARD_GAP_POINTS),
+				true,
+			)
 		}
 	}
 }
@@ -72,10 +87,28 @@ build_search_top :: proc(data: ^core.Page_Data) {
 
 	if ui.scope(top) {
 		if len(data.similar) > 0 {
-			result := ui.box("top result", {width = ui.points(TOP_RESULT_POINTS), height = ui.fit_children(), axis = .Y, gap = 10})
+			result := ui.box(
+				"top result",
+				{
+					width = ui.points(TOP_RESULT_POINTS),
+					height = ui.fit_children(),
+					axis = .Y,
+					gap = 10,
+				},
+			)
 
 			if ui.scope(result) {
-				ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = kit.colors.text, font_size = 17, font_weight = .Bold}, "Top Result")
+				ui.box(
+					"",
+					{
+						width = ui.fill(),
+						height = ui.fit_text(),
+						text_color = kit.colors.text,
+						font_size = 17,
+						font_weight = .Bold,
+					},
+					"Top Result",
+				)
 				if lists.build_card_tile("top artist", data.similar[0], TOP_RESULT_POINTS, true) {
 					lists.open_card(data.similar, 0)
 				}
@@ -83,15 +116,34 @@ build_search_top :: proc(data: ^core.Page_Data) {
 		}
 
 		songs := data.songs[:min(len(data.songs), SHOWN_SEARCH_SONG_COUNT)]
-		list := ui.box("songs", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 0})
+		list := ui.box(
+			"songs",
+			{width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 0},
+		)
 		current, is_playing := playback.find_queue_song(core.app.now_playing.song.persistent_id)
 
 		if ui.scope(list) {
-			ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = kit.colors.text, font_size = 17, font_weight = .Bold, padding = {0, 0, 0, 10}}, "Songs")
+			ui.box(
+				"",
+				{
+					width = ui.fill(),
+					height = ui.fit_text(),
+					text_color = kit.colors.text,
+					font_size = 17,
+					font_weight = .Bold,
+					padding = {0, 0, 0, 10},
+				},
+				"Songs",
+			)
 
 			for song, index in songs {
 				subtitle := fmt.tprintf("%s · %s", song.artist_name, song.album_name)
-				if lists.build_song_row(fmt.tprintf("%d %s", index, song.id), song, subtitle, is_playing && matching.is_same_queue_song(current, song)) {
+				if lists.build_song_row(
+					fmt.tprintf("%d %s", index, song.id),
+					song,
+					subtitle,
+					is_playing && matching.is_same_queue_song(current, song),
+				) {
 					playback.play_songs(songs, index)
 				}
 			}

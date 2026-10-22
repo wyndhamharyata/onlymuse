@@ -23,7 +23,15 @@ SUBPIXEL_STEPS :: 4
 Color_Proc :: #type proc(utf16_index: int, data: rawptr) -> [4]f32
 
 // Draws every glyph. color_of picks a colour per glyph, such as the sung words of a lyric line. opacity scales either.
-draw :: proc(shaped: ^Shaped_Text, origin_pixels: [2]f32, color: [4]f32, clip: [4]f32, color_of: Color_Proc = nil, data: rawptr = nil, opacity: f32 = 1) {
+draw :: proc(
+	shaped: ^Shaped_Text,
+	origin_pixels: [2]f32,
+	color: [4]f32,
+	clip: [4]f32,
+	color_of: Color_Proc = nil,
+	data: rawptr = nil,
+	opacity: f32 = 1,
+) {
 	for line in shaped.lines {
 		baseline_y := math.round(origin_pixels.y + line.baseline_y)
 
@@ -44,10 +52,20 @@ draw :: proc(shaped: ^Shaped_Text, origin_pixels: [2]f32, color: [4]f32, clip: [
 
 			if rect.z < clip.x || rect.x > clip.z do continue
 
-			uv := [4]f32{f32(entry.rect.x), f32(entry.rect.y), f32(entry.rect.x + entry.rect.z), f32(entry.rect.y + entry.rect.w)} / ATLAS_SIZE
+			uv :=
+				[4]f32 {
+					f32(entry.rect.x),
+					f32(entry.rect.y),
+					f32(entry.rect.x + entry.rect.z),
+					f32(entry.rect.y + entry.rect.w),
+				} /
+				ATLAS_SIZE
 			glyph_color := color_of(glyph.utf16_index, data) if color_of != nil else color
 			glyph_color.a *= opacity
-			render.push({rect = rect, uv = uv, color = glyph_color, clip = clip, kind = .Glyph}, state.atlas)
+			render.push(
+				{rect = rect, uv = uv, color = glyph_color, clip = clip, kind = .Glyph},
+				state.atlas,
+			)
 		}
 	}
 }
@@ -84,7 +102,15 @@ rasterize :: proc(ct_font: mac.Font_Ref, glyph: mac.Glyph, subpixel: int) -> Atl
 	pixels := make([]u8, width * height, context.temp_allocator)
 	gray := mac.CGColorSpaceCreateDeviceGray()
 	defer mac.CGColorSpaceRelease(gray)
-	ctx := mac.CGBitmapContextCreate(raw_data(pixels), uint(width), uint(height), 8, uint(width), gray, mac.IMAGE_ALPHA_NONE)
+	ctx := mac.CGBitmapContextCreate(
+		raw_data(pixels),
+		uint(width),
+		uint(height),
+		8,
+		uint(width),
+		gray,
+		mac.IMAGE_ALPHA_NONE,
+	)
 	defer mac.CGContextRelease(ctx)
 
 	mac.CGContextSetAllowsFontSubpixelPositioning(ctx, true)

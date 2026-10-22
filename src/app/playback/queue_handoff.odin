@@ -56,7 +56,12 @@ sync_handoff :: proc() {
 	}
 
 	request_id := helper.request_set_next(after if next_index >= 0 else "", match, keeps_youtube)
-	queue_state.requests[request_id] = {kind = .Set_Next, handoff_version = queue_state.handoff_version, index = next_index, after = strings.clone(after)}
+	queue_state.requests[request_id] = {
+		kind            = .Set_Next,
+		handoff_version = queue_state.handoff_version,
+		index           = next_index,
+		after           = strings.clone(after),
+	}
 }
 
 // The queue plays a YouTube song after this one, so the helper keeps its YouTube page open meanwhile.
@@ -84,7 +89,8 @@ find_handoff :: proc(now_playing: helper.Now_Playing, was_at_end: bool) -> bool 
 	persistent_id := now_playing.song.persistent_id
 	tracking := queue_state.tracking
 	is_same_song := queue_state.has_tracking && tracking.persistent_id == persistent_id
-	is_restart := is_same_song && was_at_end && now_playing.position_seconds < END_TOLERANCE_SECONDS
+	is_restart :=
+		is_same_song && was_at_end && now_playing.position_seconds < END_TOLERANCE_SECONDS
 	handoff := queue_state.handoff
 
 	if !queue_state.has_handoff || persistent_id != handoff.persistent_id do return false
@@ -101,7 +107,9 @@ apply_playing_song :: proc(now_playing: helper.Now_Playing, now_ms: f64) {
 	tracking := queue_state.tracking
 	has_tracking := queue_state.has_tracking
 	is_same_song := has_tracking && tracking.persistent_id == now_playing.song.persistent_id
-	was_at_end := has_tracking && to_estimate_seconds(tracking, now_ms) >= tracking.duration_seconds - END_TOLERANCE_SECONDS
+	was_at_end :=
+		has_tracking &&
+		to_estimate_seconds(tracking, now_ms) >= tracking.duration_seconds - END_TOLERANCE_SECONDS
 	is_handed_off := find_handoff(now_playing, was_at_end)
 	is_queue_song := has_tracking && tracking.persistent_id == queue.playing_persistent_id
 	has_queue_song_ended := !is_handed_off && !is_same_song && is_queue_song && was_at_end
@@ -150,7 +158,9 @@ apply_queue_now_playing :: proc() {
 	finished := queue_state.tracking
 	has_finished := queue_state.has_tracking
 	is_queue_song := has_finished && finished.persistent_id == queue.playing_persistent_id
-	has_ended := has_finished && to_estimate_seconds(finished, now_ms) >= finished.duration_seconds - END_TOLERANCE_SECONDS
+	has_ended :=
+		has_finished &&
+		to_estimate_seconds(finished, now_ms) >= finished.duration_seconds - END_TOLERANCE_SECONDS
 
 	queue_state.has_tracking = false
 	if has_ended && queue.resume_point.song.persistent_id != "" {
@@ -179,7 +189,14 @@ apply_resume_point :: proc() {
 	song := now_playing.song
 	old := queue.resume_point.song
 	queue.resume_point = {
-		song             = {strings.clone(song.name), strings.clone(song.artist), strings.clone(song.album), strings.clone(song.persistent_id), song.duration_seconds, strings.clone(song.artwork_path)},
+		song             = {
+			strings.clone(song.name),
+			strings.clone(song.artist),
+			strings.clone(song.album),
+			strings.clone(song.persistent_id),
+			song.duration_seconds,
+			strings.clone(song.artwork_path),
+		},
 		position_seconds = to_estimate_seconds(queue_state.tracking, helper.now_ms()),
 	}
 	// This runs before the frame builds its boxes, so nothing shows the old text any more.
@@ -197,9 +214,19 @@ restart_stalled_song :: proc(has_started: bool) {
 	song := queue.songs[queue.index]
 
 	if has_started {
-		console.add("Queue", "Music.app stopped at %s of %s and played on no further, so it starts the song again.", kit.to_clock_text(core.app.now_playing.position_seconds), song.name)
+		console.add(
+			"Queue",
+			"Music.app stopped at %s of %s and played on no further, so it starts the song again.",
+			kit.to_clock_text(core.app.now_playing.position_seconds),
+			song.name,
+		)
 	} else {
-		console.add("Queue", "Music.app had not started %s after %d s, so it starts the song again.", song.name, UNSTARTED_POSITION_COUNT * 2)
+		console.add(
+			"Queue",
+			"Music.app had not started %s after %d s, so it starts the song again.",
+			song.name,
+			UNSTARTED_POSITION_COUNT * 2,
+		)
 	}
 
 	// Until Music.app's next post, its last position still reads as stopped.
@@ -230,19 +257,27 @@ update_queue :: proc() {
 	if queue_state.is_polling && queue_state.next_poll_ms > 0 && now >= queue_state.next_poll_ms {
 		queue_state.next_poll_ms = 0
 		request_id := helper.request_play(to_song_match(queue.songs[queue.index]))
-		queue_state.requests[request_id] = {kind = .Poll, play_count = queue_state.play_count}
+		queue_state.requests[request_id] = {
+			kind       = .Poll,
+			play_count = queue_state.play_count,
+		}
 	}
 
 	now_playing := core.app.now_playing
 	is_playing := now_playing.playback == .Playing
-	has_stalled := is_playing && now_playing.has_started && now_playing.stall_count >= STALLED_POSITION_COUNT
-	has_not_started := is_playing && !now_playing.has_started && now_playing.stall_count >= UNSTARTED_POSITION_COUNT
+	has_stalled :=
+		is_playing && now_playing.has_started && now_playing.stall_count >= STALLED_POSITION_COUNT
+	has_not_started :=
+		is_playing &&
+		!now_playing.has_started &&
+		now_playing.stall_count >= UNSTARTED_POSITION_COUNT
 	can_restart := is_queue_leading() && queue_state.restart_count < MAX_RESTART_COUNT
 	if (has_stalled || has_not_started) && can_restart {
 		restart_stalled_song(now_playing.has_started)
 	}
 
-	if queue_state.is_starting_youtube && core.app.now_playing.song.persistent_id == queue.playing_persistent_id {
+	if queue_state.is_starting_youtube &&
+	   core.app.now_playing.song.persistent_id == queue.playing_persistent_id {
 		queue_state.is_starting_youtube = false
 	}
 
@@ -258,7 +293,8 @@ update_queue :: proc() {
 	}
 
 	// The resume point, every few seconds while a song plays.
-	if core.app.now_playing.playback == .Playing && now - queue_state.last_resume_save > POSITION_SAVE_SECONDS * 1000 {
+	if core.app.now_playing.playback == .Playing &&
+	   now - queue_state.last_resume_save > POSITION_SAVE_SECONDS * 1000 {
 		apply_resume_point()
 	}
 }

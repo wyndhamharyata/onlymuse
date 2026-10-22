@@ -77,9 +77,15 @@ start :: proc(device: ^MTL.Device, layer: ^CA.MetalLayer) {
 	state.layer = layer
 	state.queue = device->newCommandQueue()
 
-	library, library_error := device->newLibraryWithSource(NS.String.alloc()->initWithOdinString(shader_source), nil)
+	library, library_error := device->newLibraryWithSource(
+		NS.String.alloc()->initWithOdinString(shader_source),
+		nil,
+	)
 	if library == nil {
-		fmt.panicf("render: shaders do not compile: %s", library_error->localizedDescription()->odinString())
+		fmt.panicf(
+			"render: shaders do not compile: %s",
+			library_error->localizedDescription()->odinString(),
+		)
 	}
 
 	descriptor := MTL.RenderPipelineDescriptor.alloc()->init()
@@ -120,7 +126,12 @@ make_texture :: proc(size_pixels: [2]int, format: MTL.PixelFormat) -> ^MTL.Textu
 	pool := NS.AutoreleasePool.alloc()->init()
 	defer pool->drain()
 
-	descriptor := MTL.TextureDescriptor.texture2DDescriptorWithPixelFormat(format, NS.UInteger(size_pixels.x), NS.UInteger(size_pixels.y), false)
+	descriptor := MTL.TextureDescriptor.texture2DDescriptorWithPixelFormat(
+		format,
+		NS.UInteger(size_pixels.x),
+		NS.UInteger(size_pixels.y),
+		false,
+	)
 	descriptor->setUsage({.ShaderRead})
 
 	return state.device->newTextureWithDescriptor(descriptor)
@@ -128,7 +139,10 @@ make_texture :: proc(size_pixels: [2]int, format: MTL.PixelFormat) -> ^MTL.Textu
 
 // rect is x, y, width, height in pixels.
 upload_texture :: proc(texture: ^MTL.Texture, rect: [4]int, pixels: rawptr, bytes_per_row: int) {
-	region := MTL.Region{{NS.Integer(rect.x), NS.Integer(rect.y), 0}, {NS.Integer(rect.z), NS.Integer(rect.w), 1}}
+	region := MTL.Region {
+		{NS.Integer(rect.x), NS.Integer(rect.y), 0},
+		{NS.Integer(rect.z), NS.Integer(rect.w), 1},
+	}
 	texture->replaceRegion(region, 0, pixels, NS.UInteger(bytes_per_row))
 }
 
@@ -160,7 +174,11 @@ request_capture :: proc(path: string) {
 }
 
 @(private)
-encode_pass :: proc(command_buffer: ^MTL.CommandBuffer, target: ^MTL.Texture, buffer: ^MTL.Buffer) {
+encode_pass :: proc(
+	command_buffer: ^MTL.CommandBuffer,
+	target: ^MTL.Texture,
+	buffer: ^MTL.Buffer,
+) {
 	pass := MTL.RenderPassDescriptor.renderPassDescriptor()
 	color := pass->colorAttachments()->object(0)
 	color->setTexture(target)
@@ -178,7 +196,13 @@ encode_pass :: proc(command_buffer: ^MTL.CommandBuffer, target: ^MTL.Texture, bu
 
 	for batch in state.batches {
 		encoder->setFragmentTexture(batch.texture, 0)
-		encoder->drawPrimitivesWithInstances(.TriangleStrip, 0, 4, NS.UInteger(batch.count), NS.UInteger(batch.first_index))
+		encoder->drawPrimitivesWithInstances(
+			.TriangleStrip,
+			0,
+			4,
+			NS.UInteger(batch.count),
+			NS.UInteger(batch.first_index),
+		)
 	}
 	encoder->endEncoding()
 }
@@ -186,7 +210,12 @@ encode_pass :: proc(command_buffer: ^MTL.CommandBuffer, target: ^MTL.Texture, bu
 @(private)
 capture :: proc(buffer: ^MTL.Buffer) {
 	size := [2]int{int(state.size_pixels.x), int(state.size_pixels.y)}
-	descriptor := MTL.TextureDescriptor.texture2DDescriptorWithPixelFormat(.BGRA8Unorm, NS.UInteger(size.x), NS.UInteger(size.y), false)
+	descriptor := MTL.TextureDescriptor.texture2DDescriptorWithPixelFormat(
+		.BGRA8Unorm,
+		NS.UInteger(size.x),
+		NS.UInteger(size.y),
+		false,
+	)
 	descriptor->setUsage({.RenderTarget, .ShaderRead})
 	descriptor->setStorageMode(.Shared)
 	target := state.device->newTextureWithDescriptor(descriptor)
@@ -230,7 +259,11 @@ end_frame :: proc(drawable: ^CA.MetalDrawable) {
 		state.buffers[slot] = buffer
 	}
 
-	intrinsics.mem_copy_non_overlapping(buffer->contentsPointer(), raw_data(state.instances), len(state.instances) * size_of(Instance))
+	intrinsics.mem_copy_non_overlapping(
+		buffer->contentsPointer(),
+		raw_data(state.instances),
+		len(state.instances) * size_of(Instance),
+	)
 
 	if state.capture_path != "" do capture(buffer)
 

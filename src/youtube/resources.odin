@@ -10,16 +10,16 @@ SONG_ID_PREFIX :: "yt:"
 
 // What one YouTube answer shows: a page's header, its songs outside shelves, its shelves and its other cards.
 List :: struct {
-	title:        string,
-	subtitle:     string,
+	title:                string,
+	subtitle:             string,
 	// Such as "757K monthly audience" for an artist.
-	detail:       string,
-	artwork:      apple.Artwork,
-	songs:        []apple.Catalog_Song,
-	shelves:      []apple.Shelf,
-	cards:        []apple.Card,
+	detail:               string,
+	artwork:              apple.Artwork,
+	songs:                []apple.Catalog_Song,
+	shelves:              []apple.Shelf,
+	cards:                []apple.Card,
 	// The token for the next part of a long list. Empty at its end.
-	continuation: string,
+	continuation:         string,
 	// The token for the next shelves of a page such as home, which continuation_path cannot ask for.
 	section_continuation: string,
 }
@@ -34,15 +34,15 @@ to_video_id :: proc(song_id: string) -> string {
 
 @(private)
 Reader :: struct {
-	allocator:    mem.Allocator,
-	title:        string,
-	subtitle:     string,
-	detail:       string,
-	artwork:      apple.Artwork,
-	songs:        [dynamic]apple.Catalog_Song,
-	shelves:      [dynamic]apple.Shelf,
-	cards:        [dynamic]apple.Card,
-	continuation: string,
+	allocator:            mem.Allocator,
+	title:                string,
+	subtitle:             string,
+	detail:               string,
+	artwork:              apple.Artwork,
+	songs:                [dynamic]apple.Catalog_Song,
+	shelves:              [dynamic]apple.Shelf,
+	cards:                [dynamic]apple.Card,
+	continuation:         string,
 	section_continuation: string,
 }
 
@@ -68,7 +68,17 @@ to_list :: proc(body: string, allocator := context.allocator) -> List {
 		if song.album_name == "" do song.album_name = reader.title
 	}
 
-	return {reader.title, reader.subtitle, reader.detail, reader.artwork, reader.songs[:], reader.shelves[:], reader.cards[:], reader.continuation, reader.section_continuation}
+	return {
+		reader.title,
+		reader.subtitle,
+		reader.detail,
+		reader.artwork,
+		reader.songs[:],
+		reader.shelves[:],
+		reader.cards[:],
+		reader.continuation,
+		reader.section_continuation,
+	}
 }
 
 @(private)
@@ -81,9 +91,15 @@ read_value :: proc(reader: ^Reader, value: json.Value) {
 			switch key {
 			case "musicCarouselShelfRenderer":
 				read_shelf(reader, child_value)
-			case "musicResponsiveListItemRenderer", "playlistPanelVideoRenderer", "musicTwoRowItemRenderer":
+			case "musicResponsiveListItemRenderer",
+			     "playlistPanelVideoRenderer",
+			     "musicTwoRowItemRenderer":
 				read_item(reader, key, child_value)
-			case "musicResponsiveHeaderRenderer", "musicImmersiveHeaderRenderer", "musicVisualHeaderRenderer", "musicDetailHeaderRenderer", "musicEditablePlaylistDetailHeaderRenderer":
+			case "musicResponsiveHeaderRenderer",
+			     "musicImmersiveHeaderRenderer",
+			     "musicVisualHeaderRenderer",
+			     "musicDetailHeaderRenderer",
+			     "musicEditablePlaylistDetailHeaderRenderer":
 				read_header(reader, child_value)
 			case "continuationCommand":
 				if reader.continuation == "" {
@@ -91,7 +107,10 @@ read_value :: proc(reader: ^Reader, value: json.Value) {
 				}
 			case "nextContinuationData":
 				if reader.section_continuation == "" {
-					reader.section_continuation = clone(reader, as_string(child(child_value, "continuation")))
+					reader.section_continuation = clone(
+						reader,
+						as_string(child(child_value, "continuation")),
+					)
 				}
 			case:
 				read_value(reader, child_value)
@@ -132,7 +151,15 @@ read_shelf :: proc(reader: ^Reader, value: json.Value) {
 	}
 
 	if len(cards) > 0 {
-		append(&reader.shelves, apple.Shelf{title = clone(reader, title), cards = cards[:], is_youtube = true, is_wide = is_wide})
+		append(
+			&reader.shelves,
+			apple.Shelf {
+				title = clone(reader, title),
+				cards = cards[:],
+				is_youtube = true,
+				is_wide = is_wide,
+			},
+		)
 	}
 }
 
@@ -142,9 +169,15 @@ read_header :: proc(reader: ^Reader, value: json.Value) {
 
 	reader.title = clone(reader, to_text(child(value, "title")))
 	strapline := to_text(child(value, "straplineTextOne"))
-	reader.subtitle = clone(reader, strapline if strapline != "" else to_text(child(value, "subtitle")))
+	reader.subtitle = clone(
+		reader,
+		strapline if strapline != "" else to_text(child(value, "subtitle")),
+	)
 	detail := to_text(child(value, "monthlyListenerCount"))
-	reader.detail = clone(reader, detail if detail != "" else to_text(child(value, "secondSubtitle")))
+	reader.detail = clone(
+		reader,
+		detail if detail != "" else to_text(child(value, "secondSubtitle")),
+	)
 	thumbnail := child(value, "thumbnail")
 	if thumbnail == nil do thumbnail = child(value, "foregroundThumbnail")
 	reader.artwork = to_artwork(reader, find_thumbnail_url(thumbnail), "")

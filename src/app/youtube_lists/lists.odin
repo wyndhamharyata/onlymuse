@@ -74,7 +74,13 @@ free_unused_youtube_lists :: proc() {
 }
 
 // The songs of every part of a long list, and the first part, which holds the header.
-watch_youtube_songs :: proc(path: string) -> (first: youtube.List, songs: []core.Catalog_Song, phase: apple.Phase) {
+watch_youtube_songs :: proc(
+	path: string,
+) -> (
+	first: youtube.List,
+	songs: []core.Catalog_Song,
+	phase: apple.Phase,
+) {
 	watched: apple.Watched
 	first, watched = watch_youtube_list(path)
 	signature := watched.version
@@ -82,7 +88,8 @@ watch_youtube_songs :: proc(path: string) -> (first: youtube.List, songs: []core
 	parts := make([dynamic]youtube.List, context.temp_allocator)
 	if phase == .Ready do append(&parts, first)
 
-	for token := first.continuation; phase == .Ready && token != "" && len(parts) < MAX_YOUTUBE_PART_COUNT; {
+	for token := first.continuation;
+	    phase == .Ready && token != "" && len(parts) < MAX_YOUTUBE_PART_COUNT; {
 		part, part_watched := watch_youtube_list(youtube.continuation_path(token))
 		signature = signature * 31 + part_watched.version
 
@@ -135,7 +142,13 @@ youtube_phase_note :: proc(phase: apple.Phase) -> string {
 }
 
 // Apple's shelves with YouTube's between them, one of each in turn.
-merge_youtube_shelves :: proc(apple_shelves: []apple.Shelf, allocator := context.allocator) -> (shelves: []apple.Shelf, version: int) {
+merge_youtube_shelves :: proc(
+	apple_shelves: []apple.Shelf,
+	allocator := context.allocator,
+) -> (
+	shelves: []apple.Shelf,
+	version: int,
+) {
 	youtube_shelves, signature, phase := watch_youtube_home()
 	if phase != .Ready do return apple_shelves, signature
 

@@ -4,9 +4,9 @@ package icon
 import "base:intrinsics"
 import "core:math"
 import NS "core:sys/darwin/Foundation"
-import MTL "vendor:darwin/Metal"
 import "om:mac"
 import "om:render"
+import MTL "vendor:darwin/Metal"
 
 msg_send :: intrinsics.objc_send
 
@@ -78,8 +78,24 @@ draw :: proc(name: string, size_pixels: f32, rect, clip: [4]f32, color: [4]f32) 
 	height := f32(entry.rect.w)
 	left := math.round((rect.x + rect.z - width) / 2)
 	top := math.round((rect.y + rect.w - height) / 2)
-	uv := [4]f32{f32(entry.rect.x), f32(entry.rect.y), f32(entry.rect.x + entry.rect.z), f32(entry.rect.y + entry.rect.w)} / ATLAS_SIZE
-	render.push({rect = {left, top, left + width, top + height}, uv = uv, color = color, clip = clip, kind = .Glyph}, state.atlas)
+	uv :=
+		[4]f32 {
+			f32(entry.rect.x),
+			f32(entry.rect.y),
+			f32(entry.rect.x + entry.rect.z),
+			f32(entry.rect.y + entry.rect.w),
+		} /
+		ATLAS_SIZE
+	render.push(
+		{
+			rect = {left, top, left + width, top + height},
+			uv = uv,
+			color = color,
+			clip = clip,
+			kind = .Glyph,
+		},
+		state.atlas,
+	)
 }
 
 @(private)
@@ -108,10 +124,22 @@ rasterize :: proc(name: string, size_pixels: f32) -> Entry {
 	ns_name := NS.String.alloc()->initWithOdinString(name)
 	defer ns_name->release()
 
-	symbol := msg_send(^NS.Image, NS.Image, "imageWithSystemSymbolName:accessibilityDescription:", ns_name, rawptr(nil))
+	symbol := msg_send(
+		^NS.Image,
+		NS.Image,
+		"imageWithSystemSymbolName:accessibilityDescription:",
+		ns_name,
+		rawptr(nil),
+	)
 	if symbol == nil do return {}
 
-	configuration := msg_send(^Symbol_Configuration, Symbol_Configuration, "configurationWithPointSize:weight:", NS.Float(size_pixels), NS.Float(SYMBOL_WEIGHT))
+	configuration := msg_send(
+		^Symbol_Configuration,
+		Symbol_Configuration,
+		"configurationWithPointSize:weight:",
+		NS.Float(size_pixels),
+		NS.Float(SYMBOL_WEIGHT),
+	)
 	image := msg_send(^NS.Image, symbol, "imageWithSymbolConfiguration:", configuration)
 	size := msg_send(NS.Size, image, "size")
 	width := int(math.ceil(f64(size.width))) + 2
@@ -126,14 +154,36 @@ rasterize :: proc(name: string, size_pixels: f32) -> Entry {
 	space := mac.CGColorSpaceCreateDeviceRGB()
 	defer mac.CGColorSpaceRelease(space)
 	// kCGImageAlphaPremultipliedLast.
-	ctx := mac.CGBitmapContextCreate(raw_data(pixels), uint(width), uint(height), 8, uint(width * 4), space, 1)
+	ctx := mac.CGBitmapContextCreate(
+		raw_data(pixels),
+		uint(width),
+		uint(height),
+		8,
+		uint(width * 4),
+		space,
+		1,
+	)
 	defer mac.CGContextRelease(ctx)
 
-	graphics := msg_send(^Graphics_Context, Graphics_Context, "graphicsContextWithCGContext:flipped:", rawptr(ctx), NS.BOOL(false))
+	graphics := msg_send(
+		^Graphics_Context,
+		Graphics_Context,
+		"graphicsContextWithCGContext:flipped:",
+		rawptr(ctx),
+		NS.BOOL(false),
+	)
 	msg_send(nil, Graphics_Context, "saveGraphicsState")
 	msg_send(nil, Graphics_Context, "setCurrentContext:", graphics)
 	target := NS.Rect{{1, 1}, size}
-	msg_send(nil, image, "drawInRect:fromRect:operation:fraction:", target, NS.Rect{}, NS.UInteger(SOURCE_OVER), NS.Float(1))
+	msg_send(
+		nil,
+		image,
+		"drawInRect:fromRect:operation:fraction:",
+		target,
+		NS.Rect{},
+		NS.UInteger(SOURCE_OVER),
+		NS.Float(1),
+	)
 	msg_send(nil, Graphics_Context, "restoreGraphicsState")
 
 	// The symbol is drawn in black, so its alpha is the mask.

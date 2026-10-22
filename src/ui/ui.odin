@@ -134,7 +134,7 @@ Signal :: struct {
 	is_clicked:       bool,
 	// The right button, or a Control click, which never presses or clicks.
 	is_right_clicked: bool,
-	click_count:    int,
+	click_count:      int,
 }
 
 @(private)
@@ -154,32 +154,32 @@ SETTLED :: 0.002
 
 @(private)
 state: struct {
-	boxes:           map[u64]^Box,
-	values:          map[u64]Animated_Value,
-	root:            ^Box,
-	parents:         [dynamic]^Box,
-	frame_index:     int,
-	scale:           f32,
-	zoom:            f32,
-	dt_seconds:      f32,
-	mouse:           [2]f32,
-	hot_key:         u64,
-	active_key:      u64,
+	boxes:             map[u64]^Box,
+	values:            map[u64]Animated_Value,
+	root:              ^Box,
+	parents:           [dynamic]^Box,
+	frame_index:       int,
+	scale:             f32,
+	zoom:              f32,
+	dt_seconds:        f32,
+	mouse:             [2]f32,
+	hot_key:           u64,
+	active_key:        u64,
 	// The box under the mouse that scrolls along each axis.
-	scroll_keys:     [Axis]u64,
+	scroll_keys:       [Axis]u64,
 	// A trackpad swipe and its glide move along one axis, the one its first points went most along.
-	swipe_axis:      Maybe(Axis),
+	swipe_axis:        Maybe(Axis),
 	// The swipe's points before its axis is known.
-	swipe_pending:   [2]f32,
-	clicked_key:     u64,
+	swipe_pending:     [2]f32,
+	clicked_key:       u64,
 	right_clicked_key: u64,
 	// The button down is a right click's, so its release clicks nothing.
-	is_right_press:  bool,
+	is_right_press:    bool,
 	// Where the left button went down, for a drag.
-	press_position:  [2]f32,
-	pressed_key:     u64,
-	click_count:     int,
-	is_animating:    bool,
+	press_position:    [2]f32,
+	pressed_key:       u64,
+	click_count:       int,
+	is_animating:      bool,
 }
 
 // Points are window points divided by zoom. scale turns points into pixels.
@@ -196,7 +196,13 @@ begin_frame :: proc(window_size_points: [2]f32, pixels_per_point, zoom, dt_secon
 	apply_events()
 
 	clear(&state.parents)
-	state.root = make_box(0, {width = points(window_size_points.x / zoom), height = points(window_size_points.y / zoom)})
+	state.root = make_box(
+		0,
+		{
+			width = points(window_size_points.x / zoom),
+			height = points(window_size_points.y / zoom),
+		},
+	)
 	append(&state.parents, state.root)
 }
 
@@ -276,10 +282,10 @@ signal :: proc(box: ^Box) -> Signal {
 	is_hovered := box.key != 0 && box.key == state.hot_key
 
 	return Signal {
-		box         = box,
-		is_hovered  = is_hovered,
-		is_held     = box.key != 0 && box.key == state.active_key,
-		is_clicked  = box.key != 0 && box.key == state.clicked_key,
+		box = box,
+		is_hovered = is_hovered,
+		is_held = box.key != 0 && box.key == state.active_key,
+		is_clicked = box.key != 0 && box.key == state.clicked_key,
 		is_right_clicked = box.key != 0 && box.key == state.right_clicked_key,
 		click_count = state.click_count,
 	}

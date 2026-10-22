@@ -10,11 +10,24 @@ import "om:apple"
 @(private)
 to_artwork :: proc(reader: ^Reader, url, video_id: string) -> apple.Artwork {
 	if strings.contains(url, "i.ytimg.com/vi/") && video_id != "" {
-		return {url = fmt.aprintf("https://i.ytimg.com/vi/%s/hqdefault.jpg", video_id, allocator = reader.allocator)}
+		return {
+			url = fmt.aprintf(
+				"https://i.ytimg.com/vi/%s/hqdefault.jpg",
+				video_id,
+				allocator = reader.allocator,
+			),
+		}
 	}
 
-	if square_start := strings.last_index(url, "=s"); square_start >= 0 && strings.index_any(url[square_start + 2:], "-=") < 0 {
-		return {url = fmt.aprintf("%s=w{{w}}-h{{h}}", url[:square_start], allocator = reader.allocator)}
+	if square_start := strings.last_index(url, "=s");
+	   square_start >= 0 && strings.index_any(url[square_start + 2:], "-=") < 0 {
+		return {
+			url = fmt.aprintf(
+				"%s=w{{w}}-h{{h}}",
+				url[:square_start],
+				allocator = reader.allocator,
+			),
+		}
 	}
 
 	size_start := strings.last_index(url, "=w")
@@ -29,7 +42,14 @@ to_artwork :: proc(reader: ^Reader, url, video_id: string) -> apple.Artwork {
 		height_end += 1
 	}
 
-	return {url = fmt.aprintf("%s=w{{w}}-h{{h}}%s", url[:size_start], rest[height_end:], allocator = reader.allocator)}
+	return {
+		url = fmt.aprintf(
+			"%s=w{{w}}-h{{h}}%s",
+			url[:size_start],
+			rest[height_end:],
+			allocator = reader.allocator,
+		),
+	}
 }
 
 @(private)

@@ -20,41 +20,41 @@ Frame_Proc :: proc() -> bool
 
 Window :: struct {
 	// The drawable for this frame, from the display link.
-	drawable:      ^CA.MetalDrawable,
-	device:        ^MTL.Device,
-	layer:         ^CA.MetalLayer,
-	size_points:   [2]f32,
+	drawable:         ^CA.MetalDrawable,
+	device:           ^MTL.Device,
+	layer:            ^CA.MetalLayer,
+	size_points:      [2]f32,
 	pixels_per_point: f32,
 }
 
 @(private)
 state: struct {
-	app:             ^NS.Application,
-	ns_window:       ^NS.Window,
-	view:            ^NS.View,
-	input_view:      ^NS.View,
-	display_link:    ^Display_Link,
-	target:          ^Target,
-	timer:           ^NS.Timer,
+	app:                ^NS.Application,
+	ns_window:          ^NS.Window,
+	view:               ^NS.View,
+	input_view:         ^NS.View,
+	display_link:       ^Display_Link,
+	target:             ^Target,
+	timer:              ^NS.Timer,
 	// A background window is covered, and macOS stops its display link, so a timer runs its frames.
-	is_background:   bool,
-	frame_timer:     ^NS.Timer,
-	is_link_running: bool,
+	is_background:      bool,
+	frame_timer:        ^NS.Timer,
+	is_link_running:    bool,
 	// Set by request_frame while a frame is drawn, so the link keeps running for the next one.
 	is_frame_requested: bool,
-	is_closed:       bool,
-	on_frame:        Frame_Proc,
-	window:          Window,
-	events:          [dynamic]Event,
-	event_arena:     [2]runtime.Arena,
-	event_arena_index: int,
+	is_closed:          bool,
+	on_frame:           Frame_Proc,
+	window:             Window,
+	events:             [dynamic]Event,
+	event_arena:        [2]runtime.Arena,
+	event_arena_index:  int,
 	// While a text field is focused, key presses go through the view's input method.
-	is_text_input:   bool,
-	marked_length:   int,
+	is_text_input:      bool,
+	marked_length:      int,
 	// The caret of the focused field, in window points from the top left, for the input method.
-	caret_rect:      [4]f32,
+	caret_rect:         [4]f32,
 	// AppKit calls the proc "c" procedures from C, with no Odin context, so each one sets this one first.
-	odin_context:    runtime.Context,
+	odin_context:       runtime.Context,
 }
 
 @(objc_class = "CAMetalDisplayLink")
@@ -124,7 +124,12 @@ update_window_size :: proc() {
 	window := &state.window
 	window.size_points = {f32(bounds.size.width), f32(bounds.size.height)}
 	window.pixels_per_point = pixels_per_point
-	window.layer->setDrawableSize({bounds.size.width * NS.Float(pixels_per_point), bounds.size.height * NS.Float(pixels_per_point)})
+	window.layer->setDrawableSize(
+		{
+			bounds.size.width * NS.Float(pixels_per_point),
+			bounds.size.height * NS.Float(pixels_per_point),
+		},
+	)
 	msg_send(nil, window.layer, "setContentsScale:", NS.Float(pixels_per_point))
 }
 
@@ -141,8 +146,23 @@ request_frame :: proc "contextless" () {
 	}
 
 	FRAME_SECONDS :: 1.0 / 60
-	state.frame_timer = msg_send(^NS.Timer, NS.Timer, "scheduledTimerWithTimeInterval:target:selector:userInfo:repeats:", NS.TimeInterval(FRAME_SECONDS), state.target, intrinsics.objc_find_selector("frameTimerFired:"), rawptr(nil), NS.BOOL(true))
-	msg_send(nil, msg_send(^NS.RunLoop, NS.RunLoop, "mainRunLoop"), "addTimer:forMode:", state.frame_timer, NS.RunLoopCommonModes)
+	state.frame_timer = msg_send(
+		^NS.Timer,
+		NS.Timer,
+		"scheduledTimerWithTimeInterval:target:selector:userInfo:repeats:",
+		NS.TimeInterval(FRAME_SECONDS),
+		state.target,
+		intrinsics.objc_find_selector("frameTimerFired:"),
+		rawptr(nil),
+		NS.BOOL(true),
+	)
+	msg_send(
+		nil,
+		msg_send(^NS.RunLoop, NS.RunLoop, "mainRunLoop"),
+		"addTimer:forMode:",
+		state.frame_timer,
+		NS.RunLoopCommonModes,
+	)
 }
 
 // Runs the app's frame proc with the window's current size, and pauses the display link once it wants no more.
@@ -176,7 +196,12 @@ run_frame :: proc() {
 run :: proc() {
 	for !state.is_closed {
 		pool := NS.AutoreleasePool.alloc()->init()
-		event := state.app->nextEventMatchingMask(NS.EventMaskAny, NS.Date.distantFuture(), NS.DefaultRunLoopMode, true)
+		event := state.app->nextEventMatchingMask(
+			NS.EventMaskAny,
+			NS.Date.distantFuture(),
+			NS.DefaultRunLoopMode,
+			true,
+		)
 
 		if event != nil {
 			is_taken := take_event(event)
@@ -189,7 +214,12 @@ run :: proc() {
 
 // Draws a frame after this many seconds, such as when the next lyric word starts.
 request_frame_after :: proc(seconds: f64) {
-	fire_date := msg_send(^NS.Date, NS.Date, "dateWithTimeIntervalSinceNow:", NS.TimeInterval(max(0, seconds)))
+	fire_date := msg_send(
+		^NS.Date,
+		NS.Date,
+		"dateWithTimeIntervalSinceNow:",
+		NS.TimeInterval(max(0, seconds)),
+	)
 
 	// An earlier timer stays. The frame it draws asks again for the later one.
 	if state.timer != nil {
@@ -199,9 +229,24 @@ request_frame_after :: proc(seconds: f64) {
 		msg_send(nil, state.timer, "invalidate")
 	}
 
-	state.timer = msg_send(^NS.Timer, NS.Timer, "scheduledTimerWithTimeInterval:target:selector:userInfo:repeats:", NS.TimeInterval(max(0, seconds)), state.target, intrinsics.objc_find_selector("timerFired:"), rawptr(nil), NS.BOOL(false))
+	state.timer = msg_send(
+		^NS.Timer,
+		NS.Timer,
+		"scheduledTimerWithTimeInterval:target:selector:userInfo:repeats:",
+		NS.TimeInterval(max(0, seconds)),
+		state.target,
+		intrinsics.objc_find_selector("timerFired:"),
+		rawptr(nil),
+		NS.BOOL(false),
+	)
 	// The timer also fires while a window is resized or a menu is open.
-	msg_send(nil, NS.RunLoop.mainRunLoop(), "addTimer:forMode:", state.timer, NS.RunLoopCommonModes)
+	msg_send(
+		nil,
+		NS.RunLoop.mainRunLoop(),
+		"addTimer:forMode:",
+		state.timer,
+		NS.RunLoopCommonModes,
+	)
 }
 
 // Wakes the event loop from any thread, so it sees a change made outside an event.
@@ -236,10 +281,23 @@ set_min_size :: proc(min_size_points: [2]f32) {
 	// AppKit's y goes up, so the top is the origin plus the height.
 	top := frame.origin.y + frame.size.height
 	origin := NS.Point{frame.origin.x, top - size.height}
-	origin.x = max(visible.origin.x, min(origin.x, visible.origin.x + visible.size.width - size.width))
-	origin.y = max(visible.origin.y, min(origin.y, visible.origin.y + visible.size.height - size.height))
+	origin.x = max(
+		visible.origin.x,
+		min(origin.x, visible.origin.x + visible.size.width - size.width),
+	)
+	origin.y = max(
+		visible.origin.y,
+		min(origin.y, visible.origin.y + visible.size.height - size.height),
+	)
 
-	msg_send(nil, state.ns_window, "setFrame:display:animate:", NS.Rect{origin, size}, NS.BOOL(true), NS.BOOL(!state.is_background))
+	msg_send(
+		nil,
+		state.ns_window,
+		"setFrame:display:animate:",
+		NS.Rect{origin, size},
+		NS.BOOL(true),
+		NS.BOOL(!state.is_background),
+	)
 }
 
 @(private)

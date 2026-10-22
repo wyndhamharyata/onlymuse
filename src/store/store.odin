@@ -54,11 +54,15 @@ SCHEMA :: `
 	);
 `
 
+
 // OM_DATA names the folder, for the tests.
 folder :: proc() -> string {
 	if folder := os.get_env("OM_DATA", context.temp_allocator); folder != "" do return folder
 
-	return fmt.tprintf("%s/Library/Application Support/onlymuse-native", os.get_env("HOME", context.temp_allocator))
+	return fmt.tprintf(
+		"%s/Library/Application Support/onlymuse-native",
+		os.get_env("HOME", context.temp_allocator),
+	)
 }
 
 start :: proc() {
@@ -66,7 +70,13 @@ start :: proc() {
 	path := fmt.tprintf("%s/onlymuse.sqlite", folder())
 
 	flags := i32(mac.SQLITE_OPEN_READWRITE | mac.SQLITE_OPEN_CREATE | mac.SQLITE_OPEN_FULLMUTEX)
-	if mac.sqlite3_open_v2(strings.clone_to_cstring(path, context.temp_allocator), &state.db, flags, nil) != mac.SQLITE_OK {
+	if mac.sqlite3_open_v2(
+		   strings.clone_to_cstring(path, context.temp_allocator),
+		   &state.db,
+		   flags,
+		   nil,
+	   ) !=
+	   mac.SQLITE_OK {
 		console.add("Store", "Cannot open %s", path)
 		return
 	}
@@ -111,8 +121,15 @@ step_write :: proc(statement: mac.Sqlite_Statement) {
 }
 
 @(private)
-column_text :: proc(statement: mac.Sqlite_Statement, column: i32, allocator := context.allocator) -> string {
-	bytes := mac.sqlite3_column_text(statement, column)[:mac.sqlite3_column_bytes(statement, column)]
+column_text :: proc(
+	statement: mac.Sqlite_Statement,
+	column: i32,
+	allocator := context.allocator,
+) -> string {
+	bytes := mac.sqlite3_column_text(statement, column)[:mac.sqlite3_column_bytes(
+		statement,
+		column,
+	)]
 
 	return strings.clone(string(bytes), allocator)
 }
@@ -129,8 +146,10 @@ find_answer :: proc(path: string, allocator := context.allocator) -> (Saved_Answ
 }
 
 save_answer :: proc(path, body: string) {
-	statement, ok := prepare(`insert into responses (path, body, etag, fetched_at, used_at) values (?1, ?2, null, ?3, ?3)
-		on conflict (path) do update set body = ?2, fetched_at = ?3, used_at = ?3`)
+	statement, ok := prepare(
+		`insert into responses (path, body, etag, fetched_at, used_at) values (?1, ?2, null, ?3, ?3)
+		on conflict (path) do update set body = ?2, fetched_at = ?3, used_at = ?3`,
+	)
 	if !ok do return
 	defer mac.sqlite3_finalize(statement)
 
@@ -154,7 +173,9 @@ find_state :: proc(key: string, allocator := context.allocator) -> (string, bool
 
 save_state :: proc(key, value: string) {
 	sync.guard(&state.mutex)
-	statement, ok := prepare("insert into state (key, value, saved_at) values (?1, ?2, ?3) on conflict (key) do update set value = ?2, saved_at = ?3")
+	statement, ok := prepare(
+		"insert into state (key, value, saved_at) values (?1, ?2, ?3) on conflict (key) do update set value = ?2, saved_at = ?3",
+	)
 	if !ok do return
 	defer mac.sqlite3_finalize(statement)
 
@@ -210,7 +231,9 @@ delete_matches :: proc() {
 }
 
 save_match :: proc(youtube_id, song_json: string) {
-	statement, ok := prepare("insert into matches (youtube_id, song, checked_at) values (?1, ?2, ?3) on conflict (youtube_id) do update set song = ?2, checked_at = ?3")
+	statement, ok := prepare(
+		"insert into matches (youtube_id, song, checked_at) values (?1, ?2, ?3) on conflict (youtube_id) do update set song = ?2, checked_at = ?3",
+	)
 	if !ok do return
 	defer mac.sqlite3_finalize(statement)
 
@@ -232,7 +255,9 @@ Play :: struct {
 }
 
 save_play :: proc(play: Play) {
-	statement, ok := prepare("insert into plays (catalog_id, name, artist, album, is_skip, played_at) values (?1, ?2, ?3, ?4, ?5, ?6)")
+	statement, ok := prepare(
+		"insert into plays (catalog_id, name, artist, album, is_skip, played_at) values (?1, ?2, ?3, ?4, ?5, ?6)",
+	)
 	if !ok do return
 	defer mac.sqlite3_finalize(statement)
 
@@ -247,21 +272,26 @@ save_play :: proc(play: Play) {
 
 // Every play since since_ms, oldest first.
 list_plays :: proc(since_ms: i64, allocator := context.allocator) -> []Play {
-	statement, ok := prepare("select catalog_id, name, artist, album, is_skip, played_at from plays where played_at >= ?1 order by played_at")
+	statement, ok := prepare(
+		"select catalog_id, name, artist, album, is_skip, played_at from plays where played_at >= ?1 order by played_at",
+	)
 	if !ok do return nil
 	defer mac.sqlite3_finalize(statement)
 	mac.sqlite3_bind_int64(statement, 1, since_ms)
 
 	plays := make([dynamic]Play, allocator)
 	for mac.sqlite3_step(statement) == mac.SQLITE_ROW {
-		append(&plays, Play {
-			catalog_id = column_text(statement, 0, allocator),
-			name       = column_text(statement, 1, allocator),
-			artist     = column_text(statement, 2, allocator),
-			album      = column_text(statement, 3, allocator),
-			is_skip    = mac.sqlite3_column_int64(statement, 4) != 0,
-			played_at  = mac.sqlite3_column_int64(statement, 5),
-		})
+		append(
+			&plays,
+			Play {
+				catalog_id = column_text(statement, 0, allocator),
+				name = column_text(statement, 1, allocator),
+				artist = column_text(statement, 2, allocator),
+				album = column_text(statement, 3, allocator),
+				is_skip = mac.sqlite3_column_int64(statement, 4) != 0,
+				played_at = mac.sqlite3_column_int64(statement, 5),
+			},
+		)
 	}
 
 	return plays[:]

@@ -15,18 +15,31 @@ CONSOLE_SOURCE_POINTS :: 62
 // Every error and refused request since onlymuse started, newest first.
 build_console_page :: proc() {
 	entries := console.list()
-	count_text := fmt.tprintf("%d %s since onlymuse started", len(entries), "error" if len(entries) == 1 else "errors")
+	count_text := fmt.tprintf(
+		"%d %s since onlymuse started",
+		len(entries),
+		"error" if len(entries) == 1 else "errors",
+	)
 	page := kit.page_scroll("console")
 
 	if ui.scope(page) {
-		header := ui.box("header", {width = ui.fill(), height = ui.fit_children(), axis = .X, align = .End, gap = 10})
+		header := ui.box(
+			"header",
+			{width = ui.fill(), height = ui.fit_children(), axis = .X, align = .End, gap = 10},
+		)
 
 		if ui.scope(header) {
-			heading := ui.box("heading", {width = ui.fill(), height = ui.fit_children(), axis = .Y})
+			heading := ui.box(
+				"heading",
+				{width = ui.fill(), height = ui.fit_children(), axis = .Y},
+			)
 
 			if ui.scope(heading) {
 				kit.page_heading("Console")
-				kit.text_box(count_text if len(entries) > 0 else "No errors since onlymuse started.", kit.colors.dim)
+				kit.text_box(
+					count_text if len(entries) > 0 else "No errors since onlymuse started.",
+					kit.colors.dim,
+				)
 			}
 
 			if len(entries) > 0 && kit.action_button("Copy All", "doc.on.doc", false) {
@@ -51,12 +64,52 @@ build_console_page :: proc() {
 @(private = "file")
 build_console_row :: proc(index: int, entry: console.Entry) {
 	source_color := kit.colors.youtube if entry.source == "YouTube" else kit.colors.dim
-	row := ui.box(fmt.tprintf("entry %d", index), {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 12, padding = {8, 6, 8, 6}, corner_radius = 6, background = kit.colors.field if index % 2 == 0 else {}})
+	row := ui.box(
+		fmt.tprintf("entry %d", index),
+		{
+			width = ui.fill(),
+			height = ui.fit_children(),
+			axis = .X,
+			gap = 12,
+			padding = {8, 6, 8, 6},
+			corner_radius = 6,
+			background = kit.colors.field if index % 2 == 0 else {},
+		},
+	)
 
 	if ui.scope(row) {
-		ui.box("", {width = ui.points(CONSOLE_TIME_POINTS), height = ui.fit_text(), text_color = kit.colors.faint, font_size = 12}, to_console_time(entry.at))
-		ui.box("", {width = ui.points(CONSOLE_SOURCE_POINTS), height = ui.fit_text(), text_color = source_color, font_size = 12, font_weight = .Semibold}, entry.source)
-		ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = kit.colors.text, font_size = 12.5, flags = {.Wrap_Text}}, entry.text)
+		ui.box(
+			"",
+			{
+				width = ui.points(CONSOLE_TIME_POINTS),
+				height = ui.fit_text(),
+				text_color = kit.colors.faint,
+				font_size = 12,
+			},
+			to_console_time(entry.at),
+		)
+		ui.box(
+			"",
+			{
+				width = ui.points(CONSOLE_SOURCE_POINTS),
+				height = ui.fit_text(),
+				text_color = source_color,
+				font_size = 12,
+				font_weight = .Semibold,
+			},
+			entry.source,
+		)
+		ui.box(
+			"",
+			{
+				width = ui.fill(),
+				height = ui.fit_text(),
+				text_color = kit.colors.text,
+				font_size = 12.5,
+				flags = {.Wrap_Text},
+			},
+			entry.text,
+		)
 	}
 }
 

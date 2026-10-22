@@ -2,15 +2,15 @@
 package youtube
 
 import "core:crypto/legacy/sha1"
-import "core:encoding/json"
 import "core:encoding/hex"
+import "core:encoding/json"
 import "core:fmt"
 import "core:mem"
 import "core:strings"
 import "core:sync"
 import "core:time"
-import "om:console"
 import "om:apple"
+import "om:console"
 import "om:net"
 
 BASE_URL :: "https://music.youtube.com/youtubei/v1/"
@@ -26,10 +26,10 @@ COOKIE_WAIT :: 8 * time.Second
 
 @(private)
 state: struct {
-	mutex:     sync.Mutex,
-	cookie:    string,
+	mutex:      sync.Mutex,
+	cookie:     string,
 	has_cookie: bool,
-	started:   time.Tick,
+	started:    time.Tick,
 }
 
 start :: proc() {
@@ -73,7 +73,10 @@ browse_path :: proc(browse_id: string) -> string {
 }
 
 search_path :: proc(query, filter: string) -> string {
-	return to_path("search", fmt.tprintf("{{%s,%s}}", to_json_field("query", query), to_json_field("params", filter)))
+	return to_path(
+		"search",
+		fmt.tprintf("{{%s,%s}}", to_json_field("query", query), to_json_field("params", filter)),
+	)
 }
 
 // The next part of a long list, which a List names by its continuation.
@@ -92,7 +95,10 @@ list_path :: proc(id: string) -> string {
 	browse_prefixes := []string{"VL", "MPREb_", "FE", "UC"}
 	for prefix in browse_prefixes do if strings.has_prefix(id, prefix) do return browse_path(id)
 
-	return to_path("next", fmt.tprintf("{{%s,\"isAudioOnly\":true}}", to_json_field("playlistId", id)))
+	return to_path(
+		"next",
+		fmt.tprintf("{{%s,\"isAudioOnly\":true}}", to_json_field("playlistId", id)),
+	)
 }
 
 // Likes the video on the signed-in account, or takes the like back. Blocks. 200 when YouTube took it, 0 signed out.
@@ -142,9 +148,14 @@ send_request :: proc(path: string, allocator: mem.Allocator) -> apple.Answer {
 	}
 
 	region := strings.to_upper(apple.STOREFRONT, context.temp_allocator)
-	client := fmt.tprintf(`{{"context":{{"client":{{"clientName":"WEB_REMIX","clientVersion":"%s","hl":"en","gl":"%s"}}}}`, CLIENT_VERSION, region)
+	client := fmt.tprintf(
+		`{{"context":{{"client":{{"clientName":"WEB_REMIX","clientVersion":"%s","hl":"en","gl":"%s"}}}}`,
+		CLIENT_VERSION,
+		region,
+	)
 	// body_json is an object, so its "{" gives way to the context's.
-	body := fmt.tprintf("%s,%s", client, body_json[1:]) if len(body_json) > 2 else fmt.tprintf("%s}", client)
+	body :=
+		fmt.tprintf("%s,%s", client, body_json[1:]) if len(body_json) > 2 else fmt.tprintf("%s}", client)
 	headers := make([dynamic]string, context.temp_allocator)
 	append(&headers, "Content-Type: application/json", "Origin: " + ORIGIN, "X-Origin: " + ORIGIN)
 
@@ -152,13 +163,23 @@ send_request :: proc(path: string, allocator: mem.Allocator) -> apple.Answer {
 	{
 		sync.guard(&state.mutex)
 		if api_id := find_cookie_value(state.cookie, "SAPISID"); api_id != "" {
-			append(&headers, fmt.tprintf("Cookie: %s", state.cookie), fmt.tprintf("Authorization: %s", to_authorization(api_id)), "X-Goog-AuthUser: 0")
+			append(
+				&headers,
+				fmt.tprintf("Cookie: %s", state.cookie),
+				fmt.tprintf("Authorization: %s", to_authorization(api_id)),
+				"X-Goog-AuthUser: 0",
+			)
 		}
 	}
 
 	url := fmt.tprintf("%s%s?prettyPrint=false", BASE_URL, endpoint)
 	if section_token != "" {
-		url = fmt.tprintf("%s&ctoken=%s&continuation=%s&type=next", url, section_token, section_token)
+		url = fmt.tprintf(
+			"%s&ctoken=%s&continuation=%s&type=next",
+			url,
+			section_token,
+			section_token,
+		)
 	}
 	response := net.fetch(url, headers[:], context.temp_allocator, .Post, body)
 	if response.status != 200 {
@@ -178,7 +199,11 @@ to_authorization :: proc(api_id: string) -> string {
 	sha1.update(&context_value, transmute([]u8)fmt.tprintf("%d %s %s", seconds, api_id, ORIGIN))
 	sha1.final(&context_value, digest[:])
 
-	return fmt.tprintf("SAPISIDHASH %d_%s", seconds, string(hex.encode(digest[:], context.temp_allocator)))
+	return fmt.tprintf(
+		"SAPISIDHASH %d_%s",
+		seconds,
+		string(hex.encode(digest[:], context.temp_allocator)),
+	)
 }
 
 @(private)

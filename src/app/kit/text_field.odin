@@ -221,21 +221,30 @@ finish_text_fields :: proc() {
 }
 
 // The field's box, its text or placeholder, and the caret while focused.
-build_text_field :: proc(field: ^Text_Field, id, placeholder, symbol: string, height: f32 = 30, font_size: f32 = TEXT_FIELD_FONT_SIZE, background := [4]f32{}) -> ^ui.Box {
+build_text_field :: proc(
+	field: ^Text_Field,
+	id, placeholder, symbol: string,
+	height: f32 = 30,
+	font_size: f32 = TEXT_FIELD_FONT_SIZE,
+	background := [4]f32{},
+) -> ^ui.Box {
 	is_focused := field.is_focused
-	box := ui.box(id, {
-		width         = ui.fill(),
-		height        = ui.points(height),
-		axis          = .X,
-		align         = .Center,
-		gap           = 7,
-		padding       = {9, 0, 9, 0},
-		corner_radius = 8,
-		background    = background if background.a > 0 else colors.field,
-		border_width  = 1 if is_focused else 0,
-		border_color  = to_accent_tint(core.app.accent) * {1, 1, 1, 3},
-		flags         = {.Clickable},
-	})
+	box := ui.box(
+		id,
+		{
+			width = ui.fill(),
+			height = ui.points(height),
+			axis = .X,
+			align = .Center,
+			gap = 7,
+			padding = {9, 0, 9, 0},
+			corner_radius = 8,
+			background = background if background.a > 0 else colors.field,
+			border_width = 1 if is_focused else 0,
+			border_color = to_accent_tint(core.app.accent) * {1, 1, 1, 3},
+			flags = {.Clickable},
+		},
+	)
 	field.is_hovered = ui.signal(box).is_hovered
 
 	if ui.scope(box) {
@@ -245,7 +254,17 @@ build_text_field :: proc(field: ^Text_Field, id, placeholder, symbol: string, he
 		cursor := field.cursor
 		shown := fmt.tprintf("%s%s%s", text[:cursor], field.marked, text[cursor:])
 		is_empty := shown == ""
-		line := ui.box("line", {width = ui.fill(), height = ui.fit_text(), text_color = colors.faint if is_empty else colors.text, font_size = font_size, flags = {.Clip}}, placeholder if is_empty else shown)
+		line := ui.box(
+			"line",
+			{
+				width = ui.fill(),
+				height = ui.fit_text(),
+				text_color = colors.faint if is_empty else colors.text,
+				font_size = font_size,
+				flags = {.Clip},
+			},
+			placeholder if is_empty else shown,
+		)
 
 		if field.is_all_selected && !is_empty {
 			line.style.background = to_accent_tint(core.app.accent)
@@ -273,12 +292,32 @@ build_caret :: proc(line: ^ui.Box, before, marked: string, font_size: f32) {
 	height := line.rect.w - line.rect.y
 
 	if marked != "" {
-		ui.box("", {width = ui.points(marked_width), height = ui.points(1), background = colors.text, position = {before_width, height - 1}, flags = {.Floating}})
+		ui.box(
+			"",
+			{
+				width = ui.points(marked_width),
+				height = ui.points(1),
+				background = colors.text,
+				position = {before_width, height - 1},
+				flags = {.Floating},
+			},
+		)
 	}
 
 	caret_x := before_width + marked_width
-	ui.box("", {width = ui.points(1.5), height = ui.points(height), background = core.app.accent, position = {caret_x, 0}, flags = {.Floating}})
+	ui.box(
+		"",
+		{
+			width = ui.points(1.5),
+			height = ui.points(height),
+			background = core.app.accent,
+			position = {caret_x, 0},
+			flags = {.Floating},
+		},
+	)
 
 	// The input method's candidates open under the caret. The rect is in window points.
-	caret_rect = [4]f32{line.rect.x + before_width, line.rect.y, line.rect.x + caret_x + 2, line.rect.w} * core.app.zoom
+	caret_rect =
+		[4]f32{line.rect.x + before_width, line.rect.y, line.rect.x + caret_x + 2, line.rect.w} *
+		core.app.zoom
 }

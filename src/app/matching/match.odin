@@ -28,20 +28,20 @@ MATCH_RULE_VERSION :: "3"
 
 @(private)
 matcher: struct {
-	mutex:      sync.Mutex,
+	mutex:           sync.Mutex,
 	// By video ID.
-	found:      map[string]core.Catalog_Song,
-	missing:    map[string]bool,
-	checking:   map[string]bool,
+	found:           map[string]core.Catalog_Song,
+	missing:         map[string]bool,
+	checking:        map[string]bool,
 	// A song whose search got no answer, and when it may be checked again.
-	failed:     map[string]time.Tick,
+	failed:          map[string]time.Tick,
 	// No search starts before this, after Apple refused one.
-	resume_at:  time.Tick,
-	refusal_count: int,
+	resume_at:       time.Tick,
+	refusal_count:   int,
 	// Songs waiting for the matching thread.
-	pending:    [dynamic]^Match_Job,
-	pool:       thread.Pool,
-	is_started: bool,
+	pending:         [dynamic]^Match_Job,
+	pool:            thread.Pool,
+	is_started:      bool,
 	is_rule_checked: bool,
 }
 
@@ -129,7 +129,10 @@ find_library_match :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, bool,
 
 			for key in list_title_keys(library_song.name) {
 				if key not_in library_index.by_title {
-					library_index.by_title[strings.clone(key, allocator)] = make([dynamic]core.Catalog_Song, allocator)
+					library_index.by_title[strings.clone(key, allocator)] = make(
+						[dynamic]core.Catalog_Song,
+						allocator,
+					)
 				}
 				append(&library_index.by_title[key], copied)
 			}
@@ -146,7 +149,13 @@ find_library_match :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, bool,
 }
 
 @(private = "file")
-find_match_locked :: proc(song: core.Catalog_Song, video_id: string) -> (core.Catalog_Song, Match_State) {
+find_match_locked :: proc(
+	song: core.Catalog_Song,
+	video_id: string,
+) -> (
+	core.Catalog_Song,
+	Match_State,
+) {
 	if found, ok := matcher.found[video_id]; ok do return found, .Found
 
 	return song, .Missing

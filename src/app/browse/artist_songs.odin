@@ -18,8 +18,18 @@ RECENT_SONGS_SHOWN :: 10
 // The songs of the artist's ten newest releases, newest first by each song's own date, which is not
 // always its album's. A song on a single and on a later album appears once, from the newer release.
 // dates[i] is songs[i]'s, as Apple writes it, such as "2026-09-02".
-list_recent_songs :: proc(artist_id: string) -> (songs: []core.Catalog_Song, dates: []string, phase: apple.Phase) {
-	releases_path := fmt.tprintf("/v1/catalog/%s/artists/%s?views=singles,full-albums", apple.STOREFRONT, artist_id)
+list_recent_songs :: proc(
+	artist_id: string,
+) -> (
+	songs: []core.Catalog_Song,
+	dates: []string,
+	phase: apple.Phase,
+) {
+	releases_path := fmt.tprintf(
+		"/v1/catalog/%s/artists/%s?views=singles,full-albums",
+		apple.STOREFRONT,
+		artist_id,
+	)
 	releases := apple.watch(releases_path)
 	release_data, is_stale := core.find_page_data(releases_path, releases.version, releases.phase)
 	if is_stale && releases.phase == .Ready do read_newest_release_ids(release_data, releases.body)
@@ -28,7 +38,11 @@ list_recent_songs :: proc(artist_id: string) -> (songs: []core.Catalog_Song, dat
 	// link_id holds the newest releases' IDs, joined by commas.
 	if release_data.link_id == "" do return nil, nil, .Ready
 
-	albums_path := fmt.tprintf("/v1/catalog/%s/albums?ids=%s&include=tracks", apple.STOREFRONT, release_data.link_id)
+	albums_path := fmt.tprintf(
+		"/v1/catalog/%s/albums?ids=%s&include=tracks",
+		apple.STOREFRONT,
+		release_data.link_id,
+	)
 	albums := apple.watch(albums_path)
 	data, is_songs_stale := core.find_page_data(albums_path, albums.version, albums.phase)
 	if is_songs_stale && albums.phase == .Ready {
@@ -46,7 +60,13 @@ read_newest_release_ids :: proc(data: ^core.Page_Data, body: string) {
 	releases := make([dynamic]apple.Resource, context.temp_allocator)
 	append(&releases, ..apple.list_view(resources[0], "singles"))
 	append(&releases, ..apple.list_view(resources[0], "full-albums"))
-	slice.sort_by(releases[:], proc(a, b: apple.Resource) -> bool {return a.attributes.release_date > b.attributes.release_date})
+	slice.sort_by(
+		releases[:],
+		proc(a, b: apple.Resource) -> bool {return(
+				a.attributes.release_date >
+				b.attributes.release_date \
+			)},
+	)
 
 	ids := make([dynamic]string, context.temp_allocator)
 	for release in releases[:min(len(releases), RECENT_RELEASE_COUNT)] do append(&ids, release.id)
@@ -95,14 +115,37 @@ build_recent_songs_shelf :: proc(artist_id, artist_name: string) {
 	songs, dates, phase := list_recent_songs(artist_id)
 	if phase != .Ready || len(songs) == 0 do return
 
-	shelf := ui.box("recent songs", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 10})
+	shelf := ui.box(
+		"recent songs",
+		{width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 10},
+	)
 
 	if ui.scope(shelf) {
-		title := ui.box("title", {width = ui.fit_children(), height = ui.fit_children(), axis = .X, align = .Center, gap = 4, flags = {.Clickable}})
+		title := ui.box(
+			"title",
+			{
+				width = ui.fit_children(),
+				height = ui.fit_children(),
+				axis = .X,
+				align = .Center,
+				gap = 4,
+				flags = {.Clickable},
+			},
+		)
 		dim := 1 - 0.3 * title.hot_t
 
 		if ui.scope(title) {
-			ui.box("", {width = ui.fit_text(), height = ui.fit_text(), text_color = kit.colors.text * {1, 1, 1, dim}, font_size = 17, font_weight = .Bold}, "Recent Songs")
+			ui.box(
+				"",
+				{
+					width = ui.fit_text(),
+					height = ui.fit_text(),
+					text_color = kit.colors.text * {1, 1, 1, dim},
+					font_size = 17,
+					font_weight = .Bold,
+				},
+				"Recent Songs",
+			)
 			kit.icon_box("", "chevron.right", 13, kit.colors.faint * {1, 1, 1, dim})
 		}
 

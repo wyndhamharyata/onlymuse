@@ -105,7 +105,8 @@ start :: proc(is_background: bool) {
 		executable_folder, _ := os.get_executable_directory(context.temp_allocator)
 		// onlymuse.app holds the helper in Contents/Helpers. build/onlymuse runs the one SwiftPM built.
 		bundled := fmt.tprintf("%s/../Helpers/onlymuse-helper", executable_folder)
-		path = bundled if os.exists(bundled) else fmt.tprintf("%s/../helper/.build/release/onlymuse-helper", executable_folder)
+		path =
+			bundled if os.exists(bundled) else fmt.tprintf("%s/../helper/.build/release/onlymuse-helper", executable_folder)
 	}
 
 	// A write to a helper that has ended then fails, instead of ending onlymuse.
@@ -118,7 +119,15 @@ start :: proc(is_background: bool) {
 	append(&env, ..environment)
 	if is_background do append(&env, "GPUIX_BACKGROUND=1")
 
-	process, error := os.process_start({command = {path}, env = env[:], stdin = child_stdin, stdout = child_stdout, stderr = os.stderr})
+	process, error := os.process_start(
+		{
+			command = {path},
+			env = env[:],
+			stdin = child_stdin,
+			stdout = child_stdout,
+			stderr = os.stderr,
+		},
+	)
 	os.close(child_stdin)
 	os.close(child_stdout)
 
@@ -188,90 +197,6 @@ take_messages :: proc() -> []Message {
 	return messages[:]
 }
 
-// What the helper needs to find a catalog song in Music.app's library.
-Song_Match :: struct {
-	name:             string,
-	artist_name:      string `json:"artistName"`,
-	album_name:       string `json:"albumName"`,
-	duration_seconds: f64 `json:"durationSeconds"`,
-	// Set for a song that plays from YouTube, in the helper's YouTube page.
-	youtube_id:       string `json:"youtubeId"`,
-}
-
-@(private)
-last_request_id: int
-
-// Asks the helper to play the song. Its answer, playSongResult, carries the returned ID and the song's
-// persistent ID, empty when the song is not in Music.app's library.
-request_play :: proc(song: Song_Match) -> int {
-	last_request_id += 1
-	Command :: struct {
-		type:       string,
-		request_id: int `json:"requestId"`,
-		song:       Song_Match,
-	}
-	send_value(Command{"playSong", last_request_id, song})
-
-	return last_request_id
-}
-
-// The helper starts song just before after_persistent_id ends, so Music.app's Autoplay never plays.
-// An empty after_persistent_id clears it. Its answer is setNextResult. keeps_youtube keeps the helper's YouTube
-// page open, as a YouTube song plays later.
-request_set_next :: proc(after_persistent_id: string, song: Maybe(Song_Match), keeps_youtube: bool) -> int {
-	last_request_id += 1
-	after := after_persistent_id if after_persistent_id != "" else "null"
-	song_json := "null"
-	if match, ok := song.?; ok {
-		bytes, _ := json.marshal(match, allocator = context.temp_allocator)
-		song_json = string(bytes)
-	}
-	after_json := fmt.tprintf("\"%s\"", after_persistent_id) if after_persistent_id != "" else after
-	send(fmt.tprintf(`{{"type":"setNext","requestId":%d,"afterPersistentID":%s,"song":%s,"keepsYouTube":%v}}`, last_request_id, after_json, song_json, keeps_youtube))
-
-	return last_request_id
-}
-
-// What Music.app knows of a song: plays, dates, favourite and file. Its answer is trackInfo.
-request_track_info :: proc(persistent_id: string) {
-	Command :: struct {
-		type:          string,
-		persistent_id: string `json:"persistentID"`,
-	}
-	send_value(Command{"trackInfo", persistent_id})
-}
-
-// By persistent ID when the song is the playing one or known, else by a match in the library.
-// Its answer is setFavoriteResult, with a null persistent ID when Music.app found no such song.
-request_set_favorite :: proc(persistent_id: string, song: Song_Match, favorited: bool) -> int {
-	last_request_id += 1
-	Command :: struct {
-		type:          string,
-		request_id:    int `json:"requestId"`,
-		persistent_id: string `json:"persistentID"`,
-		song:          Song_Match,
-		favorited:     bool,
-	}
-	send_value(Command{"setFavorite", last_request_id, persistent_id, song, favorited})
-
-	return last_request_id
-}
-
-send_value :: proc(value: $T) {
-	bytes, error := json.marshal(value, allocator = context.temp_allocator)
-	if error == nil do send(string(bytes))
-}
-
-// Each command the helper reads, as Command in helper/Sources/onlymuse-helper/Link.swift names it.
-send :: proc(command: string) {
-	if !state.is_started do return
-
-	// Workers send too, and one line must never break into another.
-	sync.guard(&state.write_mutex)
-	line := fmt.tprintf("%s\n", command)
-	os.write(state.to_helper, transmute([]u8)line)
-}
-
 // Takes in one message from the helper.
 apply :: proc(now_playing: ^Now_Playing, message: Message) {
 	switch message.type {
@@ -292,12 +217,16 @@ apply :: proc(now_playing: ^Now_Playing, message: Message) {
 		delete_song(now_playing.song)
 		now_playing.song = clone_song(message.song)
 		now_playing.position_seconds = message.position_seconds
-		now_playing.position_read_at_ms = min(message.position_read_at_ms, now_ms()) if message.position_read_at_ms > 0 else now_ms()
+		now_playing.position_read_at_ms =
+			min(message.position_read_at_ms, now_ms()) if message.position_read_at_ms > 0 else now_ms()
 		now_playing.stall_count = 0
-		now_playing.has_started = message.has_started || message.position_seconds >= MIN_PROGRESS_SECONDS
+		now_playing.has_started =
+			message.has_started || message.position_seconds >= MIN_PROGRESS_SECONDS
 		now_playing.is_loading = message.is_loading
 	case "position":
-		is_same_song := now_playing.playback == .Playing && now_playing.song.persistent_id == message.persistent_id
+		is_same_song :=
+			now_playing.playback == .Playing &&
+			now_playing.song.persistent_id == message.persistent_id
 		if !is_same_song do return
 
 		has_moved := message.position_seconds > now_playing.position_seconds + MIN_PROGRESS_SECONDS
@@ -320,11 +249,11 @@ delete_song :: proc(song: Song) {
 @(private)
 clone_song :: proc(song: Song) -> Song {
 	return Song {
-		name             = strings.clone(song.name),
-		artist           = strings.clone(song.artist),
-		album            = strings.clone(song.album),
-		persistent_id    = strings.clone(song.persistent_id),
-		artwork_path     = strings.clone(song.artwork_path),
+		name = strings.clone(song.name),
+		artist = strings.clone(song.artist),
+		album = strings.clone(song.album),
+		persistent_id = strings.clone(song.persistent_id),
+		artwork_path = strings.clone(song.artwork_path),
 		duration_seconds = song.duration_seconds,
 	}
 }
@@ -343,7 +272,10 @@ position_seconds :: proc(now_playing: Now_Playing) -> f64 {
 			return now_playing.position_seconds
 		}
 		elapsed_seconds := max(0, now_ms() - now_playing.position_read_at_ms) / 1000
-		return min(now_playing.position_seconds + elapsed_seconds, now_playing.song.duration_seconds)
+		return min(
+			now_playing.position_seconds + elapsed_seconds,
+			now_playing.song.duration_seconds,
+		)
 	}
 
 	return 0

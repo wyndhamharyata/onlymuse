@@ -23,14 +23,14 @@ ESCAPE_KEY_CODE :: 53
 
 @(private = "file")
 song_menu: struct {
-	is_open:          bool,
-	song:             core.Catalog_Song,
-	position:         [2]f32,
+	is_open:           bool,
+	song:              core.Catalog_Song,
+	position:          [2]f32,
 	// Opened from Add to Playlist, it shows the playlists alone.
 	is_playlists_only: bool,
 	is_playlists_open: bool,
-	is_naming:        bool,
-	opened_frame:     int,
+	is_naming:         bool,
+	opened_frame:      int,
 }
 
 @(private = "file")
@@ -69,8 +69,18 @@ build_song_menu :: proc() {
 
 	root := ui.current_parent()
 	window_size := [2]f32{root.style.width.value, root.style.height.value}
-	cover := ui.box("menu cover", {width = ui.fill(), height = ui.fill(), position = {0, 0}, flags = {.Floating, .Clickable}})
-	is_closing := (ui.signal(cover).is_clicked || ui.signal(cover).is_right_clicked) && core.app.frame_count > song_menu.opened_frame + 1
+	cover := ui.box(
+		"menu cover",
+		{
+			width = ui.fill(),
+			height = ui.fill(),
+			position = {0, 0},
+			flags = {.Floating, .Clickable},
+		},
+	)
+	is_closing :=
+		(ui.signal(cover).is_clicked || ui.signal(cover).is_right_clicked) &&
+		core.app.frame_count > song_menu.opened_frame + 1
 
 	// Escape closes it, unless the playlist name field takes it.
 	for event in platform.list_events() {
@@ -101,11 +111,19 @@ build_song_menu :: proc() {
 				}
 
 				if song.id != "" {
-					item := kit.menu_item_signal("add to playlist", "Add to Playlist", "›", song_menu.is_playlists_open)
+					item := kit.menu_item_signal(
+						"add to playlist",
+						"Add to Playlist",
+						"›",
+						song_menu.is_playlists_open,
+					)
 					if item.is_clicked || item.is_hovered do song_menu.is_playlists_open = true
 				}
 
-				if page.kind == .Playlist && is_from_youtube && youtube_lists.is_playlist_youtube_song(page.id, song.id) && kit.menu_item("remove from playlist", "Remove from Playlist") {
+				if page.kind == .Playlist &&
+				   is_from_youtube &&
+				   youtube_lists.is_playlist_youtube_song(page.id, song.id) &&
+				   kit.menu_item("remove from playlist", "Remove from Playlist") {
 					youtube_lists.remove_playlist_youtube_song(page.id, song.id)
 					kit.show_toast(fmt.tprintf("Removed %s from %s", song.name, page.title))
 					is_closing = true
@@ -116,7 +134,9 @@ build_song_menu :: proc() {
 					kit.show_toast(fmt.tprintf("%s plays from YouTube from now on", song.name))
 					is_closing = true
 				}
-				if is_from_youtube && matching.is_match_rejected(song) && kit.menu_item("try apple music", "Try Apple Music Again") {
+				if is_from_youtube &&
+				   matching.is_match_rejected(song) &&
+				   kit.menu_item("try apple music", "Try Apple Music Again") {
 					matching.allow_match(song)
 					kit.show_toast(fmt.tprintf("Looking for %s on Apple Music again", song.name))
 					is_closing = true
@@ -124,8 +144,15 @@ build_song_menu :: proc() {
 
 				kit.menu_separator()
 				is_on := playback.is_favourite(song)
-				if kit.menu_item("favourite", "Remove from Favourites" if is_on else "Favourite", "⌘L" if is_playing_song(song) else "") {
-					playback.toggle_favourite(song, core.app.now_playing.song.persistent_id if is_playing_song(song) else "")
+				if kit.menu_item(
+					"favourite",
+					"Remove from Favourites" if is_on else "Favourite",
+					"⌘L" if is_playing_song(song) else "",
+				) {
+					playback.toggle_favourite(
+						song,
+						core.app.now_playing.song.persistent_id if is_playing_song(song) else "",
+					)
 					is_closing = true
 				}
 
@@ -135,15 +162,22 @@ build_song_menu :: proc() {
 					is_closing = true
 				}
 				if song.id != "" && kit.menu_item("copy link", "Copy Link") {
-					apple_link := fmt.tprintf("https://music.apple.com/%s/song/%s", apple.STOREFRONT, song.id)
-					platform.write_clipboard(fmt.tprintf("https://music.youtube.com/watch?v=%s", youtube.to_video_id(song.id)) if is_from_youtube else apple_link)
+					apple_link := fmt.tprintf(
+						"https://music.apple.com/%s/song/%s",
+						apple.STOREFRONT,
+						song.id,
+					)
+					platform.write_clipboard(
+						fmt.tprintf("https://music.youtube.com/watch?v=%s", youtube.to_video_id(song.id)) if is_from_youtube else apple_link,
+					)
 					kit.show_toast("Copied the link to the song")
 					is_closing = true
 				}
 			}
 		}
 
-		if song_menu.is_playlists_open && build_playlist_menu(song, position + {main_width, 0}, window_size) {
+		if song_menu.is_playlists_open &&
+		   build_playlist_menu(song, position + {main_width, 0}, window_size) {
 			is_closing = true
 		}
 	}
@@ -153,7 +187,11 @@ build_song_menu :: proc() {
 
 // Returns true when a playlist was picked or made.
 @(private = "file")
-build_playlist_menu :: proc(song: core.Catalog_Song, position: [2]f32, window_size: [2]f32) -> bool {
+build_playlist_menu :: proc(
+	song: core.Catalog_Song,
+	position: [2]f32,
+	window_size: [2]f32,
+) -> bool {
 	menu := kit.menu_box("playlist menu", position, PLAYLIST_MENU_POINTS, window_size)
 	is_done := false
 
@@ -168,7 +206,17 @@ build_playlist_menu :: proc(song: core.Catalog_Song, position: [2]f32, window_si
 			}
 
 			kit.build_text_field(&playlist_name_field, "playlist name", "Playlist name", "", 28)
-			ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = kit.colors.faint, font_size = 11, padding = {4, 4, 4, 2}}, "Return makes it, Escape goes back.")
+			ui.box(
+				"",
+				{
+					width = ui.fill(),
+					height = ui.fit_text(),
+					text_color = kit.colors.faint,
+					font_size = 11,
+					padding = {4, 4, 4, 2},
+				},
+				"Return makes it, Escape goes back.",
+			)
 		} else if kit.menu_item("new playlist", "New Playlist…", "", false, core.app.accent) {
 			song_menu.is_naming = true
 			kit.focus_field(&playlist_name_field)
@@ -182,7 +230,16 @@ build_playlist_menu :: proc(song: core.Catalog_Song, position: [2]f32, window_si
 
 		// A long list scrolls inside the menu.
 		list_height := min(f32(editable) * (kit.MENU_ITEM_POINTS + 1), MAX_PLAYLIST_LIST_POINTS)
-		list := ui.box("playlists", {width = ui.fill(), height = ui.points(list_height), axis = .Y, gap = 1, flags = {.Scroll, .Clip}})
+		list := ui.box(
+			"playlists",
+			{
+				width = ui.fill(),
+				height = ui.points(list_height),
+				axis = .Y,
+				gap = 1,
+				flags = {.Scroll, .Clip},
+			},
+		)
 		shown := 0
 
 		if ui.scope(list) {
@@ -198,7 +255,17 @@ build_playlist_menu :: proc(song: core.Catalog_Song, position: [2]f32, window_si
 		}
 
 		if shown == 0 {
-			ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = kit.colors.faint, font_size = 12, padding = {8, 4, 8, 4}}, kit.phase_note(phase) if phase != .Ready else "No playlists of yours yet.")
+			ui.box(
+				"",
+				{
+					width = ui.fill(),
+					height = ui.fit_text(),
+					text_color = kit.colors.faint,
+					font_size = 12,
+					padding = {8, 4, 8, 4},
+				},
+				kit.phase_note(phase) if phase != .Ready else "No playlists of yours yet.",
+			)
 		}
 	}
 

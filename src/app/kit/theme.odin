@@ -7,7 +7,12 @@ import "om:image"
 import "om:platform"
 
 to_color :: proc "contextless" (hex: u32) -> [4]f32 {
-	return {f32((hex >> 24) & 0xff) / 255, f32((hex >> 16) & 0xff) / 255, f32((hex >> 8) & 0xff) / 255, f32(hex & 0xff) / 255}
+	return {
+		f32((hex >> 24) & 0xff) / 255,
+		f32((hex >> 16) & 0xff) / 255,
+		f32((hex >> 8) & 0xff) / 255,
+		f32(hex & 0xff) / 255,
+	}
 }
 
 // "#F7821B", as the helper sends the system accent.
@@ -88,12 +93,18 @@ to_color_from_hsl :: proc(hue, saturation, lightness: f32) -> [4]f32 {
 	rgb: [3]f32
 
 	switch int(sector) {
-	case 0: rgb = {chroma, second, 0}
-	case 1: rgb = {second, chroma, 0}
-	case 2: rgb = {0, chroma, second}
-	case 3: rgb = {0, second, chroma}
-	case 4: rgb = {second, 0, chroma}
-	case: rgb = {chroma, 0, second}
+	case 0:
+		rgb = {chroma, second, 0}
+	case 1:
+		rgb = {second, chroma, 0}
+	case 2:
+		rgb = {0, chroma, second}
+	case 3:
+		rgb = {0, second, chroma}
+	case 4:
+		rgb = {second, 0, chroma}
+	case:
+		rgb = {chroma, 0, second}
 	}
 
 	base := lightness - chroma / 2
@@ -131,7 +142,10 @@ update_accent :: proc(dt_seconds: f32, artwork_source: string) {
 
 	t := 1 - math.exp(-ACCENT_RATE * min(dt_seconds, 0.1))
 	core.app.accent += (target - core.app.accent) * t
-	if abs(target.r - core.app.accent.r) + abs(target.g - core.app.accent.g) + abs(target.b - core.app.accent.b) > 0.003 {
+	if abs(target.r - core.app.accent.r) +
+		   abs(target.g - core.app.accent.g) +
+		   abs(target.b - core.app.accent.b) >
+	   0.003 {
 		platform.request_frame()
 	} else {
 		core.app.accent = target
@@ -154,7 +168,9 @@ to_cover_accent :: proc(rgb: [3]f32) -> [4]f32 {
 // How bright a colour looks, from 0 to 1, as WCAG measures it.
 @(private = "file")
 to_luminance :: proc(rgb: [3]f32) -> f32 {
-	to_linear :: proc(value: f32) -> f32 {return value / 12.92 if value <= 0.04045 else math.pow((value + 0.055) / 1.055, 2.4)}
+	to_linear :: proc(value: f32) -> f32 {return(
+			value / 12.92 if value <= 0.04045 else math.pow((value + 0.055) / 1.055, 2.4) \
+		)}
 
 	return 0.2126 * to_linear(rgb.r) + 0.7152 * to_linear(rgb.g) + 0.0722 * to_linear(rgb.b)
 }

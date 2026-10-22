@@ -60,7 +60,11 @@ navigation_visit: int
 navigate :: proc(chosen: Page) {
 	if len(navigation.pages) > 0 && current_page() == chosen do return
 
-	page := Page{kind = chosen.kind, id = strings.clone(chosen.id), title = strings.clone(chosen.title)}
+	page := Page {
+		kind  = chosen.kind,
+		id    = strings.clone(chosen.id),
+		title = strings.clone(chosen.title),
+	}
 
 	kept := navigation.index + 1 if len(navigation.pages) > 0 else 0
 	resize(&navigation.pages, kept)
@@ -146,7 +150,9 @@ page_ids := [Page_Kind]string {
 
 @(private = "file")
 to_saved_page :: proc(page: Page) -> Saved_Page {
-	saved := Saved_Page{id = page_ids[page.kind]}
+	saved := Saved_Page {
+		id = page_ids[page.kind],
+	}
 
 	#partial switch page.kind {
 	case .Playlist, .YouTube_Playlist, .Bring_Over:
@@ -170,7 +176,9 @@ to_page :: proc(saved: Saved_Page) -> (Page, bool) {
 	for id, kind in page_ids {
 		if id != saved.id do continue
 
-		page := Page{kind = kind}
+		page := Page {
+			kind = kind,
+		}
 		#partial switch kind {
 		case .Playlist, .YouTube_Playlist, .Bring_Over:
 			page.id = saved.playlist.id
@@ -196,7 +204,10 @@ save_navigation :: proc() {
 	pages := make([]Saved_Page, len(navigation.pages), context.temp_allocator)
 	for page, index in navigation.pages do pages[index] = to_saved_page(page)
 
-	bytes, error := json.marshal(Saved_Navigation{pages, navigation.index, navigation.scrolls[:]}, allocator = context.temp_allocator)
+	bytes, error := json.marshal(
+		Saved_Navigation{pages, navigation.index, navigation.scrolls[:]},
+		allocator = context.temp_allocator,
+	)
 	if error == nil do store.save_state("navigation", string(bytes))
 }
 
@@ -210,7 +221,10 @@ start_navigation :: proc() {
 				if !is_page do continue
 
 				append(&navigation.pages, page)
-				append(&navigation.scrolls, saved.scrolls[index] if index < len(saved.scrolls) else 0)
+				append(
+					&navigation.scrolls,
+					saved.scrolls[index] if index < len(saved.scrolls) else 0,
+				)
 			}
 			navigation.index = clamp(saved.index, 0, len(navigation.pages) - 1)
 		}
@@ -234,13 +248,19 @@ keep_scroll :: proc(page_box: ^ui.Box) {
 	saved := navigation.scrolls[index]
 
 	if restore.visit != navigation_visit {
-		restore = {visit = navigation_visit, frames_left = RESTORE_FRAME_COUNT if saved > 0 else 0}
+		restore = {
+			visit       = navigation_visit,
+			frames_left = RESTORE_FRAME_COUNT if saved > 0 else 0,
+		}
 	}
 
 	if restore.frames_left > 0 {
 		max_scroll := max(0, page_box.content_size.y - page_box.size.y)
 		// A scroll of the person's own ends the restore. A clamp to the content does not.
-		is_scrolled_away := page_box.size.y > 0 && page_box.scroll_target != saved && page_box.scroll_target != max_scroll
+		is_scrolled_away :=
+			page_box.size.y > 0 &&
+			page_box.scroll_target != saved &&
+			page_box.scroll_target != max_scroll
 
 		if !is_scrolled_away {
 			restore.frames_left -= 1

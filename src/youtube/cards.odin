@@ -29,25 +29,41 @@ to_list_item :: proc(reader: ^Reader, value: json.Value) -> (apple.Card, bool) {
 	name := to_text(child(columns[0], "musicResponsiveListItemFlexColumnRenderer", "text"))
 	video_id := as_string(child(value, "playlistItemData", "videoId"))
 	if video_id == "" {
-		video_id = as_string(child(value, "overlay", "musicItemThumbnailOverlayRenderer", "content", "musicPlayButtonRenderer", "playNavigationEndpoint", "watchEndpoint", "videoId"))
+		video_id = as_string(
+			child(
+				value,
+				"overlay",
+				"musicItemThumbnailOverlayRenderer",
+				"content",
+				"musicPlayButtonRenderer",
+				"playNavigationEndpoint",
+				"watchEndpoint",
+				"videoId",
+			),
+		)
 	}
 	thumbnail := find_thumbnail_url(child(value, "thumbnail"))
 
 	if video_id == "" {
 		browse := child(value, "navigationEndpoint", "browseEndpoint")
-		subtitle := to_text(child(columns[1], "musicResponsiveListItemFlexColumnRenderer", "text")) if len(columns) > 1 else ""
+		subtitle :=
+			to_text(child(columns[1], "musicResponsiveListItemFlexColumnRenderer", "text")) if len(columns) > 1 else ""
 
 		return to_browse_card(reader, browse, name, subtitle, thumbnail)
 	}
 
 	byline := make([dynamic]json.Value, context.temp_allocator)
 	for column in columns[1:] {
-		for run in as_array(child(column, "musicResponsiveListItemFlexColumnRenderer", "text", "runs")) {
+		for run in as_array(
+			child(column, "musicResponsiveListItemFlexColumnRenderer", "text", "runs"),
+		) {
 			append(&byline, run)
 		}
 	}
 	for column in as_array(child(value, "fixedColumns")) {
-		for run in as_array(child(column, "musicResponsiveListItemFixedColumnRenderer", "text", "runs")) {
+		for run in as_array(
+			child(column, "musicResponsiveListItemFixedColumnRenderer", "text", "runs"),
+		) {
 			append(&byline, run)
 		}
 	}
@@ -65,7 +81,14 @@ to_panel_song :: proc(reader: ^Reader, value: json.Value) -> (apple.Card, bool) 
 	for run in as_array(child(value, "longBylineText", "runs")) do append(&byline, run)
 	for run in as_array(child(value, "lengthText", "runs")) do append(&byline, run)
 
-	return to_song_card(reader, video_id, to_text(child(value, "title")), byline[:], find_thumbnail_url(child(value, "thumbnail"))), true
+	return to_song_card(
+			reader,
+			video_id,
+			to_text(child(value, "title")),
+			byline[:],
+			find_thumbnail_url(child(value, "thumbnail")),
+		),
+		true
 }
 
 // A tile on a shelf. A video plays, the rest open their page.
@@ -76,22 +99,51 @@ to_tile :: proc(reader: ^Reader, value: json.Value) -> (apple.Card, bool) {
 	endpoint := child(value, "navigationEndpoint")
 
 	if video_id := as_string(child(endpoint, "watchEndpoint", "videoId")); video_id != "" {
-		return to_song_card(reader, video_id, name, as_array(child(value, "subtitle", "runs"))[:], thumbnail), true
+		return to_song_card(
+				reader,
+				video_id,
+				name,
+				as_array(child(value, "subtitle", "runs"))[:],
+				thumbnail,
+			),
+			true
 	}
 
 	subtitle := to_text(child(value, "subtitle"))
 
-	if playlist_id := as_string(child(endpoint, "watchPlaylistEndpoint", "playlistId")); playlist_id != "" {
-		return apple.Card{id = clone(reader, playlist_id), kind = .YouTube_Playlist, name = clone(reader, name), subtitle = clone(reader, subtitle), artwork = to_artwork(reader, thumbnail, "")}, true
+	if playlist_id := as_string(child(endpoint, "watchPlaylistEndpoint", "playlistId"));
+	   playlist_id != "" {
+		return apple.Card {
+				id = clone(reader, playlist_id),
+				kind = .YouTube_Playlist,
+				name = clone(reader, name),
+				subtitle = clone(reader, subtitle),
+				artwork = to_artwork(reader, thumbnail, ""),
+			},
+			true
 	}
 
 	return to_browse_card(reader, child(endpoint, "browseEndpoint"), name, subtitle, thumbnail)
 }
 
 @(private)
-to_browse_card :: proc(reader: ^Reader, browse: json.Value, name, subtitle, thumbnail: string) -> (apple.Card, bool) {
+to_browse_card :: proc(
+	reader: ^Reader,
+	browse: json.Value,
+	name, subtitle, thumbnail: string,
+) -> (
+	apple.Card,
+	bool,
+) {
 	browse_id := as_string(child(browse, "browseId"))
-	page_type := as_string(child(browse, "browseEndpointContextSupportedConfigs", "browseEndpointContextMusicConfig", "pageType"))
+	page_type := as_string(
+		child(
+			browse,
+			"browseEndpointContextSupportedConfigs",
+			"browseEndpointContextMusicConfig",
+			"pageType",
+		),
+	)
 	kind: apple.Card_Kind
 
 	switch page_type {
@@ -103,12 +155,24 @@ to_browse_card :: proc(reader: ^Reader, browse: json.Value, name, subtitle, thum
 		return {}, false
 	}
 
-	return apple.Card{id = clone(reader, browse_id), kind = kind, name = clone(reader, name), subtitle = clone(reader, subtitle), artwork = to_artwork(reader, thumbnail, "")}, true
+	return apple.Card {
+			id = clone(reader, browse_id),
+			kind = kind,
+			name = clone(reader, name),
+			subtitle = clone(reader, subtitle),
+			artwork = to_artwork(reader, thumbnail, ""),
+		},
+		true
 }
 
 // The byline names the artists and the album with links to them, and holds the length as "4:23".
 @(private)
-to_song_card :: proc(reader: ^Reader, video_id, name: string, byline: []json.Value, thumbnail: string) -> apple.Card {
+to_song_card :: proc(
+	reader: ^Reader,
+	video_id, name: string,
+	byline: []json.Value,
+	thumbnail: string,
+) -> apple.Card {
 	artists := make([dynamic]string, context.temp_allocator)
 	album := ""
 	duration_seconds: f64
@@ -133,7 +197,12 @@ to_song_card :: proc(reader: ^Reader, video_id, name: string, byline: []json.Val
 	if len(artists) == 0 && first_text != "" do append(&artists, first_text)
 
 	song := apple.Catalog_Song {
-		id               = fmt.aprintf("%s%s", SONG_ID_PREFIX, video_id, allocator = reader.allocator),
+		id               = fmt.aprintf(
+			"%s%s",
+			SONG_ID_PREFIX,
+			video_id,
+			allocator = reader.allocator,
+		),
 		name             = clone(reader, name),
 		artist_name      = strings.join(artists[:], ", ", reader.allocator),
 		album_name       = clone(reader, album),
@@ -141,7 +210,14 @@ to_song_card :: proc(reader: ^Reader, video_id, name: string, byline: []json.Val
 		artwork          = to_artwork(reader, thumbnail, video_id),
 	}
 
-	return {id = song.id, kind = .Song, name = song.name, subtitle = song.artist_name, artwork = song.artwork, song = song}
+	return {
+		id = song.id,
+		kind = .Song,
+		name = song.name,
+		subtitle = song.artist_name,
+		artwork = song.artwork,
+		song = song,
+	}
 }
 
 // The words YouTube puts between a song's details, such as "Song" or "16M plays".

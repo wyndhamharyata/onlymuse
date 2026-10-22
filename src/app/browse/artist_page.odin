@@ -1,25 +1,18 @@
 package browse
 
 import "core:fmt"
-import "core:math"
 import "core:strings"
 import "core:unicode"
 import "om:app/core"
 import "om:app/kit"
 import "om:app/lists"
-import "om:app/playback"
 import "om:app/youtube_lists"
 import "om:apple"
 import "om:ui"
 
 ARTIST_HEADER_POINTS :: 300
 
-// The photo width steps up by this much, so a resize reuses a photo Apple already sent.
-PHOTO_WIDTH_STEP_PIXELS :: 400
-
 ARTIST_ALBUM_POINTS :: 150
-
-LATEST_RELEASE_POINTS :: 210
 
 SIMILAR_ARTIST_POINTS :: 130
 
@@ -51,7 +44,13 @@ save_read_text :: proc(read: ^Read_Text, key: string, version: int, text: string
 
 // Music.app gives a song's artist only as a name. The catalog artist with that exact name is the one.
 find_artist_id :: proc(artist_name: string) -> (string, apple.Phase) {
-	watched := apple.watch(fmt.tprintf("/v1/catalog/%s/search?term=%s&types=artists&limit=12", apple.STOREFRONT, apple.to_query_text(artist_name)))
+	watched := apple.watch(
+		fmt.tprintf(
+			"/v1/catalog/%s/search?term=%s&types=artists&limit=12",
+			apple.STOREFRONT,
+			apple.to_query_text(artist_name),
+		),
+	)
 	if watched.phase != .Ready do return "", watched.phase
 	if id, ok := find_read_text(&artist_id_by_name, artist_name, watched.version); ok {
 		return id, .Ready
@@ -81,7 +80,9 @@ build_artist_page :: proc(page_id: string, name: string) {
 		if found == "" {
 			page := kit.page_scroll("artist")
 			if ui.scope(page) {
-				kit.note(kit.phase_note(phase) if phase != .Ready else fmt.tprintf("Apple Music has no artist named %s.", name))
+				kit.note(
+					kit.phase_note(phase) if phase != .Ready else fmt.tprintf("Apple Music has no artist named %s.", name),
+				)
 			}
 			return
 		}
@@ -98,12 +99,21 @@ build_artist_page :: proc(page_id: string, name: string) {
 		catalog_name, ok = find_read_text(&catalog_artist_name, path, watched.version)
 		if !ok {
 			resources := apple.to_resources(watched.body, context.temp_allocator)
-			catalog_name = save_read_text(&catalog_artist_name, path, watched.version, resources[0].attributes.name if len(resources) > 0 else "")
+			catalog_name = save_read_text(
+				&catalog_artist_name,
+				path,
+				watched.version,
+				resources[0].attributes.name if len(resources) > 0 else "",
+			)
 		}
 	}
 
 	library_albums := watch_library_albums_of(catalog_name)
-	data, is_stale := core.find_page_data(path, watched.version * 31 + library_albums.version, watched.phase)
+	data, is_stale := core.find_page_data(
+		path,
+		watched.version * 31 + library_albums.version,
+		watched.phase,
+	)
 	if is_stale && watched.phase == .Ready do read_artist(data, watched.body, library_albums)
 
 	page := kit.page_scroll("artist")
@@ -119,24 +129,46 @@ build_artist_page :: proc(page_id: string, name: string) {
 		channel := youtube_lists.watch_youtube_artist(data.title)
 		detail := data.detail
 		if channel.detail != "" {
-			detail = fmt.tprintf("%s · %s on YouTube", data.detail, channel.detail) if data.detail != "" else fmt.tprintf("%s on YouTube", channel.detail)
+			detail =
+				fmt.tprintf("%s · %s on YouTube", data.detail, channel.detail) if data.detail != "" else fmt.tprintf("%s on YouTube", channel.detail)
 		}
 
 		build_artist_header(data, detail, width)
 		build_artist_middle(data)
 
 		if width > 0 {
-			lists.build_card_row("library", "In Your Library", data.library_cards, lists.fit_tile_size(width, ARTIST_ALBUM_POINTS, lists.CARD_GAP_POINTS))
-			lists.build_card_row("albums", "Albums", data.cards, lists.fit_tile_size(width, ARTIST_ALBUM_POINTS, lists.CARD_GAP_POINTS))
+			lists.build_card_row(
+				"library",
+				"In Your Library",
+				data.library_cards,
+				lists.fit_tile_size(width, ARTIST_ALBUM_POINTS, lists.CARD_GAP_POINTS),
+			)
+			lists.build_card_row(
+				"albums",
+				"Albums",
+				data.cards,
+				lists.fit_tile_size(width, ARTIST_ALBUM_POINTS, lists.CARD_GAP_POINTS),
+			)
 
 			for shelf, index in channel.shelves {
 				if is_youtube_only_shelf(shelf) {
-					lists.build_shelf(fmt.tprintf("youtube %d", index), shelf, width, ARTIST_ALBUM_POINTS)
+					lists.build_shelf(
+						fmt.tprintf("youtube %d", index),
+						shelf,
+						width,
+						ARTIST_ALBUM_POINTS,
+					)
 				}
 			}
 
 			build_recent_songs_shelf(artist_id, data.title)
-			lists.build_card_row("similar", "Similar Artists", data.similar, lists.fit_tile_size(width, SIMILAR_ARTIST_POINTS, lists.CARD_GAP_POINTS), true)
+			lists.build_card_row(
+				"similar",
+				"Similar Artists",
+				data.similar,
+				lists.fit_tile_size(width, SIMILAR_ARTIST_POINTS, lists.CARD_GAP_POINTS),
+				true,
+			)
 		}
 	}
 }
@@ -160,12 +192,22 @@ watch_library_albums_of :: proc(artist_name: string) -> apple.Watched {
 		longest = artist_name[word_start:]
 	}
 
-	search := apple.watch(fmt.tprintf("/v1/me/library/search?term=%s&types=library-artists&limit=25", apple.to_query_text(longest)))
+	search := apple.watch(
+		fmt.tprintf(
+			"/v1/me/library/search?term=%s&types=library-artists&limit=25",
+			apple.to_query_text(longest),
+		),
+	)
 	if search.phase != .Ready do return {phase = search.phase, version = search.version}
 
 	id, ok := find_read_text(&library_artist_id, artist_name, search.version)
 	if !ok {
-		id = save_read_text(&library_artist_id, artist_name, search.version, find_library_artist_id(search.body, artist_name))
+		id = save_read_text(
+			&library_artist_id,
+			artist_name,
+			search.version,
+			find_library_artist_id(search.body, artist_name),
+		)
 	}
 	if id == "" do return {phase = .Ready, version = search.version * 1000}
 
@@ -220,7 +262,10 @@ read_artist :: proc(data: ^core.Page_Data, body: string, library_albums: apple.W
 	data.similar = apple.list_cards(apple.list_view(artist, "similar-artists"), allocator)
 
 	if library_albums.phase == .Ready && library_albums.body != "" {
-		data.library_cards = apple.list_cards(apple.to_resources(library_albums.body, allocator), allocator)
+		data.library_cards = apple.list_cards(
+			apple.to_resources(library_albums.body, allocator),
+			allocator,
+		)
 	}
 }
 
@@ -228,74 +273,4 @@ read_artist :: proc(data: ^core.Page_Data, body: string, library_albums: apple.W
 @(private = "file")
 is_youtube_only_shelf :: proc(shelf: apple.Shelf) -> bool {
 	return shelf.is_wide || (len(shelf.cards) > 0 && strings.has_prefix(shelf.cards[0].id, "VL"))
-}
-
-@(private = "file")
-build_artist_header :: proc(data: ^core.Page_Data, detail: string, width: f32) {
-	fallback := kit.parse_hex_color(data.artwork.bg_color) or_else kit.colors.card
-	header := ui.box("header", {width = ui.fill(), height = ui.points(ARTIST_HEADER_POINTS)})
-
-	if ui.scope(header) {
-		if width > 0 {
-			photo_width := int(math.ceil(ui.to_pixels(width) / PHOTO_WIDTH_STEP_PIXELS)) * PHOTO_WIDTH_STEP_PIXELS
-			// Apple fits the photo inside the size asked for, so a wide size gives a small photo. A square
-			// as wide as the header gives it whole, to be cropped.
-			photo := apple.to_artwork_url(data.artwork, photo_width, photo_width)
-			box := kit.artwork_rect_box(photo, {width, ARTIST_HEADER_POINTS}, 12, {top = fallback, bottom = fallback})
-			box.style.flags += {.Floating}
-			// A face is mostly in the upper part of an artist's photo.
-			if box.data != nil do (cast(^kit.Artwork_Paint)box.data).focus_y = 0.25
-		}
-
-		ink := kit.colors.window
-		ui.box("", {
-			width          = ui.fill(),
-			height         = ui.fill(),
-			corner_radius  = 12,
-			background     = {ink.r, ink.g, ink.b, 0},
-			end_background = {ink.r, ink.g, ink.b, 0xf2 / 255.0},
-			gradient       = {0.35, 1},
-			flags          = {.Floating},
-		})
-
-		bottom := ui.box("bottom", {width = ui.fill(), height = ui.fill(), axis = .X, align = .End, gap = 10, padding = {20, 0, 20, 18}, flags = {.Floating}})
-
-		if ui.scope(bottom) {
-			name := ui.box("name", {width = ui.fill(), height = ui.fit_children(), axis = .Y})
-
-			if ui.scope(name) {
-				ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = kit.colors.text, font_size = 40, font_weight = .Bold, flags = {.Truncate_Text}}, data.title)
-				kit.text_box(detail, kit.to_color(0xcfcfd4ff), 14)
-			}
-
-			if kit.action_button("Play", "play.fill", true) do playback.play_songs(data.songs, 0)
-			if kit.action_button("Shuffle", "shuffle", false) do playback.shuffle_songs(data.songs)
-		}
-	}
-}
-
-@(private = "file")
-build_artist_middle :: proc(data: ^core.Page_Data) {
-	middle := ui.box("middle", {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 20})
-
-	if ui.scope(middle) {
-		if len(data.latest) > 0 {
-			latest := ui.box("latest", {width = ui.points(LATEST_RELEASE_POINTS), height = ui.fit_children(), axis = .Y, gap = 10})
-
-			if ui.scope(latest) {
-				ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = kit.colors.text, font_size = 17, font_weight = .Bold}, "Latest Release")
-				if lists.build_card_tile("latest card", data.latest[0], LATEST_RELEASE_POINTS) {
-					lists.open_card(data.latest, 0)
-				}
-			}
-		}
-
-		top := ui.box("top songs", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 10})
-
-		if ui.scope(top) {
-			ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = kit.colors.text, font_size = 17, font_weight = .Bold}, "Top Songs")
-
-			lists.build_song_grid(data.songs, nil, data.songs)
-		}
-	}
 }

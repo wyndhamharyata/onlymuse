@@ -107,7 +107,14 @@ find_playing_song :: proc() -> (song: core.Catalog_Song, persistent_id: string, 
 		return queue_song, shown.persistent_id, true
 	}
 
-	return {name = shown.name, artist_name = shown.artist, album_name = shown.album, duration_seconds = shown.duration_seconds}, shown.persistent_id, true
+	return {
+			name = shown.name,
+			artist_name = shown.artist,
+			album_name = shown.album,
+			duration_seconds = shown.duration_seconds,
+		},
+		shown.persistent_id,
+		true
 }
 
 // A toggle since the Favourite Songs playlist was last read, by catalog ID, so a row shows it at once.
@@ -141,7 +148,9 @@ favourite_ids :: proc() -> map[string]bool {
 	_, playlist_id, _ := core.list_playlists()
 	if playlist_id == "" do return favourite_set.ids
 
-	bodies, signature, phase := core.watch_all_pages(fmt.tprintf("/v1/me/library/playlists/%s/tracks", playlist_id))
+	bodies, signature, phase := core.watch_all_pages(
+		fmt.tprintf("/v1/me/library/playlists/%s/tracks", playlist_id),
+	)
 	if phase != .Ready || signature == favourite_set.signature do return favourite_set.ids
 
 	for key in favourite_set.ids do delete(key)
@@ -175,7 +184,9 @@ toggle_favourite :: proc(song: core.Catalog_Song, persistent_id := "") {
 
 	if youtube.is_song_id(song.id) {
 		youtube_lists.set_youtube_favourite(song, favorited)
-		kit.show_toast("Added to Favourite Songs and liked on YouTube" if favorited else "Removed from Favourite Songs and unliked on YouTube")
+		kit.show_toast(
+			"Added to Favourite Songs and liked on YouTube" if favorited else "Removed from Favourite Songs and unliked on YouTube",
+		)
 		return
 	}
 
@@ -215,13 +226,20 @@ apply_favourite_answer :: proc(message: helper.Message) {
 	// Favourite Songs follows Music.app a moment later.
 	_, playlist_id, _ := core.list_playlists()
 	if playlist_id != "" {
-		apple.refresh(fmt.tprintf("/v1/me/library/playlists/%s/tracks?limit=100&offset=0", playlist_id))
+		apple.refresh(
+			fmt.tprintf("/v1/me/library/playlists/%s/tracks?limit=100&offset=0", playlist_id),
+		)
 	}
 }
 
 // The heart on a row, the player bar and Now Playing. Returns true when clicked.
 favourite_button :: proc(id: string, is_favourite: bool, size_points: f32 = 14) -> bool {
-	return kit.icon_button(id, "heart.circle.fill" if is_favourite else "heart.circle", size_points, core.app.accent if is_favourite else kit.colors.faint)
+	return kit.icon_button(
+		id,
+		"heart.circle.fill" if is_favourite else "heart.circle",
+		size_points,
+		core.app.accent if is_favourite else kit.colors.faint,
+	)
 }
 
 PLAY_MAX_SECONDS :: 240

@@ -8,7 +8,7 @@ foreign import core_graphics_names "system:CoreGraphics.framework"
 
 @(default_calling_convention = "c")
 foreign core_graphics_names {
-	kCGColorSpaceSRGB:          String_Ref
+	kCGColorSpaceSRGB: String_Ref
 
 	CGColorSpaceCreateWithName :: proc(name: String_Ref) -> Color_Space_Ref ---
 }

@@ -8,11 +8,11 @@ import "core:strings"
 import "core:sync"
 import "core:thread"
 import "om:console"
-import MTL "vendor:darwin/Metal"
 import "om:mac"
 import "om:net"
 import "om:platform"
 import "om:render"
+import MTL "vendor:darwin/Metal"
 
 // Runs on a worker thread.
 @(private)
@@ -63,7 +63,11 @@ decode :: proc(path: string, size_pixels: int, crop: Crop) -> (^MTL.Texture, Col
 	max_size := i32(size_pixels)
 	size_number := mac.CFNumberCreate(nil, mac.NUMBER_INT32, &max_size)
 	defer mac.CFRelease(size_number)
-	keys := []mac.Type_Ref{mac.kCGImageSourceCreateThumbnailFromImageAlways, mac.kCGImageSourceThumbnailMaxPixelSize, mac.kCGImageSourceCreateThumbnailWithTransform}
+	keys := []mac.Type_Ref {
+		mac.kCGImageSourceCreateThumbnailFromImageAlways,
+		mac.kCGImageSourceThumbnailMaxPixelSize,
+		mac.kCGImageSourceCreateThumbnailWithTransform,
+	}
 	values := []mac.Type_Ref{mac.kCFBooleanTrue, size_number, mac.kCFBooleanTrue}
 	options := mac.make_dictionary(keys, values)
 	defer mac.CFRelease(options)
@@ -82,7 +86,15 @@ decode :: proc(path: string, size_pixels: int, crop: Crop) -> (^MTL.Texture, Col
 	space := mac.CGColorSpaceCreateWithName(mac.kCGColorSpaceSRGB)
 	defer mac.CGColorSpaceRelease(space)
 	// BGRA with premultiplied alpha, as the shader and BGRA8Unorm expect.
-	ctx := mac.CGBitmapContextCreate(raw_data(pixels), uint(width), uint(height), 8, uint(width * 4), space, mac.IMAGE_ALPHA_PREMULTIPLIED_FIRST | mac.BITMAP_BYTE_ORDER_32_LITTLE)
+	ctx := mac.CGBitmapContextCreate(
+		raw_data(pixels),
+		uint(width),
+		uint(height),
+		8,
+		uint(width * 4),
+		space,
+		mac.IMAGE_ALPHA_PREMULTIPLIED_FIRST | mac.BITMAP_BYTE_ORDER_32_LITTLE,
+	)
 	defer mac.CGContextRelease(ctx)
 	mac.CGContextDrawImage(ctx, {{0, 0}, {f64(width), f64(height)}}, image)
 

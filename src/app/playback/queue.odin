@@ -6,11 +6,7 @@ import "core:encoding/json"
 import "core:fmt"
 import "core:strings"
 import "core:sync"
-import "core:thread"
 import "om:app/core"
-import "om:app/kit"
-import "om:app/matching"
-import "om:apple"
 import "om:console"
 import "om:helper"
 import "om:platform"
@@ -59,10 +55,6 @@ Request :: struct {
 	after:           string,
 }
 
-ADD_POLL_SECONDS :: 1.5
-
-ADD_TIMEOUT_SECONDS :: 45.0
-
 END_TOLERANCE_SECONDS :: 3.0
 
 // Previous starts the song again past this point, as Music.app does.
@@ -87,28 +79,28 @@ queue: Queue_State
 
 @(private)
 queue_state: struct {
-	tracking:          Tracking,
-	has_tracking:      bool,
-	handoff:           Handoff,
-	has_handoff:       bool,
-	handoff_key:       string,
-	handoff_version:   int,
+	tracking:            Tracking,
+	has_tracking:        bool,
+	handoff:             Handoff,
+	has_handoff:         bool,
+	handoff_key:         string,
+	handoff_version:     int,
 	// Each new play counts up, so an older play that is still adding a song knows to stop.
-	play_count:        int,
-	requests:          map[int]Request,
+	play_count:          int,
+	requests:            map[int]Request,
 	// Set by the thread that adds a song to the library, to the play count it added for.
-	added_play_count:  int,
-	add_mutex:         sync.Mutex,
-	poll_deadline_ms:  f64,
+	added_play_count:    int,
+	add_mutex:           sync.Mutex,
+	poll_deadline_ms:    f64,
 	// When a song matched from YouTube must have started by. 0 when none is awaited.
-	start_deadline_ms: f64,
+	start_deadline_ms:   f64,
 	// The YouTube page has the queue's song and has not started it yet.
 	is_starting_youtube: bool,
 	// Times the song playing was started again after Music.app stopped on it.
-	restart_count:     int,
-	next_poll_ms:      f64,
-	is_polling:        bool,
-	last_resume_save:  f64,
+	restart_count:       int,
+	next_poll_ms:        f64,
+	is_polling:          bool,
+	last_resume_save:    f64,
 }
 
 start_queue :: proc() {
@@ -145,7 +137,13 @@ set_queue :: proc() {
 }
 
 to_song_match :: proc(song: core.Catalog_Song) -> helper.Song_Match {
-	return {song.name, song.artist_name, song.album_name, song.duration_seconds, youtube.to_video_id(song.id)}
+	return {
+		song.name,
+		song.artist_name,
+		song.album_name,
+		song.duration_seconds,
+		youtube.to_video_id(song.id),
+	}
 }
 
 // Repeat all goes from the last song back to the first. -1 when the queue is over.
@@ -173,7 +171,10 @@ play_at :: proc(index: int) {
 	set_queue()
 
 	request_id := helper.request_play(to_song_match(queue.songs[index]))
-	queue_state.requests[request_id] = {kind = .Play, play_count = queue_state.play_count}
+	queue_state.requests[request_id] = {
+		kind       = .Play,
+		play_count = queue_state.play_count,
+	}
 }
 
 // Takes in the helper's answer to a playSong or setNext.
@@ -189,7 +190,11 @@ apply_queue_answer :: proc(request_id: int, answered_id: string) {
 
 	switch request.kind {
 	case .Set_Next:
-		is_wanted := request.handoff_version == queue_state.handoff_version && request.after != "" && request.index >= 0 && persistent_id != ""
+		is_wanted :=
+			request.handoff_version == queue_state.handoff_version &&
+			request.after != "" &&
+			request.index >= 0 &&
+			persistent_id != ""
 		if is_wanted do queue_state.handoff = {request.after, request.index, persistent_id}
 		queue_state.has_handoff = is_wanted
 	case .Play:
@@ -210,7 +215,11 @@ apply_queue_answer :: proc(request_id: int, answered_id: string) {
 		if !is_current do return
 		if persistent_id != "" || helper.now_ms() > queue_state.poll_deadline_ms {
 			if persistent_id == "" {
-				console.add("Queue", "%s did not reach the library of Music.app.", queue.songs[queue.index].name)
+				console.add(
+					"Queue",
+					"%s did not reach the library of Music.app.",
+					queue.songs[queue.index].name,
+				)
 			}
 			if persistent_id == "" && fall_back_to_youtube() do return
 
@@ -231,78 +240,30 @@ apply_queue_answer :: proc(request_id: int, answered_id: string) {
 			queue.playing_persistent_id = persistent_id
 			set_queue()
 		}
-		helper.send(fmt.tprintf(`{{"type":"seek","positionSeconds":%.3f}}`, queue.resume_point.position_seconds))
+		helper.send(
+			fmt.tprintf(
+				`{{"type":"seek","positionSeconds":%.3f}}`,
+				queue.resume_point.position_seconds,
+			),
+		)
 	}
-}
-
-@(private = "file")
-Add_Job :: struct {
-	catalog_id: string,
-	play_count: int,
-}
-
-// Puts the song in the library on a thread of its own, then the queue polls Music.app for it.
-@(private = "file")
-start_adding :: proc(catalog_id: string, play_count: int) {
-	job := new(Add_Job)
-	// The queue may free its song before the thread runs, so the job keeps its own copy of the ID.
-	job^ = {strings.clone(catalog_id), play_count}
-	// self_cleanup frees the thread when its procedure returns, so nothing waits for it.
-	thread.create_and_start_with_data(job, proc(data: rawptr) {
-		job := cast(^Add_Job)data
-		defer free(job)
-		defer delete(job.catalog_id)
-		defer free_all(context.temp_allocator)
-
-		status := apple.post(fmt.tprintf("/v1/me/library?ids[songs]=%s", job.catalog_id)).status
-		if status != 202 && status != 200 {
-			console.add("Queue", "Apple answered %s to adding a song to the library.", console.to_status_text(status))
-		}
-
-		sync.guard(&queue_state.add_mutex)
-		queue_state.added_play_count = job.play_count
-		platform.wake()
-	}, self_cleanup = true)
-}
-
-// A song matched from YouTube must start soon, or it goes back to YouTube.
-@(private = "file")
-await_start :: proc() {
-	if queue.songs[queue.index].youtube_id == "" do return
-
-	queue_state.start_deadline_ms = helper.now_ms() + START_TIMEOUT_SECONDS * 1000
-	platform.request_frame_after(START_TIMEOUT_SECONDS)
-}
-
-// Music.app could not play Apple's song, so the YouTube one plays, now and from now on. False for a song with no YouTube one.
-@(private)
-fall_back_to_youtube :: proc() -> bool {
-	queue_state.start_deadline_ms = 0
-	song := queue.songs[queue.index]
-	if song.youtube_id == "" do return false
-
-	youtube_song := core.copy_song(matching.to_youtube_song(song))
-	matching.reject_match(youtube_song)
-	retire_song(queue.songs[queue.index])
-	queue.songs[queue.index] = youtube_song
-	kit.show_toast(fmt.tprintf("Apple Music could not play %s, so it plays from YouTube", youtube_song.name))
-	console.add("Queue", "Music.app did not start %s within %.0f s, so it plays from YouTube from now on.", youtube_song.name, START_TIMEOUT_SECONDS)
-	play_at(queue.index)
-
-	return true
 }
 
 // The YouTube page loads a song for some seconds before it plays, and the player says so meanwhile.
 is_starting_youtube_song :: proc() -> bool {
 	now_playing := core.app.now_playing
-	is_loading := now_playing.is_loading && queue.index >= 0 && now_playing.song.persistent_id == queue.playing_persistent_id
+	is_loading :=
+		now_playing.is_loading &&
+		queue.index >= 0 &&
+		now_playing.song.persistent_id == queue.playing_persistent_id
 
 	return queue_state.is_starting_youtube || is_loading
 }
 
 // The queue's song when it is the one playing, for its artwork and its lossless badge.
 find_queue_song :: proc(persistent_id: string) -> (core.Catalog_Song, bool) {
-	is_current := persistent_id != "" && persistent_id == queue.playing_persistent_id && queue.index >= 0
+	is_current :=
+		persistent_id != "" && persistent_id == queue.playing_persistent_id && queue.index >= 0
 
 	return queue.songs[queue.index] if is_current else {}, is_current
 }
@@ -314,6 +275,18 @@ resume_last_song :: proc() {
 
 	queue_state.play_count += 1
 	is_queue_song := resume.song.persistent_id == queue.playing_persistent_id
-	request_id := helper.request_play({resume.song.name, resume.song.artist, resume.song.album, resume.song.duration_seconds, youtube.to_video_id(resume.song.persistent_id)})
-	queue_state.requests[request_id] = {kind = .Resume, play_count = queue_state.play_count, after = "queue" if is_queue_song else ""}
+	request_id := helper.request_play(
+		{
+			resume.song.name,
+			resume.song.artist,
+			resume.song.album,
+			resume.song.duration_seconds,
+			youtube.to_video_id(resume.song.persistent_id),
+		},
+	)
+	queue_state.requests[request_id] = {
+		kind       = .Resume,
+		play_count = queue_state.play_count,
+		after      = "queue" if is_queue_song else "",
+	}
 }

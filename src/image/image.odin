@@ -10,8 +10,8 @@ import "core:strings"
 import "core:sync"
 import "core:thread"
 import "core:time"
-import MTL "vendor:darwin/Metal"
 import "om:net"
+import MTL "vendor:darwin/Metal"
 
 // The covers kept on the GPU, in bytes. One drawn in the last frame is never unloaded, so a page with more keeps them all.
 MAX_IMAGE_BYTES :: 64 * 1024 * 1024
@@ -71,28 +71,31 @@ Job :: struct {
 	size_pixels: int,
 	crop:        Crop,
 	texture:     ^MTL.Texture,
-	color:      Color,
+	color:       Color,
 }
 
 @(private)
 state: struct {
-	folder:       string,
-	entries:      map[u64]^Entry,
+	folder:        string,
+	entries:       map[u64]^Entry,
 	// Newest last, so the covers asked for most recently load first.
-	waiting:      [dynamic]u64,
+	waiting:       [dynamic]u64,
 	loading_count: int,
-	pool:         thread.Pool,
-	mutex:        sync.Mutex,
-	finished:     [dynamic]^Job,
+	pool:          thread.Pool,
+	mutex:         sync.Mutex,
+	finished:      [dynamic]^Job,
 	// The entry of each family last loaded, to stand in for a size still loading.
-	families:     map[u64]u64,
-	frame_index:  int,
-	is_fading:    bool,
+	families:      map[u64]u64,
+	frame_index:   int,
+	is_fading:     bool,
 }
 
 start :: proc() {
 	home := os.get_env("HOME", context.temp_allocator)
-	state.folder, _ = filepath.join({home, "Library", "Caches", "onlymuse-native", "images"}, context.allocator)
+	state.folder, _ = filepath.join(
+		{home, "Library", "Caches", "onlymuse-native", "images"},
+		context.allocator,
+	)
 	os.make_directory_all(state.folder)
 	net.start()
 	thread.pool_init(&state.pool, context.allocator, WORKER_COUNT)
@@ -117,7 +120,14 @@ is_animating :: proc() -> bool {
 }
 
 // The texture for url, or a file path, at size_pixels, or nil until it is loaded. opacity fades a new image in.
-find :: proc(url: string, size_pixels: int, crop := Crop{}) -> (texture: ^MTL.Texture, opacity: f32) {
+find :: proc(
+	url: string,
+	size_pixels: int,
+	crop := Crop{},
+) -> (
+	texture: ^MTL.Texture,
+	opacity: f32,
+) {
 	crop_key := u64(crop.aspect * 100) << 40 | u64(crop.focus_y * 100) << 52
 	key := hash.fnv64a(transmute([]u8)url) ~ u64(size_pixels) ~ crop_key
 	entry, ok := state.entries[key]
@@ -200,14 +210,21 @@ start_waiting :: proc() {
 		if state.loading_count >= WORKER_COUNT do break
 
 		entry := state.entries[key] or_else nil
-		if entry == nil || entry.phase != .Waiting || entry.last_drawn_frame < state.frame_index - 1 {
+		if entry == nil ||
+		   entry.phase != .Waiting ||
+		   entry.last_drawn_frame < state.frame_index - 1 {
 			continue
 		}
 
 		entry.phase = .Loading
 		state.loading_count += 1
 		job := new(Job)
-		job^ = Job{key = key, url = strings.clone(entry.url), size_pixels = entry.size_pixels, crop = entry.crop}
+		job^ = Job {
+			key         = key,
+			url         = strings.clone(entry.url),
+			size_pixels = entry.size_pixels,
+			crop        = entry.crop,
+		}
 		thread.pool_add_task(&state.pool, context.allocator, load, job)
 	}
 	clear(&state.waiting)
@@ -261,7 +278,10 @@ unload_extra :: proc() {
 		}
 	}
 
-	slice.sort_by(candidates[:], proc(a, b: Candidate) -> bool {return a.last_drawn_frame < b.last_drawn_frame})
+	slice.sort_by(
+		candidates[:],
+		proc(a, b: Candidate) -> bool {return a.last_drawn_frame < b.last_drawn_frame},
+	)
 
 	for candidate in candidates {
 		if ready_bytes <= MAX_IMAGE_BYTES do break

@@ -35,19 +35,23 @@ build_toast :: proc() {
 	root := ui.current_parent()
 	window_size := [2]f32{root.style.width.value, root.style.height.value}
 	width := measure_text(toast.text, 12.5) + 28
-	ui.box("toast", {
-		width         = ui.points(width),
-		height        = ui.points(32),
-		padding       = {14, 0, 14, 0},
-		corner_radius = 10,
-		background    = to_color(0x2c2c31ff),
-		border_width  = 1,
-		border_color  = to_color(0xffffff1c),
-		text_color    = colors.text,
-		font_size     = 12.5,
-		fade          = 1 - opacity,
-		position      = {(window_size.x - width) / 2, window_size.y - PLAYER_HEIGHT_POINTS - 44},
-		flags         = {.Floating},
-	}, toast.text)
+	ui.box(
+		"toast",
+		{
+			width = ui.points(width),
+			height = ui.points(32),
+			padding = {14, 0, 14, 0},
+			corner_radius = 10,
+			background = to_color(0x2c2c31ff),
+			border_width = 1,
+			border_color = to_color(0xffffff1c),
+			text_color = colors.text,
+			font_size = 12.5,
+			fade = 1 - opacity,
+			position = {(window_size.x - width) / 2, window_size.y - PLAYER_HEIGHT_POINTS - 44},
+			flags = {.Floating},
+		},
+		toast.text,
+	)
 	platform.request_frame()
 }

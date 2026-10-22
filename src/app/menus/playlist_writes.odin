@@ -15,10 +15,10 @@ import "om:youtube"
 
 @(private = "file")
 Write_Job :: struct {
-	path, body:            string,
+	path, body:             string,
 	done_text, failed_text: string,
 	// Asked again once the write is done, so the page shows it.
-	refresh_path:          string,
+	refresh_path:           string,
 }
 
 @(private = "file")
@@ -39,7 +39,13 @@ write_results: struct {
 @(private = "file")
 start_write :: proc(job: Write_Job) {
 	copied := new(Write_Job)
-	copied^ = {strings.clone(job.path), strings.clone(job.body), strings.clone(job.done_text), strings.clone(job.failed_text), strings.clone(job.refresh_path)}
+	copied^ = {
+		strings.clone(job.path),
+		strings.clone(job.body),
+		strings.clone(job.done_text),
+		strings.clone(job.failed_text),
+		strings.clone(job.refresh_path),
+	}
 	// self_cleanup frees the thread when its procedure returns, so nothing waits for it.
 	thread.create_and_start_with_data(copied, run_write, self_cleanup = true)
 }
@@ -54,7 +60,8 @@ run_write :: proc(data: rawptr) {
 	// sync.guard unlocks when its block ends, so these braces end the lock.
 	{
 		sync.guard(&write_results.mutex)
-		failed := fmt.aprintf("%s: no answer from Apple.", job.failed_text) if status == 0 else fmt.aprintf("%s: Apple answered %d.", job.failed_text, status)
+		failed :=
+			fmt.aprintf("%s: no answer from Apple.", job.failed_text) if status == 0 else fmt.aprintf("%s: Apple answered %d.", job.failed_text, status)
 		append(&write_results.toasts, strings.clone(job.done_text) if is_done else failed)
 		if is_done do delete(failed)
 		if is_done && job.refresh_path != "" {
@@ -111,7 +118,9 @@ add_to_playlist :: proc(playlist_id, playlist_name: string, chosen: core.Catalog
 
 	if youtube.is_song_id(song.id) {
 		youtube_lists.add_playlist_youtube_songs(playlist_id, {{"", song}})
-		kit.show_toast(fmt.tprintf("Added %s to %s. It plays from YouTube.", song.name, playlist_name))
+		kit.show_toast(
+			fmt.tprintf("Added %s to %s. It plays from YouTube.", song.name, playlist_name),
+		)
 		return
 	}
 
@@ -120,13 +129,18 @@ add_to_playlist :: proc(playlist_id, playlist_name: string, chosen: core.Catalog
 	}
 	body, _ := json.marshal(Body{{{song.id, "songs"}}}, allocator = context.temp_allocator)
 
-	start_write({
-		path         = fmt.tprintf("/v1/me/library/playlists/%s/tracks", playlist_id),
-		body         = string(body),
-		done_text    = fmt.tprintf("Added %s to %s", song.name, playlist_name),
-		failed_text  = fmt.tprintf("Could not add %s to %s", song.name, playlist_name),
-		refresh_path = fmt.tprintf("/v1/me/library/playlists/%s/tracks?limit=100&offset=0", playlist_id),
-	})
+	start_write(
+		{
+			path = fmt.tprintf("/v1/me/library/playlists/%s/tracks", playlist_id),
+			body = string(body),
+			done_text = fmt.tprintf("Added %s to %s", song.name, playlist_name),
+			failed_text = fmt.tprintf("Could not add %s to %s", song.name, playlist_name),
+			refresh_path = fmt.tprintf(
+				"/v1/me/library/playlists/%s/tracks?limit=100&offset=0",
+				playlist_id,
+			),
+		},
+	)
 }
 
 @(private)
@@ -152,7 +166,13 @@ Create_Job :: struct {
 }
 
 // A new library playlist of Apple songs, with songs only on YouTube kept beside it once Apple gives its ID.
-create_playlist :: proc(name: string, songs: []core.Catalog_Song, youtube_songs: []youtube_lists.Playlist_YouTube_Song, done_text: string, opens_page := false) {
+create_playlist :: proc(
+	name: string,
+	songs: []core.Catalog_Song,
+	youtube_songs: []youtube_lists.Playlist_YouTube_Song,
+	done_text: string,
+	opens_page := false,
+) {
 	Body :: struct {
 		attributes:    struct {
 			name: string,
@@ -176,7 +196,13 @@ create_playlist :: proc(name: string, songs: []core.Catalog_Song, youtube_songs:
 	}
 
 	job := new(Create_Job)
-	job^ = {strings.clone(name), strings.clone(string(body)), strings.clone(done_text), kept, opens_page}
+	job^ = {
+		strings.clone(name),
+		strings.clone(string(body)),
+		strings.clone(done_text),
+		kept,
+		opens_page,
+	}
 	// self_cleanup frees the thread when its procedure returns, so nothing waits for it.
 	thread.create_and_start_with_data(job, run_create, self_cleanup = true)
 }
@@ -190,17 +216,30 @@ run_create :: proc(data: rawptr) {
 	defer delete(job.body)
 
 	answer := apple.post("/v1/me/library/playlists", job.body)
-	resources := apple.to_resources(answer.body, context.temp_allocator) if answer.status >= 200 && answer.status < 300 else nil
+	resources :=
+		apple.to_resources(answer.body, context.temp_allocator) if answer.status >= 200 && answer.status < 300 else nil
 
 	sync.guard(&write_results.mutex)
 	defer platform.wake()
 
 	if len(resources) == 0 {
-		append(&write_results.toasts, fmt.aprintf("Could not make %s: Apple answered %d.", job.name, answer.status))
+		append(
+			&write_results.toasts,
+			fmt.aprintf("Could not make %s: Apple answered %d.", job.name, answer.status),
+		)
 		delete(job.name)
 		delete(job.done_text)
 		return
 	}
 
-	append(&write_results.created, Created_Playlist{strings.clone(resources[0].id), job.name, job.done_text, job.youtube_songs, job.opens_page})
+	append(
+		&write_results.created,
+		Created_Playlist {
+			strings.clone(resources[0].id),
+			job.name,
+			job.done_text,
+			job.youtube_songs,
+			job.opens_page,
+		},
+	)
 }

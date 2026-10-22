@@ -6,9 +6,9 @@ import "core:strings"
 import "core:sync"
 import "core:time"
 import "om:console"
-import "om:store"
 import "om:helper"
 import "om:net"
+import "om:store"
 
 BASE_URL :: "https://amp-api.music.apple.com"
 // The storefront of the account, from /v1/me/storefront.
@@ -83,7 +83,12 @@ LANGUAGE :: "en-GB"
 
 // Apple answers 401 or 403 once a token expires. The helper reads new ones and the request goes again, once.
 @(private)
-send_request :: proc(path: string, method: net.Method, allocator := context.allocator, body := "") -> Answer {
+send_request :: proc(
+	path: string,
+	method: net.Method,
+	allocator := context.allocator,
+	body := "",
+) -> Answer {
 	sent_version := read_token_version()
 	answer := send_once(path, method, allocator, body)
 	if answer.status != 401 && answer.status != 403 do return answer
@@ -107,7 +112,12 @@ send_request :: proc(path: string, method: net.Method, allocator := context.allo
 }
 
 @(private)
-send_once :: proc(path: string, method: net.Method, allocator := context.allocator, body := "") -> Answer {
+send_once :: proc(
+	path: string,
+	method: net.Method,
+	allocator := context.allocator,
+	body := "",
+) -> Answer {
 	// The helper reads the tokens from a web page a moment after it starts.
 	for !has_tokens() && time.tick_since(state.started) < TOKEN_WAIT {
 		time.sleep(100 * time.Millisecond)
@@ -139,7 +149,13 @@ send_once :: proc(path: string, method: net.Method, allocator := context.allocat
 	response := net.fetch(url, headers[:header_count], context.temp_allocator, method, body)
 	is_refused := response.status < 200 || response.status >= 300
 	if is_refused {
-		console.add("Apple", "%s %s: %s", "POST" if method == .Post else "GET", path, console.to_status_text(response.status))
+		console.add(
+			"Apple",
+			"%s %s: %s",
+			"POST" if method == .Post else "GET",
+			path,
+			console.to_status_text(response.status),
+		)
 	}
 
 	return {response.status, strings.clone(string(response.body), allocator)}
@@ -150,7 +166,13 @@ to_query_text :: proc(text: string) -> string {
 	builder := strings.builder_make(context.temp_allocator)
 
 	for byte_value in transmute([]u8)text {
-		is_plain := (byte_value >= 'a' && byte_value <= 'z') || (byte_value >= 'A' && byte_value <= 'Z') || (byte_value >= '0' && byte_value <= '9') || byte_value == '-' || byte_value == '.' || byte_value == '_'
+		is_plain :=
+			(byte_value >= 'a' && byte_value <= 'z') ||
+			(byte_value >= 'A' && byte_value <= 'Z') ||
+			(byte_value >= '0' && byte_value <= '9') ||
+			byte_value == '-' ||
+			byte_value == '.' ||
+			byte_value == '_'
 
 		if is_plain {
 			strings.write_byte(&builder, byte_value)

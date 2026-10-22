@@ -15,7 +15,20 @@ import "om:ui"
 
 // Apple's "2026-09-02" as "2 Sep 2026". "2026-09" and "2026" come out as "Sep 2026" and "2026".
 to_date_text :: proc(date: string) -> string {
-	MONTHS :: [12]string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"}
+	MONTHS :: [12]string {
+		"Jan",
+		"Feb",
+		"Mar",
+		"Apr",
+		"May",
+		"Jun",
+		"Jul",
+		"Aug",
+		"Sep",
+		"Oct",
+		"Nov",
+		"Dec",
+	}
 	parts := strings.split(date, "-", context.temp_allocator)
 	if len(parts) < 2 do return date
 
@@ -44,7 +57,13 @@ draw_icon :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 }
 
 // An SF Symbol in a box of its own size plus padding.
-icon_box :: proc(id: string, name: string, size_points: f32, color: [4]f32, style: ui.Style = {}) -> ^ui.Box {
+icon_box :: proc(
+	id: string,
+	name: string,
+	size_points: f32,
+	color: [4]f32,
+	style: ui.Style = {},
+) -> ^ui.Box {
 	style := style
 	box_size := size_points + style.padding.x + style.padding.z
 	if style.width.kind == .Points && style.width.value == 0 do style.width = ui.points(box_size)
@@ -60,8 +79,17 @@ icon_box :: proc(id: string, name: string, size_points: f32, color: [4]f32, styl
 }
 
 // Returns true when clicked. A disabled button draws faint and takes no click.
-icon_button :: proc(id: string, name: string, size_points: f32, color: [4]f32, is_enabled := true) -> bool {
-	style := ui.Style{padding = {4, 4, 4, 4}, corner_radius = 6}
+icon_button :: proc(
+	id: string,
+	name: string,
+	size_points: f32,
+	color: [4]f32,
+	is_enabled := true,
+) -> bool {
+	style := ui.Style {
+		padding       = {4, 4, 4, 4},
+		corner_radius = 6,
+	}
 	if is_enabled {
 		style.hover_background = colors.hover
 		style.press_background = colors.selected
@@ -73,8 +101,26 @@ icon_button :: proc(id: string, name: string, size_points: f32, color: [4]f32, i
 	return ui.signal(box).is_clicked
 }
 
-text_box :: proc(text: string, color: [4]f32, font_size: f32 = 13, weight := font.Weight.Regular, flags: ui.Flags = {.Truncate_Text}, width := ui.Size{.Fill, 1}) -> ^ui.Box {
-	return ui.box("", {width = width, height = ui.fit_text(), text_color = color, font_size = font_size, font_weight = weight, flags = flags}, text)
+text_box :: proc(
+	text: string,
+	color: [4]f32,
+	font_size: f32 = 13,
+	weight := font.Weight.Regular,
+	flags: ui.Flags = {.Truncate_Text},
+	width := ui.Size{.Fill, 1},
+) -> ^ui.Box {
+	return ui.box(
+		"",
+		{
+			width = width,
+			height = ui.fit_text(),
+			text_color = color,
+			font_size = font_size,
+			font_weight = weight,
+			flags = flags,
+		},
+		text,
+	)
 }
 
 Bar_Paint :: struct {
@@ -89,8 +135,22 @@ draw_bar :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	filled := track
 	filled.z = track.x + (track.z - track.x) * clamp(paint.ratio, 0, 1)
 	radius := track_height / 2
-	render.push({rect = track, color = {colors.track.r, colors.track.g, colors.track.b, colors.track.a * opacity}, corner_radius = radius, clip = clip})
-	render.push({rect = filled, color = {colors.text.r, colors.text.g, colors.text.b, colors.text.a * opacity}, corner_radius = radius, clip = clip})
+	render.push(
+		{
+			rect = track,
+			color = {colors.track.r, colors.track.g, colors.track.b, colors.track.a * opacity},
+			corner_radius = radius,
+			clip = clip,
+		},
+	)
+	render.push(
+		{
+			rect = filled,
+			color = {colors.text.r, colors.text.g, colors.text.b, colors.text.a * opacity},
+			corner_radius = radius,
+			clip = clip,
+		},
+	)
 }
 
 // A thin track to click or drag along. Returns the ratio shown, which follows the mouse while held, and
@@ -123,7 +183,10 @@ to_clock_text :: proc(total_seconds: f64) -> string {
 measure_text :: proc(text: string, font_size: f32, weight := font.Weight.Regular) -> f32 {
 	if text == "" do return 0
 
-	return font.shape(text, font.system_font(weight, ui.to_pixels(font_size))).size.x / ui.to_pixels(1)
+	return(
+		font.shape(text, font.system_font(weight, ui.to_pixels(font_size))).size.x /
+		ui.to_pixels(1) \
+	)
 }
 
 // Takes the space left in a row, pushing what follows to the end.
@@ -142,12 +205,31 @@ slides: map[string]f64
 
 // One line that ends in "…" when it does not fit. Resting under the pointer, it slides to show the rest.
 // Inside a clickable row, the row's hover is passed in, so the text never takes the row's click.
-scrolling_text :: proc(id, text: string, color: [4]f32, font_size: f32, weight := font.Weight.Regular, is_clickable := false, is_hovered: Maybe(bool) = nil, width := ui.Size{.Fill, 1}) -> ^ui.Box {
+scrolling_text :: proc(
+	id, text: string,
+	color: [4]f32,
+	font_size: f32,
+	weight := font.Weight.Regular,
+	is_clickable := false,
+	is_hovered: Maybe(bool) = nil,
+	width := ui.Size{.Fill, 1},
+) -> ^ui.Box {
 	flags: ui.Flags = {.Truncate_Text}
 	if is_clickable do flags += {.Clickable}
 	if is_hovered == nil && !is_clickable do flags += {.Hoverable}
 
-	box := ui.box(id, {width = width, height = ui.fit_text(), text_color = color, font_size = font_size, font_weight = weight, flags = flags}, text)
+	box := ui.box(
+		id,
+		{
+			width = width,
+			height = ui.fit_text(),
+			text_color = color,
+			font_size = font_size,
+			font_weight = weight,
+			flags = flags,
+		},
+		text,
+	)
 	key := fmt.aprint(id, text)
 	defer delete(key)
 
@@ -190,26 +272,35 @@ delete_key_and_value :: proc(m: ^map[string]f64, key: string) {
 is_mouse_in :: proc(box: ^ui.Box) -> bool {
 	mouse := ui.mouse_position()
 
-	return mouse.x >= box.rect.x && mouse.x < box.rect.z && mouse.y >= box.rect.y && mouse.y < box.rect.w
+	return(
+		mouse.x >= box.rect.x &&
+		mouse.x < box.rect.z &&
+		mouse.y >= box.rect.y &&
+		mouse.y < box.rect.w \
+	)
 }
 
 // A rounded pill that is on or off. Returns true when clicked.
 toggle_chip :: proc(label: string, is_on: bool) -> bool {
 	tint := to_accent_tint(core.app.accent)
-	chip := ui.box(label, {
-		width            = ui.fit_text(),
-		height           = ui.points(24),
-		padding          = {10, 0, 10, 0},
-		corner_radius    = 12,
-		background       = tint if is_on else colors.field,
-		hover_background = tint if is_on else colors.hover,
-		border_width     = 1 if is_on else 0,
-		border_color     = {core.app.accent.r, core.app.accent.g, core.app.accent.b, 0.35},
-		text_color       = core.app.accent if is_on else colors.dim,
-		font_size        = 12,
-		font_weight      = .Semibold,
-		flags            = {.Clickable},
-	}, label)
+	chip := ui.box(
+		label,
+		{
+			width = ui.fit_text(),
+			height = ui.points(24),
+			padding = {10, 0, 10, 0},
+			corner_radius = 12,
+			background = tint if is_on else colors.field,
+			hover_background = tint if is_on else colors.hover,
+			border_width = 1 if is_on else 0,
+			border_color = {core.app.accent.r, core.app.accent.g, core.app.accent.b, 0.35},
+			text_color = core.app.accent if is_on else colors.dim,
+			font_size = 12,
+			font_weight = .Semibold,
+			flags = {.Clickable},
+		},
+		label,
+	)
 
 	return ui.signal(chip).is_clicked
 }

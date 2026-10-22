@@ -7,7 +7,7 @@ import "core:strings"
 
 Artwork :: struct {
 	// Has {w}, {h} and {f} in place of the size and format.
-	url:      string,
+	url:         string,
 	// Hex, as "2a2a2f", the colour behind the picture. Catalog artwork has it, library artwork does not.
 	bg_color:    string `json:"bgColor"`,
 	// The colour of text that would sit on the picture, its strongest other colour.
@@ -74,47 +74,47 @@ Related :: struct {
 }
 
 Attributes :: struct {
-	name:                   string,
-	artist_name:            string `json:"artistName"`,
-	album_name:             string `json:"albumName"`,
-	curator_name:           string `json:"curatorName"`,
-	duration_ms:            f64 `json:"durationInMillis"`,
-	artwork:                Artwork,
-	audio_traits:           []string `json:"audioTraits"`,
-	play_params:            struct {
+	name:                    string,
+	artist_name:             string `json:"artistName"`,
+	album_name:              string `json:"albumName"`,
+	curator_name:            string `json:"curatorName"`,
+	duration_ms:             f64 `json:"durationInMillis"`,
+	artwork:                 Artwork,
+	audio_traits:            []string `json:"audioTraits"`,
+	play_params:             struct {
 		catalog_id: string `json:"catalogId"`,
 	} `json:"playParams"`,
-	genre_names:            []string `json:"genreNames"`,
-	release_date:           string `json:"releaseDate"`,
-	title:                  struct {
+	genre_names:             []string `json:"genreNames"`,
+	release_date:            string `json:"releaseDate"`,
+	title:                   struct {
 		string_for_display: string `json:"stringForDisplay"`,
 	},
-	description:            struct {
+	description:             struct {
 		standard: string,
 		short:    string,
 	},
-	track_number:           int `json:"trackNumber"`,
-	disc_number:            int `json:"discNumber"`,
+	track_number:            int `json:"trackNumber"`,
+	disc_number:             int `json:"discNumber"`,
 	// The item's page on music.apple.com.
-	url:                    string,
+	url:                     string,
 	// A song's and its album's details, for the Now Playing page.
-	composer_name:          string `json:"composerName"`,
-	album_artist_name:      string `json:"albumArtistName"`,
-	isrc:                   string,
-	content_rating:         string `json:"contentRating"`,
-	audio_locale:           string `json:"audioLocale"`,
-	has_lyrics:             bool `json:"hasLyrics"`,
-	has_time_synced_lyrics: bool `json:"hasTimeSyncedLyrics"`,
+	composer_name:           string `json:"composerName"`,
+	album_artist_name:       string `json:"albumArtistName"`,
+	isrc:                    string,
+	content_rating:          string `json:"contentRating"`,
+	audio_locale:            string `json:"audioLocale"`,
+	has_lyrics:              bool `json:"hasLyrics"`,
+	has_time_synced_lyrics:  bool `json:"hasTimeSyncedLyrics"`,
 	is_apple_digital_master: bool `json:"isAppleDigitalMaster"`,
-	record_label:           string `json:"recordLabel"`,
-	copyright:              string,
-	track_count:            int `json:"trackCount"`,
-	editorial_notes:        struct {
+	record_label:            string `json:"recordLabel"`,
+	copyright:               string,
+	track_count:             int `json:"trackCount"`,
+	editorial_notes:         struct {
 		standard: string,
 		short:    string,
 	} `json:"editorialNotes"`,
-	can_edit:               Maybe(bool) `json:"canEdit"`,
-	can_delete:             Maybe(bool) `json:"canDelete"`,
+	can_edit:                Maybe(bool) `json:"canEdit"`,
+	can_delete:              Maybe(bool) `json:"canDelete"`,
 }
 
 @(private)
@@ -152,13 +152,13 @@ to_catalog_song :: proc(resource: Resource) -> Catalog_Song {
 	attributes := resource.attributes
 
 	return Catalog_Song {
-		id               = resource.id,
-		name             = attributes.name,
-		artist_name      = attributes.artist_name,
-		album_name       = attributes.album_name,
+		id = resource.id,
+		name = attributes.name,
+		artist_name = attributes.artist_name,
+		album_name = attributes.album_name,
 		duration_seconds = attributes.duration_ms / 1000,
-		is_lossless      = slice.contains(attributes.audio_traits, "lossless"),
-		artwork          = attributes.artwork,
+		is_lossless = slice.contains(attributes.audio_traits, "lossless"),
+		artwork = attributes.artwork,
 	}
 }
 
@@ -220,7 +220,10 @@ to_home_shelves :: proc(body: string, allocator := context.allocator) -> []Shelf
 	for resource in to_resources(body, allocator) {
 		cards := list_cards(list_related(resource, "contents"), allocator)
 		if len(cards) > 0 {
-			append(&shelves, Shelf{title = resource.attributes.title.string_for_display, cards = cards})
+			append(
+				&shelves,
+				Shelf{title = resource.attributes.title.string_for_display, cards = cards},
+			)
 		}
 	}
 
@@ -247,15 +250,35 @@ to_new_shelves :: proc(body: string, allocator := context.allocator) -> []Shelf 
 }
 
 // A height of 0 asks for a square.
-to_artwork_url :: proc(artwork: Artwork, width_pixels: int, height_pixels := 0, allocator := context.temp_allocator) -> string {
+to_artwork_url :: proc(
+	artwork: Artwork,
+	width_pixels: int,
+	height_pixels := 0,
+	allocator := context.temp_allocator,
+) -> string {
 	if artwork.url == "" do return ""
 
 	height := height_pixels if height_pixels > 0 else width_pixels
-	with_width, _ := strings.replace_all(artwork.url, "{w}", fmt.tprintf("%d", width_pixels), context.temp_allocator)
-	with_height, _ := strings.replace_all(with_width, "{h}", fmt.tprintf("%d", height), context.temp_allocator)
+	with_width, _ := strings.replace_all(
+		artwork.url,
+		"{w}",
+		fmt.tprintf("%d", width_pixels),
+		context.temp_allocator,
+	)
+	with_height, _ := strings.replace_all(
+		with_width,
+		"{h}",
+		fmt.tprintf("%d", height),
+		context.temp_allocator,
+	)
 	// "ac" puts an artist's album cover on a square of its colour. "cc" crops it to fill.
 	size := fmt.tprintf("%dx%d", width_pixels, height)
-	cropped, _ := strings.replace_all(with_height, fmt.tprintf("%sac.", size), fmt.tprintf("%scc.", size), context.temp_allocator)
+	cropped, _ := strings.replace_all(
+		with_height,
+		fmt.tprintf("%sac.", size),
+		fmt.tprintf("%scc.", size),
+		context.temp_allocator,
+	)
 	url, _ := strings.replace_all(cropped, "{f}", "jpg", allocator)
 
 	return url

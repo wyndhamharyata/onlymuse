@@ -14,20 +14,39 @@ build_page_area :: proc() {
 
 	if ui.scope(area) {
 		player.build_page_backdrop()
-		toolbar := ui.box("toolbar", {width = ui.fill(), height = ui.points(kit.TOOLBAR_HEIGHT_POINTS), axis = .X, align = .Center, gap = 2, padding = {kit.PAGE_PADDING_POINTS - 4, 0, 0, 0}})
+		toolbar := ui.box(
+			"toolbar",
+			{
+				width = ui.fill(),
+				height = ui.points(kit.TOOLBAR_HEIGHT_POINTS),
+				axis = .X,
+				align = .Center,
+				gap = 2,
+				padding = {kit.PAGE_PADDING_POINTS - 4, 0, 0, 0},
+			},
+		)
 
 		if ui.scope(toolbar) {
 			if kit.icon_button("back", "chevron.left", 16, kit.colors.text, core.can_go_back()) {
 				core.go_back()
 			}
-			if kit.icon_button("forward", "chevron.right", 16, kit.colors.text, core.can_go_forward()) {
+			if kit.icon_button(
+				"forward",
+				"chevron.right",
+				16,
+				kit.colors.text,
+				core.can_go_forward(),
+			) {
 				core.go_forward()
 			}
 		}
 
 		page := core.current_page()
 		// Each page in the history keeps its own scroll, as its boxes are keyed under its place and ID.
-		page_box := ui.box(fmt.tprintf("page %d %v %s", core.navigation.index, page.kind, page.id), {width = ui.fill(), height = ui.fill(), axis = .Y})
+		page_box := ui.box(
+			fmt.tprintf("page %d %v %s", core.navigation.index, page.kind, page.id),
+			{width = ui.fill(), height = ui.fill(), axis = .Y},
+		)
 
 		if ui.scope(page_box) do build_page(page)
 	}

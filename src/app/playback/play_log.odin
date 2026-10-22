@@ -48,7 +48,10 @@ update_play_log :: proc() {
 
 	if persistent_id != "" {
 		position := helper.position_seconds(now_playing)
-		listening.furthest_seconds = max(listening.furthest_seconds, min(position, listening.duration_seconds))
+		listening.furthest_seconds = max(
+			listening.furthest_seconds,
+			min(position, listening.duration_seconds),
+		)
 	}
 }
 

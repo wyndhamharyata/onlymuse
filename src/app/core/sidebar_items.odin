@@ -19,7 +19,11 @@ youtube_items := []struct {
 	page:   Page,
 } {
 	{"Mixes", "dot.radiowaves.left.and.right", {kind = .YouTube_Mixes}},
-	{"Liked Music", "hand.thumbsup", {kind = .YouTube_Playlist, id = youtube.LIKED_ID, title = "Liked Music"}},
+	{
+		"Liked Music",
+		"hand.thumbsup",
+		{kind = .YouTube_Playlist, id = youtube.LIKED_ID, title = "Liked Music"},
+	},
 	{"Bring Over", "square.and.arrow.down", {kind = .Bring_Over}},
 }
 

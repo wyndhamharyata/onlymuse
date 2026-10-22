@@ -45,7 +45,9 @@ save_playlist_youtube_songs :: proc() {
 add_playlist_youtube_songs :: proc(playlist_id: string, songs: []Playlist_YouTube_Song) {
 	read_playlist_youtube_songs()
 
-	if playlist_id not_in playlist_youtube_songs do playlist_youtube_songs[strings.clone(playlist_id)] = {}
+	if playlist_id not_in playlist_youtube_songs {
+		playlist_youtube_songs[strings.clone(playlist_id)] = {}
+	}
 
 	list := &playlist_youtube_songs[playlist_id]
 	for song in songs do append(list, Playlist_YouTube_Song{strings.clone(song.after), core.copy_song(song.song)})
@@ -70,7 +72,11 @@ remove_playlist_youtube_song :: proc(playlist_id, song_id: string) {
 is_playlist_youtube_song :: proc(playlist_id, song_id: string) -> bool {
 	read_playlist_youtube_songs()
 
-	for song in playlist_youtube_songs[playlist_id] or_else {} do if song.song.id == song_id do return true
+	for song in playlist_youtube_songs[playlist_id] or_else {} {
+		if song.song.id == song_id {
+			return true
+		}
+	}
 
 	return false
 }

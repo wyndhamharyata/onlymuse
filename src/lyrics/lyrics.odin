@@ -128,7 +128,9 @@ fetch_lines :: proc(name, artist: string, allocator: mem.Allocator) -> ([]Line, 
 	is_syllable := answer.status == 200
 
 	// A song with no word timing has only lyrics by line.
-	if !is_syllable do answer = apple.fetch(fmt.tprintf("/v1/catalog/%s/songs/%s/lyrics", apple.STOREFRONT, song_id), context.temp_allocator)
+	if !is_syllable {
+		answer = apple.fetch(fmt.tprintf("/v1/catalog/%s/songs/%s/lyrics", apple.STOREFRONT, song_id), context.temp_allocator)
+	}
 	if answer.status != 200 do return nil, nil, false
 
 	Lyrics_Answer :: struct {
@@ -141,7 +143,9 @@ fetch_lines :: proc(name, artist: string, allocator: mem.Allocator) -> ([]Line, 
 	}
 
 	parsed: Lyrics_Answer
-	if json.unmarshal_string(answer.body, &parsed, allocator = context.temp_allocator) != nil || len(parsed.data) == 0 do return nil, nil, false
+	if json.unmarshal_string(answer.body, &parsed, allocator = context.temp_allocator) != nil || len(parsed.data) == 0 {
+		return nil, nil, false
+	}
 
 	attributes := parsed.data[0].attributes
 	ttml := attributes.ttml_localizations if attributes.ttml_localizations != "" else attributes.ttml
@@ -180,10 +184,14 @@ find_song_id :: proc(name, artist: string) -> (string, bool) {
 	}
 
 	parsed: Search_Answer
-	if json.unmarshal_string(answer.body, &parsed, allocator = context.temp_allocator) != nil do return "", false
+	if json.unmarshal_string(answer.body, &parsed, allocator = context.temp_allocator) != nil {
+		return "", false
+	}
 
 	for song in parsed.results.songs.data {
-		if song.attributes.name == name && song.attributes.artist_name == artist do return song.id, true
+		if song.attributes.name == name && song.attributes.artist_name == artist {
+			return song.id, true
+		}
 	}
 
 	return "", false
@@ -204,10 +212,14 @@ find_queue_song_id :: proc(name, artist: string, allocator := context.allocator)
 	if !ok do return "", false
 
 	queue: Queue
-	if json.unmarshal_string(text, &queue, allocator = context.temp_allocator) != nil do return "", false
+	if json.unmarshal_string(text, &queue, allocator = context.temp_allocator) != nil {
+		return "", false
+	}
 
 	for song in queue.songs {
-		if song.name == name && song.artist_name == artist do return strings.clone(song.id, allocator), true
+		if song.name == name && song.artist_name == artist {
+			return strings.clone(song.id, allocator), true
+		}
 	}
 
 	return "", false

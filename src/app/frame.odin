@@ -133,7 +133,9 @@ apply_helper_messages :: proc() {
 			youtube_pages.apply_youtube_cookie(message)
 		case "error":
 			// Music.app has no current track while stopped, and the helper's next post says so.
-			if !strings.contains(message.text, "get current track") do console.add("Helper", "%s", message.text)
+			if !strings.contains(message.text, "get current track") {
+				console.add("Helper", "%s", message.text)
+			}
 		case "trackInfo":
 			playback.apply_track_info(message)
 		case "setFavoriteResult":
@@ -165,7 +167,9 @@ apply_keys :: proc() {
 		case "k":
 			palette.toggle_palette()
 		case "l":
-			if song, persistent_id, is_song := playback.find_playing_song(); is_song do playback.toggle_favourite(song, persistent_id)
+			if song, persistent_id, is_song := playback.find_playing_song(); is_song {
+				playback.toggle_favourite(song, persistent_id)
+			}
 		}
 	}
 }

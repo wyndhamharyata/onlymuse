@@ -12,7 +12,9 @@ import "om:youtube"
 // With Music.app stopped or closed, the player shows the last song, paused where it was.
 find_shown_song :: proc() -> (helper.Song, bool) {
 	now_playing := core.app.now_playing
-	if now_playing.playback == .Playing || now_playing.playback == .Paused do return now_playing.song, true
+	if now_playing.playback == .Playing || now_playing.playback == .Paused {
+		return now_playing.song, true
+	}
 
 	resume := queue.resume_point
 
@@ -101,7 +103,9 @@ find_playing_song :: proc() -> (song: core.Catalog_Song, persistent_id: string, 
 	shown, is_song := find_shown_song()
 	if !is_song do return {}, "", false
 
-	if queue_song, is_queue_song := find_queue_song(shown.persistent_id); is_queue_song do return queue_song, shown.persistent_id, true
+	if queue_song, is_queue_song := find_queue_song(shown.persistent_id); is_queue_song {
+		return queue_song, shown.persistent_id, true
+	}
 
 	return {name = shown.name, artist_name = shown.artist, album_name = shown.album, duration_seconds = shown.duration_seconds}, shown.persistent_id, true
 }
@@ -210,7 +214,9 @@ apply_favourite_answer :: proc(message: helper.Message) {
 
 	// Favourite Songs follows Music.app a moment later.
 	_, playlist_id, _ := core.list_playlists()
-	if playlist_id != "" do apple.refresh(fmt.tprintf("/v1/me/library/playlists/%s/tracks?limit=100&offset=0", playlist_id))
+	if playlist_id != "" {
+		apple.refresh(fmt.tprintf("/v1/me/library/playlists/%s/tracks?limit=100&offset=0", playlist_id))
+	}
 }
 
 // The heart on a row, the player bar and Now Playing. Returns true when clicked.

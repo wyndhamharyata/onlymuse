@@ -237,8 +237,12 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 
 		ui.box("", {width = ui.fit_text(), height = ui.fit_text(), text_color = kit.colors.text, font_size = 13.5, flags = {.Truncate_Text}}, result.title)
 		ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = kit.colors.faint, font_size = 12, flags = {.Truncate_Text}}, result.subtitle)
-		if result.shortcut != "" do ui.box("", {width = ui.fit_text(), height = ui.fit_text(), text_color = kit.colors.faint, font_size = 12}, result.shortcut)
-		if is_selected do ui.box("", {width = ui.fit_text(), height = ui.fit_text(), text_color = core.app.accent, font_size = 13}, "↵")
+		if result.shortcut != "" {
+			ui.box("", {width = ui.fit_text(), height = ui.fit_text(), text_color = kit.colors.faint, font_size = 12}, result.shortcut)
+		}
+		if is_selected {
+			ui.box("", {width = ui.fit_text(), height = ui.fit_text(), text_color = core.app.accent, font_size = 13}, "↵")
+		}
 	}
 
 	return signal.is_clicked
@@ -267,7 +271,9 @@ run_result :: proc(result: Palette_Result) {
 		songs, _, _ := core.list_library_songs()
 		playback.shuffle_songs(songs)
 	case .Favourite:
-		if song, persistent_id, ok := playback.find_playing_song(); ok do playback.toggle_favourite(song, persistent_id)
+		if song, persistent_id, ok := playback.find_playing_song(); ok {
+			playback.toggle_favourite(song, persistent_id)
+		}
 	case .Show_Lyrics:
 		core.set_panel(.Lyrics)
 	case .Show_Up_Next:

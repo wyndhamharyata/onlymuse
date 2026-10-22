@@ -11,7 +11,9 @@ import "om:youtube"
 set_youtube_favourite :: proc(song: core.Catalog_Song, favorited: bool) {
 	_, playlist_id, _ := core.list_playlists()
 
-	if playlist_id != "" && favorited && !is_playlist_youtube_song(playlist_id, song.id) do add_playlist_youtube_songs(playlist_id, {{"", song}})
+	if playlist_id != "" && favorited && !is_playlist_youtube_song(playlist_id, song.id) {
+		add_playlist_youtube_songs(playlist_id, {{"", song}})
+	}
 	if playlist_id != "" && !favorited do remove_playlist_youtube_song(playlist_id, song.id)
 
 	start_youtube_like(youtube.to_video_id(song.id), favorited)
@@ -43,7 +45,11 @@ list_youtube_liked_ids :: proc() -> map[string]bool {
 	for key in youtube_liked.ids do delete(key)
 	clear(&youtube_liked.ids)
 	youtube_liked.songs = raw_data(songs)
-	for song in songs do if song.id not_in youtube_liked.ids do youtube_liked.ids[strings.clone(song.id)] = true
+	for song in songs {
+		if song.id not_in youtube_liked.ids {
+			youtube_liked.ids[strings.clone(song.id)] = true
+		}
+	}
 
 	return youtube_liked.ids
 }
@@ -68,6 +74,8 @@ start_youtube_like :: proc(video_id: string, is_liked: bool) {
 		defer delete(job.video_id)
 		defer free_all(context.temp_allocator)
 
-		if youtube.send_like(job.video_id, job.is_liked) == 200 do apple.refresh(youtube.list_path(youtube.LIKED_ID))
+		if youtube.send_like(job.video_id, job.is_liked) == 200 {
+			apple.refresh(youtube.list_path(youtube.LIKED_ID))
+		}
 	}, self_cleanup = true)
 }

@@ -114,7 +114,11 @@ build_youtube_search_results :: proc(term: string, apple_songs: []core.Catalog_S
 		if len(shown) >= SHOWN_YOUTUBE_SONG_COUNT do break
 
 		is_in_apple_results := false
-		for apple_song in apple_songs do if matching.is_same_recording(song, apple_song) do is_in_apple_results = true
+		for apple_song in apple_songs {
+			if matching.is_same_recording(song, apple_song) {
+				is_in_apple_results = true
+			}
+		}
 
 		_, state := matching.find_match(song)
 		if !is_in_apple_results && state == .Missing do append(&shown, song)
@@ -129,7 +133,9 @@ build_youtube_search_results :: proc(term: string, apple_songs: []core.Catalog_S
 			ui.box("", {width = ui.points(1), height = ui.points(6)})
 
 			for song, index in shown {
-				if lists.build_song_row(fmt.tprintf("%d %s", index, song.id), song, lists.to_song_subtitle(song), is_playing && matching.is_same_queue_song(current, song)) do playback.play_songs(shown[:], index)
+				if lists.build_song_row(fmt.tprintf("%d %s", index, song.id), song, lists.to_song_subtitle(song), is_playing && matching.is_same_queue_song(current, song)) {
+					playback.play_songs(shown[:], index)
+				}
 			}
 		}
 	}

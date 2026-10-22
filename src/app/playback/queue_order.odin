@@ -182,7 +182,11 @@ toggle_shuffle :: proc() {
 	// The queue may hold Apple's match of a YouTube song in the original list.
 	current := queue.songs[queue.index]
 	original_index := 0
-	for song, index in queue.original_songs do if matching.is_same_queue_song(current, song) do original_index = index
+	for song, index in queue.original_songs {
+		if matching.is_same_queue_song(current, song) {
+			original_index = index
+		}
+	}
 
 	if queue.is_shuffled {
 		queue.is_shuffled = false

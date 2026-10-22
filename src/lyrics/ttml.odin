@@ -153,7 +153,9 @@ to_line_texts :: proc(ttml: string, block_name: string) -> map[string]string {
 	if start < 0 do return pronunciations
 
 	block := ttml[start:]
-	if end := strings.index(block, fmt.tprintf("</%s>", block_name)); end >= 0 do block = block[:end]
+	if end := strings.index(block, fmt.tprintf("</%s>", block_name)); end >= 0 {
+		block = block[:end]
+	}
 
 	for {
 		text_start := strings.index(block, "<text for=\"")

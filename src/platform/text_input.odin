@@ -33,7 +33,9 @@ to_odin_text :: proc "c" (text: ^NS.Object) -> string {
 	context = state.odin_context
 	plain := text
 	// An input method may send an NSAttributedString.
-	if msg_send(NS.BOOL, text, "respondsToSelector:", intrinsics.objc_find_selector("string")) do plain = msg_send(^NS.Object, text, "string")
+	if msg_send(NS.BOOL, text, "respondsToSelector:", intrinsics.objc_find_selector("string")) {
+		plain = msg_send(^NS.Object, text, "string")
+	}
 
 	return strings.clone((cast(^NS.String)plain)->odinString(), runtime.arena_allocator(&state.event_arena[state.event_arena_index]))
 }

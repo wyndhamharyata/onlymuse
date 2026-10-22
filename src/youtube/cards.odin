@@ -28,7 +28,9 @@ to_list_item :: proc(reader: ^Reader, value: json.Value) -> (apple.Card, bool) {
 
 	name := to_text(child(columns[0], "musicResponsiveListItemFlexColumnRenderer", "text"))
 	video_id := as_string(child(value, "playlistItemData", "videoId"))
-	if video_id == "" do video_id = as_string(child(value, "overlay", "musicItemThumbnailOverlayRenderer", "content", "musicPlayButtonRenderer", "playNavigationEndpoint", "watchEndpoint", "videoId"))
+	if video_id == "" {
+		video_id = as_string(child(value, "overlay", "musicItemThumbnailOverlayRenderer", "content", "musicPlayButtonRenderer", "playNavigationEndpoint", "watchEndpoint", "videoId"))
+	}
 	thumbnail := find_thumbnail_url(child(value, "thumbnail"))
 
 	if video_id == "" {

@@ -136,7 +136,9 @@ send_once :: proc(path: string, method: net.Method, allocator := context.allocat
 	url := fmt.tprintf("%s%s%sl=%s", BASE_URL, path, separator, LANGUAGE)
 	response := net.fetch(url, headers[:header_count], context.temp_allocator, method, body)
 	is_refused := response.status < 200 || response.status >= 300
-	if is_refused do console.add("Apple", "%s %s: %s", "POST" if method == .Post else "GET", path, console.to_status_text(response.status))
+	if is_refused {
+		console.add("Apple", "%s %s: %s", "POST" if method == .Post else "GET", path, console.to_status_text(response.status))
+	}
 
 	return {response.status, strings.clone(string(response.body), allocator)}
 }

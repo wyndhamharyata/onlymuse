@@ -86,9 +86,13 @@ read_value :: proc(reader: ^Reader, value: json.Value) {
 			case "musicResponsiveHeaderRenderer", "musicImmersiveHeaderRenderer", "musicVisualHeaderRenderer", "musicDetailHeaderRenderer", "musicEditablePlaylistDetailHeaderRenderer":
 				read_header(reader, child_value)
 			case "continuationCommand":
-				if reader.continuation == "" do reader.continuation = clone(reader, as_string(child(child_value, "token")))
+				if reader.continuation == "" {
+					reader.continuation = clone(reader, as_string(child(child_value, "token")))
+				}
 			case "nextContinuationData":
-				if reader.section_continuation == "" do reader.section_continuation = clone(reader, as_string(child(child_value, "continuation")))
+				if reader.section_continuation == "" {
+					reader.section_continuation = clone(reader, as_string(child(child_value, "continuation")))
+				}
 			case:
 				read_value(reader, child_value)
 			}
@@ -127,7 +131,9 @@ read_shelf :: proc(reader: ^Reader, value: json.Value) {
 		}
 	}
 
-	if len(cards) > 0 do append(&reader.shelves, apple.Shelf{title = clone(reader, title), cards = cards[:], is_youtube = true, is_wide = is_wide})
+	if len(cards) > 0 {
+		append(&reader.shelves, apple.Shelf{title = clone(reader, title), cards = cards[:], is_youtube = true, is_wide = is_wide})
+	}
 }
 
 @(private)

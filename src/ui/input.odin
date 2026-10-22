@@ -30,7 +30,9 @@ apply_events :: proc() {
 				state.is_right_press = false
 				continue
 			}
-			if state.active_key != 0 && state.active_key == state.hot_key do state.clicked_key = state.active_key
+			if state.active_key != 0 && state.active_key == state.hot_key {
+				state.clicked_key = state.active_key
+			}
 			state.active_key = 0
 		case platform.Mouse_Exit:
 			state.mouse = {-1, -1}

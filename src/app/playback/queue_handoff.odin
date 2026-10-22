@@ -89,7 +89,9 @@ find_handoff :: proc(now_playing: helper.Now_Playing, was_at_end: bool) -> bool 
 
 	if !queue_state.has_handoff || persistent_id != handoff.persistent_id do return false
 	if queue.playing_persistent_id != handoff.after_persistent_id do return false
-	if !queue_state.has_tracking || tracking.persistent_id != handoff.after_persistent_id do return false
+	if !queue_state.has_tracking || tracking.persistent_id != handoff.after_persistent_id {
+		return false
+	}
 
 	return !is_same_song || is_restart
 }
@@ -236,7 +238,9 @@ update_queue :: proc() {
 	has_stalled := is_playing && now_playing.has_started && now_playing.stall_count >= STALLED_POSITION_COUNT
 	has_not_started := is_playing && !now_playing.has_started && now_playing.stall_count >= UNSTARTED_POSITION_COUNT
 	can_restart := is_queue_leading() && queue_state.restart_count < MAX_RESTART_COUNT
-	if (has_stalled || has_not_started) && can_restart do restart_stalled_song(now_playing.has_started)
+	if (has_stalled || has_not_started) && can_restart {
+		restart_stalled_song(now_playing.has_started)
+	}
 
 	if queue_state.is_starting_youtube && core.app.now_playing.song.persistent_id == queue.playing_persistent_id {
 		queue_state.is_starting_youtube = false

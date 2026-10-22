@@ -71,7 +71,11 @@ add_source :: proc(prefix: string, source: Source) {
 
 @(private)
 send_to_source :: proc(path: string, allocator := context.allocator) -> Answer {
-	for prefix, source in sources do if strings.has_prefix(path, prefix) do return source(path, allocator)
+	for prefix, source in sources {
+		if strings.has_prefix(path, prefix) {
+			return source(path, allocator)
+		}
+	}
 
 	return send_request(path, .Get, allocator)
 }
@@ -222,7 +226,11 @@ free_retired_bodies :: proc() {
 
 	now := now_ms()
 	unused := make([dynamic]string, context.temp_allocator)
-	for path, entry in cache.entries do if !entry.is_checking && now - entry.used_at > UNUSED_ANSWER_MS do append(&unused, path)
+	for path, entry in cache.entries {
+		if !entry.is_checking && now - entry.used_at > UNUSED_ANSWER_MS {
+			append(&unused, path)
+		}
+	}
 
 	for path in unused {
 		entry := cache.entries[path]

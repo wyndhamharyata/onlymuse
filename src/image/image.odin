@@ -200,7 +200,9 @@ start_waiting :: proc() {
 		if state.loading_count >= WORKER_COUNT do break
 
 		entry := state.entries[key] or_else nil
-		if entry == nil || entry.phase != .Waiting || entry.last_drawn_frame < state.frame_index - 1 do continue
+		if entry == nil || entry.phase != .Waiting || entry.last_drawn_frame < state.frame_index - 1 {
+			continue
+		}
 
 		entry.phase = .Loading
 		state.loading_count += 1
@@ -254,7 +256,9 @@ unload_extra :: proc() {
 
 	for key, entry in state.entries {
 		is_on_screen := entry.last_drawn_frame >= state.frame_index - 1
-		if entry.phase == .Ready && !is_on_screen do append(&candidates, Candidate{key, entry.last_drawn_frame})
+		if entry.phase == .Ready && !is_on_screen {
+			append(&candidates, Candidate{key, entry.last_drawn_frame})
+		}
 	}
 
 	slice.sort_by(candidates[:], proc(a, b: Candidate) -> bool {return a.last_drawn_frame < b.last_drawn_frame})
@@ -264,7 +268,9 @@ unload_extra :: proc() {
 
 		entry := state.entries[candidate.key]
 		ready_bytes -= entry.bytes
-		if state.families[entry.family] == candidate.key do delete_key(&state.families, entry.family)
+		if state.families[entry.family] == candidate.key {
+			delete_key(&state.families, entry.family)
+		}
 		// A command buffer keeps the textures it draws alive until the GPU is done.
 		entry.texture->release()
 		delete(entry.url)

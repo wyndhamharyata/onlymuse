@@ -76,7 +76,9 @@ build_search_top :: proc(data: ^core.Page_Data) {
 
 			if ui.scope(result) {
 				ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = kit.colors.text, font_size = 17, font_weight = .Bold}, "Top Result")
-				if lists.build_card_tile("top artist", data.similar[0], TOP_RESULT_POINTS, true) do lists.open_card(data.similar, 0)
+				if lists.build_card_tile("top artist", data.similar[0], TOP_RESULT_POINTS, true) {
+					lists.open_card(data.similar, 0)
+				}
 			}
 		}
 
@@ -89,7 +91,9 @@ build_search_top :: proc(data: ^core.Page_Data) {
 
 			for song, index in songs {
 				subtitle := fmt.tprintf("%s · %s", song.artist_name, song.album_name)
-				if lists.build_song_row(fmt.tprintf("%d %s", index, song.id), song, subtitle, is_playing && matching.is_same_queue_song(current, song)) do playback.play_songs(songs, index)
+				if lists.build_song_row(fmt.tprintf("%d %s", index, song.id), song, subtitle, is_playing && matching.is_same_queue_song(current, song)) {
+					playback.play_songs(songs, index)
+				}
 			}
 		}
 	}

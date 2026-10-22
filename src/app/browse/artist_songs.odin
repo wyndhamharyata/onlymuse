@@ -31,7 +31,9 @@ list_recent_songs :: proc(artist_id: string) -> (songs: []core.Catalog_Song, dat
 	albums_path := fmt.tprintf("/v1/catalog/%s/albums?ids=%s&include=tracks", apple.STOREFRONT, release_data.link_id)
 	albums := apple.watch(albums_path)
 	data, is_songs_stale := core.find_page_data(albums_path, albums.version, albums.phase)
-	if is_songs_stale && albums.phase == .Ready do read_recent_songs(data, albums.body, release_data.link_id)
+	if is_songs_stale && albums.phase == .Ready {
+		read_recent_songs(data, albums.body, release_data.link_id)
+	}
 
 	return data.songs, data.dates, albums.phase
 }
@@ -104,7 +106,9 @@ build_recent_songs_shelf :: proc(artist_id, artist_name: string) {
 			kit.icon_box("", "chevron.right", 13, kit.colors.faint * {1, 1, 1, dim})
 		}
 
-		if ui.signal(title).is_clicked do core.navigate({kind = .Artist_Recent_Songs, id = artist_id, title = artist_name})
+		if ui.signal(title).is_clicked {
+			core.navigate({kind = .Artist_Recent_Songs, id = artist_id, title = artist_name})
+		}
 
 		shown := min(len(songs), RECENT_SONGS_SHOWN)
 		lists.build_song_grid(songs[:shown], dates[:shown], songs)

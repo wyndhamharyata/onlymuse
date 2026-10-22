@@ -66,7 +66,11 @@ list_title_keys :: proc(name: string) -> []string {
 
 	for separator in ([]string{" - ", " / ", "／"}) {
 		if !strings.contains(name, separator) do continue
-		for part in strings.split(name, separator, context.temp_allocator) do if key := to_match_key(part); key != "" do append(&keys, key)
+		for part in strings.split(name, separator, context.temp_allocator) {
+			if key := to_match_key(part); key != "" {
+				append(&keys, key)
+			}
+		}
 	}
 
 	return keys[:]

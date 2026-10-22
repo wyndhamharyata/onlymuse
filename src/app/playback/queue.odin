@@ -209,7 +209,9 @@ apply_queue_answer :: proc(request_id: int, answered_id: string) {
 	case .Poll:
 		if !is_current do return
 		if persistent_id != "" || helper.now_ms() > queue_state.poll_deadline_ms {
-			if persistent_id == "" do console.add("Queue", "%s did not reach the library of Music.app.", queue.songs[queue.index].name)
+			if persistent_id == "" {
+				console.add("Queue", "%s did not reach the library of Music.app.", queue.songs[queue.index].name)
+			}
 			if persistent_id == "" && fall_back_to_youtube() do return
 
 			queue_state.is_polling = false
@@ -253,7 +255,9 @@ start_adding :: proc(catalog_id: string, play_count: int) {
 		defer free_all(context.temp_allocator)
 
 		status := apple.post(fmt.tprintf("/v1/me/library?ids[songs]=%s", job.catalog_id)).status
-		if status != 202 && status != 200 do console.add("Queue", "Apple answered %s to adding a song to the library.", console.to_status_text(status))
+		if status != 202 && status != 200 {
+			console.add("Queue", "Apple answered %s to adding a song to the library.", console.to_status_text(status))
+		}
 
 		sync.guard(&queue_state.add_mutex)
 		queue_state.added_play_count = job.play_count

@@ -53,7 +53,9 @@ save_read_text :: proc(read: ^Read_Text, key: string, version: int, text: string
 find_artist_id :: proc(artist_name: string) -> (string, apple.Phase) {
 	watched := apple.watch(fmt.tprintf("/v1/catalog/%s/search?term=%s&types=artists&limit=12", apple.STOREFRONT, apple.to_query_text(artist_name)))
 	if watched.phase != .Ready do return "", watched.phase
-	if id, ok := find_read_text(&artist_id_by_name, artist_name, watched.version); ok do return id, .Ready
+	if id, ok := find_read_text(&artist_id_by_name, artist_name, watched.version); ok {
+		return id, .Ready
+	}
 
 	Search_Answer :: struct {
 		results: struct {
@@ -78,7 +80,9 @@ build_artist_page :: proc(page_id: string, name: string) {
 
 		if found == "" {
 			page := kit.page_scroll("artist")
-			if ui.scope(page) do kit.note(kit.phase_note(phase) if phase != .Ready else fmt.tprintf("Apple Music has no artist named %s.", name))
+			if ui.scope(page) {
+				kit.note(kit.phase_note(phase) if phase != .Ready else fmt.tprintf("Apple Music has no artist named %s.", name))
+			}
 			return
 		}
 		artist_id = found
@@ -114,7 +118,9 @@ build_artist_page :: proc(page_id: string, name: string) {
 		width := page.size.x - page.style.padding.x - page.style.padding.z
 		channel := youtube_lists.watch_youtube_artist(data.title)
 		detail := data.detail
-		if channel.detail != "" do detail = fmt.tprintf("%s · %s on YouTube", data.detail, channel.detail) if data.detail != "" else fmt.tprintf("%s on YouTube", channel.detail)
+		if channel.detail != "" {
+			detail = fmt.tprintf("%s · %s on YouTube", data.detail, channel.detail) if data.detail != "" else fmt.tprintf("%s on YouTube", channel.detail)
+		}
 
 		build_artist_header(data, detail, width)
 		build_artist_middle(data)
@@ -124,7 +130,9 @@ build_artist_page :: proc(page_id: string, name: string) {
 			lists.build_card_row("albums", "Albums", data.cards, lists.fit_tile_size(width, ARTIST_ALBUM_POINTS, lists.CARD_GAP_POINTS))
 
 			for shelf, index in channel.shelves {
-				if is_youtube_only_shelf(shelf) do lists.build_shelf(fmt.tprintf("youtube %d", index), shelf, width, ARTIST_ALBUM_POINTS)
+				if is_youtube_only_shelf(shelf) {
+					lists.build_shelf(fmt.tprintf("youtube %d", index), shelf, width, ARTIST_ALBUM_POINTS)
+				}
 			}
 
 			build_recent_songs_shelf(artist_id, data.title)
@@ -148,13 +156,17 @@ watch_library_albums_of :: proc(artist_name: string) -> apple.Watched {
 			word_start = -1
 		}
 	}
-	if word_start >= 0 && len(artist_name) - word_start > len(longest) do longest = artist_name[word_start:]
+	if word_start >= 0 && len(artist_name) - word_start > len(longest) {
+		longest = artist_name[word_start:]
+	}
 
 	search := apple.watch(fmt.tprintf("/v1/me/library/search?term=%s&types=library-artists&limit=25", apple.to_query_text(longest)))
 	if search.phase != .Ready do return {phase = search.phase, version = search.version}
 
 	id, ok := find_read_text(&library_artist_id, artist_name, search.version)
-	if !ok do id = save_read_text(&library_artist_id, artist_name, search.version, find_library_artist_id(search.body, artist_name))
+	if !ok {
+		id = save_read_text(&library_artist_id, artist_name, search.version, find_library_artist_id(search.body, artist_name))
+	}
 	if id == "" do return {phase = .Ready, version = search.version * 1000}
 
 	albums := apple.watch(fmt.tprintf("/v1/me/library/artists/%s/albums", id))
@@ -177,7 +189,11 @@ find_library_artist_id :: proc(body, artist_name: string) -> string {
 	answer: Search_Answer
 	_ = core.unmarshal_text(body, &answer)
 
-	for artist in answer.results.library_artists.data do if artist.attributes.name == artist_name do return artist.id
+	for artist in answer.results.library_artists.data {
+		if artist.attributes.name == artist_name {
+			return artist.id
+		}
+	}
 
 	return ""
 }
@@ -268,7 +284,9 @@ build_artist_middle :: proc(data: ^core.Page_Data) {
 
 			if ui.scope(latest) {
 				ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = kit.colors.text, font_size = 17, font_weight = .Bold}, "Latest Release")
-				if lists.build_card_tile("latest card", data.latest[0], LATEST_RELEASE_POINTS) do lists.open_card(data.latest, 0)
+				if lists.build_card_tile("latest card", data.latest[0], LATEST_RELEASE_POINTS) {
+					lists.open_card(data.latest, 0)
+				}
 			}
 		}
 

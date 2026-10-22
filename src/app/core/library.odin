@@ -146,7 +146,9 @@ next_offsets: map[string]Next_Offset
 
 @(private = "file")
 find_next_offset :: proc(path: string, watched: apple.Watched) -> string {
-	if found, ok := next_offsets[path]; ok && found.version == watched.version do return found.offset
+	if found, ok := next_offsets[path]; ok && found.version == watched.version {
+		return found.offset
+	}
 
 	Next :: struct {
 		next: string,

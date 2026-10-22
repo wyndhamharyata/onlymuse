@@ -153,7 +153,9 @@ schedule_lyrics :: proc(lines: []lyrics.Line) -> bool {
 
 	for line in lines {
 		for word in line.words {
-			if word.begin_seconds <= position do latest_begin = max(latest_begin, word.begin_seconds)
+			if word.begin_seconds <= position {
+				latest_begin = max(latest_begin, word.begin_seconds)
+			}
 		}
 	}
 

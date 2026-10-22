@@ -22,7 +22,11 @@ build_bring_over_page :: proc(page: core.Page) {
 		list, watched := youtube_lists.watch_youtube_list(youtube.browse_path(youtube.LIBRARY_PLAYLISTS_ID))
 		playlists := make([dynamic]apple.Card, context.temp_allocator)
 		// Episodes for Later holds podcasts, which Apple Music has no place for.
-		for card in list.cards do if card.id != youtube.PODCAST_EPISODES_ID do append(&playlists, card)
+		for card in list.cards {
+			if card.id != youtube.PODCAST_EPISODES_ID {
+				append(&playlists, card)
+			}
+		}
 
 		lists.build_card_grid_page("Bring Over from YouTube Music", playlists[:], watched.phase, false)
 		return
@@ -45,7 +49,9 @@ build_bring_over_page :: proc(page: core.Page) {
 			}
 
 			is_ready := phase == .Ready && counts[.Checking] == 0 && len(songs) > 0
-			if is_ready && kit.action_button("Bring Over", "square.and.arrow.down", true) do bring_over(title, songs)
+			if is_ready && kit.action_button("Bring Over", "square.and.arrow.down", true) {
+				bring_over(title, songs)
+			}
 		}
 
 		if phase == .Ready {

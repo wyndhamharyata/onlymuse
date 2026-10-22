@@ -69,7 +69,9 @@ resolve :: proc(box: ^Box) {
 
 	for child := box.first; child != nil; child = child.next do resolve(child)
 
-	if style.width.kind == .Children && style.axis == .Y do box.size.x = children_extent(box, .X) + style.padding.x + style.padding.z
+	if style.width.kind == .Children && style.axis == .Y {
+		box.size.x = children_extent(box, .X) + style.padding.x + style.padding.z
+	}
 	if style.height.kind == .Children {
 		extent := wrap_lines(box, nil) if is_wrapping(box) else children_extent(box, .Y)
 		box.size.y = extent + style.padding.y + style.padding.w
@@ -234,7 +236,9 @@ resolve_children :: proc(box: ^Box, inner: [2]f32) {
 			child.size[main] = math.floor(leftover * sizes[main].value / fill_weight)
 		}
 
-		if .Wrap_Text in child.style.flags || .Truncate_Text in child.style.flags do fit_text_to_width(child)
+		if .Wrap_Text in child.style.flags || .Truncate_Text in child.style.flags {
+			fit_text_to_width(child)
+		}
 	}
 }
 

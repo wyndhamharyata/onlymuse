@@ -178,7 +178,9 @@ take_messages :: proc() -> []Message {
 
 	for line in lines {
 		message: Message
-		if json.unmarshal_string(line, &message, allocator = context.temp_allocator) != nil do continue
+		if json.unmarshal_string(line, &message, allocator = context.temp_allocator) != nil {
+			continue
+		}
 
 		append(&messages, message)
 	}
@@ -337,7 +339,9 @@ position_seconds :: proc(now_playing: Now_Playing) -> f64 {
 	case .Paused:
 		return now_playing.position_seconds
 	case .Playing:
-		if now_playing.stall_count > 0 || !now_playing.has_started do return now_playing.position_seconds
+		if now_playing.stall_count > 0 || !now_playing.has_started {
+			return now_playing.position_seconds
+		}
 		elapsed_seconds := max(0, now_ms() - now_playing.position_read_at_ms) / 1000
 		return min(now_playing.position_seconds + elapsed_seconds, now_playing.song.duration_seconds)
 	}

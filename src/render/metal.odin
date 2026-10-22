@@ -78,7 +78,9 @@ start :: proc(device: ^MTL.Device, layer: ^CA.MetalLayer) {
 	state.queue = device->newCommandQueue()
 
 	library, library_error := device->newLibraryWithSource(NS.String.alloc()->initWithOdinString(shader_source), nil)
-	if library == nil do fmt.panicf("render: shaders do not compile: %s", library_error->localizedDescription()->odinString())
+	if library == nil {
+		fmt.panicf("render: shaders do not compile: %s", library_error->localizedDescription()->odinString())
+	}
 
 	descriptor := MTL.RenderPipelineDescriptor.alloc()->init()
 	descriptor->setVertexFunction(library->newFunctionWithName(NS.AT("vertex_main")))
@@ -94,7 +96,9 @@ start :: proc(device: ^MTL.Device, layer: ^CA.MetalLayer) {
 	attachment->setDestinationAlphaBlendFactor(.OneMinusSourceAlpha)
 
 	pipeline, pipeline_error := device->newRenderPipelineStateWithDescriptor(descriptor)
-	if pipeline == nil do fmt.panicf("render: no pipeline: %s", pipeline_error->localizedDescription()->odinString())
+	if pipeline == nil {
+		fmt.panicf("render: no pipeline: %s", pipeline_error->localizedDescription()->odinString())
+	}
 	state.pipeline = pipeline
 
 	sampler_descriptor := MTL.SamplerDescriptor.alloc()->init()

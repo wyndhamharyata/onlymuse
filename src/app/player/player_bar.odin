@@ -35,11 +35,15 @@ build_player_bar :: proc() {
 
 // The cover the player bar shows: Music.app's, or Apple's for a song of the queue.
 find_player_artwork_source :: proc() -> string {
-	if playback.queue.is_adding || playback.is_starting_youtube_song() do return apple.to_artwork_url(playback.queue.songs[playback.queue.index].artwork, kit.to_artwork_pixels(PLAYER_ARTWORK_POINTS))
+	if playback.queue.is_adding || playback.is_starting_youtube_song() {
+		return apple.to_artwork_url(playback.queue.songs[playback.queue.index].artwork, kit.to_artwork_pixels(PLAYER_ARTWORK_POINTS))
+	}
 
 	song, is_song := playback.find_shown_song()
 	queue_song, is_queue_song := playback.find_queue_song(song.persistent_id)
-	if is_queue_song && queue_song.artwork.url != "" do return apple.to_artwork_url(queue_song.artwork, kit.to_artwork_pixels(PLAYER_ARTWORK_POINTS))
+	if is_queue_song && queue_song.artwork.url != "" {
+		return apple.to_artwork_url(queue_song.artwork, kit.to_artwork_pixels(PLAYER_ARTWORK_POINTS))
+	}
 
 	return song.artwork_path if is_song else ""
 }
@@ -56,9 +60,15 @@ build_song_info :: proc() {
 	if ui.scope(info) {
 		artwork_source := find_player_artwork_source()
 		placeholder := kit.to_placeholder({}, song.album if is_song else "")
-		if is_queue_song do placeholder = kit.to_placeholder(queue_song.artwork, queue_song.album_name)
-		if is_waiting do placeholder = kit.to_placeholder(adding_song.artwork, adding_song.album_name)
-		if !is_song && !is_waiting do placeholder = {top = kit.colors.card, bottom = kit.colors.card}
+		if is_queue_song {
+			placeholder = kit.to_placeholder(queue_song.artwork, queue_song.album_name)
+		}
+		if is_waiting {
+			placeholder = kit.to_placeholder(adding_song.artwork, adding_song.album_name)
+		}
+		if !is_song && !is_waiting {
+			placeholder = {top = kit.colors.card, bottom = kit.colors.card}
+		}
 		// The cover opens the Now Playing page.
 		cover := ui.box("cover", {width = ui.fit_children(), height = ui.fit_children(), flags = {.Clickable} if is_song else {}})
 		if ui.signal(cover).is_clicked do core.navigate({kind = .Now_Playing})
@@ -93,12 +103,16 @@ build_song_info :: proc() {
 					}
 
 					kit.scrolling_text("name", song.name, kit.colors.text, 13.5, .Semibold, width = name_width)
-					if badge != "" do ui.box("", {width = ui.fit_text(), height = ui.fit_text(), padding = {4, 0, 4, 0}, corner_radius = 4, border_width = 1, border_color = badge_color if is_from_youtube else kit.colors.faint, text_color = badge_color, font_size = 9.5, font_weight = .Bold}, badge)
+					if badge != "" {
+						ui.box("", {width = ui.fit_text(), height = ui.fit_text(), padding = {4, 0, 4, 0}, corner_radius = 4, border_width = 1, border_color = badge_color if is_from_youtube else kit.colors.faint, text_color = badge_color, font_size = 9.5, font_weight = .Bold}, badge)
+					}
 
 					// Music.app knows nothing of a song the YouTube page plays.
 					playing, persistent_id, _ := playback.find_playing_song()
 					if !is_from_youtube do playback.find_track_info(persistent_id)
-					if playback.favourite_button("favourite", playback.is_favourite(playing, persistent_id), 13) do playback.toggle_favourite(playing, persistent_id)
+					if playback.favourite_button("favourite", playback.is_favourite(playing, persistent_id), 13) {
+						playback.toggle_favourite(playing, persistent_id)
+					}
 				}
 
 				// Go to Artist always opens the Apple Music artist, never the library one.
@@ -106,7 +120,9 @@ build_song_info :: proc() {
 				is_loading := now_playing.playback == .Playing && !now_playing.has_started && now_playing.stall_count > 0
 				subtitle_text := "Loading in Music.app…" if is_loading else fmt.tprintf("%s · %s", song.artist, song.album)
 				subtitle := kit.scrolling_text("subtitle", subtitle_text, kit.colors.dim, 12.5, is_clickable = true)
-				if ui.signal(subtitle).is_clicked do core.navigate({kind = .Artist, title = fmt.aprint(song.artist)})
+				if ui.signal(subtitle).is_clicked {
+					core.navigate({kind = .Artist, title = fmt.aprint(song.artist)})
+				}
 			} else {
 				kit.text_box("Not playing", kit.colors.text, 13.5, .Semibold)
 				kit.text_box("Music.app is closed" if now_playing.playback == .Closed else "Nothing in Music.app", kit.colors.dim, 12.5)
@@ -129,10 +145,14 @@ build_controls :: proc() {
 			shuffle := kit.icon_box("shuffle", "shuffle", 14, core.app.accent if playback.queue.is_shuffled else kit.colors.faint, {padding = {4, 4, 4, 4}, corner_radius = 6, hover_background = kit.colors.hover, press_background = kit.colors.selected, flags = {.Clickable}})
 			shuffle_signal := ui.signal(shuffle)
 			if shuffle_signal.is_clicked do playback.toggle_shuffle()
-			if shuffle_signal.is_right_clicked do playback.open_shuffle_rules({shuffle.rect.x - 130, shuffle.rect.y - 190})
+			if shuffle_signal.is_right_clicked {
+				playback.open_shuffle_rules({shuffle.rect.x - 130, shuffle.rect.y - 190})
+			}
 
 			resume_seconds := playback.queue.resume_point.position_seconds if playback.is_resume_shown() else helper.position_seconds(now_playing)
-			if kit.icon_button("previous", "backward.fill", 17, kit.colors.text) do playback.skip_to_previous(resume_seconds)
+			if kit.icon_button("previous", "backward.fill", 17, kit.colors.text) {
+				playback.skip_to_previous(resume_seconds)
+			}
 
 			play := ui.box("play", {
 				width            = ui.points(34),
@@ -154,10 +174,14 @@ build_controls :: proc() {
 				}
 			}
 
-			if kit.icon_button("next", "forward.fill", 17, kit.colors.text) do playback.skip_to_next()
+			if kit.icon_button("next", "forward.fill", 17, kit.colors.text) {
+				playback.skip_to_next()
+			}
 
 			repeat_symbol := "repeat.1" if playback.queue.repeat == "one" else "repeat"
-			if kit.icon_button("repeat", repeat_symbol, 14, core.app.accent if playback.queue.repeat != "off" else kit.colors.faint) do playback.cycle_repeat()
+			if kit.icon_button("repeat", repeat_symbol, 14, core.app.accent if playback.queue.repeat != "off" else kit.colors.faint) {
+				playback.cycle_repeat()
+			}
 		}
 
 		build_progress(is_song)
@@ -180,7 +204,9 @@ build_progress :: proc(is_playing_song: bool) {
 		clock.text = kit.to_clock_text(f64(shown_ratio) * duration_seconds)
 		kit.text_box(kit.to_clock_text(duration_seconds), kit.colors.faint, 11, width = ui.points(34))
 
-		if is_set && is_playing_song && !is_waiting do helper.send(fmt.tprintf(`{{"type":"seek","positionSeconds":%.3f}}`, f64(shown_ratio) * duration_seconds))
+		if is_set && is_playing_song && !is_waiting {
+			helper.send(fmt.tprintf(`{{"type":"seek","positionSeconds":%.3f}}`, f64(shown_ratio) * duration_seconds))
+		}
 	}
 
 	// The clock turns over on each whole second while a song plays, and nothing else draws between.
@@ -195,7 +221,9 @@ build_player_end :: proc() {
 	if ui.scope(end) {
 		kit.spacer()
 
-		if kit.icon_button("panel", "sidebar.right", 16, core.app.accent if core.app.panel != .None else kit.colors.faint) do core.toggle_side_panel()
+		if kit.icon_button("panel", "sidebar.right", 16, core.app.accent if core.app.panel != .None else kit.colors.faint) {
+			core.toggle_side_panel()
+		}
 
 		kit.icon_box("", "speaker.wave.2.fill", 15, kit.colors.dim)
 

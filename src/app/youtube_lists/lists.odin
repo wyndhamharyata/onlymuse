@@ -57,7 +57,11 @@ watch_youtube_list :: proc(path: string) -> (youtube.List, apple.Watched) {
 free_unused_youtube_lists :: proc() {
 	now := core.now_ms()
 	unused := make([dynamic]string, context.temp_allocator)
-	for path, parsed in parsed_lists do if now - parsed.used_at > core.UNUSED_PAGE_MS do append(&unused, path)
+	for path, parsed in parsed_lists {
+		if now - parsed.used_at > core.UNUSED_PAGE_MS {
+			append(&unused, path)
+		}
+	}
 
 	for path in unused {
 		parsed := parsed_lists[path]
@@ -135,7 +139,9 @@ merge_youtube_shelves :: proc(apple_shelves: []apple.Shelf, allocator := context
 
 	for index in 0 ..< max(len(apple_shelves), len(youtube_shelves)) {
 		if index < len(apple_shelves) do append(&merged, apple_shelves[index])
-		if index < len(youtube_shelves) do append(&merged, core.copy_shelf(youtube_shelves[index], allocator))
+		if index < len(youtube_shelves) {
+			append(&merged, core.copy_shelf(youtube_shelves[index], allocator))
+		}
 	}
 
 	return merged[:], signature

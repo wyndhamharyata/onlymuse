@@ -108,7 +108,9 @@ to_position :: proc(event: ^NS.Event) -> [2]f32 {
 	location := event->locationInWindow()
 
 	// An event with no window, such as one sent to the process, gives its place on the screen.
-	if event->window() == nil do location = msg_send(NS.Point, state.ns_window, "convertPointFromScreen:", location)
+	if event->window() == nil {
+		location = msg_send(NS.Point, state.ns_window, "convertPointFromScreen:", location)
+	}
 
 	return {f32(location.x), state.window.size_points.y - f32(location.y)}
 }

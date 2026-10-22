@@ -95,7 +95,9 @@ shuffle_by_rules :: proc(songs: []core.Catalog_Song) -> []core.Catalog_Song {
 
 	apart_count := 0
 	// Each part on its own, so a song that plays last never moves ahead.
-	if shuffle_rules.albums_apart do apart_count = keep_albums_apart(shuffled[:len(kept)]) + keep_albums_apart(shuffled[len(kept):])
+	if shuffle_rules.albums_apart {
+		apart_count = keep_albums_apart(shuffled[:len(kept)]) + keep_albums_apart(shuffled[len(kept):])
+	}
 
 	set_shuffle_note(recent_count, skipped_count, apart_count)
 
@@ -127,7 +129,11 @@ find_song_history :: proc() -> (recent, skipped: map[string]bool) {
 		}
 	}
 
-	for key, count in skips do if count >= OFTEN_SKIPPED_COUNT && count > plays[key] do skipped[key] = true
+	for key, count in skips {
+		if count >= OFTEN_SKIPPED_COUNT && count > plays[key] {
+			skipped[key] = true
+		}
+	}
 
 	return
 }
@@ -156,12 +162,20 @@ keep_albums_apart :: proc(songs: []core.Catalog_Song) -> int {
 set_shuffle_note :: proc(recent_count, skipped_count, apart_count: int) {
 	// "4 recent songs and 1 often-skipped song play last."
 	parts := make([dynamic]string, context.temp_allocator)
-	if recent_count > 0 do append(&parts, fmt.tprintf("%d recent %s", recent_count, "song" if recent_count == 1 else "songs"))
-	if skipped_count > 0 do append(&parts, fmt.tprintf("%d often-skipped %s", skipped_count, "song" if skipped_count == 1 else "songs"))
+	if recent_count > 0 {
+		append(&parts, fmt.tprintf("%d recent %s", recent_count, "song" if recent_count == 1 else "songs"))
+	}
+	if skipped_count > 0 {
+		append(&parts, fmt.tprintf("%d often-skipped %s", skipped_count, "song" if skipped_count == 1 else "songs"))
+	}
 
 	note := ""
-	if len(parts) > 0 do note = fmt.tprintf("%s %s last.", strings.join(parts[:], " and ", context.temp_allocator), "plays" if recent_count + skipped_count == 1 else "play")
-	if apart_count > 0 do note = fmt.tprintf("%s%sSongs from one album don't play back to back.", note, " " if note != "" else "")
+	if len(parts) > 0 {
+		note = fmt.tprintf("%s %s last.", strings.join(parts[:], " and ", context.temp_allocator), "plays" if recent_count + skipped_count == 1 else "play")
+	}
+	if apart_count > 0 {
+		note = fmt.tprintf("%s%sSongs from one album don't play back to back.", note, " " if note != "" else "")
+	}
 
 	delete(shuffle_note)
 	shuffle_note = strings.clone(note)
@@ -197,7 +211,11 @@ build_shuffle_rules :: proc() {
 			if kit.menu_item("recent", "Play recent songs last", hours_text) {
 				choices := RECENT_HOUR_CHOICES
 				next := 0
-				for choice, index in choices do if choice == hours do next = (index + 1) % len(choices)
+				for choice, index in choices {
+					if choice == hours {
+						next = (index + 1) % len(choices)
+					}
+				}
 				shuffle_rules.recent_hours = choices[next]
 				save_shuffle_rules()
 			}

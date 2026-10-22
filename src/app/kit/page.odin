@@ -44,7 +44,9 @@ run_bench_scroll :: proc(list: ^ui.Box) {
 	max_scroll := list.content_size.y - list.size.y
 
 	if max_scroll <= 0 do return
-	if list.scroll >= max_scroll || (list.scroll <= 0 && core.app.bench_direction < 0) do core.app.bench_direction *= -1
+	if list.scroll >= max_scroll || (list.scroll <= 0 && core.app.bench_direction < 0) {
+		core.app.bench_direction *= -1
+	}
 
 	ui.set_scroll(list, list.scroll + BENCH_POINTS_PER_FRAME * core.app.bench_direction)
 }

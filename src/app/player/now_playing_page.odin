@@ -67,7 +67,9 @@ build_now_playing_page :: proc() {
 			build_detail_cards(details, info, shown.persistent_id, width)
 			if watched.phase != .Ready do kit.note(kit.phase_note(watched.phase))
 			build_more_by(details)
-			if details.copyright != "" do ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = kit.colors.faint, font_size = 11.5, flags = {.Wrap_Text}}, details.copyright)
+			if details.copyright != "" {
+				ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = kit.colors.faint, font_size = 11.5, flags = {.Wrap_Text}}, details.copyright)
+			}
 		}
 	}
 }
@@ -99,7 +101,9 @@ build_hero :: proc(details: Song_Details, info: playback.Track_Info, shown: help
 			artist_flags := ui.Flags{.Truncate_Text}
 			if details.artist_id != "" do artist_flags |= {.Clickable}
 			artist := ui.box("artist", {width = ui.fill(), height = ui.fit_text(), text_color = core.app.accent if details.artist_id != "" else kit.colors.text, font_size = 20, font_weight = .Semibold, flags = artist_flags}, details.song.artist_name)
-			if ui.signal(artist).is_clicked do core.navigate({kind = .Artist, id = details.artist_id, title = details.song.artist_name})
+			if ui.signal(artist).is_clicked {
+				core.navigate({kind = .Artist, id = details.artist_id, title = details.song.artist_name})
+			}
 
 			album_line := details.album if details.label == "" else fmt.tprintf("%s · %s", details.album, details.label)
 			album_flags := ui.Flags{.Truncate_Text}
@@ -135,11 +139,15 @@ build_pills :: proc(details: Song_Details, info: playback.Track_Info) {
 	} else if slice.contains(details.traits, "lossless") {
 		quality = "Lossless"
 	}
-	if quality != "" do append(&pills, quality if rate == "" else fmt.tprintf("%s · %s", quality, rate))
+	if quality != "" {
+		append(&pills, quality if rate == "" else fmt.tprintf("%s · %s", quality, rate))
+	}
 	if slice.contains(details.traits, "atmos") do append(&pills, "Dolby Atmos")
 	if details.is_digital_master do append(&pills, "Apple Digital Master")
 	if details.language != "" do append(&pills, details.language)
-	if details.lyrics != "" && details.lyrics != "None" do append(&pills, "Word-by-word lyrics" if details.lyrics == "Word by word" else "Lyrics")
+	if details.lyrics != "" && details.lyrics != "None" {
+		append(&pills, "Word-by-word lyrics" if details.lyrics == "Word by word" else "Lyrics")
+	}
 	if details.is_explicit do append(&pills, "Explicit")
 
 	if len(pills) == 0 do return
@@ -171,11 +179,15 @@ build_actions :: proc(details: Song_Details, persistent_id: string) {
 
 	if ui.scope(row) {
 		is_on := playback.is_favourite(details.song, persistent_id)
-		if kit.action_button("Favourite", "heart.circle.fill" if is_on else "heart.circle", false, core.app.accent if is_on else kit.colors.text) do playback.toggle_favourite(details.song, persistent_id)
+		if kit.action_button("Favourite", "heart.circle.fill" if is_on else "heart.circle", false, core.app.accent if is_on else kit.colors.text) {
+			playback.toggle_favourite(details.song, persistent_id)
+		}
 
 		if details.song.id != "" && kit.action_button("Add to Playlist", "plus", false) {
 			button := ui.find_box("Add to Playlist", row)
-			if button != nil do menus.open_song_menu(details.song, {button.rect.x, button.rect.w + 4}, true)
+			if button != nil {
+				menus.open_song_menu(details.song, {button.rect.x, button.rect.w + 4}, true)
+			}
 		}
 
 		if details.url != "" && kit.action_button("Copy Link", "link", false) {
@@ -193,7 +205,9 @@ build_current_lyric :: proc(shown: helper.Song) {
 
 	position := helper.position_seconds(core.app.now_playing) + f64(lyrics_state.lead_ms) / 1000
 	index := find_current_line(lines, position)
-	if next := find_next_change(lines, position); next >= 0 do platform.request_frame_after(next - position + WORD_TIMER_SLACK_SECONDS)
+	if next := find_next_change(lines, position); next >= 0 {
+		platform.request_frame_after(next - position + WORD_TIMER_SLACK_SECONDS)
+	}
 	if index < 0 || index >= len(lines) || lines[index].text == "" do return
 
 	line := lines[index]
@@ -201,7 +215,9 @@ build_current_lyric :: proc(shown: helper.Song) {
 
 	if ui.scope(box) {
 		ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = kit.colors.text, font_size = 17, font_weight = .Semibold, flags = {.Wrap_Text}}, fmt.tprintf("♪ %s", line.text))
-		if line.pronunciation != "" do ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = kit.to_color(0xffffffa0), font_size = 13, flags = {.Wrap_Text}}, line.pronunciation)
+		if line.pronunciation != "" {
+			ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = kit.to_color(0xffffffa0), font_size = 13, flags = {.Wrap_Text}}, line.pronunciation)
+		}
 	}
 }
 
@@ -247,7 +263,9 @@ build_more_by :: proc(details: Song_Details) {
 
 		if ui.scope(row) {
 			for card, index in data.cards {
-				if lists.build_card_tile(fmt.tprintf("%d %s", index, card.id), card, 118) do lists.open_card(data.cards, index)
+				if lists.build_card_tile(fmt.tprintf("%d %s", index, card.id), card, 118) {
+					lists.open_card(data.cards, index)
+				}
 			}
 		}
 	}

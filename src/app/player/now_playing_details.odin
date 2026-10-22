@@ -50,21 +50,31 @@ build_detail_cards :: proc(details: Song_Details, info: playback.Track_Info, per
 		credits := make([dynamic]Detail, context.temp_allocator)
 		append(&credits, Detail{"Performed by", details.song.artist_name})
 		if details.composer != "" do append(&credits, Detail{"Composed by", details.composer})
-		if writers := lyrics.find_songwriters(persistent_id); len(writers) > 0 do append(&credits, Detail{"Lyrics by", strings.join(writers, ", ", context.temp_allocator)})
+		if writers := lyrics.find_songwriters(persistent_id); len(writers) > 0 {
+			append(&credits, Detail{"Lyrics by", strings.join(writers, ", ", context.temp_allocator)})
+		}
 		if details.label != "" do append(&credits, Detail{"Label", details.label})
 		if details.released != "" do append(&credits, Detail{"Released", details.released})
 		if details.genre != "" do append(&credits, Detail{"Genre", details.genre})
 		build_detail_card("credits", "CREDITS", credits[:], 1.1)
 
 		sound := make([dynamic]Detail, context.temp_allocator)
-		if format := to_format(details, info); format != "" do append(&sound, Detail{"Format", format})
+		if format := to_format(details, info); format != "" {
+			append(&sound, Detail{"Format", format})
+		}
 		rates := make([dynamic]string, context.temp_allocator)
-		if info.sample_rate > 0 do append(&rates, fmt.tprintf("%.1f kHz", f64(info.sample_rate) / 1000))
+		if info.sample_rate > 0 {
+			append(&rates, fmt.tprintf("%.1f kHz", f64(info.sample_rate) / 1000))
+		}
 		if info.bit_rate > 0 do append(&rates, fmt.tprintf("%d kbps", info.bit_rate))
-		if len(rates) > 0 do append(&sound, Detail{"Sample rate · bit rate" if len(rates) == 2 else "Sample rate" if info.sample_rate > 0 else "Bit rate", strings.join(rates[:], " · ", context.temp_allocator)})
+		if len(rates) > 0 {
+			append(&sound, Detail{"Sample rate · bit rate" if len(rates) == 2 else "Sample rate" if info.sample_rate > 0 else "Bit rate", strings.join(rates[:], " · ", context.temp_allocator)})
+		}
 		length := kit.to_clock_text(details.song.duration_seconds)
 		append(&sound, Detail{"Length · BPM" if info.bpm > 0 else "Length", fmt.tprintf("%s · %d", length, info.bpm) if info.bpm > 0 else length})
-		if info.size > 0 do append(&sound, Detail{"Size", fmt.tprintf("%.1f MB", info.size / 1_000_000)})
+		if info.size > 0 {
+			append(&sound, Detail{"Size", fmt.tprintf("%.1f MB", info.size / 1_000_000)})
+		}
 		if details.isrc != "" do append(&sound, Detail{"ISRC", details.isrc})
 		build_detail_card("sound", "SOUND", sound[:], 1)
 	}
@@ -152,7 +162,9 @@ find_catalog_id :: proc(name, artist, queue_id: string) -> (string, apple.Phase)
 	if len(songs) == 0 do return "", .Failed
 
 	for found in songs {
-		if found.attributes.name == name && found.attributes.artist_name == artist do return strings.clone(found.id, context.temp_allocator), .Ready
+		if found.attributes.name == name && found.attributes.artist_name == artist {
+			return strings.clone(found.id, context.temp_allocator), .Ready
+		}
 	}
 
 	return strings.clone(songs[0].id, context.temp_allocator), .Ready
@@ -197,7 +209,9 @@ read_song_details :: proc(path: string, data: ^core.Page_Data, body: string) {
 		is_explicit       = attributes.content_rating == "explicit",
 	}
 	// The artist page asks for these views, so the answer is shared.
-	if artist_id != "" do details.artist_path = fmt.aprintf("/v1/catalog/%s/artists/%s?views=top-songs,latest-release,full-albums,similar-artists", apple.STOREFRONT, artist_id, allocator = allocator)
+	if artist_id != "" {
+		details.artist_path = fmt.aprintf("/v1/catalog/%s/artists/%s?views=top-songs,latest-release,full-albums,similar-artists", apple.STOREFRONT, artist_id, allocator = allocator)
+	}
 
 	// Keyed by the page's path, which names the song. The strings live in the page's arena, read again with it.
 	if path in song_details {

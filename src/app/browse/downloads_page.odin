@@ -78,7 +78,9 @@ scan_downloads :: proc() {
 
 			for song in songs {
 				if !strings.has_suffix(song.name, ".movpkg") do continue
-				if download, ok := read_download(fmt.tprintf("%s/boot.xml", song.fullpath)); ok do append(&found, download)
+				if download, ok := read_download(fmt.tprintf("%s/boot.xml", song.fullpath)); ok {
+					append(&found, download)
+				}
 			}
 		}
 	}

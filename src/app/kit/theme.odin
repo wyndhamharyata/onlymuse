@@ -124,7 +124,9 @@ ACCENT_RATE :: 8
 update_accent :: proc(dt_seconds: f32, artwork_source: string) {
 	target := core.app.system_accent
 	if source := artwork_source; source != "" {
-		if color, ok := image.find_color(source); ok && color.vividness >= MIN_COVER_VIVIDNESS do target = to_cover_accent(color.rgb)
+		if color, ok := image.find_color(source); ok && color.vividness >= MIN_COVER_VIVIDNESS {
+			target = to_cover_accent(color.rgb)
+		}
 	}
 
 	t := 1 - math.exp(-ACCENT_RATE * min(dt_seconds, 0.1))

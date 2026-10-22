@@ -55,17 +55,23 @@ build_song_rows :: proc(page: ^ui.Box, songs: []core.Catalog_Song, dates: []stri
 	current, is_playing := playback.find_queue_song(core.app.now_playing.song.persistent_id)
 
 	if ui.scope(rows) {
-		if first > 0 do ui.box("", {width = ui.fill(), height = ui.points(f32(first) * SONG_ROW_POINTS)})
+		if first > 0 {
+			ui.box("", {width = ui.fill(), height = ui.points(f32(first) * SONG_ROW_POINTS)})
+		}
 
 		for index in first ..= last {
 			song := songs[index]
 			is_current := is_playing && matching.is_same_queue_song(current, song)
 			subtitle := song.album_name if dates != nil else to_song_subtitle(song)
 			date := kit.to_date_text(dates[index]) if index < len(dates) else ""
-			if build_song_row(fmt.tprintf("%d %s", index, song.id), song, subtitle, is_current, date) do playback.play_songs(songs, index)
+			if build_song_row(fmt.tprintf("%d %s", index, song.id), song, subtitle, is_current, date) {
+				playback.play_songs(songs, index)
+			}
 		}
 
-		if last < len(songs) - 1 do ui.box("", {width = ui.fill(), height = ui.points(f32(len(songs) - 1 - last) * SONG_ROW_POINTS)})
+		if last < len(songs) - 1 {
+			ui.box("", {width = ui.fill(), height = ui.points(f32(len(songs) - 1 - last) * SONG_ROW_POINTS)})
+		}
 	}
 }
 
@@ -101,7 +107,9 @@ build_song_row :: proc(id: string, song: core.Catalog_Song, subtitle: string, is
 			kit.text_box(subtitle, kit.colors.dim, 12)
 		}
 
-		if date != "" do ui.box("", {width = ui.fit_text(), height = ui.fit_text(), text_color = kit.colors.faint, font_size = 12}, date)
+		if date != "" {
+			ui.box("", {width = ui.fit_text(), height = ui.fit_text(), text_color = kit.colors.faint, font_size = 12}, date)
+		}
 		build_row_heart(row, song, is_current)
 		ui.box("", {width = ui.points(44), height = ui.fit_text(), text_align = .End, text_color = kit.colors.faint, font_size = 12}, kit.to_clock_text(song.duration_seconds))
 	}
@@ -115,12 +123,16 @@ build_row_heart :: proc(row: ^ui.Box, chosen: core.Catalog_Song, is_current: boo
 	song, state := matching.find_match(chosen)
 
 	// The same padding as the heart's button, so the lengths after it line up.
-	if state != .Found do kit.icon_box("", YOUTUBE_SYMBOL, 13, kit.colors.youtube if state == .Missing else kit.colors.faint, {padding = {4, 4, 4, 4}})
+	if state != .Found {
+		kit.icon_box("", YOUTUBE_SYMBOL, 13, kit.colors.youtube if state == .Missing else kit.colors.faint, {padding = {4, 4, 4, 4}})
+	}
 	// Until Apple's catalog is checked, the song may yet be Apple's, whose heart it would take.
 	if state == .Checking do return
 
 	persistent_id := core.app.now_playing.song.persistent_id if is_current else ""
 	is_on := playback.is_favourite(song, persistent_id)
 
-	if playback.favourite_button("heart", is_on, 13) do playback.toggle_favourite(song, persistent_id)
+	if playback.favourite_button("heart", is_on, 13) {
+		playback.toggle_favourite(song, persistent_id)
+	}
 }

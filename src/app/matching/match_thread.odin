@@ -139,7 +139,11 @@ find_albums :: proc(jobs: []^Match_Job) -> int {
 			albums.found_ids[strings.clone(key)] = ids
 		}
 
-		for id in ids do if id not_in albums.songs && !slice.contains(wanted[:], id) do append(&wanted, id)
+		for id in ids {
+			if id not_in albums.songs && !slice.contains(wanted[:], id) {
+				append(&wanted, id)
+			}
+		}
 	}
 
 	for first := 0; first < len(wanted); first += MATCH_BATCH_COUNT {
@@ -170,7 +174,9 @@ search_albums :: proc(song: core.Catalog_Song) -> ([]string, int) {
 
 	for album in parsed.results.albums.data {
 		is_same_album := has_same_title(song.album_name, album.attributes.name) && is_same_artist(song.artist_name, album.attributes.artist_name)
-		if is_same_album && len(ids) < MAX_FOUND_ALBUM_COUNT do append(&ids, strings.clone(album.id))
+		if is_same_album && len(ids) < MAX_FOUND_ALBUM_COUNT {
+			append(&ids, strings.clone(album.id))
+		}
 	}
 
 	return ids[:], 200
@@ -186,7 +192,11 @@ fetch_albums :: proc(ids: []string) -> int {
 
 	for album in apple.to_resources(answer.body, context.temp_allocator) {
 		songs := make([dynamic]core.Catalog_Song)
-		for track in apple.list_related(album, "tracks") do if track.type == "songs" do append(&songs, core.copy_song(apple.to_catalog_song(track)))
+		for track in apple.list_related(album, "tracks") {
+			if track.type == "songs" {
+				append(&songs, core.copy_song(apple.to_catalog_song(track)))
+			}
+		}
 		if album.id not_in albums.songs do albums.songs[strings.clone(album.id)] = songs[:]
 	}
 
@@ -255,7 +265,9 @@ find_best_match :: proc(song: core.Catalog_Song, body: string) -> (core.Catalog_
 		},
 	}
 	answer: Search_Answer
-	if json.unmarshal_string(body, &answer, allocator = context.temp_allocator) != nil do return {}, false
+	if json.unmarshal_string(body, &answer, allocator = context.temp_allocator) != nil {
+		return {}, false
+	}
 
 	candidates := make([]core.Catalog_Song, len(answer.results.songs.data), context.temp_allocator)
 	for resource, index in answer.results.songs.data do candidates[index] = apple.to_catalog_song(resource)

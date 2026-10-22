@@ -63,7 +63,9 @@ build_album_page :: proc(album_id: string) {
 
 		if len(resources) == 0 {
 			page := kit.page_scroll("album")
-			if ui.scope(page) do kit.note(kit.phase_note(link.phase) if link.phase != .Ready else "This album is only on the Mac, so Apple Music has no page for it.")
+			if ui.scope(page) {
+				kit.note(kit.phase_note(link.phase) if link.phase != .Ready else "This album is only on the Mac, so Apple Music has no page for it.")
+			}
 			return
 		}
 		catalog_id = resources[0].id
@@ -115,7 +117,11 @@ read_album :: proc(data: ^core.Page_Data, body: string) {
 	data.detail = fmt.aprintf("%s · %s · %d songs", genre, year, len(songs), allocator = allocator)
 
 	badges := make([dynamic]string, allocator)
-	for label in badge_labels do if slice.contains(attributes.audio_traits, label[0]) do append(&badges, label[1])
+	for label in badge_labels {
+		if slice.contains(attributes.audio_traits, label[0]) {
+			append(&badges, label[1])
+		}
+	}
 	data.badges = badges[:]
 }
 
@@ -139,7 +145,9 @@ build_album_header :: proc(data: ^core.Page_Data, width: f32) {
 			artist_flags := ui.Flags{.Truncate_Text}
 			if data.link_id != "" do artist_flags |= {.Clickable}
 			artist := ui.box("artist", {width = ui.fill(), height = ui.fit_text(), text_color = core.app.accent, font_size = 20, font_weight = .Semibold, flags = artist_flags}, data.subtitle)
-			if ui.signal(artist).is_clicked do core.navigate({kind = .Artist, id = data.link_id, title = data.subtitle})
+			if ui.signal(artist).is_clicked {
+				core.navigate({kind = .Artist, id = data.link_id, title = data.subtitle})
+			}
 
 			kit.text_box(data.detail, kit.colors.dim)
 
@@ -153,8 +161,12 @@ build_album_header :: proc(data: ^core.Page_Data, width: f32) {
 			buttons := ui.box("buttons", {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 8, flags = {.Wrap_Children}})
 
 			if ui.scope(buttons) {
-				if kit.action_button("Play", "play.fill", true) do playback.play_songs(data.songs, 0)
-				if kit.action_button("Shuffle", "shuffle", false) do playback.shuffle_songs(data.songs)
+				if kit.action_button("Play", "play.fill", true) {
+					playback.play_songs(data.songs, 0)
+				}
+				if kit.action_button("Shuffle", "shuffle", false) {
+					playback.shuffle_songs(data.songs)
+				}
 			}
 		}
 	}
@@ -198,7 +210,9 @@ build_playlist_page :: proc(page: core.Page) {
 
 	if is_stale && phase == .Ready {
 		core.read_library_songs(data, bodies)
-		if !is_catalog do data.songs = youtube_lists.merge_playlist_youtube_songs(page.id, data.songs, core.page_allocator(data))
+		if !is_catalog {
+			data.songs = youtube_lists.merge_playlist_youtube_songs(page.id, data.songs, core.page_allocator(data))
+		}
 		resources := apple.to_resources(header.body, core.page_allocator(data)) if is_catalog && header.phase == .Ready else nil
 		if len(resources) > 0 {
 			data.title = resources[0].attributes.name

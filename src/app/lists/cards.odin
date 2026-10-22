@@ -51,13 +51,19 @@ build_card_row :: proc(id, title: string, cards: []apple.Card, tile_points: f32,
 		last := min(len(cards) - 1, int((row.scroll + row.size.x) / step) + EXTRA_CARD_COUNT)
 
 		if ui.scope(row) {
-			if first > 0 do ui.box("", {width = ui.points(f32(first) * step - CARD_GAP_POINTS), height = ui.points(1)})
-
-			for index in first ..= last {
-				if build_card_tile(fmt.tprintf("%d %s", index, cards[index].id), cards[index], tile_points, is_round, is_wide) do open_card(cards, index)
+			if first > 0 {
+				ui.box("", {width = ui.points(f32(first) * step - CARD_GAP_POINTS), height = ui.points(1)})
 			}
 
-			if last < len(cards) - 1 do ui.box("", {width = ui.points(f32(len(cards) - 1 - last) * step - CARD_GAP_POINTS), height = ui.points(1)})
+			for index in first ..= last {
+				if build_card_tile(fmt.tprintf("%d %s", index, cards[index].id), cards[index], tile_points, is_round, is_wide) {
+					open_card(cards, index)
+				}
+			}
+
+			if last < len(cards) - 1 {
+				ui.box("", {width = ui.points(f32(len(cards) - 1 - last) * step - CARD_GAP_POINTS), height = ui.points(1)})
+			}
 		}
 	}
 }
@@ -101,7 +107,9 @@ build_card_tile :: proc(id: string, card: apple.Card, tile_points: f32, is_round
 		ui.box("", {width = ui.points(1), height = ui.points(4)})
 		text_align := ui.Align.Center if is_round else .Start
 		ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = kit.colors.text, font_size = 12.5, text_align = text_align, flags = {.Truncate_Text}}, card.name)
-		if !is_round do ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = kit.colors.dim, font_size = 12, flags = {.Truncate_Text}}, card.subtitle)
+		if !is_round {
+			ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = kit.colors.dim, font_size = 12, flags = {.Truncate_Text}}, card.subtitle)
+		}
 	}
 
 	return ui.signal(tile).is_clicked

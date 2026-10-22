@@ -128,7 +128,9 @@ find_library_match :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, bool,
 			copied := core.copy_song(library_song, allocator)
 
 			for key in list_title_keys(library_song.name) {
-				if key not_in library_index.by_title do library_index.by_title[strings.clone(key, allocator)] = make([dynamic]core.Catalog_Song, allocator)
+				if key not_in library_index.by_title {
+					library_index.by_title[strings.clone(key, allocator)] = make([dynamic]core.Catalog_Song, allocator)
+				}
 				append(&library_index.by_title[key], copied)
 			}
 		}

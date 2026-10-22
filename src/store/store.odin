@@ -79,7 +79,9 @@ start :: proc() {
 @(private)
 run :: proc(sql: cstring) {
 	error_text: cstring
-	if mac.sqlite3_exec(state.db, sql, nil, nil, &error_text) != mac.SQLITE_OK do console.add("Store", "%s", error_text)
+	if mac.sqlite3_exec(state.db, sql, nil, nil, &error_text) != mac.SQLITE_OK {
+		console.add("Store", "%s", error_text)
+	}
 }
 
 @(private)
@@ -103,7 +105,9 @@ prepare :: proc(sql: cstring) -> (mac.Sqlite_Statement, bool) {
 // A write that fails, such as on a full disk, shows on the Console page.
 @(private)
 step_write :: proc(statement: mac.Sqlite_Statement) {
-	if mac.sqlite3_step(statement) != mac.SQLITE_DONE do console.add("Store", "%s", mac.sqlite3_errmsg(state.db))
+	if mac.sqlite3_step(statement) != mac.SQLITE_DONE {
+		console.add("Store", "%s", mac.sqlite3_errmsg(state.db))
+	}
 }
 
 @(private)

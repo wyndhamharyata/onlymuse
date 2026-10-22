@@ -165,7 +165,9 @@ to_catalog_song :: proc(resource: Resource) -> Catalog_Song {
 // A library song plays by its catalog ID. A song uploaded from a Mac has none, so it keeps its library ID.
 to_library_song :: proc(resource: Resource) -> Catalog_Song {
 	song := to_catalog_song(resource)
-	if resource.attributes.play_params.catalog_id != "" do song.id = resource.attributes.play_params.catalog_id
+	if resource.attributes.play_params.catalog_id != "" {
+		song.id = resource.attributes.play_params.catalog_id
+	}
 
 	return song
 }
@@ -217,7 +219,9 @@ to_home_shelves :: proc(body: string, allocator := context.allocator) -> []Shelf
 
 	for resource in to_resources(body, allocator) {
 		cards := list_cards(list_related(resource, "contents"), allocator)
-		if len(cards) > 0 do append(&shelves, Shelf{title = resource.attributes.title.string_for_display, cards = cards})
+		if len(cards) > 0 {
+			append(&shelves, Shelf{title = resource.attributes.title.string_for_display, cards = cards})
+		}
 	}
 
 	return shelves[:]
@@ -234,7 +238,9 @@ to_new_shelves :: proc(body: string, allocator := context.allocator) -> []Shelf 
 
 	for element in list_related(tabs[0], "children") {
 		cards := list_cards(list_related(element, "contents"), allocator)
-		if element.attributes.name != "" && len(cards) > 0 do append(&shelves, Shelf{title = element.attributes.name, cards = cards})
+		if element.attributes.name != "" && len(cards) > 0 {
+			append(&shelves, Shelf{title = element.attributes.name, cards = cards})
+		}
 	}
 
 	return shelves[:]

@@ -74,7 +74,9 @@ build_song_menu :: proc() {
 
 	// Escape closes it, unless the playlist name field takes it.
 	for event in platform.list_events() {
-		if key, ok := event.(platform.Key_Press); ok && key.key_code == ESCAPE_KEY_CODE do is_closing = true
+		if key, ok := event.(platform.Key_Press); ok && key.key_code == ESCAPE_KEY_CODE {
+			is_closing = true
+		}
 	}
 
 	if ui.scope(cover) {
@@ -141,7 +143,9 @@ build_song_menu :: proc() {
 			}
 		}
 
-		if song_menu.is_playlists_open && build_playlist_menu(song, position + {main_width, 0}, window_size) do is_closing = true
+		if song_menu.is_playlists_open && build_playlist_menu(song, position + {main_width, 0}, window_size) {
+			is_closing = true
+		}
 	}
 
 	if is_closing do close_song_menu()
@@ -193,7 +197,9 @@ build_playlist_menu :: proc(song: core.Catalog_Song, position: [2]f32, window_si
 			}
 		}
 
-		if shown == 0 do ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = kit.colors.faint, font_size = 12, padding = {8, 4, 8, 4}}, kit.phase_note(phase) if phase != .Ready else "No playlists of yours yet.")
+		if shown == 0 {
+			ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = kit.colors.faint, font_size = 12, padding = {8, 4, 8, 4}}, kit.phase_note(phase) if phase != .Ready else "No playlists of yours yet.")
+		}
 	}
 
 	return is_done

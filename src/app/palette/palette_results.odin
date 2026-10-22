@@ -113,7 +113,9 @@ find_best :: proc(names, second_names: []string, term: string) -> []int {
 	for name, index in names {
 		score := to_match_score(name, term)
 		if second_names != nil {
-			if second := to_match_score(second_names[index], term); second >= 0 && (score < 0 || second + 1 < score) do score = second + 1
+			if second := to_match_score(second_names[index], term); second >= 0 && (score < 0 || second + 1 < score) {
+				score = second + 1
+			}
 		}
 		if score >= 0 do append(&found, Match{index, score})
 	}
@@ -147,7 +149,9 @@ add_actions :: proc(results: ^[dynamic]Palette_Result, term: string, allocator :
 	count := 0
 	for action in actions {
 		if action.action == .Favourite && !has_song do continue
-		if !matches(action.title, term) || count >= (len(actions) if term == "" else PALETTE_GROUP_LIMIT) do continue
+		if !matches(action.title, term) || count >= (len(actions) if term == "" else PALETTE_GROUP_LIMIT) {
+			continue
+		}
 
 		result := Palette_Result{group = "Actions", title = action.title, symbol = action.symbol, shortcut = action.shortcut, action = action.action}
 		if action.action == .Navigate do result.page = {kind = .Now_Playing}

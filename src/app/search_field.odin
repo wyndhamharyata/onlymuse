@@ -14,7 +14,9 @@ start_search_field :: proc() {
 
 	if saved, ok := store.find_state("searchTerm", context.temp_allocator); ok {
 		term: string
-		if json.unmarshal_string(saved, &term, allocator = context.temp_allocator) == nil do kit.set_field_text(&search_field, term)
+		if json.unmarshal_string(saved, &term, allocator = context.temp_allocator) == nil {
+			kit.set_field_text(&search_field, term)
+		}
 	}
 }
 

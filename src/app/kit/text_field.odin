@@ -247,7 +247,9 @@ build_text_field :: proc(field: ^Text_Field, id, placeholder, symbol: string, he
 		is_empty := shown == ""
 		line := ui.box("line", {width = ui.fill(), height = ui.fit_text(), text_color = colors.faint if is_empty else colors.text, font_size = font_size, flags = {.Clip}}, placeholder if is_empty else shown)
 
-		if field.is_all_selected && !is_empty do line.style.background = to_accent_tint(core.app.accent)
+		if field.is_all_selected && !is_empty {
+			line.style.background = to_accent_tint(core.app.accent)
+		}
 
 		if is_focused {
 			if ui.scope(line) do build_caret(line, text[:cursor], field.marked, font_size)

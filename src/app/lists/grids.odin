@@ -35,7 +35,9 @@ build_song_grid :: proc(songs: []core.Catalog_Song, dates: []string, playing: []
 				for index := column; index < len(songs); index += column_count {
 					song := songs[index]
 					date := kit.to_date_text(dates[index]) if has_dates && index < len(dates) else ""
-					if build_song_row(fmt.tprintf("%d %s", index, song.id), song, song.album_name, is_playing && matching.is_same_queue_song(current, song), date) do playback.play_songs(playing, index)
+					if build_song_row(fmt.tprintf("%d %s", index, song.id), song, song.album_name, is_playing && matching.is_same_queue_song(current, song), date) {
+						playback.play_songs(playing, index)
+					}
 				}
 			}
 		}
@@ -91,11 +93,15 @@ build_card_grid :: proc(page: ^ui.Box, cards: []apple.Card, is_round: bool) {
 				for column in 0 ..< columns {
 					index := row * columns + column
 					if index >= len(cards) do break
-					if build_card_tile(fmt.tprintf("%d %s", index, cards[index].id), cards[index], tile, is_round) do open_card(cards, index)
+					if build_card_tile(fmt.tprintf("%d %s", index, cards[index].id), cards[index], tile, is_round) {
+						open_card(cards, index)
+					}
 				}
 			}
 		}
 
-		if last < row_count - 1 do ui.box("", {width = ui.fill(), height = ui.points(f32(row_count - 1 - last) * row_points)})
+		if last < row_count - 1 {
+			ui.box("", {width = ui.fill(), height = ui.points(f32(row_count - 1 - last) * row_points)})
+		}
 	}
 }

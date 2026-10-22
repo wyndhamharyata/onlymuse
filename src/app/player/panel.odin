@@ -61,7 +61,9 @@ build_up_next :: proc() {
 			kit.icon_box("", "shuffle", 11, core.app.accent)
 			ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = kit.colors.dim, font_size = 11.5, flags = {.Wrap_Text}}, playback.shuffle_note if playback.shuffle_note != "" else "Shuffled.")
 			rules := ui.box("rules", {width = ui.fit_text(), height = ui.points(22), padding = {8, 0, 8, 0}, corner_radius = 6, background = kit.colors.field, hover_background = kit.colors.hover, text_color = kit.colors.text, font_size = 11.5, font_weight = .Semibold, flags = {.Clickable}}, "Rules")
-			if ui.signal(rules).is_clicked do playback.open_shuffle_rules({rules.rect.x - 240, rules.rect.w + 4})
+			if ui.signal(rules).is_clicked {
+				playback.open_shuffle_rules({rules.rect.x - 240, rules.rect.w + 4})
+			}
 		}
 	}
 

@@ -33,7 +33,9 @@ build_console_page :: proc() {
 				platform.write_clipboard(to_console_text(entries))
 				kit.show_toast(fmt.tprintf("Copied %s", count_text))
 			}
-			if len(entries) > 0 && kit.action_button("Clear", "trash", false) do console.clear_entries()
+			if len(entries) > 0 && kit.action_button("Clear", "trash", false) {
+				console.clear_entries()
+			}
 		}
 
 		rows := ui.box("rows", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 2})

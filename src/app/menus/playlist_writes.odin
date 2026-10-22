@@ -57,7 +57,9 @@ run_write :: proc(data: rawptr) {
 		failed := fmt.aprintf("%s: no answer from Apple.", job.failed_text) if status == 0 else fmt.aprintf("%s: Apple answered %d.", job.failed_text, status)
 		append(&write_results.toasts, strings.clone(job.done_text) if is_done else failed)
 		if is_done do delete(failed)
-		if is_done && job.refresh_path != "" do append(&write_results.refresh, strings.clone(job.refresh_path))
+		if is_done && job.refresh_path != "" {
+			append(&write_results.refresh, strings.clone(job.refresh_path))
+		}
 	}
 	platform.wake()
 
@@ -83,10 +85,14 @@ apply_write_results :: proc() {
 		delete(path)
 	}
 	for created in write_results.created {
-		if len(created.youtube_songs) > 0 do youtube_lists.add_playlist_youtube_songs(created.id, created.youtube_songs)
+		if len(created.youtube_songs) > 0 {
+			youtube_lists.add_playlist_youtube_songs(created.id, created.youtube_songs)
+		}
 		kit.show_toast(created.done_text)
 		apple.refresh(PLAYLISTS_PATH)
-		if created.opens_page do core.navigate({kind = .Playlist, id = created.id, title = created.name})
+		if created.opens_page {
+			core.navigate({kind = .Playlist, id = created.id, title = created.name})
+		}
 	}
 	clear(&write_results.toasts)
 	clear(&write_results.refresh)

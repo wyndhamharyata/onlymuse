@@ -48,7 +48,9 @@ menu_item_signal :: proc(id, label: string, hint := "", is_selected := false, co
 
 	if ui.scope(item) {
 		ui.box("", {width = ui.fill(), height = ui.fit_text(), text_color = text_color, font_size = 13, flags = {.Truncate_Text}}, label)
-		if hint != "" do ui.box("", {width = ui.fit_text(), height = ui.fit_text(), text_color = text_color if is_selected else colors.faint, font_size = 12}, hint)
+		if hint != "" {
+			ui.box("", {width = ui.fit_text(), height = ui.fit_text(), text_color = text_color if is_selected else colors.faint, font_size = 12}, hint)
+		}
 	}
 
 	return ui.signal(item)

@@ -155,9 +155,13 @@ send_request :: proc(path: string, allocator: mem.Allocator) -> apple.Answer {
 	}
 
 	url := fmt.tprintf("%s%s?prettyPrint=false", BASE_URL, endpoint)
-	if section_token != "" do url = fmt.tprintf("%s&ctoken=%s&continuation=%s&type=next", url, section_token, section_token)
+	if section_token != "" {
+		url = fmt.tprintf("%s&ctoken=%s&continuation=%s&type=next", url, section_token, section_token)
+	}
 	response := net.fetch(url, headers[:], context.temp_allocator, .Post, body)
-	if response.status != 200 do console.add("YouTube", "%s: %s", path, console.to_status_text(response.status))
+	if response.status != 200 {
+		console.add("YouTube", "%s: %s", path, console.to_status_text(response.status))
+	}
 
 	return {response.status, strings.clone(string(response.body), allocator)}
 }

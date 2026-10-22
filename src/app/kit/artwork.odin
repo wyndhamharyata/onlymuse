@@ -34,7 +34,9 @@ draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	paint := cast(^Artwork_Paint)box.data
 	texture: ^MTL.Texture
 	image_opacity: f32
-	if paint.source != "" do texture, image_opacity = image.find(paint.source, paint.size_pixels, to_crop(rect, paint.focus_y))
+	if paint.source != "" {
+		texture, image_opacity = image.find(paint.source, paint.size_pixels, to_crop(rect, paint.focus_y))
+	}
 
 	if image_opacity < 1 && paint.symbol != "" {
 		color := paint.symbol_color

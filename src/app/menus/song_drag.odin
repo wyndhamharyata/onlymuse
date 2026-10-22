@@ -41,7 +41,9 @@ take_song_drop :: proc(is_hovered: bool, playlist_id, playlist_name: string, can
 @(private = "file")
 is_mouse_released :: proc() -> bool {
 	for event in platform.list_events() {
-		if release, ok := event.(platform.Mouse_Release); ok && release.button == .Left do return true
+		if release, ok := event.(platform.Mouse_Release); ok && release.button == .Left {
+			return true
+		}
 	}
 
 	return false

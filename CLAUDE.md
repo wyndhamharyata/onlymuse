@@ -195,10 +195,18 @@ The default is no comment. Write one line only when it holds one of these:
 - The source of a formula, with the source's own symbol.
 - The unit of a bare number, when a name cannot hold it.
 - A constraint outside the code that a tool or a platform sets.
+- What an Odin feature does at that line, for a reader who knows no Odin. Explain it at its first
+  use in each file, and only where its effect is not plain from the line: `defer`, `context`,
+  `context.temp_allocator` and when its memory goes, `or_else`, `or_continue`, `when`, `transmute`,
+  `cast`, `distinct`, `using`, `#partial switch`, `foreign`, and attributes such as `@(private)`.
+  Basic syntax (`::`, `:=`, `^`, slices, `[dynamic]`, `map`, `for ... in`) gets no comment. The
+  reader learns it once from the Odin overview at https://odin-lang.org/docs/overview/.
 
 Never write a banner, step narration, a label such as `// Main logic`, commented-out code, or a TODO
 with no named task. A comment is one line. It explains the code as it is. It never refers to a past
-version or a change. Types carry the contract.
+version or a change. The one exception is a bug fix: the comment may name the bug the code
+prevents, as a fact about how the code behaves now. A comment never names a PR, a commit, a branch,
+an issue, a conversation or anything else outside the repo. Types carry the contract.
 
 ## 4. A name is a full word.
 

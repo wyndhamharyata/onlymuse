@@ -31,7 +31,7 @@ how to try each part of the app, and lists the development settings.
 
 ```
 src/
-  app/              The window. main.odin opens it and builds each frame. pages.odin picks the page.
+  app/              The window. main.odin opens it, frame.odin builds each frame. pages.odin picks the page.
                     sidebar, search field, Console page, zoom and bench live here too.
     core/           What every part of the window shares: the app's state, navigation, page data, songs, the library lists.
     kit/            The look and the widgets: theme, boxes, artwork, text fields, menus, toasts.

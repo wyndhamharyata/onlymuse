@@ -45,7 +45,7 @@ note :: proc(text: string) {
 build_shelves_page :: proc(title, path: string, is_new: bool) {
 	watched := apple.watch(path)
 	youtube_version := 0
-	if !is_new do _, youtube_version = merge_youtube_shelves(nil, context.temp_allocator)
+	if !is_new do _, youtube_version, _ = watch_youtube_home()
 	data, is_stale := find_page_data(path, watched.version * 1000 + youtube_version, watched.phase)
 
 	if is_stale && watched.phase == .Ready {

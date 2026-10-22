@@ -98,6 +98,42 @@ now_ms :: proc() -> i64 {
 	return time.to_unix_nanoseconds(time.now()) / 1_000_000
 }
 
+// A song or a card kept in a page's arena, from another arena that lives on its own terms, such as a parsed
+// YouTube answer. A page that kept only pointers into one would read freed memory once it was read again.
+copy_song :: proc(song: Catalog_Song, allocator: mem.Allocator) -> Catalog_Song {
+	copied := song
+	copied.id = strings.clone(song.id, allocator)
+	copied.name = strings.clone(song.name, allocator)
+	copied.artist_name = strings.clone(song.artist_name, allocator)
+	copied.album_name = strings.clone(song.album_name, allocator)
+	copied.youtube_id = strings.clone(song.youtube_id, allocator)
+	copied.artwork.url = strings.clone(song.artwork.url, allocator)
+	copied.artwork.bg_color = strings.clone(song.artwork.bg_color, allocator)
+	copied.artwork.text_color1 = strings.clone(song.artwork.text_color1, allocator)
+
+	return copied
+}
+
+copy_card :: proc(card: apple.Card, allocator: mem.Allocator) -> apple.Card {
+	copied := card
+	copied.id = strings.clone(card.id, allocator)
+	copied.name = strings.clone(card.name, allocator)
+	copied.subtitle = strings.clone(card.subtitle, allocator)
+	copied.artwork.url = strings.clone(card.artwork.url, allocator)
+	copied.artwork.bg_color = strings.clone(card.artwork.bg_color, allocator)
+	copied.artwork.text_color1 = strings.clone(card.artwork.text_color1, allocator)
+	copied.song = copy_song(card.song, allocator)
+
+	return copied
+}
+
+copy_shelf :: proc(shelf: apple.Shelf, allocator: mem.Allocator) -> apple.Shelf {
+	cards := make([]apple.Card, len(shelf.cards), allocator)
+	for card, index in shelf.cards do cards[index] = copy_card(card, allocator)
+
+	return {title = strings.clone(shelf.title, allocator), cards = cards, is_youtube = shelf.is_youtube, is_wide = shelf.is_wide}
+}
+
 page_allocator :: proc(data: ^Page_Data) -> mem.Allocator {
 	return virtual.arena_allocator(&data.arena)
 }

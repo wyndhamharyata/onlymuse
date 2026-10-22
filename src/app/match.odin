@@ -2,7 +2,6 @@ package app
 
 import "core:encoding/json"
 import "core:fmt"
-import "core:mem"
 import "core:mem/virtual"
 import "core:slice"
 import "core:strings"
@@ -167,20 +166,6 @@ find_library_match :: proc(song: Catalog_Song) -> (Catalog_Song, bool, apple.Pha
 	best, is_found := find_closest(song, candidates[:])
 
 	return best, is_found, .Ready
-}
-
-@(private = "file")
-copy_song :: proc(song: Catalog_Song, allocator: mem.Allocator) -> Catalog_Song {
-	copied := song
-	copied.id = strings.clone(song.id, allocator)
-	copied.name = strings.clone(song.name, allocator)
-	copied.artist_name = strings.clone(song.artist_name, allocator)
-	copied.album_name = strings.clone(song.album_name, allocator)
-	copied.artwork.url = strings.clone(song.artwork.url, allocator)
-	copied.artwork.bg_color = strings.clone(song.artwork.bg_color, allocator)
-	copied.artwork.text_color1 = strings.clone(song.artwork.text_color1, allocator)
-
-	return copied
 }
 
 @(private = "file")

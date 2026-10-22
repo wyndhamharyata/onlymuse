@@ -97,7 +97,7 @@ watch_youtube_songs :: proc(path: string) -> (first: youtube.List, songs: []Cata
 
 	if is_stale && phase == .Ready {
 		all := make([dynamic]Catalog_Song, page_allocator(data))
-		for part in parts do append(&all, ..part.songs)
+		for part in parts do for song in part.songs do append(&all, copy_song(song, page_allocator(data)))
 		data.songs = all[:]
 	}
 
@@ -164,7 +164,7 @@ build_youtube_mixes_page :: proc() {
 				if !is_mix || seen[card.id] do continue
 
 				seen[card.id] = true
-				append(&cards, card)
+				append(&cards, copy_card(card, page_allocator(data)))
 			}
 		}
 		data.cards = cards[:]
@@ -316,7 +316,7 @@ merge_youtube_shelves :: proc(apple_shelves: []apple.Shelf, allocator := context
 
 	for index in 0 ..< max(len(apple_shelves), len(youtube_shelves)) {
 		if index < len(apple_shelves) do append(&merged, apple_shelves[index])
-		if index < len(youtube_shelves) do append(&merged, youtube_shelves[index])
+		if index < len(youtube_shelves) do append(&merged, copy_shelf(youtube_shelves[index], allocator))
 	}
 
 	return merged[:], signature

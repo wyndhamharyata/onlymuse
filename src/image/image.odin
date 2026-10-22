@@ -166,7 +166,15 @@ find :: proc(url: string, size_pixels: int, crop := Crop{}) -> (texture: ^MTL.Te
 to_family :: proc(url: string) -> u64 {
 	family := url
 	if !strings.has_prefix(url, "/") {
-		if slash := strings.last_index_byte(url, '/'); slash > 0 do family = url[:slash]
+		slash := strings.last_index_byte(url, '/')
+		equals := strings.last_index_byte(url, '=')
+		// Apple puts the size after the last slash. YouTube's googleusercontent.com puts it after "=", and the
+		// picture's ID before it, so the slash would make every YouTube picture one family.
+		if equals > slash {
+			family = url[:equals]
+		} else if slash > 0 {
+			family = url[:slash]
+		}
 	}
 
 	return hash.fnv64a(transmute([]u8)family)

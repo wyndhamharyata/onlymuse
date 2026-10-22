@@ -8,16 +8,42 @@ final class YouTube: NSObject, WKNavigationDelegate {
   static let idPrefix = "yt:"
 
   // The page plays its own next song when one ends. Only the app's queue picks what plays, so any other song pauses.
+  // A song loaded ahead, while Music.app plays, is muted and paused once it starts, so it waits ready to play.
+  // A page first loaded for that says so in its address, as the page plays its song before didFinish.
   private static let pageScript = """
     window.onlymuseVideoID = "";
+    window.onlymuseIsPreparing = location.hash === "#\(YouTube.prepareHash)";
+    document.addEventListener("play", (event) => { if (window.onlymuseIsPreparing) event.target.muted = true }, true);
     document.addEventListener("playing", () => {
       const player = document.getElementById("movie_player");
-      if (player && window.onlymuseVideoID && player.getVideoData().video_id !== window.onlymuseVideoID) player.pauseVideo();
+      if (!player) return;
+      if (window.onlymuseIsPreparing || (window.onlymuseVideoID && player.getVideoData().video_id !== window.onlymuseVideoID)) player.pauseVideo();
     }, true);
     """
-  // A quiet run mutes each song before it makes a sound.
+  private static let prepareHash = "onlymuse-prepare"
+  // The page may load a song's address and fetch none of it until it is played, so it is played, muted and
+  // paused at once, until its length is known.
+  private static let nudgeScript = """
+    (() => {
+      const player = document.getElementById("movie_player");
+      if (!window.onlymuseIsPreparing || !player || !player.getPlayerState) return false;
+      player.mute();
+      if (player.getPlayerState() === \(pausedState) && player.getDuration() > 0) return true;
+      if (player.getPlayerState() !== \(playingState)) player.playVideo();
+      return false;
+    })()
+    """
+  private static let nudgeSeconds = 1.0
+  private static let maxNudgeCount = 30
+  // A quiet run mutes each song before it makes a sound, and the page's player can never turn it back on.
   private static let muteScript = """
-    document.addEventListener("play", (event) => { event.target.muted = true }, true);
+    (() => {
+      const muted = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, "muted");
+      const volume = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, "volume");
+      Object.defineProperty(HTMLMediaElement.prototype, "muted", { get() { return true }, set() {}, configurable: true });
+      Object.defineProperty(HTMLMediaElement.prototype, "volume", { get() { return 0 }, set() {}, configurable: true });
+      document.addEventListener("play", (event) => { muted.set.call(event.target, true); volume.set.call(event.target, 0) }, true);
+    })();
     """
   private static let readStateScript = """
     (() => {
@@ -27,13 +53,18 @@ final class YouTube: NSObject, WKNavigationDelegate {
     })()
     """
   private static let pollSeconds = 0.5
-  // The page goes this long after the last YouTube song, as it holds 200 MB or more. The next song loads it again.
+  // Music.app's posts this soon after the helper paused it may still say it plays.
+  private static let pauseSettleSeconds = 2.0
+  // The page goes this long after the last YouTube song, as it holds 200 MB or more, unless the queue has more.
+  // The next song loads it again.
   private static let idleCloseSeconds = 5.0 * 60
   private static let positionSendSeconds = 2.0
   // The page's player states, as YT.PlayerState names them.
   private static let endedState = 0
   private static let playingState = 1
   private static let pausedState = 2
+  private static let bufferingState = 3
+  private static let unstartedState = -1
 
   private let music: MusicApp
   // A test or bench run plays YouTube muted, and leaves Music.app playing.
@@ -41,16 +72,27 @@ final class YouTube: NSObject, WKNavigationDelegate {
   private var playerView: WKWebView?
   private var playerWindow: NSWindow?
   private var pollTimer: Timer?
+  private var nudgeTimer: Timer?
   private var idleTimer: Timer?
   private var song: SongMatch?
   private var videoID = ""
+  // The song loaded ahead, to play next.
+  private var preparedID = ""
   private var isPageLoaded = false
+  private var pausedMusicAt = Date.distantPast
   private var lastState = ""
   private var lastPositionSentAt = Date.distantPast
   private var volumePercent = 100
 
   // True from a YouTube song's start until another source plays, so Music.app's posts leave the player as it is.
   private(set) var isActive = false
+
+  // The queue plays a YouTube song later, so the page stays open, as loading it again takes 10 s or more.
+  var keepsPage = false {
+    didSet { if oldValue && !keepsPage && !isActive { startIdleTimer() } }
+  }
+
+  var hasJustPausedMusic: Bool { Date().timeIntervalSince(pausedMusicAt) < Self.pauseSettleSeconds }
 
   init(music: MusicApp, isQuiet: Bool) {
     self.music = music
@@ -99,7 +141,12 @@ final class YouTube: NSObject, WKNavigationDelegate {
     guard webView === playerView else { return }
 
     isPageLoaded = true
-    run("window.onlymuseVideoID = \(quoted(videoID))")
+    // A song asked to play while its page still loaded ahead plays now.
+    if isActive && preparedID == "" {
+      run(toPlayScript())
+    } else {
+      run("window.onlymuseVideoID = \(quoted(videoID)); window.onlymuseIsPreparing = \(preparedID != "")")
+    }
   }
 
   // Plays the song from YouTube. Answers its persistent ID, as Music.app's songs have.
@@ -110,21 +157,74 @@ final class YouTube: NSObject, WKNavigationDelegate {
     song = match
     self.videoID = videoID
     lastState = ""
-    if !isQuiet { music.pauseIfRunning() }
+    if !isQuiet {
+      music.pauseIfRunning()
+      pausedMusicAt = Date()
+    }
     if !isQuiet, let volume = music.readVolumePercent() { volumePercent = volume }
 
-    let view = readPlayerView()
+    stopNudging()
+    let isLoadingAhead = playerView != nil && !isPageLoaded && preparedID == videoID
+    preparedID = ""
 
     // The page's first load plays the song in its address. didFinish then names it as the one to keep.
     if isPageLoaded {
-      run("window.onlymuseVideoID = \(quoted(videoID)); document.getElementById('movie_player').loadVideoById(\(quoted(videoID)))")
-    } else {
-      view.load(URLRequest(url: URL(string: "https://music.youtube.com/watch?v=\(videoID)")!))
+      run(toPlayScript())
+    } else if !isLoadingAhead {
+      readPlayerView().load(URLRequest(url: URL(string: "https://music.youtube.com/watch?v=\(videoID)")!))
     }
 
+    // The app shows the song at once, still, until the page plays it, as Music.app no longer plays.
+    var loading = toNowPlaying(state: "playing", positionSeconds: 0, durationSeconds: match.durationSeconds)
+    loading["isLoading"] = true
+    send(loading)
     startPolling()
 
     return Self.idPrefix + videoID
+  }
+
+  // Loads the song to play after Music.app's, muted and paused, so it starts at once when its turn comes. Only
+  // while no YouTube song plays, as the page has one player. An empty ID lets the page go when it is idle.
+  func prepare(videoID: String) {
+    guard !isActive, videoID != preparedID else { return }
+
+    preparedID = videoID
+    guard videoID != "" else { return startIdleTimer() }
+
+    idleTimer?.invalidate()
+    idleTimer = nil
+
+    if isPageLoaded {
+      run("window.onlymuseIsPreparing = true; document.getElementById('movie_player').loadVideoById(\(quoted(videoID)))")
+    } else {
+      readPlayerView().load(URLRequest(url: URL(string: "https://music.youtube.com/watch?v=\(videoID)#\(Self.prepareHash)")!))
+    }
+
+    startNudging()
+  }
+
+  private func startNudging() {
+    var count = 0
+
+    nudgeTimer?.invalidate()
+    nudgeTimer = Timer.scheduledTimer(withTimeInterval: Self.nudgeSeconds, repeats: true) { [weak self] _ in
+      MainActor.assumeIsolated {
+        guard let self else { return }
+
+        count += 1
+        guard !self.isActive, self.preparedID != "", count <= Self.maxNudgeCount, let playerView = self.playerView else { return self.stopNudging() }
+        guard self.isPageLoaded else { return }
+
+        playerView.evaluateJavaScript(Self.nudgeScript) { [weak self] result, _ in
+          if result as? Bool == true { MainActor.assumeIsolated { self?.stopNudging() } }
+        }
+      }
+    }
+  }
+
+  private func stopNudging() {
+    nudgeTimer?.invalidate()
+    nudgeTimer = nil
   }
 
   // Another source plays, so the page pauses and its posts stop.
@@ -135,20 +235,47 @@ final class YouTube: NSObject, WKNavigationDelegate {
     pollTimer?.invalidate()
     pollTimer = nil
     run("document.getElementById('movie_player')?.pauseVideo()")
+    startIdleTimer()
+  }
+
+  private func startIdleTimer() {
     idleTimer?.invalidate()
     idleTimer = Timer.scheduledTimer(withTimeInterval: Self.idleCloseSeconds, repeats: false) { [weak self] _ in
       MainActor.assumeIsolated {
-        guard let self, !self.isActive else { return }
+        guard let self, !self.isActive, !self.keepsPage, self.preparedID == "" else { return }
 
         self.resetPlayer()
       }
     }
   }
 
+  // Plays the song, at once when it was loaded ahead, and with sound again after it waited muted.
+  private func toPlayScript() -> String {
+    let id = quoted(videoID)
+    let unmute = isQuiet ? "" : "const video = document.querySelector('video'); if (video) video.muted = false; player?.unMute?.();"
+
+    return """
+      (() => {
+        window.onlymuseIsPreparing = false;
+        window.onlymuseVideoID = \(id);
+        const player = document.getElementById('movie_player');
+        \(unmute)
+        if (!player || !player.getVideoData) return;
+        if (player.getVideoData().video_id === \(id) && player.getPlayerState() !== \(Self.endedState)) {
+          if (player.getCurrentTime() > 1) player.seekTo(0, true);
+          player.playVideo();
+        } else {
+          player.loadVideoById(\(id));
+        }
+      })()
+      """
+  }
+
   func apply(_ command: Command) {
     switch command.type {
     case "playPause":
-      run("(() => { const player = document.getElementById('movie_player'); player.getPlayerState() === \(Self.playingState) ? player.pauseVideo() : player.playVideo() })()")
+      // A song still loading pauses too, so Pause works before its first sound.
+      run("(() => { const player = document.getElementById('movie_player'); [\(Self.playingState), \(Self.bufferingState), \(Self.unstartedState)].includes(player.getPlayerState()) ? player.pauseVideo() : player.playVideo() })()")
     case "seek":
       guard let positionSeconds = command.positionSeconds else { return }
       run("document.getElementById('movie_player').seekTo(\(positionSeconds), true)")
@@ -203,6 +330,7 @@ final class YouTube: NSObject, WKNavigationDelegate {
     playerWindow = nil
     playerView = nil
     isPageLoaded = false
+    preparedID = ""
   }
 
   private func startPolling() {
@@ -258,7 +386,10 @@ final class YouTube: NSObject, WKNavigationDelegate {
     if state != lastState {
       lastState = state
       lastPositionSentAt = Date()
-      send(toNowPlaying(state: state, positionSeconds: positionSeconds, durationSeconds: durationSeconds))
+      var nowPlaying = toNowPlaying(state: state, positionSeconds: positionSeconds, durationSeconds: durationSeconds)
+      // The page says it plays only once it does, so its clock moves on from the first post.
+      if state == "playing" { nowPlaying["hasStarted"] = true }
+      send(nowPlaying)
       return
     }
 

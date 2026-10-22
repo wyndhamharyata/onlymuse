@@ -181,8 +181,10 @@ build_controls :: proc() {
 build_progress :: proc(is_playing_song: bool) {
 	now_playing := app.now_playing
 	shown, is_song := find_shown_song()
-	duration_seconds := shown.duration_seconds if is_song else 0
-	position_seconds := helper.position_seconds(now_playing) if is_playing_song else queue.resume_point.position_seconds if is_song else 0
+	// A song still being added or loaded shows at its start, with its own length, and the clock still.
+	is_waiting := queue.is_adding || is_starting_youtube_song()
+	duration_seconds := queue.songs[queue.index].duration_seconds if is_waiting else shown.duration_seconds if is_song else 0
+	position_seconds := 0 if is_waiting else helper.position_seconds(now_playing) if is_playing_song else queue.resume_point.position_seconds if is_song else 0
 	ratio := f32(position_seconds / duration_seconds) if duration_seconds > 0 else 0
 	progress := ui.box("progress", {width = ui.fill(), height = ui.fit_children(), axis = .X, align = .Center, gap = 10})
 
@@ -192,11 +194,11 @@ build_progress :: proc(is_playing_song: bool) {
 		clock.text = to_clock_text(f64(shown_ratio) * duration_seconds)
 		text_box(to_clock_text(duration_seconds), colors.faint, 11, width = ui.points(34))
 
-		if is_set && is_playing_song do helper.send(fmt.tprintf(`{{"type":"seek","positionSeconds":%.3f}}`, f64(shown_ratio) * duration_seconds))
+		if is_set && is_playing_song && !is_waiting do helper.send(fmt.tprintf(`{{"type":"seek","positionSeconds":%.3f}}`, f64(shown_ratio) * duration_seconds))
 	}
 
 	// The clock turns over on each whole second while a song plays, and nothing else draws between.
-	if now_playing.playback == .Playing {
+	if now_playing.playback == .Playing && !is_waiting {
 		platform.request_frame_after(1 - (position_seconds - math.floor(position_seconds)) + 0.005)
 	}
 }

@@ -14,6 +14,8 @@
 #                  them, so the app reads Apple's catalog. Without it, Apple is never asked. A file yt-cookie in
 #                  the folder is sent as the YouTube page's cookie, so the app reads YouTube Music signed in.
 # A song with a youtubeId plays as the YouTube page plays it, with the persistent ID "yt:" and the video ID.
+# OM_FAKE_YT_LOAD  seconds the YouTube page loads a song before it plays, 0 by default. Meanwhile the song
+#                  says it loads, and no position is sent.
 # trackInfo answers made-up plays and a lossless file. setFavorite keeps favourites until it quits.
 import json
 import os
@@ -28,6 +30,7 @@ unplayable_name = os.environ.get("OM_FAKE_UNPLAYABLE", "")
 stall_name = os.environ.get("OM_FAKE_STALL", "")
 slow_start_name = os.environ.get("OM_FAKE_SLOW_START", "")
 SLOW_START_SECONDS = 7.0
+yt_load_seconds = float(os.environ.get("OM_FAKE_YT_LOAD", "0"))
 STALL_SECONDS = 5.0
 POSITION_SECONDS = 2.0
 log = open(os.environ["OM_FAKE_LOG"], "a") if os.environ.get("OM_FAKE_LOG") else None
@@ -59,12 +62,12 @@ def position():
     return min(moved, STALL_SECONDS) if player.get("is_stalling") else moved
 
 
-def send_now_playing():
+def send_now_playing(**extra):
     if player["song"] is None or player["state"] == "stopped":
         send({"type": "nowPlaying", "state": "stopped", "volumePercent": player["volume"]})
         return
     song = player["song"]
-    send({
+    send({**extra, 
         "type": "nowPlaying", "state": player["state"], "volumePercent": player["volume"],
         "positionSeconds": position(), "positionReadAtMs": time.time() * 1000,
         "song": {"name": song["name"], "artist": song["artistName"], "album": song["albumName"],
@@ -88,8 +91,11 @@ def start(match):
     player["is_stalling"] = match["name"] == stall_name and played[persistent_id] == 1
     is_slow = match["name"] == slow_start_name and played[persistent_id] == 1
     player["starts_at"] = time.time() + SLOW_START_SECONDS if is_slow else 0
+    player["is_loading"] = bool(match.get("youtubeId")) and yt_load_seconds > 0
+    if player["is_loading"]:
+        player["starts_at"] = time.time() + yt_load_seconds
     player.update(state="playing", song=match, position=0.0, read_at=time.time())
-    send_now_playing()
+    send_now_playing(isLoading=True) if player["is_loading"] else send_now_playing()
 
 
 def apply(command):
@@ -141,6 +147,12 @@ def tick():
         time.sleep(0.05)
         with lock:
             song = player["song"]
+            if player.get("is_loading"):
+                if time.time() < player["starts_at"]:
+                    continue
+                player["is_loading"] = False
+                send_now_playing(hasStarted=True)
+                last_position_sent = time.time()
             if player["state"] == "playing" and song is not None and time.time() - last_position_sent >= POSITION_SECONDS:
                 last_position_sent = time.time()
                 send({"type": "position", "persistentID": to_persistent_id(song), "positionSeconds": position(), "positionReadAtMs": time.time() * 1000})

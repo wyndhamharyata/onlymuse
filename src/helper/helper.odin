@@ -30,6 +30,9 @@ Message :: struct {
 	position_read_at_ms: f64 `json:"positionReadAtMs"`,
 	persistent_id:       string `json:"persistentID"`,
 	song:                Song,
+	// nowPlaying from the YouTube page: is_loading while it loads the song, has_started once it plays it.
+	is_loading:          bool `json:"isLoading"`,
+	has_started:         bool `json:"hasStarted"`,
 	color:               string,
 	developer_token:     string `json:"developerToken"`,
 	user_token:          string `json:"userToken"`,
@@ -73,6 +76,8 @@ Now_Playing :: struct {
 	stall_count:         int,
 	// The position has moved since the song began. Music.app says it plays a song while it still loads it.
 	has_started:         bool,
+	// The YouTube page loads the song and plays nothing yet. Music.app is paused by then.
+	is_loading:          bool,
 }
 
 // A position this far past the last one has moved on. The helper sends one every 2 s.
@@ -202,8 +207,9 @@ request_play :: proc(song: Song_Match) -> int {
 }
 
 // The helper starts song just before after_persistent_id ends, so Music.app's Autoplay never plays.
-// An empty after_persistent_id clears it. Its answer is setNextResult.
-request_set_next :: proc(after_persistent_id: string, song: Maybe(Song_Match)) -> int {
+// An empty after_persistent_id clears it. Its answer is setNextResult. keeps_youtube keeps the helper's YouTube
+// page open, as a YouTube song plays later.
+request_set_next :: proc(after_persistent_id: string, song: Maybe(Song_Match), keeps_youtube: bool) -> int {
 	last_request_id += 1
 	after := after_persistent_id if after_persistent_id != "" else "null"
 	song_json := "null"
@@ -212,7 +218,7 @@ request_set_next :: proc(after_persistent_id: string, song: Maybe(Song_Match)) -
 		song_json = string(bytes)
 	}
 	after_json := fmt.tprintf("\"%s\"", after_persistent_id) if after_persistent_id != "" else after
-	send(fmt.tprintf(`{{"type":"setNext","requestId":%d,"afterPersistentID":%s,"song":%s}}`, last_request_id, after_json, song_json))
+	send(fmt.tprintf(`{{"type":"setNext","requestId":%d,"afterPersistentID":%s,"song":%s,"keepsYouTube":%v}}`, last_request_id, after_json, song_json, keeps_youtube))
 
 	return last_request_id
 }
@@ -279,7 +285,8 @@ apply :: proc(now_playing: ^Now_Playing, message: Message) {
 		now_playing.position_seconds = message.position_seconds
 		now_playing.position_read_at_ms = min(message.position_read_at_ms, now_ms()) if message.position_read_at_ms > 0 else now_ms()
 		now_playing.stall_count = 0
-		now_playing.has_started = message.position_seconds >= MIN_PROGRESS_SECONDS
+		now_playing.has_started = message.has_started || message.position_seconds >= MIN_PROGRESS_SECONDS
+		now_playing.is_loading = message.is_loading
 	case "position":
 		is_same_song := now_playing.playback == .Playing && now_playing.song.persistent_id == message.persistent_id
 		if !is_same_song do return

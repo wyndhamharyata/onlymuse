@@ -160,7 +160,8 @@ sync_handoff :: proc() {
 	repeat_index := queue.index if queue.repeat == "one" else find_next_index()
 	next_index := repeat_index if after != "" else -1
 	next_id := to_playable(queue.songs[next_index]).id if next_index >= 0 else ""
-	key := fmt.aprintf("%s|%d|%s", after, next_index, next_id)
+	keeps_youtube := has_youtube_song_ahead()
+	key := fmt.aprintf("%s|%d|%s|%v", after, next_index, next_id, keeps_youtube)
 
 	if key == queue_state.handoff_key {
 		delete(key)
@@ -177,8 +178,20 @@ sync_handoff :: proc() {
 		match = to_song_match(queue.songs[next_index])
 	}
 
-	request_id := helper.request_set_next(after if next_index >= 0 else "", match)
+	request_id := helper.request_set_next(after if next_index >= 0 else "", match, keeps_youtube)
 	queue_state.requests[request_id] = {kind = .Set_Next, handoff_key = key, index = next_index, after = strings.clone(after)}
+}
+
+// The queue plays a YouTube song after this one, so the helper keeps its YouTube page open meanwhile.
+@(private = "file")
+has_youtube_song_ahead :: proc() -> bool {
+	start := 0 if queue.repeat == "all" else queue.index + 1
+
+	for song in queue.songs[max(start, 0):] {
+		if youtube.is_song_id(to_playable(song).id) do return true
+	}
+
+	return false
 }
 
 // A YouTube song whose Apple song is known plays from Apple Music, and takes its place in the queue.
@@ -620,7 +633,10 @@ skip_to_previous :: proc(position_seconds: f64) {
 
 // The YouTube page loads a song for some seconds before it plays, and the player says so meanwhile.
 is_starting_youtube_song :: proc() -> bool {
-	return queue_state.is_starting_youtube
+	now_playing := app.now_playing
+	is_loading := now_playing.is_loading && queue.index >= 0 && now_playing.song.persistent_id == queue.playing_persistent_id
+
+	return queue_state.is_starting_youtube || is_loading
 }
 
 // The queue's song when it is the one playing, for its artwork and its lossless badge.

@@ -51,9 +51,10 @@ application.mainMenu = toEditMenu()
 // The handoff reacts first, so the queue's next song replaces a pick of Music.app's before more of it plays.
 DistributedNotificationCenter.default().addObserver(forName: .init("com.apple.Music.playerInfo"), object: nil, queue: .main) { _ in
   MainActor.assumeIsolated {
-    // Music.app pauses when a YouTube song starts. Only a song it plays again takes the player back.
+    // Music.app pauses when a YouTube song starts. Only a song it plays again takes the player back. Just after
+    // the pause, Music.app may still say it plays.
     if youTube.isActive {
-      guard music.readPlayback() != nil else { return }
+      guard !youTube.hasJustPausedMusic, music.readPlayback() != nil else { return }
 
       youTube.stop()
     }
@@ -132,6 +133,7 @@ startReadingCommands(onCommand: { command in
     if let changedID { send(music.readTrackInfo(persistentID: changedID)) }
   case "setNext":
     guard let requestId = command.requestId else { return }
+    youTube.keepsPage = command.keepsYouTube ?? false
     // After a YouTube song, the app starts the next song itself once the page says the song ended.
     let isAfterYouTube = command.afterPersistentID?.hasPrefix(YouTube.idPrefix) ?? false
     let persistentID: Any = handoff.set(afterID: isAfterYouTube ? nil : command.afterPersistentID, next: command.song) ?? NSNull()

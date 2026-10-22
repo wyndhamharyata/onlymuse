@@ -11,6 +11,8 @@ struct Command: Decodable {
   // trackInfo and setFavorite name a song by its persistent ID, or by a match when the app has none.
   let persistentID: String?
   let favorited: Bool?
+  // setNext: a YouTube song plays later in the queue.
+  let keepsYouTube: Bool?
 }
 
 // What the app knows of a catalog song, to find it in Music.app's library.

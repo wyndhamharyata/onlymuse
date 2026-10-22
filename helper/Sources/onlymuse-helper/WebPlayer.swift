@@ -29,6 +29,9 @@ final class WebPlayer: NSObject, WKUIDelegate, NSWindowDelegate {
   private var signedOutPollCount = 0
 
   func refreshTokens() {
+    // The sign-in's own poll sends the tokens. A refresh would end it and close the window while the person types.
+    guard !isSigningIn else { return }
+
     startPolling(isSigningIn: false)
   }
 

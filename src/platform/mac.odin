@@ -112,6 +112,8 @@ state: struct {
 	is_background:   bool,
 	frame_timer:     ^NS.Timer,
 	is_link_running: bool,
+	// Set by request_frame while a frame is drawn, so the link keeps running for the next one.
+	is_frame_requested: bool,
 	is_closed:       bool,
 	on_frame:        Frame_Proc,
 	window:          Window,
@@ -492,6 +494,7 @@ update_window_size :: proc() {
 
 // Wakes the display link, which calls the frame proc on the next refresh of the screen.
 request_frame :: proc "contextless" () {
+	state.is_frame_requested = true
 	if state.is_link_running do return
 
 	state.is_link_running = true
@@ -513,7 +516,8 @@ draw_frame :: proc() {
 
 	update_window_size()
 
-	wants_more := state.on_frame()
+	state.is_frame_requested = false
+	wants_more := state.on_frame() || state.is_frame_requested
 
 	clear(&state.events)
 	state.event_arena_index = 1 - state.event_arena_index

@@ -1,5 +1,6 @@
 package app
 
+import "base:runtime"
 import "core:encoding/json"
 import "core:fmt"
 import "core:os"
@@ -72,6 +73,8 @@ scan_downloads :: proc() {
 	artists, _ := os.read_all_directory_by_path(download_folder(), context.temp_allocator)
 
 	for artist in artists {
+		// Frees this artist's temp memory when the pass ends, and keeps artists.
+		runtime.DEFAULT_TEMP_ALLOCATOR_TEMP_GUARD()
 		albums, _ := os.read_all_directory_by_path(artist.fullpath, context.temp_allocator)
 
 		for album in albums {
@@ -82,7 +85,6 @@ scan_downloads :: proc() {
 				if download, ok := read_download(fmt.tprintf("%s/boot.xml", song.fullpath)); ok do append(&found, download)
 			}
 		}
-		free_all(context.temp_allocator)
 	}
 
 	sync.guard(&downloads.mutex)

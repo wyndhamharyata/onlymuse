@@ -66,11 +66,12 @@ Request_Kind :: enum {
 
 @(private = "file")
 Request :: struct {
-	kind:        Request_Kind,
-	play_count:  int,
-	handoff_key: string,
-	index:       int,
-	after:       string,
+	kind:            Request_Kind,
+	play_count:      int,
+	// The handoff_version it was sent for. A number, as the key it was sent for is freed when the next replaces it.
+	handoff_version: int,
+	index:           int,
+	after:           string,
 }
 
 ADD_POLL_SECONDS :: 1.5
@@ -98,6 +99,7 @@ queue_state: struct {
 	handoff:           Handoff,
 	has_handoff:       bool,
 	handoff_key:       string,
+	handoff_version:   int,
 	// Each new play counts up, so an older play that is still adding a song knows to stop.
 	play_count:        int,
 	requests:          map[int]Request,
@@ -170,6 +172,7 @@ sync_handoff :: proc() {
 
 	delete(queue_state.handoff_key)
 	queue_state.handoff_key = key
+	queue_state.handoff_version += 1
 	queue_state.has_handoff = false
 
 	match: Maybe(helper.Song_Match)
@@ -179,7 +182,7 @@ sync_handoff :: proc() {
 	}
 
 	request_id := helper.request_set_next(after if next_index >= 0 else "", match, keeps_youtube)
-	queue_state.requests[request_id] = {kind = .Set_Next, handoff_key = key, index = next_index, after = strings.clone(after)}
+	queue_state.requests[request_id] = {kind = .Set_Next, handoff_version = queue_state.handoff_version, index = next_index, after = strings.clone(after)}
 }
 
 // The queue plays a YouTube song after this one, so the helper keeps its YouTube page open meanwhile.
@@ -226,7 +229,7 @@ apply_queue_answer :: proc(request_id: int, answered_id: string) {
 
 	switch request.kind {
 	case .Set_Next:
-		is_wanted := request.handoff_key == queue_state.handoff_key && request.after != "" && request.index >= 0 && persistent_id != ""
+		is_wanted := request.handoff_version == queue_state.handoff_version && request.after != "" && request.index >= 0 && persistent_id != ""
 		if is_wanted do queue_state.handoff = {request.after, request.index, persistent_id}
 		queue_state.has_handoff = is_wanted
 	case .Play:
@@ -280,10 +283,12 @@ Add_Job :: struct {
 @(private = "file")
 start_adding :: proc(catalog_id: string, play_count: int) {
 	job := new(Add_Job)
-	job^ = {catalog_id, play_count}
+	// The queue may free its song before the thread runs, so the job keeps its own copy of the ID.
+	job^ = {strings.clone(catalog_id), play_count}
 	thread.create_and_start_with_data(job, proc(data: rawptr) {
 		job := cast(^Add_Job)data
 		defer free(job)
+		defer delete(job.catalog_id)
 		defer free_all(context.temp_allocator)
 
 		status := apple.post(fmt.tprintf("/v1/me/library?ids[songs]=%s", job.catalog_id)).status
@@ -535,12 +540,13 @@ play_queue_at :: proc(index: int) {
 remove_from_queue :: proc(index: int) {
 	if index == queue.index do return
 
-	removed_id := strings.clone(queue.songs[index].id, context.temp_allocator)
-	retire_song(queue.songs[index])
+	// A retired song's text stays readable until the next frame.
+	removed := queue.songs[index]
+	retire_song(removed)
 	ordered_remove_slice(&queue.songs, index)
 
 	for song, original_index in queue.original_songs {
-		if song.id != removed_id do continue
+		if !is_same_queue_song(removed, song) do continue
 
 		retire_song(song)
 		ordered_remove_slice(&queue.original_songs, original_index)
@@ -564,20 +570,19 @@ toggle_shuffle :: proc() {
 		return
 	}
 
-	current_id := strings.clone(queue.songs[queue.index].id, context.temp_allocator)
+	// The queue may hold Apple's match of a YouTube song in the original list.
+	current := queue.songs[queue.index]
+	original_index := 0
+	for song, index in queue.original_songs do if is_same_queue_song(current, song) do original_index = index
 
 	if queue.is_shuffled {
 		queue.is_shuffled = false
 		delete_songs(queue.songs)
 		queue.songs = clone_songs(queue.original_songs)
-		queue.index = 0
-		for song, index in queue.songs do if song.id == current_id do queue.index = index
+		queue.index = original_index
 		set_queue()
 		return
 	}
-
-	original_index := 0
-	for song, index in queue.original_songs do if song.id == current_id do original_index = index
 
 	delete_songs(queue.songs)
 	queue.songs = to_play_order(queue.original_songs, original_index)

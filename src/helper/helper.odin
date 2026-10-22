@@ -6,6 +6,7 @@ import "core:fmt"
 import "core:os"
 import "core:strings"
 import "core:sync"
+import "core:sys/posix"
 import "core:thread"
 import "core:time"
 import "om:console"
@@ -107,6 +108,9 @@ start :: proc(is_background: bool) {
 		path = bundled if os.exists(bundled) else fmt.tprintf("%s/../helper/.build/release/onlymuse-helper", executable_folder)
 	}
 
+	// A write to a helper that has ended then fails, instead of ending onlymuse.
+	posix.signal(.SIGPIPE, auto_cast posix.SIG_IGN)
+
 	child_stdin, to_helper, _ := os.pipe()
 	from_helper, child_stdout, _ := os.pipe()
 	environment, _ := os.environ(context.temp_allocator)
@@ -152,6 +156,8 @@ read_lines :: proc() {
 		}
 		platform.wake()
 	}
+
+	console.add("Helper", "The helper stopped. Quit onlymuse and open it again.")
 }
 
 // The messages since the last call. They live until the next frame.

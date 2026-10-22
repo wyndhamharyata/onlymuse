@@ -323,6 +323,7 @@ make_box :: proc(key: u64, style: Style) -> ^Box {
 	box.last = nil
 	box.next = nil
 	box.text = ""
+	box.shaped = nil
 	box.draw = nil
 	box.color_of = nil
 	box.data = nil

@@ -202,6 +202,9 @@ apply_text_events :: proc() {
 			}
 		}
 	}
+
+	// A field the frame no longer builds, such as the closed palette's, must not take the next click.
+	for field in text_fields do field.is_hovered = false
 }
 
 find_focused_field :: proc() -> (^Text_Field, bool) {

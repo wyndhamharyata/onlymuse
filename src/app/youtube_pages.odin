@@ -45,8 +45,6 @@ watch_youtube_list :: proc(path: string) -> (youtube.List, apple.Watched) {
 		parsed_lists[strings.clone(path)] = parsed
 	}
 
-	parsed.used_at = time.to_unix_nanoseconds(time.now()) / 1_000_000
-
 	if parsed.version != watched.version {
 		retire_arena(parsed.arena)
 		parsed^ = {}
@@ -54,6 +52,8 @@ watch_youtube_list :: proc(path: string) -> (youtube.List, apple.Watched) {
 		parsed.version = watched.version
 		parsed.list = youtube.to_list(watched.body, virtual.arena_allocator(&parsed.arena))
 	}
+
+	parsed.used_at = time.to_unix_nanoseconds(time.now()) / 1_000_000
 
 	return parsed.list, watched
 }

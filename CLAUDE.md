@@ -256,7 +256,7 @@ version or a change. Types carry the contract.
 
 - Touch only what the task needs. Match the style already in the file. Do not tidy nearby code.
 - Fewer lines wins a tie. A named value that saves the reader time stays, even when it costs a line.
-- Run the formatter only on the files you changed.
+- Run the formatter only on the files you changed. See Format below.
 
 ## Swift
 
@@ -271,6 +271,13 @@ The rules above govern the helper too.
 
 `./build.sh` builds with `-strict-style`, `-vet-unused` and `-vet-shadowing`. Tabs indent. Fields
 and table values line up in columns, as `odinfmt` lines them.
+
+- Every Odin file is formatted with `odinfmt -w <file>` at its default width of 100. Run it on each
+  file you change before you commit, and check that the file still holds at most 350 lines.
+- `if ... do` and `for ... do` fit on one line of at most 100 columns, a tab counting as 4. A longer
+  one is a block in braces. So is a `for ... do if ... do` that runs past 100.
+- `odinfmt` cannot read a set literal followed by `if` inside another literal, such as
+  `flags = {.Clickable} if is_song else {}`. That value goes in a local above the literal.
 
 ## Accepted exceptions
 

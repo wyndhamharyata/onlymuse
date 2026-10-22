@@ -2,9 +2,7 @@
 // while it is recent.
 package image
 
-import "core:fmt"
 import "core:hash"
-import "core:math"
 import "core:os"
 import "core:path/filepath"
 import "core:slice"
@@ -12,19 +10,18 @@ import "core:strings"
 import "core:sync"
 import "core:thread"
 import "core:time"
-import "om:console"
 import MTL "vendor:darwin/Metal"
-import "om:mac"
 import "om:net"
-import "om:platform"
-import "om:render"
 
 // The covers kept on the GPU, in bytes. One drawn in the last frame is never unloaded, so a page with more keeps them all.
 MAX_IMAGE_BYTES :: 64 * 1024 * 1024
+
 // Downloads and decodes at once, on their own threads.
 WORKER_COUNT :: 6
+
 // A failed image is asked for again this much later.
 RETRY_LATER :: 30 * time.Second
+
 FADE_IN_SECONDS :: 0.25
 
 @(private)
@@ -271,173 +268,6 @@ count :: proc() -> (ready, total: int) {
 	for _, entry in state.entries do if entry.phase == .Ready do ready += 1
 
 	return ready, len(state.entries)
-}
-
-// Runs on a worker thread.
-@(private)
-load :: proc(task: thread.Task) {
-	job := cast(^Job)task.data
-	defer {
-		sync.guard(&state.mutex)
-		append(&state.finished, job)
-		platform.wake()
-	}
-	defer free_all(context.temp_allocator)
-
-	// A file path, such as the artwork the helper saves from Music.app, needs no download.
-	path := job.url
-	if !strings.has_prefix(path, "/") {
-		path = fmt.tprintf("%s/%x.jpg", state.folder, hash.fnv64a(transmute([]u8)job.url))
-		if !os.exists(path) && !download(job.url, path) do return
-	}
-
-	job.texture, job.color = decode(path, job.size_pixels, job.crop)
-}
-
-@(private)
-download :: proc(url, path: string) -> bool {
-	response := net.fetch(url, allocator = context.temp_allocator)
-
-	if response.status != 200 {
-		console.add("Covers", "%s: %s", url, console.to_status_text(response.status))
-		return false
-	}
-	if !strings.has_prefix(response.content_type, "image/") do return false
-
-	// The file takes its name once complete, so a quit halfway never makes a broken image.
-	part_path := fmt.tprintf("%s.part", path)
-	if os.write_entire_file(part_path, response.body) != nil do return false
-
-	return os.rename(part_path, path) == nil
-}
-
-@(private)
-decode :: proc(path: string, size_pixels: int, crop: Crop) -> (^MTL.Texture, Color) {
-	url := mac.CFURLCreateFromFileSystemRepresentation(nil, raw_data(path), len(path), false)
-	defer mac.CFRelease(url)
-	source := mac.CGImageSourceCreateWithURL(url, nil)
-	if source == nil do return nil, {}
-	defer mac.CFRelease(source)
-
-	max_size := i32(size_pixels)
-	size_number := mac.CFNumberCreate(nil, mac.NUMBER_INT32, &max_size)
-	defer mac.CFRelease(size_number)
-	keys := []mac.Type_Ref{mac.kCGImageSourceCreateThumbnailFromImageAlways, mac.kCGImageSourceThumbnailMaxPixelSize, mac.kCGImageSourceCreateThumbnailWithTransform}
-	values := []mac.Type_Ref{mac.kCFBooleanTrue, size_number, mac.kCFBooleanTrue}
-	options := mac.make_dictionary(keys, values)
-	defer mac.CFRelease(options)
-
-	// ImageIO decodes straight to this size, so a large file never sits in memory whole.
-	thumbnail := mac.CGImageSourceCreateThumbnailAtIndex(source, 0, options)
-	if thumbnail == nil do return nil, {}
-	defer mac.CGImageRelease(thumbnail)
-
-	image := to_cropped(thumbnail, crop)
-	defer if image != thumbnail do mac.CGImageRelease(image)
-
-	width := int(mac.CGImageGetWidth(image))
-	height := int(mac.CGImageGetHeight(image))
-	pixels := make([]u8, width * height * 4, context.temp_allocator)
-	space := mac.CGColorSpaceCreateWithName(mac.kCGColorSpaceSRGB)
-	defer mac.CGColorSpaceRelease(space)
-	// BGRA with premultiplied alpha, as the shader and BGRA8Unorm expect.
-	ctx := mac.CGBitmapContextCreate(raw_data(pixels), uint(width), uint(height), 8, uint(width * 4), space, mac.IMAGE_ALPHA_PREMULTIPLIED_FIRST | mac.BITMAP_BYTE_ORDER_32_LITTLE)
-	defer mac.CGContextRelease(ctx)
-	mac.CGContextDrawImage(ctx, {{0, 0}, {f64(width), f64(height)}}, image)
-
-	texture := render.make_texture({width, height}, .BGRA8Unorm)
-	render.upload_texture(texture, {0, 0, width, height}, raw_data(pixels), width * 4)
-
-	return texture, guess_color(pixels)
-}
-
-// The part of image of crop's shape, centred across and at focus_y down. image itself when it has that shape already.
-@(private)
-to_cropped :: proc(image: mac.Image_Ref, crop: Crop) -> mac.Image_Ref {
-	width := f64(mac.CGImageGetWidth(image))
-	height := f64(mac.CGImageGetHeight(image))
-	aspect := f64(crop.aspect)
-	if aspect <= 0 || height <= 0 do return image
-
-	rect := mac.Rect{{0, 0}, {width, height}}
-
-	switch {
-	case width / height > aspect * 1.01:
-		rect.size.width = math.round(height * aspect)
-		rect.origin.x = math.round((width - rect.size.width) / 2)
-	case width / height < aspect * 0.99:
-		rect.size.height = math.round(width / aspect)
-		rect.origin.y = math.round((height - rect.size.height) * f64(crop.focus_y))
-	case:
-		return image
-	}
-
-	cropped := mac.CGImageCreateWithImageInRect(image, rect)
-
-	return cropped if cropped != nil else image
-}
-
-// From premultiplied BGRA. The pixels go into buckets by hue, each counted by its saturation squared
-// times its brightness, so a grey wall or a black border counts little against a red coat. The colour
-// is the average of the heaviest hue and the two beside it: an average of every pixel would mix a
-// purple sky and an orange sun into brown.
-@(private)
-guess_color :: proc(pixels: []u8) -> Color {
-	HUE_BUCKETS :: 36
-	sums: [HUE_BUCKETS][3]f32
-	weights: [HUE_BUCKETS]f32
-	weight_sum: f32
-	count: int
-
-	for index := 0; index + 3 < len(pixels); index += 4 {
-		alpha := f32(pixels[index + 3]) / 255
-		if alpha < 0.5 do continue
-
-		rgb := [3]f32{f32(pixels[index + 2]), f32(pixels[index + 1]), f32(pixels[index])} / (255 * alpha)
-		brightest := max(rgb.r, rgb.g, rgb.b)
-		spread := brightest - min(rgb.r, rgb.g, rgb.b)
-		count += 1
-		if spread <= 0 do continue
-
-		saturation := spread / brightest
-		weight := saturation * saturation * brightest
-		bucket := min(int(to_hue(rgb, brightest, spread) * HUE_BUCKETS), HUE_BUCKETS - 1)
-
-		sums[bucket] += rgb * weight
-		weights[bucket] += weight
-		weight_sum += weight
-	}
-
-	if count == 0 || weight_sum <= 0 do return {}
-
-	// Hue goes round, so the bucket before the first is the last.
-	best, best_weight := 0, f32(0)
-	for bucket in 0 ..< HUE_BUCKETS {
-		weight := weights[(bucket + HUE_BUCKETS - 1) % HUE_BUCKETS] + weights[bucket] + weights[(bucket + 1) % HUE_BUCKETS]
-		if weight > best_weight do best, best_weight = bucket, weight
-	}
-
-	sum: [3]f32
-	for offset in -1 ..= 1 do sum += sums[(best + offset + HUE_BUCKETS) % HUE_BUCKETS]
-
-	return {sum / best_weight, weight_sum / f32(count)}
-}
-
-// In turns, from 0 to 1.
-@(private)
-to_hue :: proc(rgb: [3]f32, brightest, spread: f32) -> f32 {
-	hue: f32
-	switch brightest {
-	case rgb.r:
-		hue = (rgb.g - rgb.b) / spread
-	case rgb.g:
-		hue = (rgb.b - rgb.r) / spread + 2
-	case:
-		hue = (rgb.r - rgb.g) / spread + 4
-	}
-	hue /= 6
-
-	return hue + 1 if hue < 0 else hue
 }
 
 // The colour of the picture at url at whichever size loaded, false until one has.

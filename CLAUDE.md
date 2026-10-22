@@ -238,7 +238,7 @@ version or a change. Types carry the contract.
 - A procedure that builds part of one page lives in that page's file. It moves to `widgets.odin`
   only when two pages use it.
 - Decide a value once, above the boxes that read it. A box reads a name. It never decides one.
-- A colour or a size the window uses twice is a named value in `src/app/theme.odin`.
+- A colour or a size the window uses twice is a named value in `src/app/kit/theme.odin`.
 
 ## 9. Tests are user journeys.
 

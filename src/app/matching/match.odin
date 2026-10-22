@@ -3,15 +3,12 @@ package matching
 import "core:encoding/json"
 import "core:fmt"
 import "core:mem/virtual"
-import "core:slice"
 import "core:strings"
 import "core:sync"
 import "core:thread"
 import "core:time"
-import "core:unicode"
 import "om:app/core"
 import "om:apple"
-import "om:platform"
 import "om:store"
 import "om:youtube"
 
@@ -24,29 +21,11 @@ Match_State :: enum {
 	Missing,
 }
 
-// Two lengths this close are one recording. A remaster or a TV-size edit differs by more.
-MATCH_SECONDS :: 3
-
-// Apple refuses an account that searches too fast, with 429, for a while. So one search runs at a time, a
-// little apart, and a refusal stops matching for a minute.
-MATCH_GAP :: 300 * time.Millisecond
-
-REFUSED_PAUSE :: 60 * time.Second
-
-// Each refusal in a row doubles the pause, up to this.
-MAX_REFUSED_PAUSE :: 30 * time.Minute
-
-// The matching thread takes this many songs at a time, so it fetches the albums they name in one request.
-MATCH_BATCH_COUNT :: 20
-
-// Albums found for one YouTube album. A single and an album of the same name are both worth checking.
-MAX_FOUND_ALBUM_COUNT :: 3
-
 // Counts up whenever is_same_recording changes, so the matches saved under an older rule are made again.
 // 3 drops the matches an index pointing into freed memory made from garbage.
 MATCH_RULE_VERSION :: "3"
 
-@(private = "file")
+@(private)
 matcher: struct {
 	mutex:      sync.Mutex,
 	// By video ID.
@@ -63,14 +42,6 @@ matcher: struct {
 	pool:       thread.Pool,
 	is_started: bool,
 	is_rule_checked: bool,
-}
-
-// Kept by the matching thread alone, so it needs no mutex.
-albums: struct {
-	// Apple's album IDs for a YouTube album, by to_album_key.
-	found_ids: map[string][]string,
-	// The songs of each album fetched, by Apple's album ID. Empty for an album Apple did not send.
-	songs:     map[string][]core.Catalog_Song,
 }
 
 // The library's songs under each of their title keys, made again when the library changes. Main thread only.
@@ -249,7 +220,7 @@ keep_match :: proc(video_id, saved: string) {
 }
 
 // Saves an answer, so the song is matched once. A found song is copied out of the answer it came in.
-@(private = "file")
+@(private)
 save_found_match :: proc(video_id: string, song: core.Catalog_Song, is_found: bool) {
 	saved := ""
 	if is_found {
@@ -258,362 +229,6 @@ save_found_match :: proc(video_id: string, song: core.Catalog_Song, is_found: bo
 	}
 	store.save_match(video_id, saved)
 	keep_match(video_id, saved)
-}
-
-@(private = "file")
-Match_Job :: struct {
-	song:     core.Catalog_Song,
-	video_id: string,
-}
-
-// Holds the matcher's mutex.
-@(private = "file")
-start_matching :: proc(song: core.Catalog_Song, video_id: string) {
-	if !matcher.is_started {
-		thread.pool_init(&matcher.pool, context.allocator, 1)
-		thread.pool_start(&matcher.pool)
-		matcher.is_started = true
-	}
-
-	job := new(Match_Job)
-	job^ = {core.copy_song(song), strings.clone(video_id)}
-	matcher.checking[job.video_id] = true
-	append(&matcher.pending, job)
-	// Each task takes a batch, so a task that comes after its songs were taken finds none and ends.
-	// The pool keeps each finished task until it is taken.
-	for _ in thread.pool_pop_done(&matcher.pool) {}
-	thread.pool_add_task(&matcher.pool, context.allocator, check_matches, nil)
-}
-
-// Runs on the one matching thread. The albums the batch names come first, as one album answers for each of its
-// songs. A song no album answers for is searched alone. An answer that does not come is not saved, and its song
-// is checked again later.
-@(private = "file")
-check_matches :: proc(task: thread.Task) {
-	defer free_all(context.temp_allocator)
-
-	jobs := make([dynamic]^Match_Job, context.temp_allocator)
-	{
-		sync.guard(&matcher.mutex)
-		count := min(len(matcher.pending), MATCH_BATCH_COUNT)
-		append(&jobs, ..matcher.pending[:count])
-		remove_range(&matcher.pending, 0, count)
-	}
-
-	status := find_albums(jobs[:])
-
-	for job in jobs {
-		best: core.Catalog_Song
-		is_found := false
-
-		if status == 200 do best, is_found = find_in_albums(job.song)
-		if status == 200 && !is_found do best, is_found, status = search_song(job.song)
-
-		finish_job(job, best, is_found, status)
-	}
-}
-
-@(private = "file")
-finish_job :: proc(job: ^Match_Job, best: core.Catalog_Song, is_found: bool, status: int) {
-	sync.guard(&matcher.mutex)
-	delete_key(&matcher.checking, job.video_id)
-	defer {
-		core.delete_song(job.song)
-		free(job)
-		platform.wake()
-	}
-
-	// The rest of a batch fails with the same refusal, which counts once.
-	if status == 429 {
-		if time.tick_diff(matcher.resume_at, time.tick_now()) >= 0 {
-			matcher.refusal_count += 1
-			pause := min(REFUSED_PAUSE * time.Duration(1 << uint(min(matcher.refusal_count - 1, 5))), MAX_REFUSED_PAUSE)
-			matcher.resume_at = time.tick_add(time.tick_now(), pause)
-		}
-		matcher.failed[job.video_id] = matcher.resume_at
-		return
-	}
-
-	if status != 200 {
-		matcher.resume_at = time.tick_add(time.tick_now(), MATCH_GAP)
-		matcher.failed[job.video_id] = time.tick_add(time.tick_now(), REFUSED_PAUSE)
-		return
-	}
-
-	matcher.refusal_count = 0
-
-	save_found_match(job.video_id, best, is_found)
-	delete(job.video_id)
-}
-
-// Searches Apple once for each album the jobs name, then fetches the albums found with their songs, 20 to a request.
-@(private = "file")
-find_albums :: proc(jobs: []^Match_Job) -> int {
-	wanted := make([dynamic]string, context.temp_allocator)
-
-	for job in jobs {
-		if job.song.album_name == "" do continue
-
-		key := to_album_key(job.song)
-		ids, is_searched := albums.found_ids[key]
-
-		if !is_searched {
-			status: int
-			ids, status = search_albums(job.song)
-			if status != 200 do return status
-			albums.found_ids[strings.clone(key)] = ids
-		}
-
-		for id in ids do if id not_in albums.songs && !slice.contains(wanted[:], id) do append(&wanted, id)
-	}
-
-	for first := 0; first < len(wanted); first += MATCH_BATCH_COUNT {
-		status := fetch_albums(wanted[first:min(first + MATCH_BATCH_COUNT, len(wanted))])
-		if status != 200 do return status
-	}
-
-	return 200
-}
-
-// Apple's albums with the YouTube album's name, by its artist.
-@(private = "file")
-search_albums :: proc(song: core.Catalog_Song) -> ([]string, int) {
-	wait_to_search()
-
-	term := fmt.tprintf("%s %s", to_plain_text(song.album_name), to_plain_text(song.artist_name))
-	answer := apple.fetch(fmt.tprintf("/v1/catalog/%s/search?term=%s&types=albums&limit=10", apple.STOREFRONT, apple.to_query_text(term)), context.temp_allocator)
-	if answer.status != 200 do return nil, answer.status
-
-	Search_Answer :: struct {
-		results: struct {
-			albums: apple.Related,
-		},
-	}
-	parsed: Search_Answer
-	_ = json.unmarshal_string(answer.body, &parsed, allocator = context.temp_allocator)
-	ids := make([dynamic]string)
-
-	for album in parsed.results.albums.data {
-		is_same_album := has_same_title(song.album_name, album.attributes.name) && is_same_artist(song.artist_name, album.attributes.artist_name)
-		if is_same_album && len(ids) < MAX_FOUND_ALBUM_COUNT do append(&ids, strings.clone(album.id))
-	}
-
-	return ids[:], 200
-}
-
-@(private = "file")
-fetch_albums :: proc(ids: []string) -> int {
-	wait_to_search()
-
-	path := fmt.tprintf("/v1/catalog/%s/albums?ids=%s&include=tracks", apple.STOREFRONT, strings.join(ids, ",", context.temp_allocator))
-	answer := apple.fetch(path, context.temp_allocator)
-	if answer.status != 200 do return answer.status
-
-	for album in apple.to_resources(answer.body, context.temp_allocator) {
-		songs := make([dynamic]core.Catalog_Song)
-		for track in apple.list_related(album, "tracks") do if track.type == "songs" do append(&songs, core.copy_song(apple.to_catalog_song(track)))
-		if album.id not_in albums.songs do albums.songs[strings.clone(album.id)] = songs[:]
-	}
-
-	// An album Apple did not send is not asked for again.
-	for id in ids do if id not_in albums.songs do albums.songs[strings.clone(id)] = nil
-
-	return 200
-}
-
-@(private = "file")
-find_in_albums :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, bool) {
-	if song.album_name == "" do return {}, false
-
-	candidates := make([dynamic]core.Catalog_Song, context.temp_allocator)
-	for id in albums.found_ids[to_album_key(song)] or_else nil do append(&candidates, ..albums.songs[id] or_else nil)
-
-	return find_closest(song, candidates[:])
-}
-
-// Apple's search for the song itself. When its album was not found, the album's name goes in the term too.
-@(private = "file")
-search_song :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, bool, int) {
-	has_album_ids := len(albums.found_ids[to_album_key(song)] or_else nil) > 0
-	album_terms := make([dynamic]string, context.temp_allocator)
-	if song.album_name != "" && !has_album_ids do append(&album_terms, song.album_name)
-	append(&album_terms, "")
-
-	for album in album_terms {
-		wait_to_search()
-
-		path := fmt.tprintf("/v1/catalog/%s/search?term=%s&types=songs&limit=10", apple.STOREFRONT, apple.to_query_text(to_search_term(song, album)))
-		answer := apple.fetch(path, context.temp_allocator)
-		if answer.status != 200 do return {}, false, answer.status
-
-		if best, is_found := find_best_match(song, answer.body); is_found do return best, true, 200
-	}
-
-	return {}, false, 200
-}
-
-@(private = "file")
-to_album_key :: proc(song: core.Catalog_Song) -> string {
-	return fmt.tprintf("%s|%s", to_match_key(song.album_name), to_match_key(song.artist_name))
-}
-
-// Sleeps until Apple may be asked again, then a little more.
-@(private = "file")
-wait_to_search :: proc() {
-	resume_at: time.Tick
-	{
-		sync.guard(&matcher.mutex)
-		resume_at = matcher.resume_at
-	}
-
-	if wait := time.tick_diff(time.tick_now(), resume_at); wait > 0 do time.sleep(wait)
-	time.sleep(MATCH_GAP)
-}
-
-// The closest in length of Apple's songs that are the same song.
-@(private = "file")
-find_best_match :: proc(song: core.Catalog_Song, body: string) -> (core.Catalog_Song, bool) {
-	Search_Answer :: struct {
-		results: struct {
-			songs: apple.Related,
-		},
-	}
-	answer: Search_Answer
-	if json.unmarshal_string(body, &answer, allocator = context.temp_allocator) != nil do return {}, false
-
-	candidates := make([]core.Catalog_Song, len(answer.results.songs.data), context.temp_allocator)
-	for resource, index in answer.results.songs.data do candidates[index] = apple.to_catalog_song(resource)
-
-	return find_closest(song, candidates)
-}
-
-// The closest in length of the candidates that are the same recording.
-@(private = "file")
-find_closest :: proc(song: core.Catalog_Song, candidates: []core.Catalog_Song) -> (core.Catalog_Song, bool) {
-	best: core.Catalog_Song
-	is_found := false
-
-	for candidate in candidates {
-		if !is_same_recording(song, candidate) do continue
-
-		is_closer := !is_found || abs(candidate.duration_seconds - song.duration_seconds) < abs(best.duration_seconds - song.duration_seconds)
-		if is_closer do best = candidate
-		is_found = true
-	}
-
-	return best, is_found
-}
-
-// The same title once cleaned, by the same artist, and about as long. YouTube often writes a Japanese
-// title and its romaji as "追い風 - Oikaze", where Apple writes one of them, so either half matches. An
-// artist named another way on each, such as in Japanese on one, is no match: the song plays from YouTube.
-is_same_recording :: proc(youtube_song, apple_song: core.Catalog_Song) -> bool {
-	has_lengths := youtube_song.duration_seconds > 0 && apple_song.duration_seconds > 0
-	length_difference := abs(youtube_song.duration_seconds - apple_song.duration_seconds)
-
-	if !has_same_title(youtube_song.name, apple_song.name) do return false
-	if has_lengths && length_difference > MATCH_SECONDS do return false
-
-	return is_same_artist(youtube_song.artist_name, apple_song.artist_name)
-}
-
-// "Ado" and "ADO" are one artist, and so are "SHE'S" and "SHE'S, Yuta Kanazawa".
-@(private = "file")
-is_same_artist :: proc(youtube_artist, apple_artist: string) -> bool {
-	youtube_key := to_match_key(youtube_artist)
-	apple_key := to_match_key(apple_artist)
-
-	return youtube_key != "" && apple_key != "" && (strings.contains(apple_key, youtube_key) || strings.contains(youtube_key, apple_key))
-}
-
-@(private = "file")
-has_same_title :: proc(youtube_name, apple_name: string) -> bool {
-	apple_titles := list_title_keys(apple_name)
-
-	for title in list_title_keys(youtube_name) {
-		for apple_title in apple_titles do if title == apple_title do return true
-	}
-
-	return false
-}
-
-// The whole title and each half around " - " or " / ", as match keys.
-@(private = "file")
-list_title_keys :: proc(name: string) -> []string {
-	keys := make([dynamic]string, context.temp_allocator)
-	append(&keys, to_match_key(name))
-
-	for separator in ([]string{" - ", " / ", "／"}) {
-		if !strings.contains(name, separator) do continue
-		for part in strings.split(name, separator, context.temp_allocator) do if key := to_match_key(part); key != "" do append(&keys, key)
-	}
-
-	return keys[:]
-}
-
-// Lowercase letters and digits only. Parts in brackets, such as "(Official Video)" or "【MV】", and
-// "feat." with what follows are dropped. A name that is all brackets keeps them.
-to_match_key :: proc(text: string) -> string {
-	lower := strings.to_lower(text, context.temp_allocator)
-	for marker in ([]string{" feat.", " feat ", " ft.", " (feat", " [feat"}) {
-		if index := strings.index(lower, marker); index > 0 do lower = lower[:index]
-	}
-
-	key := to_letters(lower, true)
-
-	return key if key != "" else to_letters(lower, false)
-}
-
-@(private = "file")
-to_letters :: proc(text: string, skips_brackets: bool) -> string {
-	builder := strings.builder_make(context.temp_allocator)
-	depth := 0
-
-	for character in text {
-		switch character {
-		case '(', '[', '【', '『', '「', '（', '［':
-			depth += 1
-			continue
-		case ')', ']', '】', '』', '」', '）', '］':
-			depth = max(0, depth - 1)
-			continue
-		}
-
-		is_kept := unicode.is_letter(character) || unicode.is_digit(character)
-		if is_kept && (depth == 0 || !skips_brackets) do strings.write_rune(&builder, character)
-	}
-
-	return strings.to_string(builder)
-}
-
-// The title, the album and the artist without their bracketed parts. Apple's search finds nothing for a term
-// with an apostrophe, such as "She's", so apostrophes go.
-@(private = "file")
-to_search_term :: proc(song: core.Catalog_Song, album: string) -> string {
-	return fmt.tprintf("%s %s %s", to_plain_text(song.name), to_plain_text(album), to_plain_text(song.artist_name))
-}
-
-// The text without its bracketed parts and apostrophes. Text that is all brackets keeps them.
-@(private = "file")
-to_plain_text :: proc(text: string) -> string {
-	builder := strings.builder_make(context.temp_allocator)
-	depth := 0
-
-	for character in text {
-		switch character {
-		case '(', '[', '【', '『', '「', '（', '［':
-			depth += 1
-		case ')', ']', '】', '』', '」', '）', '］':
-			depth = max(0, depth - 1)
-		case '\'', '’':
-		case:
-			if depth == 0 do strings.write_rune(&builder, character)
-		}
-	}
-
-	plain := strings.trim_space(strings.to_string(builder))
-
-	return plain if plain != "" else text
 }
 
 // Catalog IDs are digits. A song uploaded from a Mac has only a library ID.

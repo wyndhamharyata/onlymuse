@@ -146,12 +146,17 @@ This rule settles every tie between the rules below.
 
 ## 2. Use plain words.
 
-This covers docs, commit messages, comments, UI text and names. A person checks them.
+This covers docs, commit messages, comments, UI text and names: procedures, variables, parameters,
+constants and types. A person checks them. Prose follows ASD-STE100 Simplified Technical English.
 
 1. Never use these words or their other forms: `bail`, `absent`, `clearing`, `no-op`,
    `falls through`, `survives`, `lands`, `landed`, `leaves`, `read better`, `invariant`, `gap`,
    `sits` (for placement), `minted`, `guard`, `adds`, `call site`, `gate`, `cut` (for a branch),
-   `shape`, `spike`, and the opener `Worth ...ing?`.
+   `shape`, `spike`, `freeze`, `outrank`, `significantly`, and the opener `Worth ...ing?`.
+   - A name never holds `absent`, `bail`, `gate`, `guard`, `invariant`, `minted`, `outrank`,
+     `seam`, `shape`, `spike` or `surface`. A noun such as `gap` is fine in a name.
+   - Two names stay, as their owners spell them: Odin's `sync.guard`, and `shape` for text shaping
+     in `src/font`, the term HarfBuzz and Core Text use.
 2. Never use these metaphors: `load-bearing`, `frozen`, `seam`, `surface` (as a noun),
    `carries the weight`, `outranks`, `the heart of the change`, `honest` or `lie` (about code),
    `earns its place`, `holds the contract`.
@@ -161,10 +166,24 @@ This covers docs, commit messages, comments, UI text and names. A person checks 
    `the key insight`, `this is important`, `make no mistake`.
 5. In docs and commit messages, never join two facts with `because`, `therefore` or `hence`. Write
    two plain sentences.
-6. One fact per sentence.
+6. One fact per sentence. Never join two facts with a comma and `and`, as in "I did X, and Y
+   happened". Write two sentences.
 7. Name a thing by what it does: `is_missing`, never `is_absent`.
 8. Read each sentence aloud. If a person explaining the thing to a teammate would not say it that
    way, write it again.
+9. Name the actor and give it an active verb. Never write `is`, `are`, `was` or `were` with a past
+   participle: "the store saves the queue", never "the queue is saved".
+10. Use simple tenses: "Apple refused", never "Apple has refused".
+11. A sentence holds at most 25 words, or 20 for an instruction. One instruction per sentence.
+12. Stack at most three nouns. Unstack with `of`, `for` or `that`: "the position of the resume
+    point", never "resume point position value".
+13. Keep the subject, the verb and the articles. Never drop them to save words.
+14. One word, one meaning. Pick one verb for one action and reuse it, as the Function verbs table
+    does. When the plain word and the technical word are both exact, write the plain one: `use`,
+    never `leverage`.
+15. Name a feature with the word the app, Apple or YouTube uses for it. Quote UI text exactly as
+    the code spells it.
+16. Never drop a fact, a number, a name or a condition to make a sentence shorter.
 
 "Add" as a button label or an action name, such as "Add to Library" and `addToLibrary`, is allowed.
 
@@ -184,7 +203,8 @@ version or a change. Types carry the contract.
 ## 4. A name is a full word.
 
 - Write full words. `error_count`, never `n_err`.
-- A boolean reads as a question: `is_playing`, `has_artwork`.
+- A boolean reads as a question: `is_playing`, `has_artwork`. The `ok` of `value, ok := ...` is
+  Odin's own name and may stay.
 - Use `min` and `max` for limits. Use `first` and `last` for a range that includes both ends.
 - One thing has one name everywhere, as the Words table lists. A name Apple's API, Music.app or a
   library owns keeps its spelling in its JSON tag, such as `playParams` and `persistentID`.

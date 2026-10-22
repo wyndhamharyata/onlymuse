@@ -49,7 +49,9 @@ list :: proc(allocator := context.temp_allocator) -> []Entry {
 	sync.guard(&state.mutex)
 	entries := make([]Entry, len(state.entries), allocator)
 
-	for entry, index in state.entries do entries[index] = {entry.at, entry.source, strings.clone(entry.text, allocator)}
+	for entry, index in state.entries {
+		entries[index] = {entry.at, entry.source, strings.clone(entry.text, allocator)}
+	}
 
 	return entries
 }

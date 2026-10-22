@@ -50,7 +50,9 @@ add_playlist_youtube_songs :: proc(playlist_id: string, songs: []Playlist_YouTub
 	}
 
 	list := &playlist_youtube_songs[playlist_id]
-	for song in songs do append(list, Playlist_YouTube_Song{strings.clone(song.after), core.copy_song(song.song)})
+	for song in songs {
+		append(list, Playlist_YouTube_Song{strings.clone(song.after), core.copy_song(song.song)})
+	}
 	save_playlist_youtube_songs()
 }
 

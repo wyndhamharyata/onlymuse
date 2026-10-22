@@ -143,6 +143,8 @@ build_youtube_search_results :: proc(term: string, apple_songs: []core.Catalog_S
 	if width <= 0 || len(videos_list.songs) == 0 do return
 
 	cards := make([]apple.Card, len(videos_list.songs), context.temp_allocator)
-	for song, index in videos_list.songs do cards[index] = {id = song.id, kind = .Song, name = song.name, subtitle = song.artist_name, artwork = song.artwork, song = song}
+	for song, index in videos_list.songs {
+		cards[index] = {id = song.id, kind = .Song, name = song.name, subtitle = song.artist_name, artwork = song.artwork, song = song}
+	}
 	lists.build_shelf("youtube videos", {title = "Videos on YouTube", cards = cards, is_youtube = true, is_wide = true}, width, lists.WIDE_TILE_POINTS)
 }

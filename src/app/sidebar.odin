@@ -25,17 +25,25 @@ build_sidebar :: proc() {
 
 		if ui.scope(list) {
 			build_group_title("Apple Music")
-			for item in core.apple_music_items do build_sidebar_item(item.label, item.symbol, core.app.accent, {kind = item.kind})
+			for item in core.apple_music_items {
+				build_sidebar_item(item.label, item.symbol, core.app.accent, {kind = item.kind})
+			}
 
 			build_group_title("YouTube Music")
-			for item in core.youtube_items do build_sidebar_item(item.label, item.symbol, kit.colors.youtube, item.page)
+			for item in core.youtube_items {
+				build_sidebar_item(item.label, item.symbol, kit.colors.youtube, item.page)
+			}
 
 			build_group_title("Library")
-			for item in core.library_items do build_sidebar_item(item.label, item.symbol, core.app.accent, {kind = item.kind})
+			for item in core.library_items {
+				build_sidebar_item(item.label, item.symbol, core.app.accent, {kind = item.kind})
+			}
 
 			build_group_title("Playlists")
 			playlists, _, _ := core.list_playlists()
-			for playlist in playlists do build_sidebar_item(playlist.name, "music.note.list", kit.colors.dim, {kind = .Playlist, id = playlist.id, title = playlist.name}, playlist.can_edit)
+			for playlist in playlists {
+				build_sidebar_item(playlist.name, "music.note.list", kit.colors.dim, {kind = .Playlist, id = playlist.id, title = playlist.name}, playlist.can_edit)
+			}
 		}
 
 	}

@@ -211,7 +211,9 @@ find_in_albums :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, bool) {
 	if song.album_name == "" do return {}, false
 
 	candidates := make([dynamic]core.Catalog_Song, context.temp_allocator)
-	for id in albums.found_ids[to_album_key(song)] or_else nil do append(&candidates, ..albums.songs[id] or_else nil)
+	for id in albums.found_ids[to_album_key(song)] or_else nil {
+		append(&candidates, ..albums.songs[id] or_else nil)
+	}
 
 	return find_closest(song, candidates[:])
 }
@@ -270,7 +272,9 @@ find_best_match :: proc(song: core.Catalog_Song, body: string) -> (core.Catalog_
 	}
 
 	candidates := make([]core.Catalog_Song, len(answer.results.songs.data), context.temp_allocator)
-	for resource, index in answer.results.songs.data do candidates[index] = apple.to_catalog_song(resource)
+	for resource, index in answer.results.songs.data {
+		candidates[index] = apple.to_catalog_song(resource)
+	}
 
 	return find_closest(song, candidates)
 }

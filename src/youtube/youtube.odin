@@ -123,7 +123,9 @@ to_json_field :: proc(name, value: string) -> string {
 
 @(private)
 send_request :: proc(path: string, allocator: mem.Allocator) -> apple.Answer {
-	for !has_cookie_answer() && time.tick_since(state.started) < COOKIE_WAIT do time.sleep(100 * time.Millisecond)
+	for !has_cookie_answer() && time.tick_since(state.started) < COOKIE_WAIT {
+		time.sleep(100 * time.Millisecond)
+	}
 
 	endpoint, _, body_json := strings.partition(path[len(PATH_PREFIX):], "?")
 	if len(body_json) < 2 do return {}

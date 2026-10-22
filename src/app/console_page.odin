@@ -41,7 +41,9 @@ build_console_page :: proc() {
 		rows := ui.box("rows", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 2})
 
 		if ui.scope(rows) {
-			for index := len(entries) - 1; index >= 0; index -= 1 do build_console_row(index, entries[index])
+			for index := len(entries) - 1; index >= 0; index -= 1 {
+				build_console_row(index, entries[index])
+			}
 		}
 	}
 }
@@ -62,7 +64,9 @@ build_console_row :: proc(index: int, entry: console.Entry) {
 @(private = "file")
 to_console_text :: proc(entries: []console.Entry) -> string {
 	builder := strings.builder_make(context.temp_allocator)
-	for entry in entries do fmt.sbprintf(&builder, "%s %s: %s\n", to_console_time(entry.at), entry.source, entry.text)
+	for entry in entries {
+		fmt.sbprintf(&builder, "%s %s: %s\n", to_console_time(entry.at), entry.source, entry.text)
+	}
 
 	return strings.to_string(builder)
 }

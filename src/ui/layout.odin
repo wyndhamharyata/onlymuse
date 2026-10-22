@@ -272,7 +272,9 @@ animate_rect :: proc(box: ^Box) {
 		return
 	}
 
-	for index in 0 ..< 4 do box.shown_rect[index] = approach(box.shown_rect[index], box.rect[index], HOT_RATE / 2)
+	for index in 0 ..< 4 {
+		box.shown_rect[index] = approach(box.shown_rect[index], box.rect[index], HOT_RATE / 2)
+	}
 }
 
 @(private)

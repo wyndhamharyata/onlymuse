@@ -37,7 +37,9 @@ finish_bench :: proc() {
 	builds := core.app.build_durations[:]
 	slice.sort(builds)
 	gaps: [dynamic]time.Duration
-	for index in 1 ..< len(core.app.frame_starts) do append(&gaps, time.tick_diff(core.app.frame_starts[index - 1], core.app.frame_starts[index]))
+	for index in 1 ..< len(core.app.frame_starts) {
+		append(&gaps, time.tick_diff(core.app.frame_starts[index - 1], core.app.frame_starts[index]))
+	}
 	slice.sort(gaps[:])
 
 	to_ms :: proc(values: []time.Duration, fraction: f64) -> f64 {

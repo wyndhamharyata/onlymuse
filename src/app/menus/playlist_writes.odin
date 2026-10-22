@@ -171,7 +171,9 @@ create_playlist :: proc(name: string, songs: []core.Catalog_Song, youtube_songs:
 	body, _ := json.marshal(value, allocator = context.temp_allocator)
 
 	kept := make([]youtube_lists.Playlist_YouTube_Song, len(youtube_songs))
-	for song, index in youtube_songs do kept[index] = {strings.clone(song.after), core.copy_song(song.song)}
+	for song, index in youtube_songs {
+		kept[index] = {strings.clone(song.after), core.copy_song(song.song)}
+	}
 
 	job := new(Create_Job)
 	job^ = {strings.clone(name), strings.clone(string(body)), strings.clone(done_text), kept, opens_page}

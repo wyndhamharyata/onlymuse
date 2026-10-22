@@ -117,7 +117,9 @@ read_library_songs :: proc(data: ^Page_Data, bodies: []string) {
 	songs := make([dynamic]Catalog_Song, allocator)
 
 	for body in bodies {
-		for resource in apple.to_resources(body, allocator) do append(&songs, apple.to_library_song(resource))
+		for resource in apple.to_resources(body, allocator) {
+			append(&songs, apple.to_library_song(resource))
+		}
 	}
 
 	data.songs = songs[:]
@@ -128,7 +130,9 @@ read_cards :: proc(data: ^Page_Data, bodies: []string) {
 	cards := make([dynamic]apple.Card, allocator)
 
 	for body in bodies {
-		for card in apple.list_cards(apple.to_resources(body, allocator), allocator) do append(&cards, card)
+		for card in apple.list_cards(apple.to_resources(body, allocator), allocator) {
+			append(&cards, card)
+		}
 	}
 
 	data.cards = cards[:]

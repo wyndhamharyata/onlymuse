@@ -41,8 +41,16 @@ to_list_item :: proc(reader: ^Reader, value: json.Value) -> (apple.Card, bool) {
 	}
 
 	byline := make([dynamic]json.Value, context.temp_allocator)
-	for column in columns[1:] do for run in as_array(child(column, "musicResponsiveListItemFlexColumnRenderer", "text", "runs")) do append(&byline, run)
-	for column in as_array(child(value, "fixedColumns")) do for run in as_array(child(column, "musicResponsiveListItemFixedColumnRenderer", "text", "runs")) do append(&byline, run)
+	for column in columns[1:] {
+		for run in as_array(child(column, "musicResponsiveListItemFlexColumnRenderer", "text", "runs")) {
+			append(&byline, run)
+		}
+	}
+	for column in as_array(child(value, "fixedColumns")) {
+		for run in as_array(child(column, "musicResponsiveListItemFixedColumnRenderer", "text", "runs")) {
+			append(&byline, run)
+		}
+	}
 
 	return to_song_card(reader, video_id, name, byline[:], thumbnail), true
 }

@@ -109,7 +109,9 @@ send_request :: proc(path: string, method: net.Method, allocator := context.allo
 @(private)
 send_once :: proc(path: string, method: net.Method, allocator := context.allocator, body := "") -> Answer {
 	// The helper reads the tokens from a web page a moment after it starts.
-	for !has_tokens() && time.tick_since(state.started) < TOKEN_WAIT do time.sleep(100 * time.Millisecond)
+	for !has_tokens() && time.tick_since(state.started) < TOKEN_WAIT {
+		time.sleep(100 * time.Millisecond)
+	}
 
 	headers: [5]string
 	header_count := 4

@@ -97,7 +97,11 @@ watch_youtube_songs :: proc(path: string) -> (first: youtube.List, songs: []core
 
 	if is_stale && phase == .Ready {
 		all := make([dynamic]core.Catalog_Song, core.page_allocator(data))
-		for part in parts do for song in part.songs do append(&all, core.copy_song(song, core.page_allocator(data)))
+		for part in parts {
+			for song in part.songs {
+				append(&all, core.copy_song(song, core.page_allocator(data)))
+			}
+		}
 		data.songs = all[:]
 	}
 

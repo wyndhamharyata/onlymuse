@@ -42,7 +42,9 @@ to_plain_text :: proc(markup: string) -> string {
 	text := markup
 	entities := [][2]string{{"&lt;", "<"}, {"&gt;", ">"}, {"&apos;", "'"}, {"&quot;", "\""}, {"&amp;", "&"}}
 
-	for entity in entities do text, _ = strings.replace_all(text, entity[0], entity[1], context.temp_allocator)
+	for entity in entities {
+		text, _ = strings.replace_all(text, entity[0], entity[1], context.temp_allocator)
+	}
 
 	return text
 }

@@ -54,7 +54,9 @@ to_crop :: proc(rect: [4]f32, focus_y: f32) -> image.Crop {
 	height := rect.w - rect.y
 	if height <= 0 do return {}
 
-	return {math.floor((rect.z - rect.x) / height * 4) / 4, focus_y}
+	// The 0.01 absorbs float noise: at most zooms a square box comes out 0.9999997 wide for each 1 high, and a
+	// plain floor would flip it to 0.75 on some frames and back.
+	return {math.floor((rect.z - rect.x) / height * 4 + 0.01) / 4, focus_y}
 }
 
 // The part of the texture that fills rect at its own proportions.

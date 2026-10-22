@@ -23,10 +23,37 @@ LATEST_RELEASE_POINTS :: 210
 
 SIMILAR_ARTIST_POINTS :: 130
 
+// Text read from an answer, kept until the answer's version changes, as the page asks for it every frame.
+@(private = "file")
+Read_Text :: struct {
+	key:     string,
+	version: int,
+	text:    string,
+}
+
+@(private = "file")
+artist_id_by_name, catalog_artist_name, library_artist_id: Read_Text
+
+@(private = "file")
+find_read_text :: proc(read: ^Read_Text, key: string, version: int) -> (string, bool) {
+	return read.text, read.key == key && read.version == version
+}
+
+// Runs before the frame builds anything with the old text.
+@(private = "file")
+save_read_text :: proc(read: ^Read_Text, key: string, version: int, text: string) -> string {
+	delete(read.key)
+	delete(read.text)
+	read^ = {strings.clone(key), version, strings.clone(text)}
+
+	return read.text
+}
+
 // Music.app gives a song's artist only as a name. The catalog artist with that exact name is the one.
 find_artist_id :: proc(artist_name: string) -> (string, apple.Phase) {
 	watched := apple.watch(fmt.tprintf("/v1/catalog/%s/search?term=%s&types=artists&limit=12", apple.STOREFRONT, apple.to_query_text(artist_name)))
 	if watched.phase != .Ready do return "", watched.phase
+	if id, ok := find_read_text(&artist_id_by_name, artist_name, watched.version); ok do return id, .Ready
 
 	Search_Answer :: struct {
 		results: struct {
@@ -36,11 +63,10 @@ find_artist_id :: proc(artist_name: string) -> (string, apple.Phase) {
 	answer: Search_Answer
 	_ = core.unmarshal_text(watched.body, &answer)
 	artists := answer.results.artists.data
-	if len(artists) == 0 do return "", .Ready
+	id := artists[0].id if len(artists) > 0 else ""
+	for artist in artists do if artist.attributes.name == artist_name do id = artist.id
 
-	for artist in artists do if artist.attributes.name == artist_name do return artist.id, .Ready
-
-	return artists[0].id, .Ready
+	return save_read_text(&artist_id_by_name, artist_name, watched.version, id), .Ready
 }
 
 // An artist page opened by name, from the player bar, finds its ID first.
@@ -64,8 +90,12 @@ build_artist_page :: proc(page_id: string, name: string) {
 	catalog_name := ""
 
 	if watched.phase == .Ready {
-		resources := apple.to_resources(watched.body, context.temp_allocator)
-		if len(resources) > 0 do catalog_name = resources[0].attributes.name
+		ok: bool
+		catalog_name, ok = find_read_text(&catalog_artist_name, path, watched.version)
+		if !ok {
+			resources := apple.to_resources(watched.body, context.temp_allocator)
+			catalog_name = save_read_text(&catalog_artist_name, path, watched.version, resources[0].attributes.name if len(resources) > 0 else "")
+		}
 	}
 
 	library_albums := watch_library_albums_of(catalog_name)
@@ -123,6 +153,20 @@ watch_library_albums_of :: proc(artist_name: string) -> apple.Watched {
 	search := apple.watch(fmt.tprintf("/v1/me/library/search?term=%s&types=library-artists&limit=25", apple.to_query_text(longest)))
 	if search.phase != .Ready do return {phase = search.phase, version = search.version}
 
+	id, ok := find_read_text(&library_artist_id, artist_name, search.version)
+	if !ok do id = save_read_text(&library_artist_id, artist_name, search.version, find_library_artist_id(search.body, artist_name))
+	if id == "" do return {phase = .Ready, version = search.version * 1000}
+
+	albums := apple.watch(fmt.tprintf("/v1/me/library/artists/%s/albums", id))
+	albums.version += search.version * 1000
+
+	return albums
+}
+
+// The library artist with exactly this name, empty when there is none.
+@(private = "file")
+find_library_artist_id :: proc(body, artist_name: string) -> string {
+
 	Search_Answer :: struct {
 		results: struct {
 			library_artists: struct {
@@ -131,18 +175,11 @@ watch_library_albums_of :: proc(artist_name: string) -> apple.Watched {
 		},
 	}
 	answer: Search_Answer
-	_ = core.unmarshal_text(search.body, &answer)
+	_ = core.unmarshal_text(body, &answer)
 
-	for artist in answer.results.library_artists.data {
-		if artist.attributes.name != artist_name do continue
+	for artist in answer.results.library_artists.data do if artist.attributes.name == artist_name do return artist.id
 
-		albums := apple.watch(fmt.tprintf("/v1/me/library/artists/%s/albums", artist.id))
-		albums.version += search.version * 1000
-
-		return albums
-	}
-
-	return {phase = .Ready, version = search.version * 1000}
+	return ""
 }
 
 @(private = "file")

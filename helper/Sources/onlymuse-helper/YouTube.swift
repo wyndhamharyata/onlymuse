@@ -52,7 +52,19 @@ final class YouTube: NSObject, WKNavigationDelegate {
       return JSON.stringify({ id: player.getVideoData().video_id, state: player.getPlayerState(), position: player.getCurrentTime(), duration: player.getDuration() });
     })()
     """
+  // What the page shows when its song stops by itself, for the Console.
+  private static let readProblemScript = """
+    (() => JSON.stringify({
+      visibility: document.visibilityState,
+      error: document.querySelector(".ytp-error")?.innerText ?? "",
+      dialogs: [...document.querySelectorAll("tp-yt-paper-dialog, ytmusic-you-there-renderer")].filter((dialog) => dialog.offsetParent).map((dialog) => dialog.innerText.slice(0, 200)),
+      hasSource: !!document.querySelector("video")?.src,
+    }))()
+    """
   private static let pollSeconds = 0.5
+  // A song that stops by itself for this long after it played loads again where it stopped, at most maxReloadCount times.
+  private static let stuckSeconds = 10.0
+  private static let maxReloadCount = 2
   // Music.app's posts this soon after the helper paused it may still say it plays.
   private static let pauseSettleSeconds = 2.0
   // The page goes this long after the last YouTube song, as it holds 200 MB or more, unless the queue has more.
@@ -82,6 +94,9 @@ final class YouTube: NSObject, WKNavigationDelegate {
   private var pausedMusicAt = Date.distantPast
   private var lastState = ""
   private var lastPositionSentAt = Date.distantPast
+  private var playedSeconds = 0.0
+  private var stuckSince: Date?
+  private var reloadCount = 0
   private var volumePercent = 100
 
   // True from a YouTube song's start until another source plays, so Music.app's posts leave the player as it is.
@@ -157,6 +172,9 @@ final class YouTube: NSObject, WKNavigationDelegate {
     song = match
     self.videoID = videoID
     lastState = ""
+    playedSeconds = 0
+    stuckSince = nil
+    reloadCount = 0
     if !isQuiet {
       music.pauseIfRunning()
       pausedMusicAt = Date()
@@ -310,11 +328,23 @@ final class YouTube: NSObject, WKNavigationDelegate {
     view.customUserAgent = WebPlayer.userAgent
     view.navigationDelegate = self
 
-    // The window is never shown. WebKit plays a page's media only while it is in a window.
+    // WebKit plays a page's media only while it is in a window. The window is on screen for WebKit, but clear,
+    // far off every display and out of Mission Control. A hidden page is slowed once its sound pauses, and
+    // YouTube's player, which resets itself now and then, then never started again.
     let window = NSWindow(contentRect: view.frame, styleMask: [.borderless], backing: .buffered, defer: false)
 
     window.contentView = view
     window.isReleasedWhenClosed = false
+    window.alphaValue = 0
+    window.ignoresMouseEvents = true
+    window.collectionBehavior = [.transient, .ignoresCycle]
+    window.isExcludedFromWindowsMenu = true
+    window.setFrameOrigin(NSPoint(x: -20000, y: -20000))
+    window.orderBack(nil)
+    // Off every display, the window counts as covered, which WebKit takes as hidden too.
+    if view.responds(to: NSSelectorFromString("_setWindowOcclusionDetectionEnabled:")) {
+      view.setValue(false, forKey: "windowOcclusionDetectionEnabled")
+    }
     playerView = view
     playerWindow = window
 
@@ -345,8 +375,10 @@ final class YouTube: NSObject, WKNavigationDelegate {
 
     playerView.evaluateJavaScript(Self.readStateScript) { [weak self] result, _ in
       MainActor.assumeIsolated {
-        guard let self, self.isActive, let text = result as? String, let data = text.data(using: .utf8) else { return }
-        guard let page = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+        guard let self, self.isActive else { return }
+        guard let text = result as? String, let data = text.data(using: .utf8), let page = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+          return self.checkStuck(playerState: nil)
+        }
 
         self.apply(page: page)
       }
@@ -369,11 +401,14 @@ final class YouTube: NSObject, WKNavigationDelegate {
     // The page plays at its own volume until a song's first state comes, as the player may not exist before.
     if lastState == "" { run("document.getElementById('movie_player').setVolume(\(volumePercent))") }
 
-    // Before a song starts, and while it waits for more of itself, the page plays nothing. Its state then goes
-    // to the app as neither playing nor paused, so the app's clock stays still.
+    // Before a song starts, and while it waits for more of itself, the page plays nothing, and the app hears
+    // nothing new. A song that played and then waits too long loads again.
     let isWaiting = !hasEnded && playerState != Self.playingState && playerState != Self.pausedState
 
-    if isWaiting { return }
+    if isWaiting { return checkStuck(playerState: playerState) }
+
+    stuckSince = nil
+    if playerState == Self.playingState { playedSeconds = positionSeconds }
 
     let state = hasEnded ? "stopped" : playerState == Self.pausedState ? "paused" : "playing"
 
@@ -397,6 +432,37 @@ final class YouTube: NSObject, WKNavigationDelegate {
 
     lastPositionSentAt = Date()
     send(["type": "position", "persistentID": Self.idPrefix + videoID, "positionSeconds": positionSeconds, "positionReadAtMs": MusicApp.nowMs()])
+  }
+
+  // The page stopped a song that played, by itself: it answers no state, or one neither playing nor paused. It
+  // loads the song again where it stopped, and after maxReloadCount tries the app shows it paused.
+  private func checkStuck(playerState: Int?) {
+    guard lastState == "playing" else { return }
+    guard let since = stuckSince else {
+      stuckSince = Date()
+      return
+    }
+    guard Date().timeIntervalSince(since) >= Self.stuckSeconds else { return }
+
+    stuckSince = Date()
+    reloadCount += 1
+    let name = song?.name ?? videoID
+    let position = Int(playedSeconds)
+    let stateText = playerState.map { "state \($0)" } ?? "no answer"
+
+    playerView?.evaluateJavaScript(Self.readProblemScript) { result, _ in
+      sendError("The YouTube page stopped \(name) at \(position / 60):\(String(format: "%02d", position % 60)) by itself (\(stateText)). The page showed: \(result as? String ?? "nothing")")
+    }
+
+    guard reloadCount <= Self.maxReloadCount else {
+      lastState = "paused"
+      stuckSince = nil
+      send(toNowPlaying(state: "paused", positionSeconds: playedSeconds, durationSeconds: song?.durationSeconds ?? 0))
+      return sendError("\(name) did not play again after \(Self.maxReloadCount) tries, so it shows as paused.")
+    }
+
+    sendError("The helper loads \(name) again from where it stopped, try \(reloadCount) of \(Self.maxReloadCount).")
+    run("document.getElementById('movie_player').loadVideoById({ videoId: \(quoted(videoID)), startSeconds: \(playedSeconds) })")
   }
 
   private func toNowPlaying(state: String, positionSeconds: Double, durationSeconds: Double) -> [String: Any] {

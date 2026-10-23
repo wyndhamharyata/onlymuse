@@ -14,12 +14,15 @@ import "om:platform"
 import "om:render"
 import MTL "vendor:darwin/Metal"
 
-// This procedure runs on a worker thread.
+@(private)
+BYTES_PER_PIXEL :: 4
+@(private)
+BITS_PER_CHANNEL :: 8
+
 @(private)
 fetch_image :: proc(task: thread.Task) {
 	job := cast(^Job)task.data
 
-	// A failed job reaches state.finished too, so watch asks for its cover again later.
 	defer {
 		sync.guard(&state.mutex)
 		append(&state.finished, job)
@@ -27,7 +30,6 @@ fetch_image :: proc(task: thread.Task) {
 	}
 	defer free_all(context.temp_allocator)
 
-	// A file path, such as the artwork the helper saves from Music.app, needs no download.
 	path := job.url
 
 	if !strings.has_prefix(path, "/") {
@@ -48,7 +50,6 @@ fetch_to_file :: proc(url, path: string) -> bool {
 	}
 	if !strings.has_prefix(response.content_type, "image/") do return false
 
-	// The file takes its name only when complete, so a quit halfway never makes a broken image.
 	part_path := fmt.tprintf("%s.part", path)
 	if os.write_entire_file(part_path, response.body) != nil do return false
 
@@ -77,7 +78,6 @@ read_texture :: proc(path: string, size_pixels: int, crop: Crop) -> (^MTL.Textur
 	options := mac.make_dictionary(keys, values)
 	defer mac.CFRelease(options)
 
-	// ImageIO decodes straight to this size, so a large file never stays whole in memory.
 	thumbnail := mac.CGImageSourceCreateThumbnailAtIndex(source, 0, options)
 	if thumbnail == nil do return nil, {}
 	defer mac.CGImageRelease(thumbnail)
@@ -87,17 +87,16 @@ read_texture :: proc(path: string, size_pixels: int, crop: Crop) -> (^MTL.Textur
 
 	width := int(mac.CGImageGetWidth(image))
 	height := int(mac.CGImageGetHeight(image))
-	pixels := make([]u8, width * height * 4, context.temp_allocator)
+	pixels := make([]u8, width * height * BYTES_PER_PIXEL, context.temp_allocator)
 
 	space := mac.CGColorSpaceCreateWithName(mac.kCGColorSpaceSRGB)
 	defer mac.CGColorSpaceRelease(space)
-	// BGRA with premultiplied alpha, as the shader and BGRA8Unorm expect.
 	bitmap_context := mac.CGBitmapContextCreate(
 		raw_data(pixels),
 		uint(width),
 		uint(height),
-		8,
-		uint(width * 4),
+		BITS_PER_CHANNEL,
+		uint(width * BYTES_PER_PIXEL),
 		space,
 		mac.IMAGE_ALPHA_PREMULTIPLIED_FIRST | mac.BITMAP_BYTE_ORDER_32_LITTLE,
 	)
@@ -105,13 +104,16 @@ read_texture :: proc(path: string, size_pixels: int, crop: Crop) -> (^MTL.Textur
 	mac.CGContextDrawImage(bitmap_context, {{0, 0}, {f64(width), f64(height)}}, image)
 
 	texture := render.make_texture({width, height}, .BGRA8Unorm)
-	render.upload_texture(texture, {0, 0, width, height}, raw_data(pixels), width * 4)
+	render.upload_texture(
+		texture,
+		{0, 0, width, height},
+		raw_data(pixels),
+		width * BYTES_PER_PIXEL,
+	)
 
 	return texture, to_color(pixels)
 }
 
-// The part of image with crop's aspect, centred across and at focus_y down.
-// It returns image itself when image already has that aspect, within 1 percent.
 @(private)
 to_cropped :: proc(image: mac.Image_Ref, crop: Crop) -> mac.Image_Ref {
 	width := f64(mac.CGImageGetWidth(image))

@@ -1,11 +1,7 @@
 import AppKit
 import WebKit
 
-// The JavaScript the helper runs in the YouTube page, and the player states it reads back.
 extension YouTube {
-  // The page plays its own next song when one ends. Only the app's queue picks what plays, so any other song pauses.
-  // The script mutes and pauses a song that loads ahead, while Music.app plays, once it starts. The song then waits
-  // ready to play. A page that first loads for that says so in its address, as the page plays its song before didFinish.
   static let pageScript = """
     window.onlymuseVideoID = "";
     window.onlymuseIsPreparing = location.hash === "#\(YouTube.prepareHash)";
@@ -19,8 +15,6 @@ extension YouTube {
 
   static let prepareHash = "onlymuse-prepare"
 
-  // The page may load a song's address and fetch none of it until it plays. The nudge plays it muted. The page
-  // script pauses it at once. The nudge repeats until the page knows its length.
   static let nudgeScript = """
     (() => {
       const player = document.getElementById("movie_player");
@@ -32,7 +26,7 @@ extension YouTube {
     })()
     """
 
-  // A quiet run mutes each song before it makes a sound. The page's player can never turn the sound back on.
+  // The page's player turns its sound back on, so a quiet run locks muted and volume.
   static let muteScript = """
     (() => {
       const muted = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, "muted");
@@ -51,7 +45,6 @@ extension YouTube {
     })()
     """
 
-  // What the page shows when its song stops by itself, for the Console.
   static let readProblemScript = """
     (() => JSON.stringify({
       visibility: document.visibilityState,
@@ -61,7 +54,6 @@ extension YouTube {
     }))()
     """
 
-  // The page's player states, as YT.PlayerState names them.
   static let endedState = 0
 
   static let playingState = 1
@@ -72,10 +64,10 @@ extension YouTube {
 
   static let unstartedState = -1
 
-  // This plays the song, at once when it loaded ahead, and with sound again after it waited muted.
-  // forcesLoad loads the song again even when the page already holds it, from startSeconds.
-  func toPlayScript(forcesLoad: Bool = false, startSeconds: Double = 0) -> String {
-    let id = quoted(videoID)
+  static let rewindAfterSeconds = 1.0
+
+  func toPlayScript(isLoadForced: Bool = false, startSeconds: Double = 0) -> String {
+    let id = toJavaScriptText(videoID)
     let unmute = isQuiet ? "" : "const video = document.querySelector('video'); if (video) video.muted = false; player?.unMute?.();"
 
     return """
@@ -85,8 +77,8 @@ extension YouTube {
         const player = document.getElementById('movie_player');
         \(unmute)
         if (!player || !player.getVideoData) return;
-        if (\(!forcesLoad) && player.getVideoData().video_id === \(id) && player.getPlayerState() !== \(Self.endedState)) {
-          if (player.getCurrentTime() > 1) player.seekTo(0, true);
+        if (\(!isLoadForced) && player.getVideoData().video_id === \(id) && player.getPlayerState() !== \(Self.endedState)) {
+          if (player.getCurrentTime() > \(Self.rewindAfterSeconds)) player.seekTo(0, true);
           player.playVideo();
         } else {
           player.loadVideoById({ videoId: \(id), startSeconds: \(startSeconds) });

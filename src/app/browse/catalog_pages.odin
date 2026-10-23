@@ -1,4 +1,3 @@
-// The Apple Music pages: home, albums, playlists, artists, the library, downloads and search.
 package browse
 
 import "core:fmt"
@@ -9,23 +8,26 @@ import "om:app/youtube_lists"
 import "om:apple"
 import "om:ui"
 
-// Home holds YouTube Music's shelves too, between Apple's.
 build_shelves_page :: proc(title, path: string, is_new: bool) {
 	watched := apple.watch(path)
+	youtube_shelves: []apple.Shelf
 	youtube_version := 0
-	if !is_new do _, youtube_version, _ = youtube_lists.watch_youtube_home()
-	// One version for both answers, so the page reads again when either answer changes.
-	data, is_stale := core.find_page_data(
+	if !is_new do youtube_shelves, youtube_version, _ = youtube_lists.watch_youtube_home()
+	data, needs_read := core.find_page_data(
 		path,
-		watched.version * 1000 + youtube_version,
+		core.mix_version(watched.version, youtube_version),
 		watched.phase,
 	)
 
-	if is_stale && watched.phase == .Ready {
+	if needs_read {
 		allocator := core.page_allocator(data)
-		data.shelves =
+		apple_shelves :=
 			apple.to_new_shelves(watched.body, allocator) if is_new else apple.to_home_shelves(watched.body, allocator)
-		if !is_new do data.shelves, _ = youtube_lists.merge_youtube_shelves(data.shelves, allocator)
+		data.shelves = youtube_lists.merge_youtube_shelves(
+			apple_shelves,
+			youtube_shelves,
+			allocator,
+		)
 	}
 
 	page := kit.page_scroll("shelves")
@@ -39,17 +41,17 @@ build_shelves_page :: proc(title, path: string, is_new: bool) {
 			return
 		}
 
-		width := page.size.x - page.style.padding.x - page.style.padding.z
+		width := kit.to_content_width(page)
 		if width <= 0 do return
 
 		for shelf, index in data.shelves {
-			target: f32 = lists.FIRST_SHELF_TILE_POINTS if index == 0 else lists.SHELF_TILE_POINTS
-			lists.build_shelf(fmt.tprintf("shelf %d", index), shelf, width, target)
+			target_points: f32 =
+				lists.FIRST_SHELF_TILE_POINTS if index == 0 else lists.SHELF_TILE_POINTS
+			lists.build_shelf(fmt.tprintf("shelf %d", index), shelf, width, target_points)
 		}
 	}
 }
 
-// Catalog playlists come from shelves. Library playlists come from the sidebar.
 build_playlist_page :: proc(page: core.Page) {
 	is_catalog := page.kind == .Catalog_Playlist
 	header_path :=
@@ -58,13 +60,16 @@ build_playlist_page :: proc(page: core.Page) {
 		fmt.tprintf("/v1/catalog/%s/playlists/%s/tracks", apple.STOREFRONT, page.id) if is_catalog else fmt.tprintf("/v1/me/library/playlists/%s/tracks", page.id)
 	bodies, signature, phase := core.watch_all_pages(tracks_path)
 	header := apple.watch(header_path) if is_catalog else {phase = .Ready}
-	data, is_stale := core.find_page_data(
+	data, needs_read := core.find_page_data(
 		tracks_path,
-		(signature * 7 + header.version) * 1000 + youtube_lists.playlist_youtube_version,
+		core.mix_version(
+			core.mix_version(signature, header.version),
+			youtube_lists.playlist_youtube_version,
+		),
 		phase,
 	)
 
-	if is_stale && phase == .Ready {
+	if needs_read {
 		core.read_library_songs(data, bodies)
 
 		if !is_catalog {
@@ -89,15 +94,10 @@ build_playlist_page :: proc(page: core.Page) {
 }
 
 build_favourite_songs_page :: proc() {
-	_, playlist_id, phase := core.list_playlists()
+	_, playlist_id, phase := core.watch_playlists()
 
 	if playlist_id == "" {
-		lists.build_song_list_page(
-			"Favourite Songs",
-			"",
-			nil,
-			phase if phase != .Ready else .Ready,
-		)
+		lists.build_song_list_page("Favourite Songs", "", nil, phase)
 		return
 	}
 

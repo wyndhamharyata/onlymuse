@@ -1,19 +1,15 @@
 import Foundation
 
-// This class starts the queue's next song a moment before the one playing ends, so Music.app never picks a song of its own.
 @MainActor
 final class Handoff {
-  // The next song starts this much before the end, which is less than Music.app's own switch takes.
   private let leadSeconds = 0.04
-  // The timer wakes this long before the end and reads the position again. A seek or a pause moves the end.
   private let checkSeconds = 0.4
-  // A switch by Music.app this close to the end is its own pick, which the next song replaces.
   private let endToleranceSeconds = 3.0
 
   private let music: MusicApp
   private let youTube: YouTube
   private var afterID: String?
-  private var next: SongMatch?
+  private var nextSong: SongMatch?
   private var nextID: String?
   private var expectedEnd: Date?
   private var timer: Timer?
@@ -23,36 +19,67 @@ final class Handoff {
     self.youTube = youTube
   }
 
-  // This sets the song to play after afterID ends. nil cancels the handoff. It answers with the next song's persistent ID.
-  func set(afterID: String?, next: SongMatch?) -> String? {
-    self.afterID = afterID
-    self.next = next
+  func apply(_ command: Command) {
+    guard let requestId = command.requestId else { return }
 
-    if afterID == nil || !music.isRunning {
-      nextID = nil
-    } else if let videoID = next?.youTubeVideoID {
-      nextID = YouTube.idPrefix + videoID
-    } else {
-      nextID = next.flatMap { music.findSong($0) }
+    switch command.type {
+    case "playSong":
+      guard let song = command.song else { return }
+
+      send(["type": "playSongResult", "requestId": requestId, "persistentID": playSong(song) ?? NSNull()])
+    case "setNext":
+      send(["type": "setNextResult", "requestId": requestId, "persistentID": setNext(command) ?? NSNull()])
+    default:
+      break
     }
+  }
 
-    arm()
+  private func playSong(_ song: SongMatch) -> String? {
+    if let videoID = song.youTubeVideoID { return youTube.play(song, videoID: videoID) }
 
-    // A YouTube song after Music.app's song loads ahead. An empty afterID ends the queue. The page that loaded
-    // ahead then goes. After a YouTube song, afterID is nil. The page then plays on.
-    if afterID != nil { youTube.prepare(videoID: next?.youTubeVideoID ?? "") }
+    youTube.stop()
+
+    return music.playSong(song)
+  }
+
+  private func setNext(_ command: Command) -> String? {
+    youTube.isPageKept = command.keepsYouTube ?? false
+
+    let isAfterYouTube = command.afterPersistentID?.hasPrefix(YouTube.idPrefix) ?? false
+    let afterID = isAfterYouTube ? nil : command.afterPersistentID
+
+    set(afterID: afterID, nextSong: command.song)
+
+    if !isAfterYouTube { youTube.prepare(videoID: afterID == nil ? "" : command.song?.youTubeVideoID ?? "") }
 
     return nextID
   }
 
-  // Music.app posted a change: a pause, a play, or another song.
-  func onPlayerChange() {
+  private func set(afterID: String?, nextSong: SongMatch?) {
+    let isHandoffOff = afterID == nil || !music.isRunning
+
+    self.afterID = afterID
+    self.nextSong = nextSong
+
+    if isHandoffOff {
+      nextID = nil
+    } else if let videoID = nextSong?.youTubeVideoID {
+      nextID = YouTube.idPrefix + videoID
+    } else {
+      nextID = nextSong.flatMap { music.findSong($0) }
+    }
+
+    arm()
+  }
+
+  func applyPlayerChange() {
     guard let afterID, nextID != nil else { return }
 
-    let playback = music.readPlayback()
+    let playingID = music.readPlayback()?.persistentID
     let isNearEnd = expectedEnd.map { abs($0.timeIntervalSinceNow) < endToleranceSeconds } ?? false
+    let isMusicAppPick = playingID != nil && playingID != afterID && isNearEnd
 
-    if let playback, playback.persistentID != afterID, isNearEnd { return fire() }
+    if isMusicAppPick { return fire() }
 
     arm()
   }
@@ -90,17 +117,17 @@ final class Handoff {
   private func fire() {
     guard let nextID else { return }
 
-    let nextSong = next
+    let song = nextSong
 
     timer?.invalidate()
     timer = nil
     afterID = nil
-    next = nil
+    nextSong = nil
     self.nextID = nil
     expectedEnd = nil
 
-    if let nextSong, let videoID = nextSong.youTubeVideoID {
-      _ = youTube.play(nextSong, videoID: videoID)
+    if let song, let videoID = song.youTubeVideoID {
+      _ = youTube.play(song, videoID: videoID)
       return
     }
 

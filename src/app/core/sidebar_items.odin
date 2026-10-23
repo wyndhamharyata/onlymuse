@@ -2,22 +2,20 @@ package core
 
 import "om:youtube"
 
-// Only the palette opens the Console, as it is for finding out what went wrong, not for listening.
-console_items := []Sidebar_Item{{.Console, "Console", "exclamationmark.triangle"}}
+console_items := []Sidebar_Item{{"Console", "exclamationmark.triangle", {kind = .Console}}}
 
 Sidebar_Item :: struct {
-	kind:   Page_Kind,
-	label:  string,
-	symbol: string,
-}
-
-apple_music_items := []Sidebar_Item{{.Home, "Home", "house"}, {.New, "New", "square.grid.2x2"}}
-
-youtube_items := []struct {
 	label:  string,
 	symbol: string,
 	page:   Page,
-} {
+}
+
+apple_music_items := []Sidebar_Item {
+	{"Home", "house", {kind = .Home}},
+	{"New", "square.grid.2x2", {kind = .New}},
+}
+
+youtube_items := []Sidebar_Item {
 	{"Mixes", "dot.radiowaves.left.and.right", {kind = .YouTube_Mixes}},
 	{
 		"Liked Music",
@@ -28,10 +26,10 @@ youtube_items := []struct {
 }
 
 library_items := []Sidebar_Item {
-	{.Favourite_Songs, "Favourite Songs", "star"},
-	{.Recently_Added, "Recently Added", "clock"},
-	{.Artists, "Artists", "music.mic"},
-	{.Albums, "Albums", "square.stack"},
-	{.Songs, "Songs", "music.note"},
-	{.Downloaded, "Downloaded", "arrow.down.circle"},
+	{"Favourite Songs", "star", {kind = .Favourite_Songs}},
+	{"Recently Added", "clock", {kind = .Recently_Added}},
+	{"Artists", "music.mic", {kind = .Artists}},
+	{"Albums", "square.stack", {kind = .Albums}},
+	{"Songs", "music.note", {kind = .Songs}},
+	{"Downloaded", "arrow.down.circle", {kind = .Downloaded}},
 }

@@ -1,5 +1,3 @@
-// YouTube's lists as the pages read them: home, playlists, an artist, Liked Music, and the
-// YouTube songs that onlymuse keeps in Apple playlists.
 package youtube_lists
 
 import "core:mem/virtual"
@@ -9,7 +7,7 @@ import "om:app/matching"
 import "om:apple"
 import "om:youtube"
 
-// A long YouTube list stops after this many parts of about 100 songs.
+// YouTube sends a long list in parts of about 100 songs.
 MAX_YOUTUBE_PART_COUNT :: 50
 
 // YouTube's home sends a few shelves at a time. Mixes for you come in its later parts.
@@ -20,15 +18,12 @@ Parsed_List :: struct {
 	arena:      virtual.Arena,
 	version:    int,
 	list:       youtube.List,
-	// Unix ms of the last frame that asked for it.
 	used_at_ms: i64,
 }
 
-// watch_youtube_list reads each answer once per version, as reading a large one takes milliseconds.
 @(private = "file")
 parsed_lists: map[string]^Parsed_List
 
-// The list lives until its answer's version changes.
 watch_youtube_list :: proc(path: string) -> (youtube.List, apple.Watched) {
 	watched := apple.watch(path)
 	if watched.phase != .Ready do return {}, watched
@@ -53,8 +48,6 @@ watch_youtube_list :: proc(path: string) -> (youtube.List, apple.Watched) {
 	return parsed.list, watched
 }
 
-// The app calls this first in each frame. It frees a list that no frame asked for in
-// core.UNUSED_PAGE_MS, as core does for a page.
 free_unused_youtube_lists :: proc() {
 	now := core.now_ms()
 	unused := make([dynamic]string, context.temp_allocator)
@@ -74,7 +67,6 @@ free_unused_youtube_lists :: proc() {
 	}
 }
 
-// The songs of every part of a long list, and the first part, which holds the header.
 watch_youtube_songs :: proc(
 	path: string,
 ) -> (
@@ -93,8 +85,7 @@ watch_youtube_songs :: proc(
 	for token := first.continuation;
 	    phase == .Ready && token != "" && len(parts) < MAX_YOUTUBE_PART_COUNT; {
 		part, part_watched := watch_youtube_list(youtube.to_continuation_path(token))
-		// Mixes the version of each part into one number that changes when any part changes.
-		signature = signature * 31 + part_watched.version
+		signature = core.mix_version(signature, part_watched.version)
 
 		if part_watched.phase == .Loading do phase = .Loading
 		if part_watched.phase != .Ready || len(part.songs) == 0 do break
@@ -103,8 +94,8 @@ watch_youtube_songs :: proc(
 		token = part.continuation
 	}
 
-	data, is_stale := core.find_page_data(path, signature, phase)
-	if !is_stale || phase != .Ready do return first, data.songs, phase
+	data, needs_read := core.find_page_data(path, signature, phase)
+	if !needs_read do return first, data.songs, phase
 
 	all := make([dynamic]core.Catalog_Song, core.page_allocator(data))
 
@@ -119,7 +110,6 @@ watch_youtube_songs :: proc(
 	return first, data.songs, phase
 }
 
-// The shelves of every part of YouTube's home.
 watch_youtube_home :: proc() -> (shelves: []apple.Shelf, signature: int, phase: apple.Phase) {
 	first, watched := watch_youtube_list(youtube.to_browse_path(youtube.HOME_ID))
 	signature = watched.version
@@ -131,7 +121,7 @@ watch_youtube_home :: proc() -> (shelves: []apple.Shelf, signature: int, phase: 
 
 	for part_count := 1; token != "" && part_count < MAX_HOME_PART_COUNT; part_count += 1 {
 		part, part_watched := watch_youtube_list(youtube.to_section_continuation_path(token))
-		signature = signature * 31 + part_watched.version
+		signature = core.mix_version(signature, part_watched.version)
 		if part_watched.phase != .Ready do break
 
 		append(&all, ..part.shelves)
@@ -141,22 +131,14 @@ watch_youtube_home :: proc() -> (shelves: []apple.Shelf, signature: int, phase: 
 	return all[:], signature, .Ready
 }
 
-// The text a YouTube page shows in place of its list while it loads or after it fails.
 to_youtube_phase_note :: proc(phase: apple.Phase) -> string {
 	return "YouTube Music could not be reached." if phase == .Failed else "Loading…"
 }
 
-// Apple's shelves with YouTube's between them, one of each in turn.
 merge_youtube_shelves :: proc(
-	apple_shelves: []apple.Shelf,
+	apple_shelves, youtube_shelves: []apple.Shelf,
 	allocator := context.allocator,
-) -> (
-	shelves: []apple.Shelf,
-	version: int,
-) {
-	youtube_shelves, signature, phase := watch_youtube_home()
-	if phase != .Ready do return apple_shelves, signature
-
+) -> []apple.Shelf {
 	merged := make([dynamic]apple.Shelf, allocator)
 
 	for index in 0 ..< max(len(apple_shelves), len(youtube_shelves)) {
@@ -167,10 +149,9 @@ merge_youtube_shelves :: proc(
 		}
 	}
 
-	return merged[:], signature
+	return merged[:]
 }
 
-// The YouTube channel with the artist's name, found by YouTube's artist search.
 watch_youtube_artist :: proc(name: string) -> youtube.List {
 	if name == "" do return {}
 

@@ -9,7 +9,6 @@ import "om:app/youtube_pages"
 import "om:apple"
 import "om:ui"
 
-// Right of the sidebar, the back and forward buttons with the page the person opened below them.
 build_page_area :: proc() {
 	area := ui.box("page area", {width = ui.fill(), height = ui.fill(), axis = .Y})
 
@@ -24,7 +23,7 @@ build_page_area :: proc() {
 				axis = .X,
 				align = .Center,
 				gap = 2,
-				padding = {kit.PAGE_PADDING_POINTS - 4, 0, 0, 0},
+				padding = {kit.PAGE_PADDING_POINTS - kit.ICON_BUTTON_PADDING_POINTS, 0, 0, 0},
 			},
 		)
 
@@ -45,7 +44,6 @@ build_page_area :: proc() {
 		}
 
 		page := core.current_page()
-		// The key holds the history index and page ID, so each history entry keeps its own scroll.
 		page_box := ui.box(
 			fmt.tprintf("page %d %v %s", core.navigation.index, page.kind, page.id),
 			{width = ui.fill(), height = ui.fill(), axis = .Y},

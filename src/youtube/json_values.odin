@@ -5,12 +5,16 @@ import "core:fmt"
 import "core:strings"
 import "om:apple"
 
+@(private)
+MIN_WIDE_ASPECT :: 1.3
+
 // A Google photo URL ends in its size, as "=w120-h120-l90-rj" or "=s576".
-// to_artwork puts {w} and {h} in place of that size, as Apple's URLs have.
 @(private)
 to_artwork :: proc(reader: ^Reader, url, video_id: string) -> apple.Artwork {
 	// A video's thumbnail is hqdefault.jpg. It shows 16:9 between black bars, which the app crops.
-	if strings.contains(url, "i.ytimg.com/vi/") && video_id != "" {
+	is_video_thumbnail := strings.contains(url, "i.ytimg.com/vi/") && video_id != ""
+
+	if is_video_thumbnail {
 		return {
 			url = fmt.aprintf(
 				"https://i.ytimg.com/vi/%s/hqdefault.jpg",
@@ -21,7 +25,7 @@ to_artwork :: proc(reader: ^Reader, url, video_id: string) -> apple.Artwork {
 	}
 
 	if square_start := strings.last_index(url, "=s");
-	   square_start >= 0 && strings.index_any(url[square_start + 2:], "-=") < 0 {
+	   square_start >= 0 && strings.index_any(url[square_start + len("=s"):], "-=") < 0 {
 		return {
 			url = fmt.aprintf(
 				"%s=w{{w}}-h{{h}}",
@@ -32,13 +36,13 @@ to_artwork :: proc(reader: ^Reader, url, video_id: string) -> apple.Artwork {
 	}
 
 	size_start := strings.last_index(url, "=w")
-	if size_start < 0 do return {url = clone(reader, url)}
+	if size_start < 0 do return {url = make_copy(reader, url)}
 
-	rest := url[size_start + 2:]
+	rest := url[size_start + len("=w"):]
 	dash := strings.index(rest, "-h")
-	if dash < 0 do return {url = clone(reader, url)}
+	if dash < 0 do return {url = make_copy(reader, url)}
 
-	height_end := dash + 2
+	height_end := dash + len("-h")
 
 	for height_end < len(rest) && rest[height_end] >= '0' && rest[height_end] <= '9' {
 		height_end += 1
@@ -60,19 +64,18 @@ is_wide_thumbnail :: proc(value: json.Value) -> bool {
 	if len(thumbnails) == 0 do return false
 
 	last := thumbnails[len(thumbnails) - 1]
-	width := as_number(child(last, "width"))
-	height := as_number(child(last, "height"))
+	width := to_number(find_child(last, "width"))
+	height := to_number(find_child(last, "height"))
 
-	return height > 0 && width > height * 1.3
+	return height > 0 && width > height * MIN_WIDE_ASPECT
 }
 
-// The largest thumbnail's URL, wherever under value its list is.
 @(private)
 find_thumbnail_url :: proc(value: json.Value) -> string {
 	thumbnails := find_thumbnails(value)
 	if len(thumbnails) == 0 do return ""
 
-	return as_string(child(thumbnails[len(thumbnails) - 1], "url"))
+	return to_string(find_child(thumbnails[len(thumbnails) - 1], "url"))
 }
 
 @(private)
@@ -81,7 +84,7 @@ find_thumbnails :: proc(value: json.Value) -> json.Array {
 	if !ok do return nil
 
 	for key, child_value in object {
-		if key == "thumbnails" do return as_array(child_value)
+		if key == "thumbnails" do return to_array(child_value)
 		if found := find_thumbnails(child_value); len(found) > 0 do return found
 	}
 
@@ -89,7 +92,7 @@ find_thumbnails :: proc(value: json.Value) -> json.Array {
 }
 
 @(private)
-child :: proc(value: json.Value, keys: ..string) -> json.Value {
+find_child :: proc(value: json.Value, keys: ..string) -> json.Value {
 	current := value
 
 	for key in keys {
@@ -102,21 +105,21 @@ child :: proc(value: json.Value, keys: ..string) -> json.Value {
 }
 
 @(private)
-as_string :: proc(value: json.Value) -> string {
+to_string :: proc(value: json.Value) -> string {
 	text, _ := value.(json.String)
 
 	return text
 }
 
 @(private)
-as_array :: proc(value: json.Value) -> json.Array {
+to_array :: proc(value: json.Value) -> json.Array {
 	array, _ := value.(json.Array)
 
 	return array
 }
 
 @(private)
-as_number :: proc(value: json.Value) -> f64 {
+to_number :: proc(value: json.Value) -> f64 {
 	#partial switch number in value {
 	case json.Float:
 		return f64(number)
@@ -127,21 +130,20 @@ as_number :: proc(value: json.Value) -> f64 {
 	return 0
 }
 
-// The text of a "runs" list, joined, or of a "simpleText".
 @(private)
 to_text :: proc(value: json.Value) -> string {
-	if simple := as_string(child(value, "simpleText")); simple != "" do return simple
+	if simple := to_string(find_child(value, "simpleText")); simple != "" do return simple
 
 	builder := strings.builder_make(context.temp_allocator)
 
-	for run in as_array(child(value, "runs")) {
-		strings.write_string(&builder, as_string(child(run, "text")))
+	for run in to_array(find_child(value, "runs")) {
+		strings.write_string(&builder, to_string(find_child(run, "text")))
 	}
 
 	return strings.to_string(builder)
 }
 
 @(private)
-clone :: proc(reader: ^Reader, text: string) -> string {
+make_copy :: proc(reader: ^Reader, text: string) -> string {
 	return strings.clone(text, reader.allocator)
 }

@@ -1,22 +1,4 @@
 #!/usr/bin/env -S python3 -I
-# Stands in for the Swift helper and Music.app in the tests. It never touches Music.app.
-#   OM_HELPER=tools/fake-music.py ./build/onlymuse
-# OM_FAKE_LOG      file that keeps every command the app sent
-# OM_FAKE_SPEED    how many song seconds pass in one real second, 1 by default
-# OM_FAKE_MISSING  a song name that is not in the library until it has been asked for 3 times
-# OM_FAKE_UNPLAYABLE a song name found in the library that never starts, as when Music.app has no file for it
-# OM_FAKE_STALL    a song name that stops at 5 s the first time it plays and still says it plays, as Music.app
-#                  does with a song it cannot load
-# OM_FAKE_SLOW_START a song name that stays at 0:00 for 7 s the first time it plays and says it plays, as
-#                  Music.app does while it loads a song
-# Every 2 s while a song plays, it sends the position, as the real helper does.
-# OM_FAKE_TOKENS   a folder with the web player's tokens in dev and mut, sent as the real helper sends
-#                  them, so the app reads Apple's catalog. Without it, Apple is never asked. A file yt-cookie in
-#                  the folder is sent as the YouTube page's cookie, so the app reads YouTube Music signed in.
-# A song with a youtubeId plays as the YouTube page plays it, with the persistent ID "yt:" and the video ID.
-# OM_FAKE_YT_LOAD  seconds the YouTube page loads a song before it plays, 0 by default. Meanwhile the song
-#                  says it loads, and no position is sent.
-# trackInfo answers made-up plays and a lossless file. setFavorite keeps favourites until it quits.
 import json
 import os
 import sys
@@ -33,14 +15,17 @@ SLOW_START_SECONDS = 7.0
 yt_load_seconds = float(os.environ.get("OM_FAKE_YT_LOAD", "0"))
 STALL_SECONDS = 5.0
 POSITION_SECONDS = 2.0
+TICK_SECONDS = 0.05
+HOUR_SECONDS = 3600
+DAY_SECONDS = 86400
+tokens_folder = os.environ.get("OM_FAKE_TOKENS", "")
 log = open(os.environ["OM_FAKE_LOG"], "a") if os.environ.get("OM_FAKE_LOG") else None
 lock = threading.Lock()
-asked = {}
+ask_counts = {}
 player = {"state": "stopped", "song": None, "position": 0.0, "read_at": time.time(), "volume": 50}
 handoff = {"after": None, "song": None}
-# Persistent IDs marked as favourites, and how often each song has played.
 favourites = set()
-played = {}
+play_counts = {}
 
 
 def send(message):
@@ -48,10 +33,10 @@ def send(message):
     sys.stdout.flush()
 
 
-def to_persistent_id(match):
-    if match.get("youtubeId"):
-        return "yt:" + match["youtubeId"]
-    return "%016X" % zlib.crc32(f"{match['name']}|{match['albumName']}".encode())
+def to_persistent_id(song):
+    if song.get("youtubeId"):
+        return "yt:" + song["youtubeId"]
+    return "%016X" % zlib.crc32(f"{song['name']}|{song['albumName']}".encode())
 
 
 def position():
@@ -75,88 +60,127 @@ def send_now_playing(**extra):
     })
 
 
-def track_info(persistent_id):
-    added = time.time() - 86400 * 40
+def to_song_info(persistent_id):
+    added = time.time() - DAY_SECONDS * 40
     return {
-        "type": "trackInfo", "persistentID": persistent_id, "isInLibrary": True, "favorited": persistent_id in favourites,
-        "playedCount": played.get(persistent_id, 0), "playedDateMs": time.time() * 1000 - 3600 * 1000, "skippedCount": 2,
-        "skippedDateMs": time.time() * 1000 - 86400 * 1000 * 11, "dateAddedMs": added * 1000, "rating": 0,
+        "type": "songInfo", "persistentID": persistent_id, "isInLibrary": True, "favorited": persistent_id in favourites,
+        "playedCount": play_counts.get(persistent_id, 0), "playedDateMs": (time.time() - HOUR_SECONDS) * 1000, "skippedCount": 2,
+        "skippedDateMs": (time.time() - DAY_SECONDS * 11) * 1000, "dateAddedMs": added * 1000, "rating": 0,
         "bitRate": 1411, "sampleRate": 48000, "kind": "Apple Lossless audio file", "bpm": 172, "size": 38200000,
     }
 
 
-def start(match):
-    persistent_id = to_persistent_id(match)
-    played[persistent_id] = played.get(persistent_id, 0) + 1
-    player["is_stalling"] = match["name"] == stall_name and played[persistent_id] == 1
-    is_slow = match["name"] == slow_start_name and played[persistent_id] == 1
-    player["starts_at"] = time.time() + SLOW_START_SECONDS if is_slow else 0
-    player["is_loading"] = bool(match.get("youtubeId")) and yt_load_seconds > 0
+def start(song):
+    persistent_id = to_persistent_id(song)
+    play_counts[persistent_id] = play_counts.get(persistent_id, 0) + 1
+    player["is_stalling"] = song["name"] == stall_name and play_counts[persistent_id] == 1
+    is_slow = song["name"] == slow_start_name and play_counts[persistent_id] == 1
+    player["starts_at"] = (time.time() + SLOW_START_SECONDS) if is_slow else 0
+    player["is_loading"] = bool(song.get("youtubeId")) and yt_load_seconds > 0
     if player["is_loading"]:
         player["starts_at"] = time.time() + yt_load_seconds
-    player.update(state="playing", song=match, position=0.0, read_at=time.time())
-    send_now_playing(isLoading=True) if player["is_loading"] else send_now_playing()
+    player.update(state="playing", song=song, position=0.0, read_at=time.time())
+    if player["is_loading"]:
+        send_now_playing(isLoading=True)
+    else:
+        send_now_playing()
+
+
+def play_song(command):
+    song = command["song"]
+    ask_counts[song["name"]] = ask_counts.get(song["name"], 0) + 1
+    if song["name"] == missing_name and ask_counts[song["name"]] <= 3:
+        send({"type": "playSongResult", "requestId": command["requestId"], "persistentID": None})
+        return
+    if song["name"] != unplayable_name or song.get("youtubeId"):
+        start(song)
+    send({"type": "playSongResult", "requestId": command["requestId"], "persistentID": to_persistent_id(song)})
+
+
+def set_next(command):
+    handoff["after"] = command.get("afterPersistentID")
+    handoff["song"] = command.get("song")
+    result = to_persistent_id(handoff["song"]) if handoff["song"] else None
+    send({"type": "setNextResult", "requestId": command["requestId"], "persistentID": result})
+
+
+def play_pause(command):
+    if not player["song"]:
+        return
+    player["position"] = position()
+    player["read_at"] = time.time()
+    player["state"] = "paused" if player["state"] == "playing" else "playing"
+    send_now_playing()
+
+
+def seek(command):
+    if not player["song"]:
+        return
+    player["position"] = command["positionSeconds"]
+    player["read_at"] = time.time()
+    send_now_playing()
+
+
+def song_info(command):
+    send(to_song_info(command["persistentID"]))
+
+
+def set_favorite(command):
+    persistent_id = command.get("persistentID") or (to_persistent_id(command["song"]) if command.get("song") else None)
+    if persistent_id and command["favorited"]:
+        favourites.add(persistent_id)
+    elif persistent_id:
+        favourites.discard(persistent_id)
+    message = {"type": "setFavoriteResult", "favorited": command["favorited"], "persistentID": persistent_id}
+    if "requestId" in command:
+        message["requestId"] = command["requestId"]
+    send(message)
+    if persistent_id:
+        send(to_song_info(persistent_id))
+
+
+def set_volume(command):
+    player["volume"] = command["volumePercent"]
+    send({"type": "volume", "volumePercent": player["volume"]})
+
+
+HANDLERS = {
+    "playSong": play_song,
+    "setNext": set_next,
+    "playPause": play_pause,
+    "seek": seek,
+    "songInfo": song_info,
+    "setFavorite": set_favorite,
+    "setVolume": set_volume,
+}
 
 
 def apply(command):
-    kind = command["type"]
-    if kind == "playSong":
-        match = command["song"]
-        asked[match["name"]] = asked.get(match["name"], 0) + 1
-        if match["name"] == missing_name and asked[match["name"]] <= 3:
-            send({"type": "playSongResult", "requestId": command["requestId"], "persistentID": None})
-            return
-        if match["name"] != unplayable_name or match.get("youtubeId"):
-            start(match)
-        send({"type": "playSongResult", "requestId": command["requestId"], "persistentID": to_persistent_id(match)})
-    elif kind == "setNext":
-        handoff["after"] = command.get("afterPersistentID")
-        handoff["song"] = command.get("song")
-        result = to_persistent_id(handoff["song"]) if handoff["song"] else None
-        send({"type": "setNextResult", "requestId": command["requestId"], "persistentID": result})
-    elif kind == "playPause" and player["song"]:
-        player["position"] = position()
-        player["read_at"] = time.time()
-        player["state"] = "paused" if player["state"] == "playing" else "playing"
-        send_now_playing()
-    elif kind == "seek" and player["song"]:
-        player["position"] = command["positionSeconds"]
-        player["read_at"] = time.time()
-        send_now_playing()
-    elif kind == "trackInfo":
-        send(track_info(command["persistentID"]))
-    elif kind == "setFavorite":
-        persistent_id = command.get("persistentID") or (to_persistent_id(command["song"]) if command.get("song") else None)
-        if persistent_id:
-            (favourites.add if command["favorited"] else favourites.discard)(persistent_id)
-        message = {"type": "setFavoriteResult", "favorited": command["favorited"], "persistentID": persistent_id}
-        if "requestId" in command:
-            message["requestId"] = command["requestId"]
-        send(message)
-        if persistent_id:
-            send(track_info(persistent_id))
-    elif kind == "setVolume":
-        player["volume"] = command["volumePercent"]
-        send({"type": "volume", "volumePercent": player["volume"]})
+    handler = HANDLERS.get(command["type"])
+    if handler:
+        handler(command)
 
 
-# At a song's end Music.app posts Paused, then Stopped, unless the handoff starts the next song.
 def tick():
     last_position_sent = time.time()
     while True:
-        time.sleep(0.05)
+        time.sleep(TICK_SECONDS)
         with lock:
             song = player["song"]
-            if player.get("is_loading"):
-                if time.time() < player["starts_at"]:
-                    continue
+            is_loading = player.get("is_loading")
+            if is_loading and time.time() < player["starts_at"]:
+                continue
+            if is_loading:
                 player["is_loading"] = False
                 send_now_playing(hasStarted=True)
                 last_position_sent = time.time()
-            if player["state"] == "playing" and song is not None and time.time() - last_position_sent >= POSITION_SECONDS:
+            is_playing = player["state"] == "playing" and song is not None
+            is_position_due = is_playing and time.time() - last_position_sent >= POSITION_SECONDS
+            if is_position_due:
                 last_position_sent = time.time()
                 send({"type": "position", "persistentID": to_persistent_id(song), "positionSeconds": position(), "positionReadAtMs": time.time() * 1000})
-            if player["state"] != "playing" or song is None or position() < song["durationSeconds"]:
+            is_song_over = is_playing and position() >= song["durationSeconds"]
+            if not is_song_over:
                 continue
             if handoff["song"] and handoff["after"] == to_persistent_id(song):
                 next_song = handoff["song"]
@@ -170,12 +194,11 @@ def tick():
 
 
 send({"type": "accent", "color": "#F7821B"})
-if os.environ.get("OM_FAKE_TOKENS"):
-    folder = os.environ["OM_FAKE_TOKENS"]
-    with open(os.path.join(folder, "dev")) as dev, open(os.path.join(folder, "mut")) as mut:
+if tokens_folder:
+    with open(os.path.join(tokens_folder, "dev")) as dev, open(os.path.join(tokens_folder, "mut")) as mut:
         send({"type": "tokens", "developerToken": dev.read().strip(), "userToken": mut.read().strip()})
-cookie_path = os.path.join(os.environ.get("OM_FAKE_TOKENS", ""), "yt-cookie")
-cookie = open(cookie_path).read().strip() if os.environ.get("OM_FAKE_TOKENS") and os.path.exists(cookie_path) else ""
+cookie_path = os.path.join(tokens_folder, "yt-cookie")
+cookie = open(cookie_path).read().strip() if tokens_folder and os.path.exists(cookie_path) else ""
 send({"type": "youtubeCookie", "cookie": cookie})
 send_now_playing()
 threading.Thread(target=tick, daemon=True).start()

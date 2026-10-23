@@ -11,27 +11,26 @@ import "om:app/core"
 import "om:apple"
 import "om:platform"
 
-// Apple refuses an account that searches too fast, with 429, for a while.
-// So one search runs at a time, with this pause before each one.
+// Apple answers 429 for a while when an account searches too fast. One search runs at a time.
 MATCH_GAP :: 300 * time.Millisecond
 
-// A refusal stops matching for this long.
 REFUSED_PAUSE :: 60 * time.Second
 
-// Each refusal in a row doubles the pause, up to this.
+MAX_PAUSE_DOUBLING_COUNT :: 5
+
 MAX_REFUSED_PAUSE :: 30 * time.Minute
 
-// Songs per batch of the matching thread. One request fetches the albums that a batch names.
+FAILED_RETRY_PAUSE :: 60 * time.Second
+
 MATCH_BATCH_COUNT :: 20
 
-// Albums found for one YouTube album. A single and an album of one name are both worth checking.
+ALBUMS_PER_REQUEST_COUNT :: 20
+
 MAX_FOUND_ALBUM_COUNT :: 3
 
-// Only the matching thread uses this, so it needs no mutex.
+@(private = "file")
 albums: struct {
-	// Apple's album IDs for a YouTube album, by to_album_key.
 	found_ids: map[string][]string,
-	// The songs of each album fetched, by Apple's album ID. Empty for an album Apple did not send.
 	songs:     map[string][]core.Catalog_Song,
 }
 
@@ -41,7 +40,6 @@ Match_Job :: struct {
 	video_id: string,
 }
 
-// The caller holds the matcher's mutex.
 @(private)
 start_matching :: proc(song: core.Catalog_Song, video_id: string) {
 	if !matcher.is_started {
@@ -55,13 +53,10 @@ start_matching :: proc(song: core.Catalog_Song, video_id: string) {
 	matcher.checking[job.video_id] = true
 	append(&matcher.pending, job)
 
-	// Each task takes a batch. A task that finds its songs taken by an earlier task ends at once.
 	for _ in thread.pool_pop_done(&matcher.pool) {}
 	thread.pool_add_task(&matcher.pool, context.allocator, check_matches, nil)
 }
 
-// Runs on the one matching thread. It fetches the albums of the batch first, as one album answers
-// for each of its songs. A song that no album answers for gets a search of its own.
 @(private = "file")
 check_matches :: proc(task: thread.Task) {
 	defer free_all(context.temp_allocator)
@@ -82,13 +77,12 @@ check_matches :: proc(task: thread.Task) {
 		is_found := false
 
 		if status == 200 do best, is_found = find_in_albums(job.song)
-		if status == 200 && !is_found do best, is_found, status = search_song(job.song)
+		if status == 200 && !is_found do best, is_found, status = fetch_song_match(job.song)
 
 		finish_job(job, best, is_found, status)
 	}
 }
 
-// finish_job saves nothing when Apple sends no answer, so find_match checks that song again later.
 @(private = "file")
 finish_job :: proc(job: ^Match_Job, best: core.Catalog_Song, is_found: bool, status: int) {
 	sync.guard(&matcher.mutex)
@@ -100,12 +94,14 @@ finish_job :: proc(job: ^Match_Job, best: core.Catalog_Song, is_found: bool, sta
 		platform.wake()
 	}
 
-	// The rest of a batch fails with the same refusal, which counts once.
 	if status == 429 {
-		if time.tick_diff(matcher.resume_at, time.tick_now()) >= 0 {
+		is_pause_over := time.tick_diff(matcher.resume_at, time.tick_now()) >= 0
+
+		if is_pause_over {
 			matcher.refusal_count += 1
+			doubling_count := min(matcher.refusal_count - 1, MAX_PAUSE_DOUBLING_COUNT)
 			pause := min(
-				REFUSED_PAUSE * time.Duration(1 << uint(min(matcher.refusal_count - 1, 5))),
+				REFUSED_PAUSE * time.Duration(1 << uint(doubling_count)),
 				MAX_REFUSED_PAUSE,
 			)
 			matcher.resume_at = time.tick_add(time.tick_now(), pause)
@@ -117,18 +113,16 @@ finish_job :: proc(job: ^Match_Job, best: core.Catalog_Song, is_found: bool, sta
 
 	if status != 200 {
 		matcher.resume_at = time.tick_add(time.tick_now(), MATCH_GAP)
-		matcher.failed[job.video_id] = time.tick_add(time.tick_now(), REFUSED_PAUSE)
+		matcher.failed[job.video_id] = time.tick_add(time.tick_now(), FAILED_RETRY_PAUSE)
 		return
 	}
 
 	matcher.refusal_count = 0
 
-	save_found_match(job.video_id, best, is_found)
+	save_match_answer(job.video_id, best, is_found)
 	delete(job.video_id)
 }
 
-// Searches Apple once for each album the jobs name.
-// It then fetches the albums found with their songs, 20 to a request.
 @(private = "file")
 fetch_job_albums :: proc(jobs: []^Match_Job) -> int {
 	wanted := make([dynamic]string, context.temp_allocator)
@@ -141,29 +135,28 @@ fetch_job_albums :: proc(jobs: []^Match_Job) -> int {
 
 		if !is_searched {
 			status: int
-			ids, status = search_albums(job.song)
+			ids, status = fetch_album_ids(job.song)
 			if status != 200 do return status
 			albums.found_ids[strings.clone(key)] = ids
 		}
 
 		for id in ids {
-			if id not_in albums.songs && !slice.contains(wanted[:], id) {
-				append(&wanted, id)
-			}
+			is_wanted := id not_in albums.songs && !slice.contains(wanted[:], id)
+			if is_wanted do append(&wanted, id)
 		}
 	}
 
-	for first := 0; first < len(wanted); first += MATCH_BATCH_COUNT {
-		status := fetch_albums(wanted[first:min(first + MATCH_BATCH_COUNT, len(wanted))])
+	for first := 0; first < len(wanted); first += ALBUMS_PER_REQUEST_COUNT {
+		end := min(first + ALBUMS_PER_REQUEST_COUNT, len(wanted))
+		status := fetch_albums(wanted[first:end])
 		if status != 200 do return status
 	}
 
 	return 200
 }
 
-// Apple's albums with the YouTube album's name, by its artist.
 @(private = "file")
-search_albums :: proc(song: core.Catalog_Song) -> ([]string, int) {
+fetch_album_ids :: proc(song: core.Catalog_Song) -> ([]string, int) {
 	wait_to_search()
 
 	term := fmt.tprintf("%s %s", to_plain_text(song.album_name), to_plain_text(song.artist_name))
@@ -177,12 +170,7 @@ search_albums :: proc(song: core.Catalog_Song) -> ([]string, int) {
 	)
 	if answer.status != 200 do return nil, answer.status
 
-	Search_Answer :: struct {
-		results: struct {
-			albums: apple.Related,
-		},
-	}
-	parsed: Search_Answer
+	parsed: apple.Search_Answer
 	_ = json.unmarshal_string(answer.body, &parsed, allocator = context.temp_allocator)
 	ids := make([dynamic]string)
 
@@ -214,16 +202,15 @@ fetch_albums :: proc(ids: []string) -> int {
 	for album in apple.to_resources(answer.body, context.temp_allocator) {
 		songs := make([dynamic]core.Catalog_Song)
 
-		for track in apple.list_related(album, "tracks") {
-			if track.type == "songs" {
-				append(&songs, core.copy_song(apple.to_catalog_song(track)))
+		for resource in apple.read_related(album, "tracks") {
+			if resource.type == "songs" {
+				append(&songs, core.copy_song(apple.to_catalog_song(resource)))
 			}
 		}
 
 		if album.id not_in albums.songs do albums.songs[strings.clone(album.id)] = songs[:]
 	}
 
-	// A nil entry stops a second request for an album that Apple did not send.
 	for id in ids do if id not_in albums.songs do albums.songs[strings.clone(id)] = nil
 
 	return 200
@@ -242,9 +229,8 @@ find_in_albums :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, bool) {
 	return find_closest(song, candidates[:])
 }
 
-// Apple's search for the song itself. With no album found, the term holds the album's name too.
 @(private = "file")
-search_song :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, bool, int) {
+fetch_song_match :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, bool, int) {
 	has_album_ids := len(albums.found_ids[to_album_key(song)] or_else nil) > 0
 	album_terms := make([dynamic]string, context.temp_allocator)
 	if song.album_name != "" && !has_album_ids do append(&album_terms, song.album_name)
@@ -272,7 +258,6 @@ to_album_key :: proc(song: core.Catalog_Song) -> string {
 	return fmt.tprintf("%s|%s", to_match_key(song.album_name), to_match_key(song.artist_name))
 }
 
-// Sleeps until the matcher may ask Apple again, then a little more.
 @(private = "file")
 wait_to_search :: proc() {
 	resume_at: time.Tick
@@ -286,25 +271,15 @@ wait_to_search :: proc() {
 	time.sleep(MATCH_GAP)
 }
 
-// The closest in length of Apple's songs that are the same song.
 @(private = "file")
 find_best_match :: proc(song: core.Catalog_Song, body: string) -> (core.Catalog_Song, bool) {
-	Search_Answer :: struct {
-		results: struct {
-			songs: apple.Related,
-		},
-	}
-	answer: Search_Answer
+	answer: apple.Search_Answer
 
 	if json.unmarshal_string(body, &answer, allocator = context.temp_allocator) != nil {
 		return {}, false
 	}
 
-	candidates := make([]core.Catalog_Song, len(answer.results.songs.data), context.temp_allocator)
-
-	for resource, index in answer.results.songs.data {
-		candidates[index] = apple.to_catalog_song(resource)
-	}
+	candidates := apple.to_catalog_songs(answer.results.songs.data, context.temp_allocator)
 
 	return find_closest(song, candidates)
 }

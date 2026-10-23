@@ -4,22 +4,12 @@ import "core:c"
 
 foreign import sqlite "system:sqlite3"
 foreign import curl "system:curl"
-foreign import core_graphics_names "system:CoreGraphics.framework"
-
-@(default_calling_convention = "c")
-foreign core_graphics_names {
-	kCGColorSpaceSRGB: String_Ref
-
-	CGColorSpaceCreateWithName :: proc(name: String_Ref) -> Color_Space_Ref ---
-}
 
 Sqlite :: distinct rawptr
 Sqlite_Statement :: distinct rawptr
 
-SQLITE_OPEN_READONLY :: 0x1
 SQLITE_OPEN_READWRITE :: 0x2
 SQLITE_OPEN_CREATE :: 0x4
-// One connection serves every thread. SQLite makes the threads take turns.
 SQLITE_OPEN_FULLMUTEX :: 0x10000
 SQLITE_OK :: 0
 SQLITE_ROW :: 100

@@ -1,5 +1,3 @@
-// The look and the small parts every page builds with: theme, boxes, artwork, text fields,
-// menus and toasts. The package imports only core from the window.
 package kit
 
 import "core:fmt"
@@ -13,7 +11,6 @@ import "om:platform"
 import "om:render"
 import "om:ui"
 
-// Apple's "2026-09-02" as "2 Sep 2026". "2026-09" and "2026" come out as "Sep 2026" and "2026".
 to_date_text :: proc(date: string) -> string {
 	MONTHS :: [12]string {
 		"Jan",
@@ -52,43 +49,45 @@ Icon_Paint :: struct {
 
 draw_icon :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	paint := cast(^Icon_Paint)box.data
-	color := paint.color
-	color.a *= opacity
+	color := to_faded(paint.color, opacity)
 	icon.draw(paint.name, ui.to_pixels(paint.size_points), rect, clip, color)
 }
 
-// An SF Symbol in a box of its own size plus padding.
 icon_box :: proc(
 	id: string,
-	name: string,
+	symbol: string,
 	size_points: f32,
 	color: [4]f32,
 	style: ui.Style = {},
 ) -> ^ui.Box {
 	style := style
 	box_size := size_points + style.padding.x + style.padding.z
-	if style.width.kind == .Points && style.width.value == 0 do style.width = ui.points(box_size)
-	if style.height.kind == .Points && style.height.value == 0 do style.height = ui.points(box_size)
+	if is_size_unset(style.width) do style.width = ui.points(box_size)
+	if is_size_unset(style.height) do style.height = ui.points(box_size)
 
 	box := ui.box(id, style)
 	paint := new(Icon_Paint, context.temp_allocator)
-	paint^ = {name, size_points, color}
+	paint^ = {symbol, size_points, color}
 	box.draw = draw_icon
 	box.data = paint
 
 	return box
 }
 
-// Returns true when clicked. A disabled button draws faint and takes no click.
+@(private = "file")
+is_size_unset :: proc(size: ui.Size) -> bool {
+	return size.kind == .Points && size.value == 0
+}
+
 icon_button :: proc(
 	id: string,
-	name: string,
+	symbol: string,
 	size_points: f32,
 	color: [4]f32,
 	is_enabled := true,
 ) -> bool {
 	style := ui.Style {
-		padding       = {4, 4, 4, 4},
+		padding       = ICON_BUTTON_PADDING_POINTS,
 		corner_radius = 6,
 	}
 
@@ -98,7 +97,7 @@ icon_button :: proc(
 		style.flags = {.Clickable}
 	}
 
-	box := icon_box(id, name, size_points, color if is_enabled else colors.faint, style)
+	box := icon_box(id, symbol, size_points, color if is_enabled else colors.faint, style)
 
 	return ui.signal(box).is_clicked
 }
@@ -129,9 +128,11 @@ Bar_Paint :: struct {
 	ratio: f32,
 }
 
+BAR_TRACK_HEIGHT_POINTS :: 4
+
 draw_bar :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	paint := cast(^Bar_Paint)box.data
-	track_height := ui.to_pixels(4)
+	track_height := ui.to_pixels(BAR_TRACK_HEIGHT_POINTS)
 	top := (rect.y + rect.w - track_height) / 2
 	track := [4]f32{rect.x, top, rect.z, top + track_height}
 	filled := track
@@ -141,7 +142,7 @@ draw_bar :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	render.push(
 		{
 			rect = track,
-			color = {colors.track.r, colors.track.g, colors.track.b, colors.track.a * opacity},
+			color = to_faded(colors.track, opacity),
 			corner_radius = radius,
 			clip = clip,
 		},
@@ -149,22 +150,21 @@ draw_bar :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	render.push(
 		{
 			rect = filled,
-			color = {colors.text.r, colors.text.g, colors.text.b, colors.text.a * opacity},
+			color = to_faded(colors.text, opacity),
 			corner_radius = radius,
 			clip = clip,
 		},
 	)
 }
 
-// A thin track to click or drag along, such as the player bar's position and volume.
-// Returns the ratio shown, which follows a held mouse. is_set turns true when the person lets go.
 bar :: proc(id: string, ratio: f32, width: ui.Size) -> (shown_ratio: f32, is_set: bool) {
 	box := ui.box(id, {width = width, height = ui.points(16), flags = {.Clickable}})
 	signal := ui.signal(box)
 	shown_ratio = ratio
 	box_width := box.rect.z - box.rect.x
+	is_following_mouse := (signal.is_held || signal.is_clicked) && box_width > 0
 
-	if (signal.is_held || signal.is_clicked) && box_width > 0 {
+	if is_following_mouse {
 		shown_ratio = clamp((ui.mouse_position().x - box.rect.x) / box_width, 0, 1)
 	}
 
@@ -182,32 +182,26 @@ to_clock_text :: proc(total_seconds: f64) -> string {
 	return fmt.tprintf("%d:%02d", whole_seconds / 60, whole_seconds % 60)
 }
 
-// The width of one line of text, in points.
 measure_text :: proc(text: string, font_size: f32, weight := font.Weight.Regular) -> f32 {
 	if text == "" do return 0
 
 	return(
-		font.shape(text, font.system_font(weight, ui.to_pixels(font_size))).size.x /
+		font.shape(text, font.system_font(weight, ui.to_pixels(font_size))).size_pixels.x /
 		ui.to_pixels(1) \
 	)
 }
 
-// Takes the space left in a row, pushing what follows to the end.
 spacer :: proc() {
 	ui.box("", {width = ui.fill(), height = ui.points(1)})
 }
 
-// The text slides at this speed, so a long title takes longer to show in full.
 SLIDE_POINTS_PER_SECOND :: 40
 
-// A row that only passes under the pointer in a scroll is gone before this. Nothing then slides.
 SLIDE_REST_SECONDS :: 0.3
 
 @(private = "file")
 slide_start_seconds: map[string]f64
 
-// One line that ends in "…" when it does not fit. Resting under the pointer, it slides to show
-// the rest. A clickable row passes in its hover, so the text never takes the row's click.
 scrolling_text :: proc(
 	id, text: string,
 	color: [4]f32,
@@ -237,11 +231,11 @@ scrolling_text :: proc(
 	key := fmt.aprint(id, text)
 	defer delete(key)
 
-	if !(is_hovered.? or_else ui.signal(box).is_hovered) {
-		if key in slide_start_seconds {
-			delete_key_and_value(&slide_start_seconds, key)
-		}
+	is_under_pointer := is_hovered.? or_else ui.signal(box).is_hovered
 
+	if !is_under_pointer {
+		stored_key, _ := delete_key(&slide_start_seconds, key)
+		delete(stored_key)
 		return box
 	}
 
@@ -255,9 +249,7 @@ scrolling_text :: proc(
 		return box
 	}
 
-	// The full line, measured against the box's width from last frame.
-	full := font.shape(text, font.system_font(weight, ui.to_pixels(font_size)))
-	overflow := full.size.x / ui.to_pixels(1) - (box.rect.z - box.rect.x)
+	overflow := measure_text(text, font_size, weight) - (box.rect.z - box.rect.x)
 	if overflow <= 0 do return box
 
 	box.style.flags -= {.Truncate_Text}
@@ -267,13 +259,6 @@ scrolling_text :: proc(
 	return box
 }
 
-@(private = "file")
-delete_key_and_value :: proc(from: ^map[string]f64, key: string) {
-	stored_key, _ := delete_key(from, key)
-	delete(stored_key)
-}
-
-// Whether the pointer is over the box, as of last frame, even when a button in it has the hover.
 is_mouse_in :: proc(box: ^ui.Box) -> bool {
 	mouse := ui.mouse_position()
 
@@ -285,7 +270,6 @@ is_mouse_in :: proc(box: ^ui.Box) -> bool {
 	)
 }
 
-// A rounded pill that is on or off, such as Romaji on the lyrics. Returns true when clicked.
 toggle_chip :: proc(label: string, is_on: bool) -> bool {
 	tint := to_accent_tint(core.app.accent)
 	chip := ui.box(

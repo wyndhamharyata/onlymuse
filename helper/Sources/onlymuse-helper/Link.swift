@@ -1,27 +1,30 @@
 import Foundation
 
-// A message from the app, as send in src/helper/requests.odin writes it.
 struct Command: Decodable {
   let type: String
   let requestId: Int?
   let positionSeconds: Double?
-  let volumePercent: Int?
+  let volumePercent: VolumePercent?
   let song: SongMatch?
   let afterPersistentID: String?
-  // trackInfo and setFavorite name a song by its persistent ID, or by a match when the app has none.
   let persistentID: String?
   let favorited: Bool?
-  // In setNext, keepsYouTube says that a YouTube song plays later in the queue.
   let keepsYouTube: Bool?
 }
 
-// What the app knows of a catalog song, to find it in Music.app's library.
+struct VolumePercent: Decodable {
+  let value: Int
+
+  init(from decoder: Decoder) throws {
+    value = min(max(try decoder.singleValueContainer().decode(Int.self), 0), 100)
+  }
+}
+
 struct SongMatch: Decodable {
   let name: String
   let artistName: String
   let albumName: String
   let durationSeconds: Double
-  // Only a song that plays from YouTube has a youtubeId. The helper plays it in its YouTube page.
   let youtubeId: String?
 
   var youTubeVideoID: String? {
@@ -31,8 +34,12 @@ struct SongMatch: Decodable {
   }
 }
 
-// send writes one JSON line to the app, as Message in src/helper/helper.odin names it. A write after the app
-// ended fails here. The reader thread's onAppGone still pauses Music.app.
+var nowMs: Double { Date().timeIntervalSince1970 * 1000 }
+
+func makePositionMessage(persistentID: String, positionSeconds: Double) -> [String: Any] {
+  ["type": "position", "persistentID": persistentID, "positionSeconds": positionSeconds, "positionReadAtMs": nowMs]
+}
+
 func send(_ message: [String: Any]) {
   guard let data = try? JSONSerialization.data(withJSONObject: message) else { return }
 
@@ -43,7 +50,7 @@ func sendError(_ text: String) {
   send(["type": "error", "text": text])
 }
 
-// This reads the app's lines on a thread of their own. The pipe closes however the app ends, even on kill -9, so onAppGone runs.
+// The pipe closes however the app ends, even on kill -9, so onAppGone always runs.
 func startReadingCommands(
   onCommand: @escaping @MainActor @Sendable (Command) -> Void,
   onAppGone: @escaping @MainActor @Sendable () -> Void
@@ -60,7 +67,6 @@ func startReadingCommands(
       DispatchQueue.main.async { MainActor.assumeIsolated { onCommand(command) } }
     }
 
-    // The app closed its end of the pipe, so it quit.
     DispatchQueue.main.sync { MainActor.assumeIsolated { onAppGone() } }
     exit(0)
   }

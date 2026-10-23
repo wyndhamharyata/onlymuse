@@ -5,11 +5,14 @@ import "om:app/core"
 import "om:helper"
 import "om:store"
 
-// A song heard to its middle, or for 4 minutes of a long one, is a play.
-// A song left sooner, after at least 2 s, is a skip.
 PLAY_SHARE :: 0.5
 
-// Each play and skip of the last PLAY_LOG_DAYS days, for shuffle and the Now Playing page.
+PLAY_MAX_SECONDS :: 240
+
+SKIP_MIN_SECONDS :: 2
+
+PLAY_LOG_DAYS :: 120
+
 play_log: [dynamic]store.Play
 
 @(private = "file")
@@ -21,20 +24,18 @@ listening: struct {
 }
 
 start_play_log :: proc() {
-	since_ms := core.now_ms() - PLAY_LOG_DAYS * 86_400_000
+	since_ms := core.now_ms() - PLAY_LOG_DAYS * core.DAY_MS
 	for play in store.list_plays(since_ms) do append(&play_log, play)
 }
 
-// Runs each frame. It keeps how far the song got, then logs a play or skip when the song changes.
-update_play_log :: proc() {
+apply_now_playing_to_play_log :: proc() {
 	now_playing := core.app.now_playing
-	has_song := now_playing.playback == .Playing || now_playing.playback == .Paused
+	has_song := helper.has_song(now_playing)
 	persistent_id := now_playing.song.persistent_id if has_song else ""
-	position := helper.to_position_seconds(now_playing)
-	// Repeat One plays the same song again. A play that starts over is a new listen.
+	position_seconds := helper.read_position_seconds(now_playing)
 	is_restart :=
 		persistent_id == listening.persistent_id &&
-		position < SKIP_MIN_SECONDS &&
+		position_seconds < SKIP_MIN_SECONDS &&
 		is_heard_as_play()
 	is_new_song := persistent_id != listening.persistent_id || is_restart
 
@@ -50,14 +51,14 @@ update_play_log :: proc() {
 		listening.song = {
 			catalog_id = strings.clone(queue_song.id if is_queue_song else ""),
 			name       = strings.clone(song.name),
-			artist     = strings.clone(song.artist),
-			album      = strings.clone(song.album),
+			artist     = strings.clone(song.artist_name),
+			album      = strings.clone(song.album_name),
 		}
 	}
 
 	listening.furthest_seconds = max(
 		listening.furthest_seconds,
-		min(position, listening.duration_seconds),
+		min(position_seconds, listening.duration_seconds),
 	)
 }
 
@@ -66,13 +67,13 @@ finish_listening :: proc() {
 	if listening.persistent_id == "" do return
 
 	is_play := is_heard_as_play()
+	is_logged := is_play || listening.furthest_seconds >= SKIP_MIN_SECONDS
 
-	if is_play || listening.furthest_seconds >= SKIP_MIN_SECONDS {
+	if is_logged {
 		play := listening.song
 		play.is_skip = !is_play
 		play.played_at_ms = core.now_ms()
 		store.save_play(play)
-		// play_log takes the strings, so this branch does not delete them.
 		append(&play_log, play)
 	} else {
 		delete(listening.song.catalog_id)
@@ -87,13 +88,11 @@ finish_listening :: proc() {
 
 @(private = "file")
 is_heard_as_play :: proc() -> bool {
-	needed := min(listening.duration_seconds * PLAY_SHARE, PLAY_MAX_SECONDS)
+	needed_seconds := min(listening.duration_seconds * PLAY_SHARE, PLAY_MAX_SECONDS)
 
-	return listening.duration_seconds > 0 && listening.furthest_seconds >= needed
+	return listening.duration_seconds > 0 && listening.furthest_seconds >= needed_seconds
 }
 
-// A logged play is the song's when its catalog ID matches, or its name and artist do.
-// A song started in Music.app has no catalog ID.
 is_same_song :: proc(play: store.Play, song: core.Catalog_Song) -> bool {
 	if play.catalog_id != "" && play.catalog_id == song.id do return true
 

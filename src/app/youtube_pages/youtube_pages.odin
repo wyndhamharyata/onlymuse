@@ -1,4 +1,3 @@
-// The YouTube pages: playlists, mixes, the sign-in and Bring Over.
 package youtube_pages
 
 import "core:fmt"
@@ -42,10 +41,9 @@ build_youtube_mixes_page :: proc() {
 	}
 
 	shelves, signature, phase := youtube_lists.watch_youtube_home()
-	data, is_stale := core.find_page_data("youtube mixes", signature, phase)
+	data, needs_read := core.find_page_data("youtube mixes", signature, phase)
 
-	if is_stale && phase == .Ready {
-		// The cards stay as long as the page data. The seen IDs last one frame.
+	if needs_read {
 		cards := make([dynamic]apple.Card, core.page_allocator(data))
 		seen := make(map[string]bool, context.temp_allocator)
 
@@ -85,21 +83,18 @@ build_youtube_sign_in_note :: proc(text: string) {
 
 	if kit.action_button("Use Helium's Sign-In", "person.crop.circle", true) {
 		is_reading_youtube_sign_in = true
-		helper.send(`{"type":"youtubeSignIn"}`)
+		helper.send_youtube_sign_in()
 	}
 }
 
-// The Use Helium's Sign-In button sets this, so only its answer shows a toast.
 @(private = "file")
 is_reading_youtube_sign_in: bool
 
-// Signs in to YouTube Music with the cookie that the helper read from Helium.
 apply_youtube_cookie :: proc(message: helper.Message) {
 	was_signed_in := youtube.is_signed_in()
 	youtube.set_cookie(message.cookie)
 	is_signed_in := youtube.is_signed_in()
 
-	// refresh_all asks again for the answers saved while signed out, such as an empty Liked Music.
 	if is_signed_in != was_signed_in do apple.refresh_all(youtube.PATH_PREFIX)
 
 	if !is_reading_youtube_sign_in do return
@@ -112,13 +107,12 @@ apply_youtube_cookie :: proc(message: helper.Message) {
 	case message.problem == "keychain":
 		kit.show_toast("macOS did not let onlymuse read Helium's key")
 	case message.problem == "helium":
-		kit.show_toast("Could not read Helium's cookies. Is Helium installed?")
+		kit.show_toast("Could not read Helium's cookies. Check that Helium is installed.")
 	case:
 		kit.show_toast("Helium is not signed in to YouTube. Sign in at music.youtube.com first.")
 	}
 }
 
-// Shows the songs Apple lacks, after matching checked its catalog for each, and YouTube's videos.
 build_youtube_search_results :: proc(term: string, apple_songs: []core.Catalog_Song, width: f32) {
 	songs_list, _ := youtube_lists.watch_youtube_list(
 		youtube.to_search_path(term, youtube.SONGS_FILTER),
@@ -131,16 +125,19 @@ build_youtube_search_results :: proc(term: string, apple_songs: []core.Catalog_S
 	for song in songs_list.songs {
 		if len(shown) >= SHOWN_YOUTUBE_SONG_COUNT do break
 
+		_, state := matching.watch_match(song)
+		if state != .Missing do continue
+
 		is_in_apple_results := false
 
 		for apple_song in apple_songs {
-			if matching.is_same_recording(song, apple_song) {
-				is_in_apple_results = true
-			}
+			if !matching.is_same_recording(song, apple_song) do continue
+
+			is_in_apple_results = true
+			break
 		}
 
-		_, state := matching.find_match(song)
-		if !is_in_apple_results && state == .Missing do append(&shown, song)
+		if !is_in_apple_results do append(&shown, song)
 	}
 
 	if len(shown) > 0 {
@@ -148,7 +145,6 @@ build_youtube_search_results :: proc(term: string, apple_songs: []core.Catalog_S
 			"youtube songs",
 			{width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 0},
 		)
-		current, is_playing := playback.find_queue_song(core.app.now_playing.song.persistent_id)
 
 		if ui.scope(section) {
 			lists.build_shelf_title("From YouTube", true)
@@ -159,7 +155,7 @@ build_youtube_search_results :: proc(term: string, apple_songs: []core.Catalog_S
 					fmt.tprintf("%d %s", index, song.id),
 					song,
 					lists.to_song_subtitle(song),
-					is_playing && matching.is_same_queue_song(current, song),
+					playback.is_current_song(song),
 				) {
 					playback.play_songs(shown[:], index)
 				}

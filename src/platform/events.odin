@@ -20,7 +20,6 @@ Mouse_Button :: enum {
 	Middle,
 }
 
-// Positions are in points from the top left of the window.
 Mouse_Move :: struct {
 	position: [2]f32,
 }
@@ -41,36 +40,28 @@ Mouse_Exit :: struct {
 }
 
 Scroll :: struct {
-	position:    [2]f32,
+	position:   [2]f32,
 	// The delta is in points for a trackpad and in lines for a mouse wheel.
-	delta:       [2]f32,
-	is_precise:  bool,
-	is_momentum: bool,
-	// A finger touched the trackpad, starting a new swipe.
-	is_start:    bool,
+	delta:      [2]f32,
+	is_precise: bool,
+	is_start:   bool,
 }
 
 Key_Press :: struct {
 	key_code:   u16,
-	// The string lives until the next frame.
 	characters: string,
 	modifiers:  Modifiers,
 	is_repeat:  bool,
 }
 
-// The finished text from the keyboard or an input method.
 Text_Insert :: struct {
-	// The string lives until the next frame.
 	text: string,
 }
 
-// An input method's unfinished text, such as kana before it becomes kanji.
-// The text is empty when the input method ends it.
 Text_Marked :: struct {
 	text: string,
 }
 
-// An editing key, by AppKit's selector, such as "deleteBackward:", "insertNewline:" or "moveLeft:".
 Text_Command :: struct {
 	name: string,
 }
@@ -87,7 +78,6 @@ Event :: union {
 	Key_Press,
 }
 
-// The events since the last frame.
 list_events :: proc() -> []Event {
 	return state.events[:]
 }
@@ -97,7 +87,6 @@ to_modifiers :: proc(event: ^NS.Event) -> Modifiers {
 	flags := transmute(NS.UInteger)event->modifierFlags()
 	modifiers: Modifiers
 
-	// AppKit keeps Shift, Control, Option and Command in bits 17 to 20.
 	if flags & (1 << 17) != 0 do modifiers += {.Shift}
 	if flags & (1 << 18) != 0 do modifiers += {.Control}
 	if flags & (1 << 19) != 0 do modifiers += {.Option}
@@ -107,10 +96,9 @@ to_modifiers :: proc(event: ^NS.Event) -> Modifiers {
 }
 
 @(private)
-to_position :: proc(event: ^NS.Event) -> [2]f32 {
+read_position :: proc(event: ^NS.Event) -> [2]f32 {
 	location := event->locationInWindow()
 
-	// An event with no window, such as one sent to the process, gives its place on the screen.
 	if event->window() == nil {
 		location = objc_send(NS.Point, state.ns_window, "convertPointFromScreen:", location)
 	}
@@ -118,35 +106,37 @@ to_position :: proc(event: ^NS.Event) -> [2]f32 {
 	return {f32(location.x), state.window.size_points.y - f32(location.y)}
 }
 
-// Returns true when the event is ours alone, so AppKit never sees it.
 @(private)
-take_event :: proc(event: ^NS.Event) -> bool {
+apply_event :: proc(event: ^NS.Event) -> bool {
 	event_window := event->window()
 
 	if event_window != nil && event_window != state.ns_window do return false
 
-	arena_allocator := runtime.arena_allocator(&state.event_arena[state.event_arena_index])
 	is_taken := false
 
 	#partial switch event->type() {
 	case .MouseMoved, .LeftMouseDragged, .RightMouseDragged, .OtherMouseDragged:
-		append(&state.events, Mouse_Move{to_position(event)})
+		append(&state.events, Mouse_Move{read_position(event)})
 	case .LeftMouseDown, .RightMouseDown, .OtherMouseDown:
 		button := to_button(event)
 
 		append(
 			&state.events,
-			Mouse_Press{to_position(event), button, int(event->clickCount()), to_modifiers(event)},
+			Mouse_Press {
+				read_position(event),
+				button,
+				int(event->clickCount()),
+				to_modifiers(event),
+			},
 		)
 	case .LeftMouseUp, .RightMouseUp, .OtherMouseUp:
-		append(&state.events, Mouse_Release{to_position(event), to_button(event)})
+		append(&state.events, Mouse_Release{read_position(event), to_button(event)})
 	case .ApplicationDefined:
 		request_frame()
 		return true
 	case .MouseExited:
 		append(&state.events, Mouse_Exit{})
 	case .ScrollWheel:
-		momentum_phase := objc_send(NS.UInteger, event, "momentumPhase")
 		// The phases 1 and 32 are NSEventPhaseBegan and NSEventPhaseMayBegin.
 		phase := objc_send(NS.UInteger, event, "phase")
 
@@ -154,17 +144,16 @@ take_event :: proc(event: ^NS.Event) -> bool {
 			&state.events,
 			Scroll {
 				is_start = phase == 1 || phase == 32,
-				position = to_position(event),
+				position = read_position(event),
 				delta = {f32(event->scrollingDeltaX()), f32(event->scrollingDeltaY())},
 				is_precise = bool(event->hasPreciseScrollingDeltas()),
-				is_momentum = momentum_phase != 0,
 			},
 		)
 	case .KeyDown:
 		modifiers := to_modifiers(event)
+		is_typing := state.is_text_input && .Command not_in modifiers && .Control not_in modifiers
 
-		// A text field takes the key through the view's input method, except a shortcut.
-		if state.is_text_input && .Command not_in modifiers && .Control not_in modifiers {
+		if is_typing {
 			request_frame()
 			return false
 		}
@@ -175,7 +164,7 @@ take_event :: proc(event: ^NS.Event) -> bool {
 			&state.events,
 			Key_Press {
 				key_code = u16(event->keyCode()),
-				characters = strings.clone(characters, arena_allocator),
+				characters = strings.clone(characters, event_allocator()),
 				modifiers = modifiers,
 				is_repeat = bool(event->isARepeat()),
 			},
@@ -188,6 +177,11 @@ take_event :: proc(event: ^NS.Event) -> bool {
 	request_frame()
 
 	return is_taken
+}
+
+@(private)
+event_allocator :: proc() -> runtime.Allocator {
+	return runtime.arena_allocator(&state.event_arena[state.event_arena_index])
 }
 
 @(private)

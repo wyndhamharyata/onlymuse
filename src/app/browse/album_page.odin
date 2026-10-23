@@ -2,10 +2,10 @@ package browse
 
 import "core:fmt"
 import "core:slice"
+import "core:strings"
 import "om:app/core"
 import "om:app/kit"
 import "om:app/lists"
-import "om:app/matching"
 import "om:app/menus"
 import "om:app/playback"
 import "om:apple"
@@ -17,11 +17,11 @@ ALBUM_HEADER_GAP_POINTS :: 20
 
 MIN_ALBUM_INFO_POINTS :: 300
 
-// A library album ID starts with "l.". The page then asks Apple for its catalog album first.
+// Apple gives a library album an ID that starts with "l.".
 build_album_page :: proc(album_id: string) {
 	catalog_id := album_id
 
-	if len(album_id) > 2 && album_id[:2] == "l." {
+	if strings.has_prefix(album_id, "l.") {
 		link := apple.watch(fmt.tprintf("/v1/me/library/albums/%s/catalog", album_id))
 		resources :=
 			apple.to_resources(link.body, context.temp_allocator) if link.phase == .Ready else nil
@@ -47,8 +47,8 @@ build_album_page :: proc(album_id: string) {
 		catalog_id,
 	)
 	watched := apple.watch(path)
-	data, is_stale := core.find_page_data(path, watched.version, watched.phase)
-	if is_stale && watched.phase == .Ready do read_album(data, watched.body)
+	data, needs_read := core.find_page_data(path, watched.version, watched.phase)
+	if needs_read do read_album(data, watched.body)
 
 	page := kit.page_scroll("album")
 	kit.run_bench_scroll(page)
@@ -59,7 +59,7 @@ build_album_page :: proc(album_id: string) {
 			return
 		}
 
-		build_album_header(data, page.size.x - page.style.padding.x - page.style.padding.z)
+		build_album_header(data, kit.to_content_width(page))
 		build_numbered_songs(data.songs)
 	}
 }
@@ -83,14 +83,11 @@ read_album :: proc(data: ^core.Page_Data, body: string) {
 	data.subtitle = attributes.artist_name
 	data.artwork = attributes.artwork
 
-	artists := apple.list_related(album, "artists")
-	if len(artists) > 0 do data.link_id = artists[0].id
-	data.is_in_library = len(apple.list_related(album, "library")) > 0
+	artists := apple.read_related(album, "artists")
+	if len(artists) > 0 do data.artist_id = artists[0].id
+	data.is_in_library = len(apple.read_related(album, "library")) > 0
 
-	tracks := apple.list_related(album, "tracks")
-	songs := make([]core.Catalog_Song, len(tracks), allocator)
-	for track, index in tracks do songs[index] = apple.to_catalog_song(track)
-	data.songs = songs
+	data.songs = apple.to_catalog_songs(apple.read_related(album, "tracks"), allocator)
 
 	genre := attributes.genre_names[0] if len(attributes.genre_names) > 0 else ""
 	year := attributes.release_date[:min(4, len(attributes.release_date))]
@@ -99,7 +96,7 @@ read_album :: proc(data: ^core.Page_Data, body: string) {
 		"%s · %s · %d songs",
 		genre,
 		year,
-		len(songs),
+		len(data.songs),
 		allocator = allocator,
 	)
 
@@ -114,12 +111,11 @@ read_album :: proc(data: ^core.Page_Data, body: string) {
 	data.badges = badges[:]
 }
 
-// width is the width of the page in the last frame, or 0 in the first frame.
 build_album_header :: proc(data: ^core.Page_Data, width: f32) {
 	cover_points: f32 = ALBUM_COVER_POINTS if width <= 0 else min(ALBUM_COVER_POINTS, width)
-	// The text goes under the cover when the room beside the cover is too small for it.
-	is_side_by_side :=
-		width <= 0 || width - cover_points - ALBUM_HEADER_GAP_POINTS >= MIN_ALBUM_INFO_POINTS
+	side_points := width - cover_points - ALBUM_HEADER_GAP_POINTS
+	is_side_by_side := width <= 0 || side_points >= MIN_ALBUM_INFO_POINTS
+	info_points := side_points if is_side_by_side && width > 0 else width
 
 	header := ui.box(
 		"header",
@@ -139,90 +135,95 @@ build_album_header :: proc(data: ^core.Page_Data, width: f32) {
 			10,
 			kit.to_placeholder(data.artwork, data.title, "square.stack"),
 		)
+		build_album_info(data, info_points)
+	}
+}
 
-		info := ui.box("info", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 6})
+@(private = "file")
+MIN_LARGE_TITLE_INFO_POINTS :: 360
 
-		if ui.scope(info) {
-			info_width :=
-				width - cover_points - ALBUM_HEADER_GAP_POINTS if is_side_by_side && width > 0 else width
-			title_size: f32 =
-				32 if width <= 0 || info_width >= 360 else 26 if info_width >= 240 else 22
+@(private = "file")
+MIN_MEDIUM_TITLE_INFO_POINTS :: 240
 
-			ui.box(
-				"",
-				{
-					width = ui.fill(),
-					height = ui.fit_text(),
-					text_color = kit.colors.text,
-					font_size = title_size,
-					font_weight = .Bold,
-					flags = {.Wrap_Text},
-				},
-				data.title,
-			)
+@(private = "file")
+build_album_info :: proc(data: ^core.Page_Data, info_points: f32) {
+	title_size: f32 = 22
 
-			artist_flags := ui.Flags{.Truncate_Text}
-			if data.link_id != "" do artist_flags |= {.Clickable}
-			artist := ui.box(
-				"artist",
-				{
-					width = ui.fill(),
-					height = ui.fit_text(),
-					text_color = core.app.accent,
-					font_size = 20,
-					font_weight = .Semibold,
-					flags = artist_flags,
-				},
-				data.subtitle,
-			)
+	if info_points <= 0 || info_points >= MIN_LARGE_TITLE_INFO_POINTS {
+		title_size = 32
+	} else if info_points >= MIN_MEDIUM_TITLE_INFO_POINTS {
+		title_size = 26
+	}
 
-			if ui.signal(artist).is_clicked {
-				core.navigate({kind = .Artist, id = data.link_id, title = data.subtitle})
-			}
+	artist_flags := ui.Flags{.Truncate_Text}
+	if data.artist_id != "" do artist_flags |= {.Clickable}
+	library_label := "In Library" if data.is_in_library else "Not in Library"
+	library_color := kit.to_color(0x7ee2a8ff) if data.is_in_library else kit.colors.faint
 
-			kit.text_box(data.detail, kit.colors.dim)
+	info := ui.box("info", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 6})
 
-			badges := ui.box(
-				"badges",
-				{
-					width = ui.fill(),
-					height = ui.fit_children(),
-					axis = .X,
-					gap = 8,
-					padding = {0, 6, 0, 10},
-					flags = {.Wrap_Children},
-				},
-			)
+	if ui.scope(info) {
+		ui.box(
+			"",
+			{
+				width = ui.fill(),
+				height = ui.fit_text(),
+				text_color = kit.colors.text,
+				font_size = title_size,
+				font_weight = .Bold,
+				flags = {.Wrap_Text},
+			},
+			data.title,
+		)
 
-			if ui.scope(badges) {
-				for label in data.badges do build_badge(label, kit.colors.dim)
-				build_badge(
-					"In Library" if data.is_in_library else "Not in Library",
-					kit.to_color(0x7ee2a8ff) if data.is_in_library else kit.colors.faint,
-				)
-			}
+		artist := ui.box(
+			"artist",
+			{
+				width = ui.fill(),
+				height = ui.fit_text(),
+				text_color = core.app.accent,
+				font_size = 20,
+				font_weight = .Semibold,
+				flags = artist_flags,
+			},
+			data.subtitle,
+		)
 
-			buttons := ui.box(
-				"buttons",
-				{
-					width = ui.fill(),
-					height = ui.fit_children(),
-					axis = .X,
-					gap = 8,
-					flags = {.Wrap_Children},
-				},
-			)
-
-			if ui.scope(buttons) {
-				if kit.action_button("Play", "play.fill", true) {
-					playback.play_songs(data.songs, 0)
-				}
-
-				if kit.action_button("Shuffle", "shuffle", false) {
-					playback.shuffle_songs(data.songs)
-				}
-			}
+		if ui.signal(artist).is_clicked {
+			core.navigate({kind = .Artist, id = data.artist_id, title = data.subtitle})
 		}
+
+		kit.text_box(data.detail, kit.colors.dim)
+
+		badges := ui.box(
+			"badges",
+			{
+				width = ui.fill(),
+				height = ui.fit_children(),
+				axis = .X,
+				gap = 8,
+				padding = {0, 6, 0, 10},
+				flags = {.Wrap_Children},
+			},
+		)
+
+		if ui.scope(badges) {
+			for label in data.badges do build_badge(label, kit.colors.dim)
+			build_badge(library_label, library_color)
+		}
+
+		buttons := ui.box(
+			"buttons",
+			{
+				width = ui.fill(),
+				height = ui.fit_children(),
+				axis = .X,
+				gap = 8,
+				flags = {.Wrap_Children},
+			},
+		)
+
+		if ui.scope(buttons) do lists.build_play_buttons(data.songs)
 	}
 }
 
@@ -244,15 +245,13 @@ build_badge :: proc(label: string, color: [4]f32) {
 	)
 }
 
-// Builds the songs of an album with their numbers. A click plays them from that song.
 build_numbered_songs :: proc(songs: []core.Catalog_Song) {
+	tint := kit.to_accent_tint(core.app.accent)
 	list := ui.box("songs", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 1})
-	current, is_playing := playback.find_queue_song(core.app.now_playing.song.persistent_id)
 
 	if ui.scope(list) {
 		for song, index in songs {
-			is_current := is_playing && matching.is_same_queue_song(current, song)
-			tint := kit.to_accent_tint(core.app.accent)
+			is_current := playback.is_current_song(song)
 			row := ui.box(
 				fmt.tprintf("%d %s", index, song.id),
 				{

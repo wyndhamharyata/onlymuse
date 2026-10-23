@@ -7,7 +7,10 @@ import "om:app/kit"
 import "om:apple"
 import "om:ui"
 
-// Builds the results in groups with a title each. Returns the index of a clicked result, or -1.
+GROUP_TITLE_HEIGHT_POINTS :: 27
+
+ROW_ARTWORK_POINTS :: 26
+
 @(private)
 build_results :: proc() -> int {
 	if len(palette.results) == 0 {
@@ -19,7 +22,7 @@ build_results :: proc() -> int {
 				text_color = kit.colors.faint,
 				padding = {10, 6, 10, 8},
 			},
-			"Nothing matches. Apple Music is searched as you pause.",
+			"Nothing matches. The palette searches Apple Music when you stop typing.",
 		)
 		return -1
 	}
@@ -28,7 +31,9 @@ build_results :: proc() -> int {
 		"palette list",
 		{
 			width = ui.fill(),
-			height = ui.points(min(PALETTE_LIST_POINTS, palette_list_height())),
+			height = ui.points(
+				min(PALETTE_LIST_MAX_HEIGHT_POINTS, to_list_height_points(palette.results)),
+			),
 			axis = .Y,
 			flags = {.Scroll, .Clip},
 		},
@@ -63,21 +68,23 @@ build_results :: proc() -> int {
 }
 
 @(private = "file")
-palette_list_height :: proc() -> f32 {
+to_list_height_points :: proc(results: []Palette_Result) -> f32 {
 	group_count := 0
 	group := ""
 
-	for result in palette.results {
+	for result in results {
 		if result.group != group {
 			group = result.group
 			group_count += 1
 		}
 	}
 
-	return f32(len(palette.results)) * PALETTE_ROW_POINTS + f32(group_count) * 27
+	return(
+		f32(len(results)) * PALETTE_ROW_HEIGHT_POINTS +
+		f32(group_count) * GROUP_TITLE_HEIGHT_POINTS \
+	)
 }
 
-// Returns true when the person clicks the row. The pointer over a row selects it.
 @(private = "file")
 build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 	is_selected := index == palette.selected_index
@@ -85,7 +92,7 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 		fmt.tprintf("result %d", index),
 		{
 			width = ui.fill(),
-			height = ui.points(PALETTE_ROW_POINTS),
+			height = ui.points(PALETTE_ROW_HEIGHT_POINTS),
 			axis = .X,
 			align = .Center,
 			gap = 10,
@@ -96,18 +103,18 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 		},
 	)
 	signal := ui.signal(row)
+	has_pointer_moved := ui.mouse_position() != palette.last_mouse_position
 
-	// The pointer selects a row only when it moves. A still pointer keeps the arrow keys' choice.
-	if signal.is_hovered && ui.mouse_position() != palette.last_mouse_position {
+	if signal.is_hovered && has_pointer_moved {
 		palette.selected_index = index
 	}
 
 	if ui.scope(row) {
 		if result.artwork.url != "" {
 			kit.artwork_box(
-				apple.to_artwork_url(result.artwork, kit.to_artwork_pixels(26)),
-				26,
-				13 if result.is_round else 4,
+				apple.to_artwork_url(result.artwork, kit.to_artwork_pixels(ROW_ARTWORK_POINTS)),
+				ROW_ARTWORK_POINTS,
+				ROW_ARTWORK_POINTS / 2 if result.is_round else 4,
 				kit.to_placeholder(result.artwork, result.title, "music.note"),
 			)
 		} else {
@@ -116,7 +123,7 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 				result.symbol if result.symbol != "" else "arrow.right",
 				14,
 				core.app.accent if is_selected else kit.colors.dim,
-				{width = ui.points(26), height = ui.points(26)},
+				{width = ui.points(ROW_ARTWORK_POINTS), height = ui.points(ROW_ARTWORK_POINTS)},
 			)
 		}
 

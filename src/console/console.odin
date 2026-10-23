@@ -1,4 +1,3 @@
-// The errors and refused requests that the Console page lists. Any thread can call this package.
 package console
 
 import "core:fmt"
@@ -9,24 +8,19 @@ import "om:platform"
 
 Entry :: struct {
 	at:     time.Time,
-	// The part of the app that reported the entry, such as "Apple" or "Helper".
 	source: string,
 	text:   string,
 }
 
-// Past this count, each new entry deletes the oldest one.
 MAX_ENTRY_COUNT :: 500
 
 @(private)
 state: struct {
 	mutex:   sync.Mutex,
 	entries: [dynamic]Entry,
-	// The version counts up with each change, so the page knows that it has something new.
 	version: int,
 }
 
-// add also writes each entry to stderr. An entry keeps source without a copy,
-// so source must be a constant, such as "Apple".
 add :: proc(source: string, format: string, args: ..any) {
 	text := fmt.aprintf(format, ..args)
 	fmt.eprintfln("%s: %s", source, text)
@@ -46,7 +40,6 @@ add :: proc(source: string, format: string, args: ..any) {
 	platform.wake()
 }
 
-// A copy of every entry, oldest first, for the Console page.
 list :: proc(allocator := context.temp_allocator) -> []Entry {
 	sync.guard(&state.mutex)
 	entries := make([]Entry, len(state.entries), allocator)
@@ -66,7 +59,6 @@ clear_entries :: proc() {
 	state.version += 1
 }
 
-// A status as the person reads it, such as "429, too many requests". 0 means no answer came.
 to_status_text :: proc(status: int) -> string {
 	switch status {
 	case 0:

@@ -21,7 +21,6 @@ start_search_field :: proc() {
 	kit.set_field_text(&search_field, term)
 }
 
-// Saves the term for the next run. Pressing Return opens the Search page.
 build_search_field :: proc() {
 	if search_field.is_changed {
 		bytes, _ := json.marshal(

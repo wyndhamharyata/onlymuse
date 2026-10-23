@@ -1,7 +1,6 @@
 #include <metal_stdlib>
 using namespace metal;
 
-// Matches Instance in metal.odin.
 struct Instance {
     float4 rect;
     float4 uv;
@@ -16,7 +15,6 @@ struct Instance {
     float2 gradient;
 };
 
-constant uint kind_solid = 0;
 constant uint kind_glyph = 1;
 constant uint kind_image = 2;
 
@@ -35,7 +33,6 @@ vertex Fragment vertex_main(
 ) {
     Instance instance = instances[instance_id];
     float2 corner = float2(vertex_id & 1, vertex_id >> 1);
-    // One more pixel on each side, so the antialiased edge is drawn.
     float padding = instance.kind == kind_glyph ? 0.0 : instance.softness + 1.0;
     float2 point = mix(instance.rect.xy - padding, instance.rect.zw + padding, corner);
     float2 along = (point - instance.rect.xy) / (instance.rect.zw - instance.rect.xy);
@@ -76,22 +73,23 @@ fragment float4 fragment_main(
     float distance = to_box_distance(point - center, half_size, radius);
     float softness = max(instance.softness, 1.0);
     float coverage = 1.0 - smoothstep(-softness * 0.5, softness * 0.5, distance);
+    bool has_gradient = instance.gradient.y > instance.gradient.x;
+    float along = (point.y - instance.rect.y) / (instance.rect.w - instance.rect.y);
 
     if (instance.kind == kind_image) {
         float4 pixel = image.sample(texture_sampler, input.uv);
-        // The colour tints the picture, as a backdrop darkened behind a page. A gradient fades it out downwards.
         float fade = 1.0;
-        if (instance.gradient.y > instance.gradient.x) {
-            float along = (point.y - instance.rect.y) / (instance.rect.w - instance.rect.y);
+
+        if (has_gradient) {
             fade = 1.0 - smoothstep(instance.gradient.x, instance.gradient.y, along);
         }
+
         return pixel * float4(instance.color.rgb, 1.0) * instance.color.a * coverage * fade;
     }
 
     float4 color = instance.color;
 
-    if (instance.gradient.y > instance.gradient.x) {
-        float along = (point.y - instance.rect.y) / (instance.rect.w - instance.rect.y);
+    if (has_gradient) {
         color = mix(color, instance.end_color, smoothstep(instance.gradient.x, instance.gradient.y, along));
     }
 

@@ -1,12 +1,8 @@
 import Foundation
 import Network
 
-// A proxy that only this Mac can reach, for the helper's pages. Each connection of a page goes through it as a
-// TCP tunnel, so none uses HTTP/3. Some networks, such as a phone's hotspot, allow IPv6 packets only up to 1280
-// bytes. HTTP/3's packets are larger. WebKit then waits two minutes on each request before it gives up. The
-// tunnels carry the pages' TLS as it is, so the proxy reads none of it.
+// On networks that cap IPv6 packets at 1280 bytes, WebKit's HTTP/3 waits 2 minutes per request.
 final class LocalProxy: @unchecked Sendable {
-  // The most a CONNECT request's head may be.
   private static let maxHeadBytes = 16 * 1024
   private static let chunkBytes = 64 * 1024
 
@@ -15,7 +11,6 @@ final class LocalProxy: @unchecked Sendable {
 
   var port: NWEndpoint.Port? { listener?.port }
 
-  // start listens on a free port of 127.0.0.1. It gives the port to onReady once it listens.
   func start(onReady: @escaping @Sendable (NWEndpoint.Port) -> Void) {
     let parameters = NWParameters.tcp
     parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
@@ -39,16 +34,18 @@ final class LocalProxy: @unchecked Sendable {
     readHead(client, head: Data())
   }
 
-  // This reads the request's head: "CONNECT host:port HTTP/1.1", its headers, then an empty line.
   private func readHead(_ client: NWConnection, head: Data) {
     client.receive(minimumIncompleteLength: 1, maximumLength: Self.maxHeadBytes) { [weak self] data, _, isComplete, error in
       guard let self else { return }
 
       var head = head
+
       if let data { head.append(data) }
 
       guard let end = head.range(of: Data("\r\n\r\n".utf8)) else {
-        if isComplete || error != nil || head.count > Self.maxHeadBytes { return client.cancel() }
+        let hasHeadFailed = isComplete || error != nil || head.count > Self.maxHeadBytes
+
+        if hasHeadFailed { return client.cancel() }
         return self.readHead(client, head: head)
       }
 
@@ -60,11 +57,11 @@ final class LocalProxy: @unchecked Sendable {
         return self.reply(client, "HTTP/1.1 501 Not Implemented\r\n\r\n", then: { client.cancel() })
       }
 
-      self.open(client, host: target.host, port: target.port, early: Data(rest))
+      self.open(client, host: target.host, port: target.port, bytesAfterHead: Data(rest))
     }
   }
 
-  private func open(_ client: NWConnection, host: String, port: NWEndpoint.Port, early: Data) {
+  private func open(_ client: NWConnection, host: String, port: NWEndpoint.Port, bytesAfterHead: Data) {
     let server = NWConnection(host: NWEndpoint.Host(host), port: port, using: .tcp)
     let answer = Answer()
 
@@ -75,7 +72,7 @@ final class LocalProxy: @unchecked Sendable {
       case .ready where !answer.isSent:
         answer.isSent = true
         self.reply(client, "HTTP/1.1 200 Connection Established\r\n\r\n") {
-          if !early.isEmpty { server.send(content: early, completion: .idempotent) }
+          if !bytesAfterHead.isEmpty { server.send(content: bytesAfterHead, completion: .idempotent) }
           self.pipe(from: client, to: server)
           self.pipe(from: server, to: client)
         }
@@ -93,36 +90,34 @@ final class LocalProxy: @unchecked Sendable {
     server.start(queue: queue)
   }
 
-  // This copies one side's bytes to the other until either side ends.
   private func pipe(from source: NWConnection, to destination: NWConnection) {
     source.receive(minimumIncompleteLength: 1, maximumLength: Self.chunkBytes) { [weak self] data, _, isComplete, error in
-      if let data, !data.isEmpty {
-        destination.send(content: data, completion: .contentProcessed { sendError in
-          guard sendError == nil else {
-            source.cancel()
-            return destination.cancel()
-          }
-          if isComplete || error != nil {
-            source.cancel()
-            return destination.cancel()
-          }
-          self?.pipe(from: source, to: destination)
-        })
+      let hasEnded = isComplete || error != nil
+
+      guard let data, !data.isEmpty else {
+        self?.pipeUnlessEnded(from: source, to: destination, hasEnded: hasEnded)
         return
       }
 
-      guard isComplete || error != nil else { return self?.pipe(from: source, to: destination) ?? () }
-
-      source.cancel()
-      destination.cancel()
+      destination.send(content: data, completion: .contentProcessed { [weak self] writeError in
+        self?.pipeUnlessEnded(from: source, to: destination, hasEnded: hasEnded || writeError != nil)
+      })
     }
+  }
+
+  private func pipeUnlessEnded(from source: NWConnection, to destination: NWConnection, hasEnded: Bool) {
+    guard !hasEnded else {
+      source.cancel()
+      return destination.cancel()
+    }
+
+    pipe(from: source, to: destination)
   }
 
   private func reply(_ client: NWConnection, _ text: String, then: @escaping @Sendable () -> Void) {
     client.send(content: Data(text.utf8), completion: .contentProcessed { _ in then() })
   }
 
-  // "host:port", with an IPv6 host in brackets.
   private static func toHostPort(_ text: String) -> (host: String, port: NWEndpoint.Port)? {
     guard let colon = text.lastIndex(of: ":"), let number = UInt16(text[text.index(after: colon)...]), let port = NWEndpoint.Port(rawValue: number) else { return nil }
 
@@ -133,7 +128,6 @@ final class LocalProxy: @unchecked Sendable {
   }
 }
 
-// Whether the proxy answered a CONNECT. Only the proxy's queue reads and sets it.
 private final class Answer: @unchecked Sendable {
   var isSent = false
 }

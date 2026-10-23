@@ -5,29 +5,24 @@ import "om:app/kit"
 import "om:platform"
 import "om:ui"
 
-// A press that moves this far becomes a drag.
 DRAG_START_POINTS :: 6
 
 @(private = "file")
 drag: struct {
 	is_dragging: bool,
 	song:        core.Catalog_Song,
-	// The frame a drag ended, so the row under the release does not take it as a click.
 	ended_frame: int,
 }
 
-// A row reports its signal each frame. Returns true when the person clicks the row without a drag.
 apply_song_row_signal :: proc(signal: ui.Signal, song: core.Catalog_Song) -> bool {
 	if signal.is_right_clicked do open_song_menu(song, ui.mouse_position())
 
 	press, is_down := ui.press_position()
 	moved := ui.mouse_position() - press
+	has_moved := moved.x * moved.x + moved.y * moved.y > DRAG_START_POINTS * DRAG_START_POINTS
+	can_start_drag := signal.is_held && is_down && !drag.is_dragging && song.id != ""
 
-	if signal.is_held &&
-	   is_down &&
-	   !drag.is_dragging &&
-	   moved.x * moved.x + moved.y * moved.y > DRAG_START_POINTS * DRAG_START_POINTS &&
-	   song.id != "" {
+	if can_start_drag && has_moved {
 		drag = {
 			is_dragging = true,
 			song        = core.copy_song(song),
@@ -37,7 +32,6 @@ apply_song_row_signal :: proc(signal: ui.Signal, song: core.Catalog_Song) -> boo
 	return signal.is_clicked && drag.ended_frame != core.app.frame_count
 }
 
-// A sidebar playlist under a dragged song lights up. It takes the song on release.
 apply_song_drop :: proc(
 	is_hovered: bool,
 	playlist_id, playlist_name: string,
@@ -61,17 +55,17 @@ is_mouse_released :: proc() -> bool {
 	return false
 }
 
-// The song's name follows the pointer while the person drags the song.
+apply_drag_release :: proc() {
+	if !drag.is_dragging || !is_mouse_released() do return
+
+	core.delete_song(drag.song)
+	drag = {
+		ended_frame = core.app.frame_count,
+	}
+}
+
 build_drag_ghost :: proc() {
 	if !drag.is_dragging do return
-
-	if is_mouse_released() {
-		core.delete_song(drag.song)
-		drag = {
-			ended_frame = core.app.frame_count,
-		}
-		return
-	}
 
 	mouse := ui.mouse_position()
 	ghost := ui.box(
@@ -84,7 +78,7 @@ build_drag_ghost :: proc() {
 			gap = 7,
 			padding = {10, 0, 12, 0},
 			corner_radius = 8,
-			background = kit.to_color(0x2c2c31f0),
+			background = kit.colors.drag_ghost,
 			border_width = 1,
 			border_color = {core.app.accent.r, core.app.accent.g, core.app.accent.b, 0.6},
 			position = mouse + {12, 8},
@@ -100,7 +94,7 @@ build_drag_ghost :: proc() {
 				width = ui.fit_text(),
 				height = ui.fit_text(),
 				text_color = kit.colors.text,
-				font_size = 12.5,
+				font_size = kit.SMALL_TEXT_POINTS,
 			},
 			drag.song.name,
 		)

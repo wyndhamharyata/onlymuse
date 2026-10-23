@@ -23,11 +23,9 @@ Add_Job :: struct {
 	play_count: int,
 }
 
-// Puts the song in the library on a thread of its own, then the queue polls Music.app for it.
 @(private)
 start_adding :: proc(catalog_id: string, play_count: int) {
 	job := new(Add_Job)
-	// The queue may free its song before the thread runs, so the job keeps its own copy of the ID.
 	job^ = {strings.clone(catalog_id), play_count}
 	thread.create_and_start_with_data(job, proc(data: rawptr) {
 			job := cast(^Add_Job)data
@@ -39,7 +37,9 @@ start_adding :: proc(catalog_id: string, play_count: int) {
 			status :=
 				apple.post(fmt.tprintf("/v1/me/library?ids[songs]=%s", job.catalog_id)).status
 
-			if status != 202 && status != 200 {
+			is_added := status == 202 || status == 200
+
+			if !is_added {
 				console.add(
 					"Queue",
 					"Apple answered %s to adding a song to the library.",
@@ -53,17 +53,14 @@ start_adding :: proc(catalog_id: string, play_count: int) {
 		}, self_cleanup = true)
 }
 
-// A song matched from YouTube must start soon, or it goes back to YouTube.
 @(private)
-await_start :: proc() {
+set_start_deadline :: proc() {
 	if queue.songs[queue.index].youtube_id == "" do return
 
 	queue_state.start_deadline_ms = helper.now_ms() + START_TIMEOUT_SECONDS * 1000
 	platform.request_frame_after(START_TIMEOUT_SECONDS)
 }
 
-// Music.app could not play Apple's song, so the YouTube one plays, now and from now on.
-// It returns false for a song with no YouTube one.
 @(private)
 fall_back_to_youtube :: proc() -> bool {
 	queue_state.start_deadline_ms = 0
@@ -86,7 +83,7 @@ fall_back_to_youtube :: proc() -> bool {
 		START_TIMEOUT_SECONDS,
 	)
 
-	play_at(queue.index)
+	play_queue_at(queue.index)
 
 	return true
 }

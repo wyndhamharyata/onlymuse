@@ -1,4 +1,3 @@
-// The cards, shelves, song rows and grids that more than one page shows.
 package lists
 
 import "core:fmt"
@@ -13,25 +12,20 @@ SHELF_TILE_POINTS :: 150
 
 FIRST_SHELF_TILE_POINTS :: 210
 
-// The width of a video's tile, which shows the video in 16:9.
 WIDE_TILE_POINTS :: 240
 
 YOUTUBE_SYMBOL :: "play.rectangle.fill"
 
 CARD_GAP_POINTS :: 14
 
-// A shelf builds this many cards past each of its edges, so a fast scroll finds them ready.
 EXTRA_CARD_COUNT :: 2
 
-// The tile size that fits a whole number of tiles across width, as close to target as it can.
-to_tile_size :: proc(width, target, gap: f32) -> f32 {
-	count := max(1, math.round((width + gap) / (target + gap)))
+to_tile_size :: proc(width_points, target_points, gap_points: f32) -> f32 {
+	count := max(1, math.round((width_points + gap_points) / (target_points + gap_points)))
 
-	return math.floor((width - gap * (count - 1)) / count)
+	return math.floor((width_points - gap_points * (count - 1)) / count)
 }
 
-// Builds a shelf from Apple or YouTube, with its videos in wide tiles.
-// width is the width of the page.
 build_shelf :: proc(id: string, shelf: apple.Shelf, width, target_points: f32) {
 	target := WIDE_TILE_POINTS if shelf.is_wide else target_points
 
@@ -45,8 +39,6 @@ build_shelf :: proc(id: string, shelf: apple.Shelf, width, target_points: f32) {
 	)
 }
 
-// Builds a shelf of whole tiles, but only the tiles in view.
-// Empty boxes keep the width of the other tiles.
 build_card_row :: proc(
 	id, title: string,
 	cards: []apple.Card,
@@ -73,8 +65,7 @@ build_card_row :: proc(
 			},
 		)
 		step := tile_points + CARD_GAP_POINTS
-		first := max(0, int(row.scroll / step) - EXTRA_CARD_COUNT)
-		last := min(len(cards) - 1, int((row.scroll + row.size.x) / step) + EXTRA_CARD_COUNT)
+		first, last := to_visible_range(row.scroll, row.size.x, step, len(cards), EXTRA_CARD_COUNT)
 
 		if ui.scope(row) {
 			if first > 0 {
@@ -124,7 +115,6 @@ card_symbols := [apple.Card_Kind]string {
 	.YouTube_Artist   = "music.mic",
 }
 
-// The name of a YouTube shelf starts with YouTube's mark.
 build_shelf_title :: proc(title: string, is_youtube: bool) {
 	row := ui.box(
 		"title",
@@ -139,7 +129,7 @@ build_shelf_title :: proc(title: string, is_youtube: bool) {
 				width = ui.fill(),
 				height = ui.fit_text(),
 				text_color = kit.colors.text,
-				font_size = 17,
+				font_size = kit.SHELF_TITLE_POINTS,
 				font_weight = .Bold,
 				flags = {.Truncate_Text},
 			},
@@ -148,7 +138,6 @@ build_shelf_title :: proc(title: string, is_youtube: bool) {
 	}
 }
 
-// Returns true when the person clicks the tile. A wide tile shows a video in 16:9.
 build_card_tile :: proc(
 	id: string,
 	card: apple.Card,
@@ -157,7 +146,6 @@ build_card_tile :: proc(
 	is_wide := false,
 ) -> bool {
 	can_open := card.kind != .Other
-	// odinfmt cannot read a set literal followed by if inside another literal.
 	tile_flags: ui.Flags = {.Clickable} if can_open else {}
 	tile := ui.box(
 		id,
@@ -203,7 +191,7 @@ build_card_tile :: proc(
 				width = ui.fill(),
 				height = ui.fit_text(),
 				text_color = kit.colors.text,
-				font_size = 12.5,
+				font_size = kit.SMALL_TEXT_POINTS,
 				text_align = text_align,
 				flags = {.Truncate_Text},
 			},
@@ -228,7 +216,6 @@ build_card_tile :: proc(
 	return ui.signal(tile).is_clicked
 }
 
-// A song card plays the shelf's songs from it. The others open their page.
 open_card :: proc(cards: []apple.Card, index: int) {
 	card := cards[index]
 
@@ -246,7 +233,6 @@ open_card :: proc(cards: []apple.Card, index: int) {
 			core.Page_Kind.Bring_Over if core.current_page().kind == .Bring_Over else .YouTube_Playlist
 		core.navigate({kind = kind, id = card.id, title = card.name})
 	case .YouTube_Artist:
-		// This opens the Apple Music artist of that name. Its page also shows YouTube shelves.
 		core.navigate({kind = .Artist, title = card.name})
 	case .Song:
 		songs := make([dynamic]core.Catalog_Song, context.temp_allocator)

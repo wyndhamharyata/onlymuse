@@ -9,15 +9,14 @@ import "om:app/lists"
 import "om:apple"
 import "om:ui"
 
-// The number of releases whose songs make up an artist's Recent Songs.
 RECENT_RELEASE_COUNT :: 10
 
-// The number of recent songs the artist page shows. The › opens all of them.
 SHOWN_RECENT_SONG_COUNT :: 10
 
-// Lists the songs of the artist's ten newest releases, newest first by each song's own date.
-// dates[i] is the date of songs[i] as Apple writes it, such as "2026-09-02".
-list_recent_songs :: proc(
+@(private = "file")
+HOVER_FADE :: 0.3
+
+watch_recent_songs :: proc(
 	artist_id: string,
 ) -> (
 	songs: []core.Catalog_Song,
@@ -30,24 +29,25 @@ list_recent_songs :: proc(
 		artist_id,
 	)
 	releases := apple.watch(releases_path)
-	release_data, is_stale := core.find_page_data(releases_path, releases.version, releases.phase)
-	if is_stale && releases.phase == .Ready do read_newest_release_ids(release_data, releases.body)
+	release_data, needs_read := core.find_page_data(
+		releases_path,
+		releases.version,
+		releases.phase,
+	)
 	if releases.phase != .Ready do return nil, nil, releases.phase
+	if needs_read do read_newest_release_ids(release_data, releases.body)
 
-	// link_id holds the newest releases' IDs, joined by commas.
-	if release_data.link_id == "" do return nil, nil, .Ready
+	if release_data.release_ids == "" do return nil, nil, .Ready
 
 	albums_path := fmt.tprintf(
 		"/v1/catalog/%s/albums?ids=%s&include=tracks",
 		apple.STOREFRONT,
-		release_data.link_id,
+		release_data.release_ids,
 	)
 	albums := apple.watch(albums_path)
-	data, is_songs_stale := core.find_page_data(albums_path, albums.version, albums.phase)
+	data, needs_songs_read := core.find_page_data(albums_path, albums.version, albums.phase)
 
-	if is_songs_stale && albums.phase == .Ready {
-		read_recent_songs(data, albums.body, release_data.link_id)
-	}
+	if needs_songs_read do read_recent_songs(data, albums.body, release_data.release_ids)
 
 	return data.songs, data.dates, albums.phase
 }
@@ -58,8 +58,8 @@ read_newest_release_ids :: proc(data: ^core.Page_Data, body: string) {
 	if len(resources) == 0 do return
 
 	releases := make([dynamic]apple.Resource, context.temp_allocator)
-	append(&releases, ..apple.list_view(resources[0], "singles"))
-	append(&releases, ..apple.list_view(resources[0], "full-albums"))
+	append(&releases, ..apple.read_view(resources[0], "singles"))
+	append(&releases, ..apple.read_view(resources[0], "full-albums"))
 
 	slice.sort_by(
 		releases[:],
@@ -71,7 +71,7 @@ read_newest_release_ids :: proc(data: ^core.Page_Data, body: string) {
 
 	ids := make([dynamic]string, context.temp_allocator)
 	for release in releases[:min(len(releases), RECENT_RELEASE_COUNT)] do append(&ids, release.id)
-	data.link_id = strings.join(ids[:], ",", core.page_allocator(data))
+	data.release_ids = strings.join(ids[:], ",", core.page_allocator(data))
 }
 
 @(private = "file")
@@ -86,12 +86,11 @@ read_recent_songs :: proc(data: ^core.Page_Data, body: string, ids: string) {
 	dated := make([dynamic]Dated_Song, context.temp_allocator)
 	seen_names := make(map[string]bool, allocator = context.temp_allocator)
 
-	// The IDs come newest release first, so the newer release keeps a song that two releases share.
 	for id in strings.split(ids, ",", context.temp_allocator) {
 		for album in albums {
 			if album.id != id do continue
 
-			for track in apple.list_related(album, "tracks") {
+			for track in apple.read_related(album, "tracks") {
 				date := track.attributes.release_date
 				if date == "" || seen_names[track.attributes.name] do continue
 
@@ -112,10 +111,8 @@ read_recent_songs :: proc(data: ^core.Page_Data, body: string, ids: string) {
 	}
 }
 
-// Builds the Recent Songs shelf, below Albums, with the songs in two columns.
-// The › of its title opens the page of all recent songs.
 build_recent_songs_shelf :: proc(artist_id, artist_name: string) {
-	songs, dates, phase := list_recent_songs(artist_id)
+	songs, dates, phase := watch_recent_songs(artist_id)
 	if phase != .Ready || len(songs) == 0 do return
 
 	shelf := ui.box(
@@ -135,7 +132,7 @@ build_recent_songs_shelf :: proc(artist_id, artist_name: string) {
 				flags = {.Clickable},
 			},
 		)
-		dim := 1 - 0.3 * title.hot_fraction
+		text_alpha := 1 - HOVER_FADE * title.hot_fraction
 
 		if ui.scope(title) {
 			ui.box(
@@ -143,13 +140,13 @@ build_recent_songs_shelf :: proc(artist_id, artist_name: string) {
 				{
 					width = ui.fit_text(),
 					height = ui.fit_text(),
-					text_color = kit.colors.text * {1, 1, 1, dim},
-					font_size = 17,
+					text_color = kit.to_faded(kit.colors.text, text_alpha),
+					font_size = kit.SHELF_TITLE_POINTS,
 					font_weight = .Bold,
 				},
 				"Recent Songs",
 			)
-			kit.icon_box("", "chevron.right", 13, kit.colors.faint * {1, 1, 1, dim})
+			kit.icon_box("", "chevron.right", 13, kit.to_faded(kit.colors.faint, text_alpha))
 		}
 
 		if ui.signal(title).is_clicked {
@@ -161,8 +158,7 @@ build_recent_songs_shelf :: proc(artist_id, artist_name: string) {
 	}
 }
 
-// The › opens this page. It shows every recent song the way the other song lists do.
 build_artist_recent_songs_page :: proc(artist_id, artist_name: string) {
-	songs, dates, phase := list_recent_songs(artist_id)
+	songs, dates, phase := watch_recent_songs(artist_id)
 	lists.build_song_list_page("Recent Songs", artist_name, songs, phase, dates)
 }

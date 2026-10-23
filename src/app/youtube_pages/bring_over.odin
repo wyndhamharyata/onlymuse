@@ -11,7 +11,6 @@ import "om:apple"
 import "om:ui"
 import "om:youtube"
 
-// Shows the YouTube playlists in the library, or one of them with what each song plays from.
 build_bring_over_page :: proc(page: core.Page) {
 	if !youtube.is_signed_in() {
 		build_youtube_sign_in_page(
@@ -77,7 +76,7 @@ build_bring_over_page :: proc(page: core.Page) {
 
 		if phase == .Ready {
 			kit.note(
-				"Each song Apple Music has goes into a new Apple Music playlist, and plays in its quality. The others stay in the playlist and play from YouTube.",
+				"Each song Apple Music has goes into a new Apple Music playlist. It plays in Apple Music's quality. The others stay in the playlist and play from YouTube.",
 			)
 			lists.build_song_rows(scroll, songs)
 		}
@@ -89,7 +88,7 @@ list_match_counts :: proc(songs: []core.Catalog_Song) -> [matching.Match_State]i
 	counts: [matching.Match_State]int
 
 	for song in songs {
-		_, state := matching.find_match(song)
+		_, state := matching.watch_match(song)
 		counts[state] += 1
 	}
 
@@ -110,8 +109,6 @@ to_match_summary :: proc(counts: [matching.Match_State]int, total: int) -> strin
 	return text
 }
 
-// The Apple songs make the new playlist.
-// The playlist keeps each song that is only on YouTube after the Apple song before it.
 @(private = "file")
 bring_over :: proc(name: string, songs: []core.Catalog_Song) {
 	apple_songs := make([dynamic]core.Catalog_Song, context.temp_allocator)
@@ -119,7 +116,7 @@ bring_over :: proc(name: string, songs: []core.Catalog_Song) {
 	after := youtube_lists.PLAYLIST_START
 
 	for song in songs {
-		playable := matching.find_playable(song)
+		playable := matching.watch_playable(song)
 
 		if youtube.is_song_id(playable.id) {
 			append(&extra, youtube_lists.Playlist_YouTube_Song{after, playable})
@@ -131,7 +128,7 @@ bring_over :: proc(name: string, songs: []core.Catalog_Song) {
 	}
 
 	done_text := fmt.tprintf(
-		"Brought over %s: %d songs from Apple Music, %d from YouTube",
+		"Brought over %s with %d songs from Apple Music and %d from YouTube",
 		name,
 		len(apple_songs),
 		len(extra),

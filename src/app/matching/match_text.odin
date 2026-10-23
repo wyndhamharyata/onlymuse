@@ -6,9 +6,20 @@ import "core:unicode"
 import "om:app/core"
 
 // Two lengths this close are one recording. A remaster or a TV-size edit differs by more.
-MATCH_SECONDS :: 3
+MAX_LENGTH_DIFFERENCE_SECONDS :: 3
 
-// The closest in length of the candidates that are the same recording.
+@(private = "file")
+TITLE_SEPARATORS := [?]string{" - ", " / ", "／"}
+
+@(private = "file")
+FEATURE_MARKERS := [?]string{" feat.", " feat ", " ft.", " (feat", " [feat"}
+
+@(private = "file")
+OPEN_BRACKETS :: "([【『「（［"
+
+@(private = "file")
+CLOSE_BRACKETS :: ")]】』」）］"
+
 @(private)
 find_closest :: proc(
 	song: core.Catalog_Song,
@@ -34,18 +45,16 @@ find_closest :: proc(
 	return best, is_found
 }
 
-// One recording has the same cleaned title, the same artist and about the same length.
 is_same_recording :: proc(youtube_song, apple_song: core.Catalog_Song) -> bool {
 	has_lengths := youtube_song.duration_seconds > 0 && apple_song.duration_seconds > 0
-	length_difference := abs(youtube_song.duration_seconds - apple_song.duration_seconds)
+	length_difference_seconds := abs(youtube_song.duration_seconds - apple_song.duration_seconds)
 
 	if !has_same_title(youtube_song.name, apple_song.name) do return false
-	if has_lengths && length_difference > MATCH_SECONDS do return false
+	if has_lengths && length_difference_seconds > MAX_LENGTH_DIFFERENCE_SECONDS do return false
 
 	return is_same_artist(youtube_song.artist_name, apple_song.artist_name)
 }
 
-// "Ado" and "ADO" are one artist. "SHE'S" and "SHE'S, Yuta Kanazawa" are one artist too.
 // An artist under two names, such as a Japanese name on one side, is no match. YouTube plays it.
 @(private)
 is_same_artist :: proc(youtube_artist, apple_artist: string) -> bool {
@@ -70,14 +79,13 @@ has_same_title :: proc(youtube_name, apple_name: string) -> bool {
 	return false
 }
 
-// The whole title and each half around " - " or " / ", as match keys. YouTube often writes
-// a Japanese title and its romaji as "追い風 - Oikaze". Apple writes one, so either half matches.
+// YouTube joins a Japanese title and its romaji as "追い風 - Oikaze". Apple writes one.
 @(private)
 list_title_keys :: proc(name: string) -> []string {
 	keys := make([dynamic]string, context.temp_allocator)
 	append(&keys, to_match_key(name))
 
-	for separator in ([]string{" - ", " / ", "／"}) {
+	for separator in TITLE_SEPARATORS {
 		if !strings.contains(name, separator) do continue
 
 		for part in strings.split(name, separator, context.temp_allocator) {
@@ -90,43 +98,43 @@ list_title_keys :: proc(name: string) -> []string {
 	return keys[:]
 }
 
-// Lowercase letters and digits only, without "feat." and what follows it. It drops the parts in
-// brackets, such as "(Official Video)" or "【MV】". A name that is all brackets keeps them.
 to_match_key :: proc(text: string) -> string {
 	lower := strings.to_lower(text, context.temp_allocator)
 
-	for marker in ([]string{" feat.", " feat ", " ft.", " (feat", " [feat"}) {
+	for marker in FEATURE_MARKERS {
 		if index := strings.index(lower, marker); index > 0 do lower = lower[:index]
 	}
 
-	key := to_letters(lower, true)
+	key := to_letters(lower, is_bracket_skipped = true)
 
-	return key if key != "" else to_letters(lower, false)
+	return key if key != "" else to_letters(lower, is_bracket_skipped = false)
 }
 
 @(private = "file")
-to_letters :: proc(text: string, skips_brackets: bool) -> string {
+to_bracket_depth :: proc(depth: int, character: rune) -> (int, bool) {
+	if strings.contains_rune(OPEN_BRACKETS, character) do return depth + 1, true
+	if strings.contains_rune(CLOSE_BRACKETS, character) do return max(0, depth - 1), true
+
+	return depth, false
+}
+
+@(private = "file")
+to_letters :: proc(text: string, is_bracket_skipped: bool) -> string {
 	builder := strings.builder_make(context.temp_allocator)
 	depth := 0
 
 	for character in text {
-		switch character {
-		case '(', '[', '【', '『', '「', '（', '［':
-			depth += 1
-			continue
-		case ')', ']', '】', '』', '」', '）', '］':
-			depth = max(0, depth - 1)
-			continue
-		}
+		is_bracket: bool
+		depth, is_bracket = to_bracket_depth(depth, character)
+		is_letter := unicode.is_letter(character) || unicode.is_digit(character)
+		is_kept := !is_bracket && is_letter && (depth == 0 || !is_bracket_skipped)
 
-		is_kept := unicode.is_letter(character) || unicode.is_digit(character)
-		if is_kept && (depth == 0 || !skips_brackets) do strings.write_rune(&builder, character)
+		if is_kept do strings.write_rune(&builder, character)
 	}
 
 	return strings.to_string(builder)
 }
 
-// The title, the album and the artist, without the parts in brackets or the apostrophes.
 // Apple's search finds nothing for a term with an apostrophe, such as "She's".
 @(private)
 to_search_term :: proc(song: core.Catalog_Song, album: string) -> string {
@@ -138,22 +146,17 @@ to_search_term :: proc(song: core.Catalog_Song, album: string) -> string {
 	)
 }
 
-// The text without its bracketed parts and apostrophes. Text that is all brackets keeps them.
 @(private)
 to_plain_text :: proc(text: string) -> string {
 	builder := strings.builder_make(context.temp_allocator)
 	depth := 0
 
 	for character in text {
-		switch character {
-		case '(', '[', '【', '『', '「', '（', '［':
-			depth += 1
-		case ')', ']', '】', '』', '」', '）', '］':
-			depth = max(0, depth - 1)
-		case '\'', '’':
-		case:
-			if depth == 0 do strings.write_rune(&builder, character)
-		}
+		is_bracket: bool
+		depth, is_bracket = to_bracket_depth(depth, character)
+		is_apostrophe := character == '\'' || character == '’'
+
+		if !is_bracket && !is_apostrophe && depth == 0 do strings.write_rune(&builder, character)
 	}
 
 	plain := strings.trim_space(strings.to_string(builder))

@@ -1,7 +1,6 @@
 import AppKit
 import WebKit
 
-// This extension reads the YouTube page twice a second, tells the app what it plays and starts a song again that stuck.
 extension YouTube {
   func startPolling() {
     pollTimer?.invalidate()
@@ -16,6 +15,7 @@ extension YouTube {
     playerView.evaluateJavaScript(Self.readStateScript) { [weak self] result, _ in
       MainActor.assumeIsolated {
         guard let self, self.isActive else { return }
+
         self.checkSlowStart()
         guard let text = result as? String, let data = text.data(using: .utf8), let page = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
           return self.checkStuck(playerState: nil)
@@ -26,24 +26,20 @@ extension YouTube {
     }
   }
 
-  // This sends nowPlaying when the state changes, and the position every few seconds, as Music.app's side does.
   private func apply(page: [String: Any]) {
     let pageID = page["id"] as? String ?? ""
     let playerState = page["state"] as? Int ?? -1
     let positionSeconds = page["position"] as? Double ?? 0
     let pageDurationSeconds = page["duration"] as? Double ?? 0
     let durationSeconds = pageDurationSeconds > 0 ? pageDurationSeconds : song?.durationSeconds ?? 0
-    // Until the new song loads, the page still holds the last one.
-    let isLoading = pageID != videoID && pageID != "" && lastState == ""
-    let hasEnded = playerState == Self.endedState || (pageID != videoID && !isLoading && pageID != "")
+    let isOtherSong = pageID != videoID && pageID != ""
+    let isLoading = isOtherSong && lastState == nil
+    let hasEnded = playerState == Self.endedState || (isOtherSong && !isLoading)
 
     if isLoading { return }
 
-    // The page plays at its own volume until a song's first state comes, as the player may not exist before.
-    if lastState == "" { run("document.getElementById('movie_player').setVolume(\(volumePercent))") }
+    if lastState == nil { sendVolumeToPage() }
 
-    // Before a song starts, and while it waits for more of itself, the page plays nothing. The app then hears
-    // nothing new. A song that played and then waits too long loads again.
     let isWaiting = !hasEnded && playerState != Self.playingState && playerState != Self.pausedState
 
     if isWaiting { return checkStuck(playerState: playerState) }
@@ -51,19 +47,25 @@ extension YouTube {
     stuckSince = nil
     if playerState == Self.playingState { playedSeconds = positionSeconds }
 
-    let state = hasEnded ? "stopped" : playerState == Self.pausedState ? "paused" : "playing"
+    let state: String
 
     if hasEnded {
+      state = "stopped"
       pollTimer?.invalidate()
       pollTimer = nil
       run("document.getElementById('movie_player').pauseVideo()")
+    } else if playerState == Self.pausedState {
+      state = "paused"
+    } else {
+      state = "playing"
     }
 
     if state != lastState {
       lastState = state
       lastPositionSentAt = Date()
-      var nowPlaying = toNowPlaying(state: state, positionSeconds: positionSeconds, durationSeconds: durationSeconds)
-      // The page says it plays only once it does, so its clock moves on from the first post.
+
+      var nowPlaying = makeNowPlaying(state: state, positionSeconds: positionSeconds, durationSeconds: durationSeconds)
+
       if state == "playing" { nowPlaying["hasStarted"] = true }
       send(nowPlaying)
       return
@@ -72,55 +74,22 @@ extension YouTube {
     guard state == "playing", Date().timeIntervalSince(lastPositionSentAt) >= Self.positionSendSeconds else { return }
 
     lastPositionSentAt = Date()
-    send(["type": "position", "persistentID": Self.idPrefix + videoID, "positionSeconds": positionSeconds, "positionReadAtMs": MusicApp.nowMs()])
+    send(makePositionMessage(persistentID: Self.idPrefix + videoID, positionSeconds: positionSeconds))
   }
 
-  // This checks for a song that did not start long after the page had it, as when the page's load of it hangs with no error.
   private func checkSlowStart() {
-    guard lastState == "", isPageLoaded, Date().timeIntervalSince(startAskedAt) >= Self.slowStartSeconds else { return }
+    guard lastState == nil, isPageLoaded, Date().timeIntervalSince(startAskedAt) >= Self.slowStartSeconds else { return }
+
+    let name = song?.name ?? videoID
 
     startAskedAt = Date()
     startRetryCount += 1
-    let name = song?.name ?? videoID
-
-    // The app shows the song as paused at its start, so the person can press Play again or skip it.
-    guard startRetryCount <= Self.maxStartRetryCount else {
-      sendError("The YouTube page still has not started \(name).")
-      run("document.getElementById('movie_player')?.pauseVideo()")
-      lastState = "paused"
-      send(toNowPlaying(state: "paused", positionSeconds: 0, durationSeconds: song?.durationSeconds ?? 0))
-      return
-    }
-
     playerView?.evaluateJavaScript("JSON.stringify({ state: \(Self.readStateScript), problem: \(Self.readProblemScript) })") { result, _ in
-      sendError("The YouTube page had not started \(name) after \(Int(Self.slowStartSeconds)) s. The page showed: \(result as? String ?? "nothing")")
+      sendError("The YouTube page did not start \(name) within \(Int(Self.slowStartSeconds)) s. The page showed: \(result as? String ?? "nothing")")
     }
-
-    if startRetryCount == 1 {
-      sendError("The helper asks the YouTube page for \(name) again.")
-      run(toPlayScript(forcesLoad: true))
-    } else {
-      reopenPage(startSeconds: 0)
-    }
+    retryStart(attempt: startRetryCount, startSeconds: 0)
   }
 
-  // WebKit's network process can keep a connection that sends nothing, as when the network allows only smaller
-  // packets than HTTP/3 sends. Each request on that connection hangs for two minutes. A new network process makes
-  // new connections, then the page opens again with the song from startSeconds.
-  private func reopenPage(startSeconds: Double) {
-    sendError("The helper starts its network connections again and opens the YouTube page again for \(song?.name ?? videoID).")
-    resumeSeconds = startSeconds
-    isPageLoaded = false
-
-    let store = WKWebsiteDataStore.default()
-    let terminate = NSSelectorFromString("_terminateNetworkProcess")
-    if store.responds(to: terminate) { store.perform(terminate) }
-
-    playerView?.load(URLRequest(url: URL(string: "https://music.youtube.com/watch?v=\(videoID)")!))
-  }
-
-  // This handles a song that played and that the page then stopped by itself. The page answers no state, or a state
-  // neither playing nor paused. The helper loads the song again where it stopped. After maxReloadCount tries the app shows it paused.
   private func checkStuck(playerState: Int?) {
     guard lastState == "playing" else { return }
     guard let since = stuckSince else {
@@ -129,35 +98,57 @@ extension YouTube {
     }
     guard Date().timeIntervalSince(since) >= Self.stuckSeconds else { return }
 
-    stuckSince = Date()
-    reloadCount += 1
     let name = song?.name ?? videoID
     let positionSeconds = Int(playedSeconds)
     let stateText = playerState.map { "state \($0)" } ?? "no answer"
 
+    stuckSince = Date()
+    reloadCount += 1
     playerView?.evaluateJavaScript(Self.readProblemScript) { result, _ in
       sendError("The YouTube page stopped \(name) at \(positionSeconds / 60):\(String(format: "%02d", positionSeconds % 60)) by itself (\(stateText)). The page showed: \(result as? String ?? "nothing")")
     }
-
-    guard reloadCount <= Self.maxReloadCount else {
-      lastState = "paused"
-      stuckSince = nil
-      send(toNowPlaying(state: "paused", positionSeconds: playedSeconds, durationSeconds: song?.durationSeconds ?? 0))
-      return sendError("\(name) did not play again after \(Self.maxReloadCount) tries, so it shows as paused.")
-    }
-
-    guard reloadCount == 1 else { return reopenPage(startSeconds: playedSeconds) }
-
-    sendError("The helper loads \(name) again from where it stopped.")
-    run(toPlayScript(forcesLoad: true, startSeconds: playedSeconds))
+    retryStart(attempt: reloadCount, startSeconds: playedSeconds)
   }
 
-  func toNowPlaying(state: String, positionSeconds: Double, durationSeconds: Double) -> [String: Any] {
+  private func retryStart(attempt: Int, startSeconds: Double) {
+    let name = song?.name ?? videoID
+
+    guard attempt <= Self.maxRetryCount else {
+      sendError("The YouTube page did not start \(name) after \(Self.maxRetryCount) tries.")
+      run("document.getElementById('movie_player')?.pauseVideo()")
+      lastState = "paused"
+      stuckSince = nil
+      send(makeNowPlaying(state: "paused", positionSeconds: startSeconds, durationSeconds: song?.durationSeconds ?? 0))
+      return
+    }
+
+    guard attempt > 1 else {
+      sendError("The helper asks the YouTube page for \(name) again.")
+      return run(toPlayScript(isLoadForced: true, startSeconds: startSeconds))
+    }
+
+    reopenPage(startSeconds: startSeconds)
+  }
+
+  // WebKit can keep a connection that sends nothing. Only a new network process drops it.
+  private func reopenPage(startSeconds: Double) {
+    sendError("The helper starts its network connections again and opens the YouTube page again for \(song?.name ?? videoID).")
+    resumeSeconds = startSeconds
+    isPageLoaded = false
+
+    let store = WKWebsiteDataStore.default()
+    let terminate = NSSelectorFromString("_terminateNetworkProcess")
+
+    if store.responds(to: terminate) { store.perform(terminate) }
+    playerView?.load(URLRequest(url: Self.toWatchURL(videoID: videoID)))
+  }
+
+  func makeNowPlaying(state: String, positionSeconds: Double, durationSeconds: Double) -> [String: Any] {
     guard state != "stopped", let song else { return ["type": "nowPlaying", "state": "stopped", "volumePercent": volumePercent] }
 
     return [
       "type": "nowPlaying", "state": state, "volumePercent": volumePercent,
-      "positionSeconds": positionSeconds, "positionReadAtMs": MusicApp.nowMs(),
+      "positionSeconds": positionSeconds, "positionReadAtMs": nowMs,
       "song": [
         "name": song.name, "artist": song.artistName, "album": song.albumName,
         "persistentID": Self.idPrefix + videoID, "durationSeconds": durationSeconds,

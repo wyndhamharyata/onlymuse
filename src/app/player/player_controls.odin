@@ -1,6 +1,5 @@
 package player
 
-import "core:fmt"
 import "core:math"
 import "om:app/core"
 import "om:app/kit"
@@ -9,11 +8,14 @@ import "om:helper"
 import "om:platform"
 import "om:ui"
 
-// The middle of the player bar: shuffle, previous, play, next, repeat and the seek bar.
+CLOCK_WIDTH_POINTS :: 34
+
+SHUFFLE_RULES_OFFSET_POINTS :: [2]f32{-130, -190}
+
 build_controls :: proc() {
 	now_playing := core.app.now_playing
 	is_playing := now_playing.playback == .Playing
-	is_song := is_playing || now_playing.playback == .Paused
+	has_song := helper.has_song(now_playing)
 	controls := ui.box(
 		"controls",
 		{width = ui.fill(1.25), height = ui.fit_children(), axis = .Y, align = .Center, gap = 6},
@@ -32,12 +34,12 @@ build_controls :: proc() {
 		)
 
 		if ui.scope(buttons) {
-			// A right-click opens the shuffle's rules.
+			shuffle_color := core.app.accent if playback.queue.is_shuffled else kit.colors.faint
 			shuffle := kit.icon_box(
 				"shuffle",
 				"shuffle",
 				14,
-				core.app.accent if playback.queue.is_shuffled else kit.colors.faint,
+				shuffle_color,
 				{
 					padding = {4, 4, 4, 4},
 					corner_radius = 6,
@@ -50,11 +52,11 @@ build_controls :: proc() {
 			shuffle_signal := ui.signal(shuffle)
 			if shuffle_signal.is_clicked do playback.toggle_shuffle()
 			if shuffle_signal.is_right_clicked {
-				playback.open_shuffle_rules({shuffle.rect.x - 130, shuffle.rect.y - 190})
+				playback.open_shuffle_rules(shuffle.rect.xy + SHUFFLE_RULES_OFFSET_POINTS)
 			}
 
 			resume_seconds :=
-				playback.queue.resume_point.position_seconds if playback.is_resume_shown() else helper.to_position_seconds(now_playing)
+				playback.queue.resume_point.position_seconds if playback.is_resume_shown() else helper.read_position_seconds(now_playing)
 
 			if kit.icon_button("previous", "backward.fill", 17, kit.colors.text) {
 				playback.skip_to_previous(resume_seconds)
@@ -67,14 +69,14 @@ build_controls :: proc() {
 					height = ui.points(34),
 					corner_radius = 17,
 					background = kit.colors.text,
-					hover_background = kit.to_color(0xffffffff),
+					hover_background = kit.colors.white,
 					flags = {.Clickable},
 				},
 			)
 
-			// The icon draws after the build, so the paint stays until the next frame.
+			play_symbol := "pause.fill" if is_playing else "play.fill"
 			paint := new(kit.Icon_Paint, context.temp_allocator)
-			paint^ = {"pause.fill" if is_playing else "play.fill", 15, kit.colors.ink}
+			paint^ = {play_symbol, 15, kit.colors.ink}
 			play.draw = kit.draw_icon
 			play.data = paint
 
@@ -83,7 +85,7 @@ build_controls :: proc() {
 			if is_play_clicked && playback.is_resume_shown() {
 				playback.resume_last_song()
 			} else if is_play_clicked {
-				helper.send(`{"type":"playPause"}`)
+				helper.send_play_pause()
 			}
 
 			if kit.icon_button("next", "forward.fill", 17, kit.colors.text) {
@@ -91,31 +93,33 @@ build_controls :: proc() {
 			}
 
 			repeat_symbol := "repeat.1" if playback.queue.repeat == "one" else "repeat"
+			repeat_color := core.app.accent if playback.queue.repeat != "off" else kit.colors.faint
 
-			if kit.icon_button(
-				"repeat",
-				repeat_symbol,
-				14,
-				core.app.accent if playback.queue.repeat != "off" else kit.colors.faint,
-			) {
+			if kit.icon_button("repeat", repeat_symbol, 14, repeat_color) {
 				playback.cycle_repeat()
 			}
 		}
 
-		build_progress(is_song)
+		build_progress(has_song)
 	}
 }
 
-// The seek bar of the player bar, between the position and the length of the song.
-build_progress :: proc(is_playing_song: bool) {
+build_progress :: proc(has_song: bool) {
 	now_playing := core.app.now_playing
-	shown, is_song := playback.find_shown_song()
-	// While is_waiting, the bar holds at the start of the queue song and shows its own length.
-	is_waiting := playback.queue.is_adding || playback.is_starting_youtube_song()
-	duration_seconds :=
-		playback.queue.songs[playback.queue.index].duration_seconds if is_waiting else shown.duration_seconds if is_song else 0
-	position_seconds :=
-		0 if is_waiting else helper.to_position_seconds(now_playing) if is_playing_song else playback.queue.resume_point.position_seconds if is_song else 0
+	shown, has_shown_song := playback.find_shown_song()
+	is_waiting := is_waiting_for_queue_song()
+	duration_seconds, position_seconds: f64
+
+	if is_waiting {
+		duration_seconds = playback.queue.songs[playback.queue.index].duration_seconds
+	} else if has_song {
+		duration_seconds = shown.duration_seconds
+		position_seconds = helper.read_position_seconds(now_playing)
+	} else if has_shown_song {
+		duration_seconds = shown.duration_seconds
+		position_seconds = playback.queue.resume_point.position_seconds
+	}
+
 	ratio := f32(position_seconds / duration_seconds) if duration_seconds > 0 else 0
 	progress := ui.box(
 		"progress",
@@ -126,7 +130,7 @@ build_progress :: proc(is_playing_song: bool) {
 		clock := ui.box(
 			"",
 			{
-				width = ui.points(34),
+				width = ui.points(CLOCK_WIDTH_POINTS),
 				height = ui.fit_text(),
 				text_align = .End,
 				text_color = kit.colors.faint,
@@ -140,26 +144,20 @@ build_progress :: proc(is_playing_song: bool) {
 			kit.to_clock_text(duration_seconds),
 			kit.colors.faint,
 			11,
-			width = ui.points(34),
+			width = ui.points(CLOCK_WIDTH_POINTS),
 		)
 
-		if is_set && is_playing_song && !is_waiting {
-			helper.send(
-				fmt.tprintf(
-					`{{"type":"seek","positionSeconds":%.3f}}`,
-					f64(shown_ratio) * duration_seconds,
-				),
-			)
-		}
+		can_seek := is_set && has_song && !is_waiting
+		if can_seek do helper.send_seek(f64(shown_ratio) * duration_seconds)
 	}
 
-	// The clock turns over each whole second. Nothing else draws a frame then, so this timer asks.
+	// Nothing else draws a frame when the clock text changes, so this timer asks for one.
 	if now_playing.playback == .Playing && !is_waiting {
-		platform.request_frame_after(1 - (position_seconds - math.floor(position_seconds)) + 0.005)
+		next_second := 1 - (position_seconds - math.floor(position_seconds))
+		platform.request_frame_after(next_second + TIMER_SLACK_SECONDS)
 	}
 }
 
-// The right end of the player bar, with the side panel button and the volume.
 build_player_end :: proc() {
 	end := ui.box(
 		"end",
@@ -168,13 +166,9 @@ build_player_end :: proc() {
 
 	if ui.scope(end) {
 		kit.spacer()
+		panel_color := core.app.accent if core.app.panel != .None else kit.colors.faint
 
-		if kit.icon_button(
-			"panel",
-			"sidebar.right",
-			16,
-			core.app.accent if core.app.panel != .None else kit.colors.faint,
-		) {
+		if kit.icon_button("panel", "sidebar.right", 16, panel_color) {
 			core.toggle_side_panel()
 		}
 
@@ -185,7 +179,7 @@ build_player_end :: proc() {
 
 		if is_set {
 			percent := int(math.round(shown_ratio * 100))
-			helper.send(fmt.tprintf(`{{"type":"setVolume","volumePercent":%d}}`, percent))
+			helper.send_set_volume(percent)
 			core.app.now_playing.volume_percent = f64(percent)
 		}
 	}

@@ -11,14 +11,12 @@ import "om:store"
 Phase :: enum {
 	Loading,
 	Ready,
-	// Apple refused, or the app could not reach it. The store holds no saved answer either.
 	Failed,
 }
 
 Watched :: struct {
 	phase:   Phase,
 	body:    string,
-	// Counts up each time a newer answer replaces the body, so a page knows to read it again.
 	version: int,
 	status:  int,
 }
@@ -28,23 +26,16 @@ Entry :: struct {
 	using watched: Watched,
 	path:          string,
 	is_checking:   bool,
-	// Unix ms of the last watch. free_retired_bodies frees an answer no page watched in a while.
 	used_at_ms:    i64,
-	// Unix ms of the last failed check.
 	failed_at_ms:  i64,
 }
 
-// watch asks again for a failed answer when a page watches it this long after the failure.
-// A page then recovers once the network is back.
 @(private)
 FAILED_RETRY_MS :: 30 * 1000
 
-// free_retired_bodies frees an answer that no page watched for this long. The store keeps it,
-// so a page that asks again finds it at once.
 @(private)
 UNUSED_ANSWER_MS :: 5 * 60 * 1000
 
-// Bodies replaced or let go this frame. Pages may still read them, so the next frame frees them.
 @(private)
 retired_bodies: [dynamic]string
 
@@ -53,44 +44,34 @@ cache: struct {
 	mutex:        sync.Mutex,
 	entries:      map[string]^Entry,
 	pool:         thread.Pool,
-	// Each new body takes the next number as its version. No two bodies share a version, so a page
-	// that read an answer before the cache let it go never mistakes a later body for that one.
 	last_version: int,
-	is_started:   bool,
 }
 
-// Another package that answers the paths starting with its prefix, such as src/youtube.
-// It blocks. Its body uses allocator.
 Source :: proc(path: string, allocator: mem.Allocator) -> Answer
 
 @(private)
 sources: map[string]Source
 
-// A package calls this once at start, before any watch.
-add_source :: proc(prefix: string, source: Source) {
+set_source :: proc(prefix: string, source: Source) {
 	sources[prefix] = source
 }
 
 @(private)
-send_to_source :: proc(path: string, allocator := context.allocator) -> Answer {
+fetch_from_source :: proc(path: string, allocator := context.allocator) -> Answer {
 	for prefix, source in sources {
 		if strings.has_prefix(path, prefix) {
 			return source(path, allocator)
 		}
 	}
 
-	return send_request(path, .Get, allocator)
+	return fetch_from_apple(path, .Get, allocator)
 }
 
-// How long an answer counts as fresh. The first rule whose text the path holds applies.
 @(private)
 fresh_rules := [?]struct {
 	part:     string,
 	duration: time.Duration,
 } {
-
-
-	// YouTube's home, mixes and library, and then the rest of YouTube.
 	{`"FEmusic_home"`, 10 * time.Minute},
 	{`"FEmusic_liked`, 0},
 	{`"VLLM"`, 0},
@@ -116,8 +97,6 @@ to_fresh_duration :: proc(path: string) -> time.Duration {
 @(private)
 CHECK_THREAD_COUNT :: 4
 
-// The answer for path as it stands, without waiting. A saved answer shows at once, while watch
-// checks a stale one with Apple. The body lives until the version changes.
 watch :: proc(path: string) -> Watched {
 	sync.guard(&cache.mutex)
 
@@ -130,16 +109,10 @@ watch :: proc(path: string) -> Watched {
 
 		if can_retry {
 			entry.is_checking = true
-			thread.pool_add_task(&cache.pool, context.allocator, check, entry)
+			thread.pool_add_task(&cache.pool, context.allocator, fetch_entry, entry)
 		}
 
 		return entry.watched
-	}
-
-	if !cache.is_started {
-		thread.pool_init(&cache.pool, context.allocator, CHECK_THREAD_COUNT)
-		thread.pool_start(&cache.pool)
-		cache.is_started = true
 	}
 
 	entry := new(Entry)
@@ -160,7 +133,7 @@ watch :: proc(path: string) -> Watched {
 	}
 
 	entry.is_checking = true
-	thread.pool_add_task(&cache.pool, context.allocator, check, entry)
+	thread.pool_add_task(&cache.pool, context.allocator, fetch_entry, entry)
 
 	return entry.watched
 }
@@ -170,28 +143,29 @@ now_ms :: proc() -> i64 {
 	return time.to_unix_nanoseconds(time.now()) / 1_000_000
 }
 
-// Runs on a worker. A failed check keeps the saved answer, so the app works offline.
 @(private)
-check :: proc(task: thread.Task) {
+fetch_entry :: proc(task: thread.Task) {
 	entry := cast(^Entry)task.data
 	path := entry.path
 	defer free_all(context.temp_allocator)
 
-	answer := send_to_source(path)
+	answer := fetch_from_source(path)
 	if answer.status == 200 do store.save_answer(path, answer.body)
 
 	sync.guard(&cache.mutex)
 	entry.is_checking = false
 	entry.status = answer.status
+	is_new_body := answer.status == 200 && answer.body != entry.body
+	is_failure_with_no_answer := answer.status != 200 && entry.phase != .Ready
 
 	switch {
-	case answer.status == 200 && answer.body != entry.body:
+	case is_new_body:
 		if entry.body != "" do append(&retired_bodies, entry.body)
 		entry.body = answer.body
 		cache.last_version += 1
 		entry.version = cache.last_version
 		entry.phase = .Ready
-	case answer.status != 200 && entry.phase != .Ready:
+	case is_failure_with_no_answer:
 		entry.phase = .Failed
 		entry.failed_at_ms = now_ms()
 		delete(answer.body)
@@ -202,7 +176,6 @@ check :: proc(task: thread.Task) {
 	platform.wake()
 }
 
-// Asks again for every answer whose path starts with prefix, such as YouTube's after a sign-in.
 refresh_all :: proc(prefix: string) {
 	paths := make([dynamic]string, context.temp_allocator)
 
@@ -214,19 +187,16 @@ refresh_all :: proc(prefix: string) {
 	for path in paths do refresh(path)
 }
 
-// Asks again, such as after adding to the library. The saved answer stays until the next one comes.
 refresh :: proc(path: string) {
 	sync.guard(&cache.mutex)
 	entry, ok := cache.entries[path]
 	if !ok || entry.is_checking do return
 
 	entry.is_checking = true
-	thread.pool_add_task(&cache.pool, context.allocator, check, entry)
+	thread.pool_add_task(&cache.pool, context.allocator, fetch_entry, entry)
 }
 
-// core calls this first in each frame. It frees the bodies replaced since the last frame.
-// It lets go of answers that no page watched in UNUSED_ANSWER_MS.
-free_retired_bodies :: proc() {
+free_unused_answers :: proc() {
 	sync.guard(&cache.mutex)
 
 	for body in retired_bodies do delete(body)
@@ -238,15 +208,13 @@ free_retired_bodies :: proc() {
 	unused := make([dynamic]string, context.temp_allocator)
 
 	for path, entry in cache.entries {
-		if !entry.is_checking && now - entry.used_at_ms > UNUSED_ANSWER_MS {
-			append(&unused, path)
-		}
+		is_unused := !entry.is_checking && now - entry.used_at_ms > UNUSED_ANSWER_MS
+		if is_unused do append(&unused, path)
 	}
 
 	for path in unused {
 		entry := cache.entries[path]
 		delete_key(&cache.entries, path)
-		// This frame has yet to start and may read the body. So the next frame frees it.
 		if entry.body != "" do append(&retired_bodies, entry.body)
 		delete(entry.path)
 		free(entry)

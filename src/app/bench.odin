@@ -10,10 +10,12 @@ import "om:image"
 import "om:platform"
 import "om:ui"
 
-// The first frames open the window and load fonts, so the bench skips them.
 BENCH_SKIPPED_FRAME_COUNT :: 10
 
-// With OM_FRAMES=1, the top right corner shows how long the last frame took to build.
+FRAME_TIME_WIDTH_POINTS :: 110
+
+FRAME_TIME_RIGHT_MARGIN_POINTS :: 10
+
 build_frame_time :: proc() {
 	count := len(core.app.build_durations)
 	if count == 0 || !core.app.is_showing_frames do return
@@ -24,9 +26,12 @@ build_frame_time :: proc() {
 	ui.box(
 		"",
 		{
-			width = ui.points(110),
+			width = ui.points(FRAME_TIME_WIDTH_POINTS),
 			height = ui.points(20),
-			position = {root.style.width.value - 120, 8},
+			position = {
+				root.style.width.value - FRAME_TIME_WIDTH_POINTS - FRAME_TIME_RIGHT_MARGIN_POINTS,
+				8,
+			},
 			text_align = .End,
 			text_color = kit.colors.faint,
 			font_size = 11,
@@ -36,7 +41,6 @@ build_frame_time :: proc() {
 	)
 }
 
-// Prints the frame times of an OM_BENCH run, then quits the app.
 finish_bench :: proc() {
 	remove_range(&core.app.build_durations, 0, BENCH_SKIPPED_FRAME_COUNT)
 	remove_range(&core.app.frame_starts, 0, BENCH_SKIPPED_FRAME_COUNT)
@@ -55,26 +59,27 @@ finish_bench :: proc() {
 
 	slice.sort(gaps[:])
 
-	to_ms :: proc(values: []time.Duration, fraction: f64) -> f64 {
-		return time.duration_milliseconds(values[int(math.floor(f64(len(values) - 1) * fraction))])
-	}
-
 	fmt.printfln(
 		"build per frame ms: p50 %.2f p99 %.2f max %.2f",
-		to_ms(builds, 0.5),
-		to_ms(builds, 0.99),
-		to_ms(builds, 1),
+		to_percentile_ms(builds, 0.5),
+		to_percentile_ms(builds, 0.99),
+		to_percentile_ms(builds, 1),
 	)
 
-	ready, total := image.count()
+	ready, total := image.list_counts()
 	fmt.printfln("covers on the GPU %d, known %d", ready, total)
 
 	fmt.printfln(
 		"gap between frames ms: p50 %.2f p99 %.2f max %.2f",
-		to_ms(gaps[:], 0.5),
-		to_ms(gaps[:], 0.99),
-		to_ms(gaps[:], 1),
+		to_percentile_ms(gaps[:], 0.5),
+		to_percentile_ms(gaps[:], 0.99),
+		to_percentile_ms(gaps[:], 1),
 	)
 
 	platform.quit()
+}
+
+@(private = "file")
+to_percentile_ms :: proc(sorted: []time.Duration, fraction: f64) -> f64 {
+	return time.duration_milliseconds(sorted[int(math.floor(f64(len(sorted) - 1) * fraction))])
 }

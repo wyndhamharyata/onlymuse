@@ -1,5 +1,3 @@
-// This package fetches artwork from Apple's image server and saves it on disk once. It decodes each
-// picture at the size the window draws and keeps it on the GPU while it is recent.
 package image
 
 import "core:hash"
@@ -13,17 +11,20 @@ import "core:time"
 import "om:net"
 import MTL "vendor:darwin/Metal"
 
-// The most bytes of covers that the GPU keeps. unload_extra never unloads a cover that the last
-// frame drew, so a page with more covers keeps them all.
 MAX_IMAGE_BYTES :: 64 * 1024 * 1024
 
-// The count of downloads and decodes that run at once, each on its own thread.
 WORKER_COUNT :: 6
 
-// watch asks for a failed image again this much later.
-RETRY_LATER :: 30 * time.Second
+FAILED_RETRY_WAIT :: 30 * time.Second
 
 FADE_IN_SECONDS :: 0.25
+
+@(private)
+CROP_KEY_STEPS :: 100
+@(private)
+CROP_ASPECT_SHIFT :: 40
+@(private)
+CROP_FOCUS_SHIFT :: 52
 
 @(private)
 Phase :: enum {
@@ -33,7 +34,6 @@ Phase :: enum {
 	Failed,
 }
 
-// One cover at one size and crop, from the first watch call until unload_extra unloads it.
 @(private)
 Entry :: struct {
 	phase:            Phase,
@@ -43,30 +43,23 @@ Entry :: struct {
 	last_drawn_frame: int,
 	ready_time:       time.Tick,
 	failed_time:      time.Tick,
-	// One hash for every size of one picture. Apple's URLs differ only in the last part, the size.
 	family:           u64,
-	// Another size stood in until this one loaded, so it shows at once, with no fade.
 	had_stand_in:     bool,
 	color:            Color,
 	crop:             Crop,
 	bytes:            int,
 }
 
-// The crop of a picture before the GPU, so it costs only the part that the window shows.
-// aspect is width over height, or 0 for the whole picture. focus_y runs from 0 at the top to 1.
 Crop :: struct {
 	aspect:  f32,
 	focus_y: f32,
 }
 
-// A guess at a picture's colour. rgb averages its pixels. The vivid and bright pixels count most.
-// vividness, from 0 to 1, says how colourful the picture is. A black and white picture is near 0.
 Color :: struct {
 	rgb:       [3]f32,
 	vividness: f32,
 }
 
-// One cover that a worker thread downloads and decodes.
 @(private)
 Job :: struct {
 	key:         u64,
@@ -81,16 +74,14 @@ Job :: struct {
 state: struct {
 	folder:        string,
 	entries:       map[u64]^Entry,
-	// The newest key comes last, so the covers that the window asked for most recently load first.
 	waiting:       [dynamic]u64,
 	loading_count: int,
 	pool:          thread.Pool,
 	mutex:         sync.Mutex,
 	finished:      [dynamic]^Job,
-	// The entry of each family that loaded last, to stand in for a size that still loads.
 	families:      map[u64]u64,
 	frame_index:   int,
-	is_fading:     bool,
+	is_animating:  bool,
 }
 
 start :: proc() {
@@ -106,26 +97,20 @@ start :: proc() {
 	thread.pool_start(&state.pool)
 }
 
-// The app calls this once a frame, before it draws any image.
-// It takes in finished loads and starts waiting ones.
 begin_frame :: proc() {
 	state.frame_index += 1
-	state.is_fading = false
+	state.is_animating = false
 
 	take_finished()
-	// A thread pool keeps each finished task until pool_pop_done takes it.
 	for _ in thread.pool_pop_done(&state.pool) {}
 	start_waiting()
 	unload_extra()
 }
 
-// True while an image fades in.
 is_animating :: proc() -> bool {
-	return state.is_fading
+	return state.is_animating
 }
 
-// The texture for url, or for a file path, at size_pixels. It is nil until the image loads.
-// opacity rises from 0 to 1 over FADE_IN_SECONDS as a new image fades in.
 watch :: proc(
 	url: string,
 	size_pixels: int,
@@ -134,7 +119,9 @@ watch :: proc(
 	texture: ^MTL.Texture,
 	opacity: f32,
 ) {
-	crop_key := u64(crop.aspect * 100) << 40 | u64(crop.focus_y * 100) << 52
+	crop_key :=
+		(u64(crop.aspect * CROP_KEY_STEPS) << CROP_ASPECT_SHIFT) |
+		(u64(crop.focus_y * CROP_KEY_STEPS) << CROP_FOCUS_SHIFT)
 	key := hash.fnv64a(transmute([]u8)url) ~ u64(size_pixels) ~ crop_key
 	entry, ok := state.entries[key]
 
@@ -166,13 +153,13 @@ watch :: proc(
 		append(&state.waiting, key)
 	case .Loading:
 	case .Failed:
-		if time.tick_since(entry.failed_time) > RETRY_LATER do entry.phase = .Waiting
+		if time.tick_since(entry.failed_time) > FAILED_RETRY_WAIT do entry.phase = .Waiting
 	case .Ready:
 		if entry.had_stand_in do return entry.texture, 1
 
 		seconds := f32(time.duration_seconds(time.tick_since(entry.ready_time)))
 		opacity = min(1, seconds / FADE_IN_SECONDS)
-		if opacity < 1 do state.is_fading = true
+		if opacity < 1 do state.is_animating = true
 
 		return entry.texture, opacity
 	}
@@ -180,35 +167,32 @@ watch :: proc(
 	return nil, 0
 }
 
-// Apple puts the size after the last slash. YouTube's googleusercontent.com puts it after "=".
-// Its picture ID follows the last slash. That slash would put every YouTube picture in one family.
+// Apple puts the size after the last slash. googleusercontent.com puts it after "=".
 @(private)
 to_family :: proc(url: string) -> u64 {
+	if strings.has_prefix(url, "/") do return hash.fnv64a(transmute([]u8)url)
+
+	slash := strings.last_index_byte(url, '/')
+	equals := strings.last_index_byte(url, '=')
 	family := url
 
-	if !strings.has_prefix(url, "/") {
-		slash := strings.last_index_byte(url, '/')
-		equals := strings.last_index_byte(url, '=')
-
-		if equals > slash {
-			family = url[:equals]
-		} else if slash > 0 {
-			family = url[:slash]
-		}
+	if equals > slash {
+		family = url[:equals]
+	} else if slash > 0 {
+		family = url[:slash]
 	}
 
 	return hash.fnv64a(transmute([]u8)family)
 }
 
-// Only a size with the same crop stands in. A square crop for a song row would show zoomed in
-// on a wide tile, then jump when the tile's own picture loads.
 @(private)
 find_stand_in :: proc(family, key: u64, crop: Crop) -> (^Entry, bool) {
 	stand_in_key, ok := state.families[family]
 	if !ok || stand_in_key == key do return nil, false
 
 	stand_in := state.entries[stand_in_key] or_else nil
-	if stand_in == nil || stand_in.phase != .Ready || stand_in.crop != crop do return nil, false
+	is_usable_stand_in := stand_in != nil && stand_in.phase == .Ready && stand_in.crop == crop
+	if !is_usable_stand_in do return nil, false
 
 	return stand_in, true
 }
@@ -219,12 +203,8 @@ start_waiting :: proc() {
 		if state.loading_count >= WORKER_COUNT do break
 
 		entry := state.entries[key] or_else nil
-		// A cover that scrolled out of view waits. watch asks for it again when it shows.
-		if entry == nil ||
-		   entry.phase != .Waiting ||
-		   entry.last_drawn_frame < state.frame_index - 1 {
-			continue
-		}
+		is_wanted := entry != nil && entry.phase == .Waiting && is_on_screen(entry)
+		if !is_wanted do continue
 
 		entry.phase = .Loading
 		state.loading_count += 1
@@ -258,8 +238,7 @@ take_finished :: proc() {
 		} else {
 			entry.phase = .Ready
 			entry.texture = job.texture
-			// BGRA8Unorm takes 4 bytes for each pixel.
-			entry.bytes = int(job.texture->width() * job.texture->height()) * 4
+			entry.bytes = int(job.texture->width() * job.texture->height()) * BYTES_PER_PIXEL
 			entry.color = job.color
 			entry.ready_time = time.tick_now()
 			state.families[entry.family] = job.key
@@ -286,8 +265,7 @@ unload_extra :: proc() {
 	candidates := make([dynamic]Candidate, context.temp_allocator)
 
 	for key, entry in state.entries {
-		is_on_screen := entry.last_drawn_frame >= state.frame_index - 1
-		if entry.phase == .Ready && !is_on_screen {
+		if entry.phase == .Ready && !is_on_screen(entry) {
 			append(&candidates, Candidate{key, entry.last_drawn_frame})
 		}
 	}
@@ -315,14 +293,17 @@ unload_extra :: proc() {
 	}
 }
 
-// The count of ready images and of all images, for the bench.
-count :: proc() -> (ready, total: int) {
+@(private)
+is_on_screen :: proc(entry: ^Entry) -> bool {
+	return entry.last_drawn_frame >= state.frame_index - 1
+}
+
+list_counts :: proc() -> (ready, total: int) {
 	for _, entry in state.entries do if entry.phase == .Ready do ready += 1
 
 	return ready, len(state.entries)
 }
 
-// The colour of the picture at url at whichever size loaded. It returns false until one size loads.
 find_color :: proc(url: string) -> (Color, bool) {
 	key, ok := state.families[to_family(url)]
 	if !ok do return {}, false

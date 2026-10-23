@@ -1,5 +1,3 @@
-// An immediate mode UI after Ryan Fleury's. The app builds a tree of boxes every frame.
-// A cache keyed by the ID of each box keeps its state from one frame to the next.
 package ui
 
 import "core:hash"
@@ -13,13 +11,9 @@ Axis :: enum {
 
 Size_Kind :: enum {
 	Points,
-	// The size of the text and the padding.
 	Text,
-	// A share of the parent, without its padding.
 	Percent,
-	// The children laid along the axis, or the largest one across it.
 	Children,
-	// The parent's free space along its axis, shared by weight. Across it, the whole parent.
 	Fill,
 }
 
@@ -45,21 +39,14 @@ Align :: enum {
 }
 
 Flag :: enum {
-	// The box takes hover, press and click.
 	Clickable,
-	// The box takes hover only, such as a title that slides to show the rest.
 	Hoverable,
-	// The box scrolls its children along its axis.
 	Scroll,
 	Clip,
-	// The parent places the box at style.position, out of the flow.
 	Floating,
-	// The box glides to a new place instead of jumping.
 	Animate_Position,
 	Wrap_Text,
-	// One line that ends in an ellipsis when it is too long.
 	Truncate_Text,
-	// A row whose children go on to a new line when the next one does not fit, such as pills.
 	Wrap_Children,
 }
 
@@ -68,18 +55,13 @@ Flags :: bit_set[Flag]
 Style :: struct {
 	width, height:    Size,
 	axis:             Axis,
-	// Left, top, right, bottom.
 	padding:          [4]f32,
 	gap:              f32,
-	// The alignment of the children across the axis.
 	align:            Align,
 	text_align:       Align,
-	// The text moves left by this many points, inside its clip.
 	text_offset:      f32,
 	background:       [4]f32,
-	// How far the edge blurs, in points, for a shadow.
 	softness:         f32,
-	// The background fades to this colour between the two shares of the height in gradient.
 	end_background:   [4]f32,
 	gradient:         [2]f32,
 	hover_background: [4]f32,
@@ -90,14 +72,12 @@ Style :: struct {
 	text_color:       [4]f32,
 	font_weight:      font.Weight,
 	font_size:        f32,
-	// 0 draws the box as it is, 1 hides it and its children.
 	fade:             f32,
 	position:         [2]f32,
 	flags:            Flags,
 }
 
-// A Draw_Proc draws what a style cannot, such as an image. Its rects are in pixels.
-Draw_Proc :: proc(box: ^Box, rect, clip: [4]f32, opacity: f32)
+Draw_Proc :: proc(box: ^Box, rect_pixels, clip_pixels: [4]f32, opacity: f32)
 
 Box :: struct {
 	key:              u64,
@@ -107,34 +87,20 @@ Box :: struct {
 	style:            Style,
 	text:             string,
 	draw:             Draw_Proc,
-	// The proc colours the text per character instead of style.text_color.
 	color_of:         font.Color_Proc,
 	data:             rawptr,
 	last_built_frame: int,
-	// The layout sets these, in points from the top left of the window.
 	size:             [2]f32,
 	rect:             [4]f32,
 	clip:             [4]f32,
 	content_size:     [2]f32,
 	shaped:           ^font.Shaped_Text,
-	// The cache keeps these between frames.
 	hot_fraction:     f32,
 	active_fraction:  f32,
 	scroll:           f32,
 	scroll_target:    f32,
 	shown_rect:       [4]f32,
-	is_shown:         bool,
-}
-
-// What the mouse did to a box this frame.
-Signal :: struct {
-	box:              ^Box,
-	is_hovered:       bool,
-	is_held:          bool,
-	is_clicked:       bool,
-	// The right button, or a Control click, which never presses or clicks.
-	is_right_clicked: bool,
-	click_count:      int,
+	has_shown_rect:   bool,
 }
 
 @(private)
@@ -143,51 +109,49 @@ Animated_Value :: struct {
 	last_built_frame: int,
 }
 
-// Hover and press fade in at this rate, per second.
-HOT_RATE :: 20
+HOT_RATE_PER_SECOND :: 20
 
-// The points that a mouse wheel moves per line.
 POINTS_PER_LINE :: 40
 
 @(private)
-SETTLED :: 0.002
+SETTLED_FRACTION :: 0.002
+
+@(private)
+MAX_FRAME_SECONDS :: 1.0 / 30
+
+@(private)
+NO_CLIP :: [4]f32{0, 0, 1e9, 1e9}
 
 @(private)
 state: struct {
-	boxes:             map[u64]^Box,
-	values:            map[u64]Animated_Value,
-	root:              ^Box,
-	parents:           [dynamic]^Box,
-	frame_index:       int,
-	scale:             f32,
-	zoom:              f32,
-	frame_seconds:     f32,
-	mouse:             [2]f32,
-	hot_key:           u64,
-	active_key:        u64,
-	// The box under the mouse that scrolls along each axis.
-	scroll_keys:       [Axis]u64,
-	// A trackpad swipe and its glide move along one axis, the one its first points went most along.
-	swipe_axis:        Maybe(Axis),
-	// The points the swipe moves before it has an axis.
-	swipe_pending:     [2]f32,
-	clicked_key:       u64,
-	right_clicked_key: u64,
-	// The held button belongs to a right click, so its release clicks nothing.
-	is_right_press:    bool,
-	// Where the left button went down, for a drag.
-	press_position:    [2]f32,
-	pressed_key:       u64,
-	click_count:       int,
-	is_animating:      bool,
+	boxes:                  map[u64]^Box,
+	values:                 map[u64]Animated_Value,
+	root:                   ^Box,
+	parents:                [dynamic]^Box,
+	frame_index:            int,
+	pixels_per_point:       f32,
+	zoom:                   f32,
+	frame_seconds:          f32,
+	mouse:                  [2]f32,
+	hot_key:                u64,
+	active_key:             u64,
+	scroll_keys:            [Axis]u64,
+	swipe_axis:             Maybe(Axis),
+	undecided_swipe_points: [2]f32,
+	clicked_key:            u64,
+	right_clicked_key:      u64,
+	is_right_press:         bool,
+	press_position:         [2]f32,
+	pressed_key:            u64,
+	click_count:            int,
+	is_animating:           bool,
 }
 
-// Points are window points divided by zoom. scale turns points into pixels.
 begin_frame :: proc(window_size_points: [2]f32, pixels_per_point, zoom, frame_seconds: f32) {
 	state.frame_index += 1
 	state.zoom = zoom
-	state.scale = pixels_per_point * zoom
-	state.frame_seconds = min(frame_seconds, 1.0 / 30)
+	state.pixels_per_point = pixels_per_point * zoom
+	state.frame_seconds = min(frame_seconds, MAX_FRAME_SECONDS)
 	state.clicked_key = 0
 	state.right_clicked_key = 0
 	state.pressed_key = 0
@@ -211,6 +175,7 @@ is_animating :: proc() -> bool {
 }
 
 to_key :: proc(id: string, seed: u64) -> u64 {
+	// 0x100000001b3 is the FNV-1a 64-bit prime. 0xcbf29ce484222325 is its offset basis.
 	return hash.fnv64a(transmute([]u8)id, seed * 0x100000001b3 + 0xcbf29ce484222325)
 }
 
@@ -218,7 +183,6 @@ current_parent :: proc() -> ^Box {
 	return state.parents[len(state.parents) - 1]
 }
 
-// A box keyed by id under the current parent, kept between frames. An empty id keeps no state.
 box :: proc(id: string, style: Style, text: string = "") -> ^Box {
 	parent := current_parent()
 	key := to_key(id, parent.key) if id != "" else 0
@@ -239,18 +203,14 @@ box :: proc(id: string, style: Style, text: string = "") -> ^Box {
 
 @(private)
 make_box :: proc(key: u64, style: Style) -> ^Box {
-	box: ^Box
+	box, is_cached := state.boxes[key]
 
 	if key == 0 {
 		box = new(Box, context.temp_allocator)
-	} else {
-		found, ok := state.boxes[key]
-		if !ok {
-			found = new(Box)
-			found.key = key
-			state.boxes[key] = found
-		}
-		box = found
+	} else if !is_cached {
+		box = new(Box)
+		box.key = key
+		state.boxes[key] = box
 	}
 
 	box.style = style
@@ -267,7 +227,6 @@ make_box :: proc(key: u64, style: Style) -> ^Box {
 	return box
 }
 
-// Boxes built inside `if scope(box)` go in box.
 @(deferred_none = pop_parent)
 scope :: proc(box: ^Box) -> bool {
 	append(&state.parents, box)
@@ -276,19 +235,6 @@ scope :: proc(box: ^Box) -> bool {
 
 pop_parent :: proc() {
 	pop(&state.parents)
-}
-
-signal :: proc(box: ^Box) -> Signal {
-	is_hovered := box.key != 0 && box.key == state.hot_key
-
-	return Signal {
-		box = box,
-		is_hovered = is_hovered,
-		is_held = box.key != 0 && box.key == state.active_key,
-		is_clicked = box.key != 0 && box.key == state.clicked_key,
-		is_right_clicked = box.key != 0 && box.key == state.right_clicked_key,
-		click_count = state.click_count,
-	}
 }
 
 find_box :: proc(id: string, parent: ^Box) -> ^Box {
@@ -300,8 +246,7 @@ set_scroll :: proc(box: ^Box, scroll: f32) {
 	box.scroll_target = scroll
 }
 
-// Moves toward target at rate per second and returns where it is now, kept under id between frames.
-animate :: proc(id: string, target: f32, rate: f32 = HOT_RATE) -> f32 {
+animate :: proc(id: string, target: f32, rate: f32 = HOT_RATE_PER_SECOND) -> f32 {
 	key := to_key(id, 0)
 	value, ok := state.values[key]
 
@@ -318,7 +263,7 @@ animate :: proc(id: string, target: f32, rate: f32 = HOT_RATE) -> f32 {
 approach :: proc(value, target, rate: f32) -> f32 {
 	next := value + (target - value) * (1 - math.exp(-state.frame_seconds * rate))
 
-	if abs(target - next) < SETTLED * max(1, abs(target)) do return target
+	if abs(target - next) < SETTLED_FRACTION * max(1, abs(target)) do return target
 
 	state.is_animating = true
 
@@ -330,8 +275,8 @@ end_frame :: proc() {
 	measure(state.root)
 	resolve(state.root)
 	place(state.root, {0, 0}, {0, 0, state.root.size.x, state.root.size.y})
-	find_hot()
-	draw(state.root, {0, 0, 1e9, 1e9}, 1)
+	apply_mouse_to_boxes()
+	draw(state.root, NO_CLIP, 1)
 }
 
 @(private)
@@ -349,5 +294,5 @@ remove_unbuilt :: proc() {
 }
 
 to_pixels :: proc(points: f32) -> f32 {
-	return points * state.scale
+	return points * state.pixels_per_point
 }

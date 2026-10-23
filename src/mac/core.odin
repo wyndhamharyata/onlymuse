@@ -1,4 +1,3 @@
-// The C APIs of macOS the app calls, with only the procedures it uses.
 package mac
 
 foreign import core_foundation "system:CoreFoundation.framework"
@@ -47,7 +46,6 @@ Rect :: struct {
 STRING_ENCODING_UTF8 :: 0x08000100
 NUMBER_INT32 :: 3
 
-// CGImageAlphaInfo and CGBitmapInfo values.
 IMAGE_ALPHA_NONE :: 0
 IMAGE_ALPHA_PREMULTIPLIED_FIRST :: 2
 BITMAP_BYTE_ORDER_32_LITTLE :: 2 << 12
@@ -83,6 +81,9 @@ foreign core_foundation {
 
 @(default_calling_convention = "c")
 foreign core_graphics {
+	kCGColorSpaceSRGB: String_Ref
+
+	CGColorSpaceCreateWithName :: proc(name: String_Ref) -> Color_Space_Ref ---
 	CGColorSpaceCreateDeviceGray :: proc() -> Color_Space_Ref ---
 	CGColorSpaceCreateDeviceRGB :: proc() -> Color_Space_Ref ---
 	CGColorSpaceRelease :: proc(space: Color_Space_Ref) ---
@@ -97,7 +98,6 @@ foreign core_graphics {
 	CGImageGetWidth :: proc(image: Image_Ref) -> uint ---
 	CGImageGetHeight :: proc(image: Image_Ref) -> uint ---
 	CGImageRelease :: proc(image: Image_Ref) ---
-	// rect is in the image's pixels, from its top left.
 	CGImageCreateWithImageInRect :: proc(image: Image_Ref, rect: Rect) -> Image_Ref ---
 }
 

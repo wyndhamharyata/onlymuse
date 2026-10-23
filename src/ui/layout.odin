@@ -4,18 +4,41 @@ import "core:math"
 import "om:font"
 
 @(private)
-to_font :: proc(style: Style) -> font.Font {
-	size := style.font_size if style.font_size > 0 else 13
+DEFAULT_FONT_SIZE_POINTS :: 13
 
-	return font.system_font(style.font_weight, size * state.scale)
+@(private)
+GLIDE_RATE_PER_SECOND :: HOT_RATE_PER_SECOND / 2
+
+@(private)
+read_font :: proc(style: Style) -> font.Font {
+	size := style.font_size if style.font_size > 0 else DEFAULT_FONT_SIZE_POINTS
+
+	return font.system_font(style.font_weight, size * state.pixels_per_point)
 }
 
-// Works out the sizes that need no parent, from the bottom of the tree up.
+@(private)
+to_padding_size :: proc(style: Style) -> [2]f32 {
+	return {style.padding.x + style.padding.z, style.padding.y + style.padding.w}
+}
+
+@(private)
+to_align_offset :: proc(align: Align, free_space: f32) -> f32 {
+	switch align {
+	case .Start:
+	case .Center:
+		return math.round(free_space / 2)
+	case .End:
+		return free_space
+	}
+
+	return 0
+}
+
 @(private)
 measure :: proc(box: ^Box) {
 	for child := box.first; child != nil; child = child.next do measure(child)
 
-	if box.text != "" do box.shaped = font.shape(box.text, to_font(box.style))
+	if box.text != "" do box.shaped = font.shape(box.text, read_font(box.style))
 
 	box.size = {measure_axis(box, .X), measure_axis(box, .Y)}
 }
@@ -23,16 +46,14 @@ measure :: proc(box: ^Box) {
 @(private)
 measure_axis :: proc(box: ^Box, axis: Axis) -> f32 {
 	size := box.style.width if axis == .X else box.style.height
-	padding :=
-		box.style.padding.x + box.style.padding.z if axis == .X else box.style.padding.y + box.style.padding.w
+	padding := to_padding_size(box.style)[int(axis)]
 
-	// resolve_children sizes Percent and Fill later.
 	#partial switch size.kind {
 	case .Points:
 		return size.value
 	case .Text:
 		if box.shaped == nil do return padding
-		return math.ceil(box.shaped.size[int(axis)] / state.scale) + padding
+		return math.ceil(box.shaped.size_pixels[int(axis)] / state.pixels_per_point) + padding
 	case .Children:
 		return children_extent(box, axis) + padding
 	}
@@ -62,29 +83,22 @@ children_extent :: proc(box: ^Box, axis: Axis) -> f32 {
 	return total
 }
 
-// Works out the sizes that need the parent, from the root down. A box sized by its children then
-// grows to fit the text that wrapped below it. place then aligns the box by this final size.
 @(private)
 resolve :: proc(box: ^Box) {
 	style := box.style
+	padding := to_padding_size(style)
 
-	resolve_children(
-		box,
-		{
-			box.size.x - style.padding.x - style.padding.z,
-			box.size.y - style.padding.y - style.padding.w,
-		},
-	)
+	resolve_children(box, box.size - padding)
 
 	for child := box.first; child != nil; child = child.next do resolve(child)
 
 	if style.width.kind == .Children && style.axis == .Y {
-		box.size.x = children_extent(box, .X) + style.padding.x + style.padding.z
+		box.size.x = children_extent(box, .X) + padding.x
 	}
 
 	if style.height.kind == .Children {
 		extent := wrap_lines(box, nil) if is_wrapping(box) else children_extent(box, .Y)
-		box.size.y = extent + style.padding.y + style.padding.w
+		box.size.y = extent + padding.y
 	}
 }
 
@@ -93,17 +107,14 @@ is_wrapping :: proc(box: ^Box) -> bool {
 	return .Wrap_Children in box.style.flags && box.style.axis == .X
 }
 
-// Lays a wrapping row's children in lines no wider than the row. It returns the lines' height.
-// With a clip, it places them too.
 @(private)
 wrap_lines :: proc(box: ^Box, clip: ^[4]f32) -> f32 {
 	style := box.style
-	inner_width := box.size.x - style.padding.x - style.padding.z
+	inner_width := box.size.x - to_padding_size(style).x
 	line_top: f32
 	line := box.first
 
 	for line != nil {
-		// The children that fit on this line, and the tallest of them.
 		width, height: f32
 		end := line
 		count := 0
@@ -115,7 +126,9 @@ wrap_lines :: proc(box: ^Box, clip: ^[4]f32) -> f32 {
 			}
 
 			next_width := width + child.size.x + (style.gap if count > 0 else 0)
-			if count > 0 && next_width > inner_width do break
+			is_line_full := count > 0 && next_width > inner_width
+
+			if is_line_full do break
 
 			width = next_width
 			height = max(height, child.size.y)
@@ -133,14 +146,7 @@ wrap_lines :: proc(box: ^Box, clip: ^[4]f32) -> f32 {
 				}
 
 				origin := pen
-
-				switch style.align {
-				case .Start:
-				case .Center:
-					origin.y += math.round((height - child.size.y) / 2)
-				case .End:
-					origin.y += height - child.size.y
-				}
+				origin.y += to_align_offset(style.align, height - child.size.y)
 
 				place(child, origin, clip^)
 				pen.x += child.size.x + style.gap
@@ -155,17 +161,13 @@ wrap_lines :: proc(box: ^Box, clip: ^[4]f32) -> f32 {
 	return line_top
 }
 
-// Places each box, from the root down. clip is in points.
 @(private)
 place :: proc(box: ^Box, origin: [2]f32, clip: [4]f32) {
 	box.rect = {origin.x, origin.y, origin.x + box.size.x, origin.y + box.size.y}
 	box.clip = clip
 
 	style := box.style
-	inner := [2]f32 {
-		box.size.x - style.padding.x - style.padding.z,
-		box.size.y - style.padding.y - style.padding.w,
-	}
+	inner := box.size - to_padding_size(style)
 	main := int(style.axis)
 	cross := 1 - main
 
@@ -178,7 +180,11 @@ place :: proc(box: ^Box, origin: [2]f32, clip: [4]f32) {
 	if .Scroll in style.flags {
 		max_scroll := max(0, box.content_size[main] - box.size[main])
 		box.scroll_target = clamp(box.scroll_target, 0, max_scroll)
-		box.scroll = clamp(approach(box.scroll, box.scroll_target, HOT_RATE), 0, max_scroll)
+		box.scroll = clamp(
+			approach(box.scroll, box.scroll_target, HOT_RATE_PER_SECOND),
+			0,
+			max_scroll,
+		)
 	}
 
 	if is_wrapping(box) {
@@ -197,15 +203,7 @@ place :: proc(box: ^Box, origin: [2]f32, clip: [4]f32) {
 		}
 
 		child_origin := pen
-		free_space := inner[cross] - child.size[cross]
-
-		switch style.align {
-		case .Start:
-		case .Center:
-			child_origin[cross] += math.round(free_space / 2)
-		case .End:
-			child_origin[cross] += free_space
-		}
+		child_origin[cross] += to_align_offset(style.align, inner[cross] - child.size[cross])
 
 		place(child, child_origin, child_clip)
 		pen[main] += child.size[main] + style.gap
@@ -248,14 +246,12 @@ resolve_children :: proc(box: ^Box, inner: [2]f32) {
 
 	for child := box.first; child != nil; child = child.next {
 		sizes := [2]Size{child.style.width, child.style.height}
+		is_fill :=
+			.Floating not_in child.style.flags && sizes[main].kind == .Fill && fill_weight > 0
+		is_fitted_text := .Wrap_Text in child.style.flags || .Truncate_Text in child.style.flags
 
-		if .Floating not_in child.style.flags && sizes[main].kind == .Fill && fill_weight > 0 {
-			child.size[main] = math.floor(leftover * sizes[main].value / fill_weight)
-		}
-
-		if .Wrap_Text in child.style.flags || .Truncate_Text in child.style.flags {
-			fit_text_to_width(child)
-		}
+		if is_fill do child.size[main] = math.floor(leftover * sizes[main].value / fill_weight)
+		if is_fitted_text do fit_text_to_width(child)
 	}
 }
 
@@ -267,32 +263,40 @@ resolve_free_size :: proc(child: ^Box, inner: [2]f32) {
 	if child.style.height.kind == .Fill do child.size.y = inner.y
 }
 
-// The height of wrapped text depends on its width.
 @(private)
 fit_text_to_width :: proc(box: ^Box) {
 	if box.text == "" do return
 
-	inner_width := box.size.x - box.style.padding.x - box.style.padding.z
+	padding := to_padding_size(box.style)
+	inner_width := box.size.x - padding.x
 	overflow := font.Overflow.Truncate if .Truncate_Text in box.style.flags else font.Overflow.Wrap
 
-	box.shaped = font.shape(box.text, to_font(box.style), inner_width * state.scale, overflow)
+	box.shaped = font.shape(
+		box.text,
+		read_font(box.style),
+		inner_width * state.pixels_per_point,
+		overflow,
+	)
 
 	if box.style.height.kind == .Text {
-		box.size.y =
-			math.ceil(box.shaped.size.y / state.scale) + box.style.padding.y + box.style.padding.w
+		box.size.y = math.ceil(box.shaped.size_pixels.y / state.pixels_per_point) + padding.y
 	}
 }
 
 @(private)
 animate_rect :: proc(box: ^Box) {
-	if !box.is_shown {
+	if !box.has_shown_rect {
 		box.shown_rect = box.rect
-		box.is_shown = true
+		box.has_shown_rect = true
 		return
 	}
 
 	for index in 0 ..< 4 {
-		box.shown_rect[index] = approach(box.shown_rect[index], box.rect[index], HOT_RATE / 2)
+		box.shown_rect[index] = approach(
+			box.shown_rect[index],
+			box.rect[index],
+			GLIDE_RATE_PER_SECOND,
+		)
 	}
 }
 

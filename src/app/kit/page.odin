@@ -4,7 +4,6 @@ import "om:app/core"
 import "om:apple"
 import "om:ui"
 
-// A scrolling page with its title. Children go inside the returned box.
 page_scroll :: proc(id: string) -> ^ui.Box {
 	box := ui.box(
 		id,
@@ -22,6 +21,10 @@ page_scroll :: proc(id: string) -> ^ui.Box {
 	return box
 }
 
+to_content_width :: proc(page: ^ui.Box) -> f32 {
+	return page.size.x - page.style.padding.x - page.style.padding.z
+}
+
 page_heading :: proc(title: string) {
 	ui.box(
 		"",
@@ -37,7 +40,6 @@ page_heading :: proc(title: string) {
 	)
 }
 
-// A dim line on a page, such as "Loading…" or a message for an empty list.
 note :: proc(text: string) {
 	ui.box(
 		"",
@@ -46,18 +48,21 @@ note :: proc(text: string) {
 	)
 }
 
-// Returns true when clicked. The accent fills the primary button.
+PRIMARY_BUTTON_HOVER_ALPHA :: 0.85
+
+BUTTON_HOVER_ALPHA :: 0.14
+
 action_button :: proc(label, symbol: string, is_primary: bool, symbol_color: [4]f32 = {}) -> bool {
 	background := core.app.accent if is_primary else colors.field
 	hover := background
-	hover.a = 0.85 if is_primary else 0.14
-	color := to_color(0xffffffff) if is_primary else colors.text
+	hover.a = PRIMARY_BUTTON_HOVER_ALPHA if is_primary else BUTTON_HOVER_ALPHA
+	color := colors.white if is_primary else colors.text
 
 	button := ui.box(
 		label,
 		{
 			width = ui.fit_children(),
-			height = ui.points(32),
+			height = ui.points(BUTTON_HEIGHT_POINTS),
 			axis = .X,
 			align = .Center,
 			gap = 6,
@@ -88,7 +93,6 @@ action_button :: proc(label, symbol: string, is_primary: bool, symbol_color: [4]
 
 BENCH_POINTS_PER_FRAME :: 30
 
-// With OM_BENCH=1, scrolls the list up and down each frame, so the bench can time the frames.
 run_bench_scroll :: proc(list: ^ui.Box) {
 	if !core.app.is_bench do return
 
@@ -96,13 +100,12 @@ run_bench_scroll :: proc(list: ^ui.Box) {
 
 	if max_scroll <= 0 do return
 
-	if list.scroll >= max_scroll || (list.scroll <= 0 && core.app.bench_direction < 0) {
-		core.app.bench_direction *= -1
-	}
+	is_at_end := list.scroll >= max_scroll || (list.scroll <= 0 && core.app.bench_direction < 0)
+	if is_at_end do core.app.bench_direction *= -1
 
 	ui.set_scroll(list, list.scroll + BENCH_POINTS_PER_FRAME * core.app.bench_direction)
 }
 
 to_phase_text :: proc(phase: apple.Phase) -> string {
-	return "Apple Music could not be reached." if phase == .Failed else "Loading…"
+	return "onlymuse could not reach Apple Music." if phase == .Failed else "Loading…"
 }

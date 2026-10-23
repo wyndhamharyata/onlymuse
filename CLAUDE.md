@@ -104,6 +104,14 @@ A procedure name starts with a verb. Each verb has one meaning.
 | `build` | Builds boxes for this frame. |
 | `draw` | Draws a box's own content, such as an image. |
 | `is`, `has` | Answers yes or no. |
+| `make` | Creates an object the caller owns, such as a view, a texture or a Core Foundation value. |
+| `add` | Puts one item into a list, a view or the Console. |
+| `post` | Writes to Apple's or YouTube's API over the network. |
+| `ask` | Shows the person a question and waits for the answer. |
+| `begin`, `finish` | Opens or closes one frame, or one pass over the boxes. |
+
+A procedure that builds one box and returns it may take the name of the box, as `ui.box`,
+`kit.text_box` and `kit.menu_item` do.
 
 ## Commands
 
@@ -187,26 +195,29 @@ constants and types. A person checks them. Prose follows ASD-STE100 Simplified T
 
 "Add" as a button label or an action name, such as "Add to Library" and `addToLibrary`, is allowed.
 
-## 3. A comment says what a name cannot.
+## 3. A comment is rare.
 
-The default is no comment. Write one line only when it holds one of these:
+The default is no comment. The code, its names and its types say what it does. Comment lines stay
+at most 1% of the lines of code, across `src/`, `helper/Sources` and `tools/`. A new comment over
+that limit replaces a weaker one. Write a comment only when deleting it would leave a reader stuck.
+It holds one of these:
 
-- The reason the code does something a reader would not expect.
+- The reason for code a reader would otherwise "fix": a macOS, Music.app, Apple API or YouTube
+  behaviour the code meets.
+- A fact about a platform a reader new to it needs, such as Metal, Core Text, AppKit or SQLite.
 - The source of a formula, with the source's own symbol.
-- The unit of a bare number, when a name cannot hold it.
-- A constraint outside the code that a tool or a platform sets.
-- What part of onlymuse the code serves, for a reader with no context: the feature, the page or
-  the step of playback, in the § Words terms. Write it above a package's main file, a type or a
-  procedure when its name alone does not tell the reader.
 
-A comment never explains the Odin language, such as `defer`, `@(private)` or the temp allocator.
-The reader learns Odin from the overview at https://odin-lang.org/docs/overview/.
+Everything else goes: what the code does, what a name already says, the unit a name holds, which
+feature a procedure serves, step narration, banners, commented-out code and TODOs. A comment never
+explains the Odin language. It is one line, or two for a platform fact that needs them. It describes
+the code as it is, never a past version, and never names a PR, an issue or a conversation.
 
-Never write a banner, step narration, a label such as `// Main logic`, commented-out code, or a TODO
-with no named task. A comment is one line. It explains the code as it is. It never refers to a past
-version or a change. The one exception is a bug fix: the comment may name the bug the code
-prevents, as a fact about how the code behaves now. A comment never names a PR, a commit, a branch,
-an issue, a conversation or anything else outside the repo. Types carry the contract.
+A comment never excuses a patch. When code needs a clamp, a retry, a delay, a second check or a
+special case to hide a wrong value, find where the value goes wrong and fix it there. A comment
+with "in case", "just to be safe" or "works around" means the cause is still unfound.
+
+A limit the person chose to keep starts with `shortcut:`, then names the limit and when to remove
+it. This is the one label that rule 2.3 allows. A known bug is never a `shortcut:`.
 
 ## 4. A name is a full word.
 

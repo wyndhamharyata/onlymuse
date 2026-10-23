@@ -7,46 +7,42 @@ import "om:apple"
 import "om:net"
 import "om:youtube"
 
-// A YouTube song goes into onlymuse's own Favourite Songs, as Apple's holds only Apple songs.
-// It also likes the song on YouTube, so Liked Music shows it. YouTube's mixes learn from it too.
+// Apple's Favourite Songs holds only Apple songs, so a YouTube song goes into onlymuse's own.
 set_youtube_favourite :: proc(song: core.Catalog_Song, is_favourite: bool) {
-	_, playlist_id, _ := core.list_playlists()
-
-	if playlist_id != "" && is_favourite && !is_playlist_youtube_song(playlist_id, song.id) {
-		add_playlist_youtube_songs(playlist_id, {{"", song}})
-	}
-
-	if playlist_id != "" && !is_favourite do remove_playlist_youtube_song(playlist_id, song.id)
+	_, playlist_id, _ := core.watch_playlists()
 
 	start_youtube_like(youtube.to_video_id(song.id), is_favourite)
+	if playlist_id == "" do return
+
+	if !is_favourite {
+		remove_playlist_youtube_song(playlist_id, song.id)
+	} else if !is_playlist_youtube_song(playlist_id, song.id) {
+		add_playlist_youtube_songs(playlist_id, {{"", song}})
+	}
 }
 
-// In onlymuse's Favourite Songs, or liked on YouTube.
 is_youtube_favourite :: proc(song: core.Catalog_Song) -> bool {
-	_, playlist_id, _ := core.list_playlists()
+	_, playlist_id, _ := core.watch_playlists()
 	if playlist_id != "" && is_playlist_youtube_song(playlist_id, song.id) do return true
 
-	return song.id in list_youtube_liked_ids()
+	return song.id in watch_youtube_liked_ids()
 }
 
-// The song IDs in Liked Music, read again with its songs. It holds none without a YouTube sign-in.
 @(private = "file")
 youtube_liked: struct {
 	songs_address: rawptr,
 	ids:           map[string]bool,
-	// frame_count + 1 of the last check, so 0 means no check yet. Each row's heart asks each frame.
 	checked_frame: int,
 }
 
 @(private = "file")
-list_youtube_liked_ids :: proc() -> map[string]bool {
+watch_youtube_liked_ids :: proc() -> map[string]bool {
 	if !youtube.is_signed_in() do return nil
 	if youtube_liked.checked_frame == core.app.frame_count + 1 do return youtube_liked.ids
 
 	youtube_liked.checked_frame = core.app.frame_count + 1
 
 	_, songs, phase := watch_youtube_songs(youtube.to_list_path(youtube.LIKED_ID))
-	// core reads the songs into fresh memory each time, so another address means they changed.
 	if phase != .Ready || raw_data(songs) == youtube_liked.songs_address do return youtube_liked.ids
 
 	for key in youtube_liked.ids do delete(key)
@@ -68,8 +64,6 @@ Like_Job :: struct {
 	is_liked: bool,
 }
 
-// The request blocks, so it runs on a thread of its own.
-// It then asks for Liked Music again, so the list shows the change.
 @(private = "file")
 start_youtube_like :: proc(video_id: string, is_liked: bool) {
 	if !youtube.is_signed_in() do return
@@ -84,7 +78,7 @@ start_youtube_like :: proc(video_id: string, is_liked: bool) {
 			defer delete(job.video_id)
 			defer free_all(context.temp_allocator)
 
-			if youtube.send_like(job.video_id, job.is_liked) != 200 do return
+			if youtube.post_like(job.video_id, job.is_liked) != 200 do return
 
 			apple.refresh(youtube.to_list_path(youtube.LIKED_ID))
 		}, self_cleanup = true)

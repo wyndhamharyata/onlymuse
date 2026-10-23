@@ -18,23 +18,17 @@ Page_Kind :: enum {
 	Catalog_Playlist,
 	Album,
 	Artist,
-	// The songs of an artist's newest releases. id holds the artist's ID. title holds their name.
 	Artist_Recent_Songs,
 	Search,
-	// The song playing, whichever it is.
 	Now_Playing,
-	// A YouTube Music album, playlist or mix. id is YouTube's browse ID or playlist ID.
 	YouTube_Playlist,
 	YouTube_Mixes,
-	// A YouTube playlist to bring over to Apple Music, or the list of them when id is empty.
 	Bring_Over,
-	// The errors since the app started.
 	Console,
 }
 
 Page :: struct {
 	kind:  Page_Kind,
-	// The playlist, album or artist ID, or the search term.
 	id:    string,
 	title: string,
 }
@@ -43,7 +37,6 @@ MAX_PAGE_COUNT :: 50
 
 navigation: struct {
 	pages:   [dynamic]Page,
-	// The scroll of each history page, in points. Back, Forward and the next run return there.
 	scrolls: [dynamic]f32,
 	index:   int,
 }
@@ -52,13 +45,10 @@ current_page :: proc() -> Page {
 	return navigation.pages[navigation.index]
 }
 
-// Counts up each time the window shows a page anew, by opening, Back or Forward.
 navigation_visit: int
 
-// Opens a page after the current one and drops the pages that Forward would show. The history
-// clones the ID and title. A card's copies live in its page's arena, which the app may free.
 navigate :: proc(chosen: Page) {
-	if len(navigation.pages) > 0 && current_page() == chosen do return
+	if has_history() && current_page() == chosen do return
 
 	page := Page {
 		kind  = chosen.kind,
@@ -66,7 +56,7 @@ navigate :: proc(chosen: Page) {
 		title = strings.clone(chosen.title),
 	}
 
-	kept := navigation.index + 1 if len(navigation.pages) > 0 else 0
+	kept := navigation.index + 1 if has_history() else 0
 	resize(&navigation.pages, kept)
 	resize(&navigation.scrolls, kept)
 	append(&navigation.pages, page)
@@ -78,6 +68,16 @@ navigate :: proc(chosen: Page) {
 	}
 
 	navigation.index = len(navigation.pages) - 1
+	save_visit()
+}
+
+@(private = "file")
+has_history :: proc() -> bool {
+	return len(navigation.pages) > 0
+}
+
+@(private = "file")
+save_visit :: proc() {
 	navigation_visit += 1
 	save_navigation()
 }
@@ -92,17 +92,14 @@ can_go_forward :: proc() -> bool {
 
 go_back :: proc() {
 	if can_go_back() do navigation.index -= 1
-	navigation_visit += 1
-	save_navigation()
+	save_visit()
 }
 
 go_forward :: proc() {
 	if can_go_forward() do navigation.index += 1
-	navigation_visit += 1
-	save_navigation()
+	save_visit()
 }
 
-// The saved form of a page, under the state key "navigation".
 @(private = "file")
 Saved_Page :: struct {
 	id:          string,
@@ -110,7 +107,6 @@ Saved_Page :: struct {
 	artist_id:   string `json:"artistId"`,
 	playlist_id: string `json:"playlistId"`,
 	term:        string,
-	// The artist's name, which the page shows as its title.
 	artist_name: string `json:"artistName"`,
 	playlist:    struct {
 		id:   string,
@@ -212,7 +208,6 @@ save_navigation :: proc() {
 	if error == nil do store.save_state("navigation", string(bytes))
 }
 
-// The pages of the last run, with Back and Forward as they were. Home when there are none.
 start_navigation :: proc() {
 	text, has_text := store.find_state("navigation")
 	saved: Saved_Navigation
@@ -228,19 +223,16 @@ start_navigation :: proc() {
 		}
 	}
 
-	if len(navigation.pages) == 0 {
+	if !has_history() {
 		append(&navigation.pages, Page{kind = .Home})
 		append(&navigation.scrolls, 0)
 	}
 
 	navigation.index = clamp(saved.index, 0, len(navigation.pages) - 1)
 
-	// The first page shown is a visit too, so its saved place comes back.
 	navigation_visit = 1
 }
 
-// Each time the window shows a page anew, its scroll box takes back its saved place. The content
-// may still load, so keep_scroll sets the place again until the content is tall enough or 2 s pass.
 keep_scroll :: proc(page_box: ^ui.Box) {
 	index := navigation.index
 	if index >= len(navigation.scrolls) do return
@@ -256,7 +248,6 @@ keep_scroll :: proc(page_box: ^ui.Box) {
 
 	if restore.frames_left > 0 {
 		max_scroll := max(0, page_box.content_size.y - page_box.size.y)
-		// A scroll of the person's own ends the restore. A clamp to the content does not.
 		is_scrolled_away :=
 			page_box.size.y > 0 &&
 			page_box.scroll_target != saved &&
@@ -264,7 +255,8 @@ keep_scroll :: proc(page_box: ^ui.Box) {
 
 		if !is_scrolled_away {
 			restore.frames_left -= 1
-			if page_box.size.y > 0 && max_scroll >= saved do restore.frames_left = 0
+			is_tall_enough := page_box.size.y > 0 && max_scroll >= saved
+			if is_tall_enough do restore.frames_left = 0
 			ui.set_scroll(page_box, saved)
 			return
 		}
@@ -278,7 +270,6 @@ keep_scroll :: proc(page_box: ^ui.Box) {
 	is_scroll_changed = true
 }
 
-// 2 s at 120 Hz.
 RESTORE_FRAME_COUNT :: 240
 
 @(private = "file")
@@ -287,5 +278,4 @@ restore: struct {
 	frames_left: int,
 }
 
-// The app saves the scroll once it rests, not on every frame of a scroll.
 is_scroll_changed: bool

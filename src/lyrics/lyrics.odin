@@ -1,4 +1,3 @@
-// This package fetches the lyrics of the playing song from Apple's API and reads their TTML.
 package lyrics
 
 import "core:encoding/json"
@@ -15,19 +14,15 @@ import "om:store"
 
 Word :: struct {
 	begin_seconds: f64,
-	// The UTF-16 range in the line's text, as CoreText counts.
 	utf16_range:   [2]int,
 }
 
-// A song timed by line has one word for each line.
 Line :: struct {
 	begin_seconds:       f64,
 	text:                string,
 	words:               []Word,
-	// Empty when the pronunciation has the same letters as the text.
 	pronunciation:       string,
 	pronunciation_words: []Word,
-	// The line in English, when Apple has a translation. Empty otherwise.
 	translation:         string,
 }
 
@@ -35,7 +30,6 @@ Phase :: enum {
 	None,
 	Loading,
 	Ready,
-	// Apple has none, or the song is not in the catalog.
 	Missing,
 }
 
@@ -52,16 +46,11 @@ state: struct {
 	persistent_id: string,
 	phase:         Phase,
 	lines:         []Line,
-	// Who wrote the words, as the lyrics name them.
 	songwriters:   []string,
-	// The arena holds the lines and the songwriters.
 	arena:         virtual.Arena,
-	// The last song's lines, which the frame that asked for the new song may still show.
 	last_arena:    virtual.Arena,
 }
 
-// The lyrics of the song. The first call for a song starts a thread that loads them.
-// A caller may use the lines until it asks for another song.
 watch :: proc(persistent_id, name, artist: string) -> (Phase, []Line) {
 	sync.guard(&state.mutex)
 
@@ -84,7 +73,6 @@ watch :: proc(persistent_id, name, artist: string) -> (Phase, []Line) {
 	return state.phase, nil
 }
 
-// This procedure runs on a thread of its own.
 @(private)
 fetch_lyrics :: proc(data: rawptr) {
 	request := cast(^Request)data
@@ -109,7 +97,6 @@ fetch_lyrics :: proc(data: rawptr) {
 
 	sync.guard(&state.mutex)
 
-	// Another song started while these lines loaded.
 	if request.persistent_id != state.persistent_id {
 		virtual.arena_destroy(&arena)
 		return
@@ -124,14 +111,15 @@ fetch_lyrics :: proc(data: rawptr) {
 
 // "%5B" and "%5D" encode "[" and "]". The query asks for English translations and Latin letters.
 @(private)
-LYRICS_QUERY :: "?l%5Blyrics%5D=en-GB&l%5Bscript%5D=en-Latn&extend=ttmlLocalizations"
+LYRICS_QUERY ::
+	"?l%5Blyrics%5D=" + apple.LANGUAGE + "&l%5Bscript%5D=en-Latn&extend=ttmlLocalizations"
 
 @(private)
 fetch_lines :: proc(name, artist: string, allocator: mem.Allocator) -> ([]Line, []string, bool) {
 	song_id, ok := find_song_id(name, artist)
 	if !ok do return nil, nil, false
 
-	// A YouTube song has the ID "yt:" and its video ID. Apple's catalog has no lyrics for it.
+	// Only a catalog ID is all digits. A YouTube or library ID has no lyrics.
 	for character in song_id do if character < '0' || character > '9' do return nil, nil, false
 
 	answer := apple.fetch(
@@ -145,7 +133,6 @@ fetch_lines :: proc(name, artist: string, allocator: mem.Allocator) -> ([]Line, 
 	)
 	is_syllable := answer.status == 200
 
-	// A song with no word timing has only lyrics by line.
 	if !is_syllable {
 		answer = apple.fetch(
 			fmt.tprintf("/v1/catalog/%s/songs/%s/lyrics", apple.STOREFRONT, song_id),
@@ -166,10 +153,10 @@ fetch_lines :: proc(name, artist: string, allocator: mem.Allocator) -> ([]Line, 
 
 	parsed: Lyrics_Answer
 
-	if json.unmarshal_string(answer.body, &parsed, allocator = context.temp_allocator) != nil ||
-	   len(parsed.data) == 0 {
+	if json.unmarshal_string(answer.body, &parsed, allocator = context.temp_allocator) != nil {
 		return nil, nil, false
 	}
+	if len(parsed.data) == 0 do return nil, nil, false
 
 	attributes := parsed.data[0].attributes
 	ttml :=
@@ -178,15 +165,13 @@ fetch_lines :: proc(name, artist: string, allocator: mem.Allocator) -> ([]Line, 
 	return to_lines(ttml, allocator), to_songwriters(ttml, allocator), true
 }
 
-// The songwriters of the playing song's lyrics, after they load.
-find_songwriters :: proc(persistent_id: string) -> []string {
+list_songwriters :: proc(persistent_id: string) -> []string {
 	sync.guard(&state.mutex)
 
 	return state.songwriters if persistent_id == state.persistent_id else nil
 }
 
-// A song that starts outside onlymuse has no catalog ID yet. The saved queue knows some IDs.
-// A catalog search finds the rest.
+// A song started outside onlymuse has no catalog ID, so the saved queue or a search finds it.
 @(private)
 find_song_id :: proc(name, artist: string) -> (string, bool) {
 	if id, ok := find_queue_song_id(name, artist, context.temp_allocator); ok do return id, true
@@ -198,28 +183,14 @@ find_song_id :: proc(name, artist: string) -> (string, bool) {
 	)
 	if answer.status != 200 do return "", false
 
-	Search_Answer :: struct {
-		results: struct {
-			songs: struct {
-				data: []struct {
-					id:         string,
-					attributes: struct {
-						name:        string,
-						artist_name: string `json:"artistName"`,
-					},
-				},
-			},
-		},
-	}
-
-	parsed: Search_Answer
+	parsed: apple.Search_Answer
 
 	if json.unmarshal_string(answer.body, &parsed, allocator = context.temp_allocator) != nil {
 		return "", false
 	}
 
 	for song in parsed.results.songs.data {
-		if song.attributes.name == name && song.attributes.artist_name == artist {
+		if is_same_song(song.attributes.name, song.attributes.artist_name, name, artist) {
 			return song.id, true
 		}
 	}
@@ -227,7 +198,6 @@ find_song_id :: proc(name, artist: string) -> (string, bool) {
 	return "", false
 }
 
-// The catalog ID of a song in the saved queue with the same name and artist.
 @(private)
 find_queue_song_id :: proc(
 	name, artist: string,
@@ -254,10 +224,15 @@ find_queue_song_id :: proc(
 	}
 
 	for song in queue.songs {
-		if song.name == name && song.artist_name == artist {
+		if is_same_song(song.name, song.artist_name, name, artist) {
 			return strings.clone(song.id, allocator), true
 		}
 	}
 
 	return "", false
+}
+
+@(private)
+is_same_song :: proc(name, artist, playing_name, playing_artist: string) -> bool {
+	return name == playing_name && artist == playing_artist
 }

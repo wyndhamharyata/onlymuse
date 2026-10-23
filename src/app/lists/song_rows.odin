@@ -13,11 +13,8 @@ SONG_ROW_POINTS :: 54
 
 SONG_ARTWORK_POINTS :: 40
 
-// A list builds this many rows past each of its edges, so a fast scroll finds them ready.
 EXTRA_ROW_COUNT :: 2
 
-// Builds Favourite Songs, Songs, Downloaded, every playlist and an artist's Recent Songs.
-// With dates, the songs are one artist's, so a row shows its album and date, not the artist.
 build_song_list_page :: proc(
 	title, description: string,
 	songs: []core.Catalog_Song,
@@ -30,14 +27,7 @@ build_song_list_page :: proc(
 	if ui.scope(page) {
 		header := ui.box(
 			"header",
-			{
-				width = ui.fill(),
-				height = ui.fit_children(),
-				axis = .X,
-				align = .End,
-				gap = 10,
-				padding = {0, 0, 0, 0},
-			},
+			{width = ui.fill(), height = ui.fit_children(), axis = .X, align = .End, gap = 10},
 		)
 
 		if ui.scope(header) {
@@ -53,33 +43,50 @@ build_song_list_page :: proc(
 				if description != "" {
 					count_text = fmt.tprintf("%s · %s", count_text, description)
 				}
+
 				kit.text_box(
 					count_text if phase == .Ready else kit.to_phase_text(phase),
 					kit.colors.dim,
 				)
 			}
 
-			if phase == .Ready && len(songs) > 0 {
-				if kit.action_button("Play", "play.fill", true) do playback.play_songs(songs, 0)
-				if kit.action_button("Shuffle", "shuffle", false) do playback.shuffle_songs(songs)
-			}
+			if phase == .Ready && len(songs) > 0 do build_play_buttons(songs)
 		}
 
-		if phase == .Ready && len(songs) == 0 do kit.note("Nothing here yet.")
-		if phase == .Ready do build_song_rows(page, songs, dates)
+		if phase == .Ready {
+			if len(songs) == 0 do kit.note("Nothing here yet.")
+			build_song_rows(page, songs, dates)
+		}
 	}
 }
 
-// This builds only the rows on screen. A click plays the list from that song.
+build_play_buttons :: proc(songs: []core.Catalog_Song) {
+	if kit.action_button("Play", "play.fill", true) do playback.play_songs(songs, 0)
+	if kit.action_button("Shuffle", "shuffle", false) do playback.shuffle_songs(songs)
+}
+
+to_visible_range :: proc(
+	offset_points, view_points, step_points: f32,
+	count, extra_count: int,
+) -> (
+	first, last: int,
+) {
+	first = max(0, int(offset_points / step_points) - extra_count)
+	last = min(count - 1, int((offset_points + view_points) / step_points) + extra_count)
+
+	return
+}
+
 build_song_rows :: proc(page: ^ui.Box, songs: []core.Catalog_Song, dates: []string = nil) {
 	rows := ui.box("rows", {width = ui.fill(), height = ui.fit_children(), axis = .Y})
-	top := core.offset_in_page(page, rows)
-	first := max(0, int((page.scroll - top) / SONG_ROW_POINTS) - EXTRA_ROW_COUNT)
-	last := min(
-		len(songs) - 1,
-		int((page.scroll - top + page.size.y) / SONG_ROW_POINTS) + EXTRA_ROW_COUNT,
+	top := core.to_offset_in_page(page, rows)
+	first, last := to_visible_range(
+		page.scroll - top,
+		page.size.y,
+		SONG_ROW_POINTS,
+		len(songs),
+		EXTRA_ROW_COUNT,
 	)
-	current, is_playing := playback.find_queue_song(core.app.now_playing.song.persistent_id)
 
 	if ui.scope(rows) {
 		if first > 0 {
@@ -88,7 +95,7 @@ build_song_rows :: proc(page: ^ui.Box, songs: []core.Catalog_Song, dates: []stri
 
 		for index in first ..= last {
 			song := songs[index]
-			is_current := is_playing && matching.is_same_queue_song(current, song)
+			is_current := playback.is_current_song(song)
 			subtitle := song.album_name if dates != nil else to_song_subtitle(song)
 			date := kit.to_date_text(dates[index]) if index < len(dates) else ""
 
@@ -115,15 +122,12 @@ build_song_rows :: proc(page: ^ui.Box, songs: []core.Catalog_Song, dates: []stri
 	}
 }
 
-// A video on YouTube has no album.
 to_song_subtitle :: proc(song: core.Catalog_Song) -> string {
 	return(
 		fmt.tprintf("%s · %s", song.artist_name, song.album_name) if song.album_name != "" else song.artist_name \
 	)
 }
 
-// Returns true when the person clicks the row.
-// The row shows a date, when there is one, before the heart.
 build_song_row :: proc(
 	id: string,
 	song: core.Catalog_Song,
@@ -194,12 +198,9 @@ build_song_row :: proc(
 	return menus.apply_song_row_signal(ui.signal(row), song)
 }
 
-// A favourite shows a heart in the accent colour. Another song shows an empty heart.
-// A YouTube song shows the heart of its match, else YouTube's mark, dim while matching checks.
 build_row_heart :: proc(row: ^ui.Box, chosen: core.Catalog_Song, is_current: bool) {
-	song, state := matching.find_match(chosen)
+	song, state := matching.watch_match(chosen)
 
-	// The mark has the padding of the heart's button, so the durations after both line up.
 	if state != .Found {
 		kit.icon_box(
 			"",
@@ -210,13 +211,12 @@ build_row_heart :: proc(row: ^ui.Box, chosen: core.Catalog_Song, is_current: boo
 		)
 	}
 
-	// Until matching checks Apple's catalog, the song may still get a match and show its heart.
 	if state == .Checking do return
 
 	persistent_id := core.app.now_playing.song.persistent_id if is_current else ""
 	is_favourite := playback.is_favourite(song, persistent_id)
 
-	if playback.favourite_button("heart", is_favourite, 13) {
+	if playback.build_favourite_button("heart", is_favourite, 13) {
 		playback.toggle_favourite(song, persistent_id)
 	}
 }

@@ -9,8 +9,14 @@ import "om:app/playback"
 import "om:apple"
 import "om:ui"
 
-// The side panel right of the page, with its Up Next and Lyrics tabs.
-// Returns true while the lyrics move.
+PANEL_PADDING_POINTS :: 8
+
+QUEUE_ROW_POINTS :: 52
+
+QUEUE_COVER_POINTS :: 36
+
+RULES_MENU_LEFT_POINTS :: 240
+
 build_panel :: proc() -> bool {
 	is_open := core.app.panel != .None
 	width := ui.animate("panel width", kit.PANEL_WIDTH_POINTS if is_open else 0)
@@ -23,7 +29,12 @@ build_panel :: proc() -> bool {
 			width = ui.points(width),
 			height = ui.fill(),
 			axis = .Y,
-			padding = {8, 8, 8, 8},
+			padding = {
+				PANEL_PADDING_POINTS,
+				PANEL_PADDING_POINTS,
+				PANEL_PADDING_POINTS,
+				PANEL_PADDING_POINTS,
+			},
 			gap = 4,
 			background = kit.colors.panel,
 			fade = 1 - width / kit.PANEL_WIDTH_POINTS,
@@ -31,7 +42,7 @@ build_panel :: proc() -> bool {
 		},
 	)
 	is_moving := false
-	inner_width: f32 = kit.PANEL_WIDTH_POINTS - 16
+	inner_width: f32 = kit.PANEL_WIDTH_POINTS - 2 * PANEL_PADDING_POINTS
 
 	if ui.scope(panel) {
 		inner := ui.box(
@@ -55,14 +66,16 @@ build_panel :: proc() -> bool {
 	return is_moving
 }
 
-// The Up Next tab of the side panel, which lists the queue from the song playing on.
 build_up_next :: proc() {
-	if len(playback.queue.songs) == 0 || playback.queue.index < 0 {
-		build_panel_note("Play a song or an album, and the songs after it show here.")
+	is_queue_empty := len(playback.queue.songs) == 0 || playback.queue.index < 0
+
+	if is_queue_empty {
+		build_panel_note("Play a song or an album. The songs after it show here.")
 		return
 	}
 
 	if playback.queue.is_shuffled {
+		note_text := playback.shuffle_note if playback.shuffle_note != "" else "Shuffled."
 		note_row := ui.box(
 			"shuffle note",
 			{
@@ -86,7 +99,7 @@ build_up_next :: proc() {
 					font_size = 11.5,
 					flags = {.Wrap_Text},
 				},
-				playback.shuffle_note if playback.shuffle_note != "" else "Shuffled.",
+				note_text,
 			)
 
 			rules := ui.box(
@@ -107,7 +120,9 @@ build_up_next :: proc() {
 			)
 
 			if ui.signal(rules).is_clicked {
-				playback.open_shuffle_rules({rules.rect.x - 240, rules.rect.w + 4})
+				playback.open_shuffle_rules(
+					{rules.rect.x - RULES_MENU_LEFT_POINTS, rules.rect.w + 4},
+				)
 			}
 		}
 	}
@@ -116,20 +131,17 @@ build_up_next :: proc() {
 		"up next",
 		{width = ui.fill(), height = ui.fill(), axis = .Y, gap = 2, flags = {.Scroll, .Clip}},
 	)
-	// Only the rows in view get boxes. A spacer above and below holds the height of the others.
-	row_points: f32 = 52
-	first_row := max(
-		playback.queue.index,
-		playback.queue.index + int(list.scroll / row_points) - lists.EXTRA_ROW_COUNT,
-	)
-	last_row := min(
-		len(playback.queue.songs) - 1,
-		playback.queue.index +
-		int((list.scroll + list.size.y) / row_points) +
+	shown_count := len(playback.queue.songs) - playback.queue.index
+	first, last := lists.to_visible_range(
+		list.scroll,
+		list.size.y,
+		QUEUE_ROW_POINTS,
+		shown_count,
 		lists.EXTRA_ROW_COUNT,
 	)
+	first_row := playback.queue.index + first
+	last_row := playback.queue.index + last
 
-	// A removal waits until the rows are built, as it shortens the list they read.
 	removed_row := -1
 	defer if removed_row >= 0 do playback.remove_from_queue(removed_row)
 
@@ -138,41 +150,45 @@ build_up_next :: proc() {
 			"",
 			{
 				width = ui.fill(),
-				height = ui.points(f32(first_row - playback.queue.index) * row_points),
+				height = ui.points(f32(first_row - playback.queue.index) * QUEUE_ROW_POINTS),
 			},
 		)
 
 		for index in first_row ..= last_row {
-			if build_queue_row(index, row_points) do removed_row = index
+			if build_queue_row(index) do removed_row = index
 		}
 
 		ui.box(
 			"",
 			{
 				width = ui.fill(),
-				height = ui.points(f32(len(playback.queue.songs) - 1 - last_row) * row_points),
+				height = ui.points(
+					f32(len(playback.queue.songs) - 1 - last_row) * QUEUE_ROW_POINTS,
+				),
 			},
 		)
 	}
 }
 
-// Says if the person clicked the row's remove button.
-build_queue_row :: proc(index: int, row_points: f32) -> bool {
+build_queue_row :: proc(index: int) -> bool {
 	song := playback.queue.songs[index]
 	is_current := index == playback.queue.index
 	tint := kit.to_accent_tint(core.app.accent)
+	background: [4]f32 = tint if is_current else {}
+	hover_background := tint if is_current else kit.colors.hover
+	name_color := core.app.accent if is_current else kit.colors.text
 	row := ui.box(
 		fmt.tprintf("queue %d %s", index, song.id),
 		{
 			width = ui.fill(),
-			height = ui.points(row_points - 2),
+			height = ui.points(QUEUE_ROW_POINTS - 2),
 			axis = .X,
 			align = .Center,
 			gap = 10,
 			padding = {6, 0, 4, 0},
 			corner_radius = 6,
-			background = tint if is_current else {},
-			hover_background = tint if is_current else kit.colors.hover,
+			background = background,
+			hover_background = hover_background,
 			flags = {.Clickable},
 		},
 	)
@@ -180,8 +196,8 @@ build_queue_row :: proc(index: int, row_points: f32) -> bool {
 
 	if ui.scope(row) {
 		kit.artwork_box(
-			apple.to_artwork_url(song.artwork, kit.to_artwork_pixels(36)),
-			36,
+			apple.to_artwork_url(song.artwork, kit.to_artwork_pixels(QUEUE_COVER_POINTS)),
+			QUEUE_COVER_POINTS,
 			4,
 			kit.to_placeholder(song.artwork, song.album_name),
 		)
@@ -191,14 +207,7 @@ build_queue_row :: proc(index: int, row_points: f32) -> bool {
 		if ui.scope(text) {
 			is_hovered := ui.signal(row).is_hovered
 
-			kit.scrolling_text(
-				"name",
-				song.name,
-				core.app.accent if is_current else kit.colors.text,
-				13,
-				.Medium,
-				is_hovered = is_hovered,
-			)
+			kit.scrolling_text("name", song.name, name_color, 13, .Medium, is_hovered = is_hovered)
 			kit.scrolling_text(
 				"artist",
 				song.artist_name,
@@ -208,7 +217,6 @@ build_queue_row :: proc(index: int, row_points: f32) -> bool {
 			)
 		}
 
-		// The song playing stays. Any other song shows its remove button while the mouse is on it.
 		if !is_current && kit.is_mouse_in(row) {
 			is_removed = kit.icon_button("remove", "xmark", 11, kit.colors.dim)
 		}
@@ -221,7 +229,6 @@ build_queue_row :: proc(index: int, row_points: f32) -> bool {
 	return is_removed
 }
 
-// Picks what the side panel shows. The button by the volume shows and hides it.
 build_panel_tabs :: proc(width: f32) {
 	tabs := ui.box(
 		"panel tabs",
@@ -246,6 +253,10 @@ build_panel_tabs :: proc(width: f32) {
 build_panel_tab :: proc(label, symbol: string, panel: core.Panel) {
 	is_open := core.app.panel == panel
 	tint := kit.to_accent_tint(core.app.accent)
+	background: [4]f32 = tint if is_open else {}
+	hover_background := tint if is_open else kit.colors.hover
+	icon_color := core.app.accent if is_open else kit.colors.dim
+	label_color := core.app.accent if is_open else kit.colors.text
 	tab := ui.box(
 		label,
 		{
@@ -256,8 +267,8 @@ build_panel_tab :: proc(label, symbol: string, panel: core.Panel) {
 			gap = 6,
 			padding = {10, 0, 10, 0},
 			corner_radius = 7,
-			background = tint if is_open else {},
-			hover_background = tint if is_open else kit.colors.hover,
+			background = background,
+			hover_background = hover_background,
 			press_background = kit.colors.selected,
 			flags = {.Clickable},
 		},
@@ -267,15 +278,14 @@ build_panel_tab :: proc(label, symbol: string, panel: core.Panel) {
 
 	if ui.scope(tab) {
 		kit.spacer()
-		color := core.app.accent if is_open else kit.colors.dim
-		kit.icon_box("", symbol, 13, color)
+		kit.icon_box("", symbol, 13, icon_color)
 		ui.box(
 			"",
 			{
 				width = ui.fit_text(),
 				height = ui.fit_text(),
-				text_color = core.app.accent if is_open else kit.colors.text,
-				font_size = 12.5,
+				text_color = label_color,
+				font_size = kit.SMALL_TEXT_POINTS,
 				font_weight = .Semibold,
 			},
 			label,

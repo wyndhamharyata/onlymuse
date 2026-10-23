@@ -1,5 +1,3 @@
-// This package runs the Swift helper in ../helper, which controls Music.app.
-// The helper speaks JSON lines over its stdin and stdout.
 package helper
 
 import "core:encoding/json"
@@ -15,16 +13,13 @@ import "om:platform"
 
 Song :: struct {
 	name:             string,
-	artist:           string,
-	album:            string,
+	artist_name:      string `json:"artist"`,
+	album_name:       string `json:"album"`,
 	persistent_id:    string `json:"persistentID"`,
 	duration_seconds: f64 `json:"durationSeconds"`,
-	// The file where the helper saves Music.app's artwork.
 	artwork_path:     string `json:"artworkPath"`,
 }
 
-// Each message the helper sends, as send() in helper/Sources/onlymuse-helper names it.
-// The fields that a message type lacks stay empty.
 Message :: struct {
 	type:                string,
 	state:               string,
@@ -33,32 +28,27 @@ Message :: struct {
 	position_read_at_ms: f64 `json:"positionReadAtMs"`,
 	persistent_id:       string `json:"persistentID"`,
 	song:                Song,
-	// In nowPlaying from the YouTube page, true while the page loads the song.
 	is_loading:          bool `json:"isLoading"`,
-	// In nowPlaying from the YouTube page, true once the page plays the song.
 	has_started:         bool `json:"hasStarted"`,
 	color:               string,
 	developer_token:     string `json:"developerToken"`,
 	user_token:          string `json:"userToken"`,
 	text:                string,
-	// In youtubeCookie, Helium's youtube.com cookies. Empty when Helium has no signed-in account.
 	cookie:              string,
-	// "keychain" if the Keychain refused the key. "helium" if reading Helium's cookies failed.
 	problem:             string,
 	request_id:          int `json:"requestId"`,
-	// The trackInfo fields. Each date is Unix time in ms, or 0 when Music.app has none.
 	is_in_library:       bool `json:"isInLibrary"`,
-	favorited:           bool,
+	is_favourite:        bool `json:"favorited"`,
 	played_count:        int `json:"playedCount"`,
 	played_date_ms:      f64 `json:"playedDateMs"`,
 	skipped_count:       int `json:"skippedCount"`,
 	skipped_date_ms:     f64 `json:"skippedDateMs"`,
 	date_added_ms:       f64 `json:"dateAddedMs"`,
-	bit_rate:            int `json:"bitRate"`,
-	sample_rate:         int `json:"sampleRate"`,
+	bit_rate_kbps:       int `json:"bitRate"`,
+	sample_rate_hz:      int `json:"sampleRate"`,
 	kind:                string,
 	bpm:                 int,
-	size:                f64,
+	size_bytes:          f64 `json:"size"`,
 }
 
 Playback :: enum {
@@ -73,18 +63,15 @@ Now_Playing :: struct {
 	volume_percent:      f64,
 	song:                Song,
 	position_seconds:    f64,
-	// Unix time in ms when the helper read the position.
 	position_read_at_ms: f64,
-	// The count of positions in a row that did not move on while Music.app said it played.
-	// Music.app does that while it waits for a song it cannot load. The clock then stays still.
+	// Music.app says it plays while it waits for a song it cannot load. The position stays still.
 	stall_count:         int,
-	// The position moved on after the song began. Music.app says it plays while it still loads.
 	has_started:         bool,
-	// The YouTube page loads the song and plays nothing yet. The helper already paused Music.app.
 	is_loading:          bool,
 }
 
 // A position this far past the last one counts as moved on. The helper sends one every 2 s.
+@(private)
 MIN_PROGRESS_SECONDS :: 0.5
 
 @(private)
@@ -95,19 +82,15 @@ state: struct {
 	reader:      ^thread.Thread,
 	mutex:       sync.Mutex,
 	write_mutex: sync.Mutex,
-	// The lines that read_lines read and the main thread did not take yet.
 	lines:       [dynamic]string,
 	is_started:  bool,
 }
 
-// OM_HELPER names a stand-in for the tests. GPUIX_BACKGROUND=1 tells the helper to leave
-// Music.app as it is when the app quits.
 start :: proc(is_background: bool) {
 	path := os.get_env("OM_HELPER", context.temp_allocator)
 
 	if path == "" {
 		executable_folder, _ := os.get_executable_directory(context.temp_allocator)
-		// onlymuse.app holds the helper in Contents/Helpers. build/onlymuse runs SwiftPM's build.
 		bundled := fmt.tprintf("%s/../Helpers/onlymuse-helper", executable_folder)
 		path =
 			bundled if os.exists(bundled) else fmt.tprintf("%s/../helper/.build/release/onlymuse-helper", executable_folder)
@@ -175,7 +158,6 @@ read_lines :: proc() {
 	console.add("Helper", "The helper stopped. Quit onlymuse and open it again.")
 }
 
-// The messages since the last call. They live until the next frame.
 take_messages :: proc() -> []Message {
 	lines: [dynamic]string
 
@@ -227,8 +209,7 @@ apply :: proc(now_playing: ^Now_Playing, message: Message) {
 		now_playing.song = clone_song(message.song)
 
 		now_playing.position_seconds = message.position_seconds
-		now_playing.position_read_at_ms =
-			min(message.position_read_at_ms, now_ms()) if message.position_read_at_ms > 0 else now_ms()
+		now_playing.position_read_at_ms = to_read_at_ms(message, now_ms())
 		now_playing.stall_count = 0
 		now_playing.has_started =
 			message.has_started || message.position_seconds >= MIN_PROGRESS_SECONDS
@@ -243,15 +224,20 @@ apply :: proc(now_playing: ^Now_Playing, message: Message) {
 		now_playing.stall_count = 0 if has_moved else now_playing.stall_count + 1
 		if has_moved do now_playing.has_started = true
 		now_playing.position_seconds = message.position_seconds
-		now_playing.position_read_at_ms = min(message.position_read_at_ms, now_ms())
+		now_playing.position_read_at_ms = to_read_at_ms(message, now_ms())
 	}
+}
+
+@(private)
+to_read_at_ms :: proc(message: Message, now_ms: f64) -> f64 {
+	return min(message.position_read_at_ms, now_ms) if message.position_read_at_ms > 0 else now_ms
 }
 
 @(private)
 delete_song :: proc(song: Song) {
 	delete(song.name)
-	delete(song.artist)
-	delete(song.album)
+	delete(song.artist_name)
+	delete(song.album_name)
 	delete(song.persistent_id)
 	delete(song.artwork_path)
 }
@@ -260,8 +246,8 @@ delete_song :: proc(song: Song) {
 clone_song :: proc(song: Song) -> Song {
 	return Song {
 		name = strings.clone(song.name),
-		artist = strings.clone(song.artist),
-		album = strings.clone(song.album),
+		artist_name = strings.clone(song.artist_name),
+		album_name = strings.clone(song.album_name),
 		persistent_id = strings.clone(song.persistent_id),
 		artwork_path = strings.clone(song.artwork_path),
 		duration_seconds = song.duration_seconds,
@@ -272,15 +258,18 @@ now_ms :: proc() -> f64 {
 	return f64(time.to_unix_nanoseconds(time.now())) / 1e6
 }
 
+has_song :: proc(now_playing: Now_Playing) -> bool {
+	return now_playing.playback == .Playing || now_playing.playback == .Paused
+}
+
 // Music.app posts only on a change, so the position moves on here between its posts.
-to_position_seconds :: proc(now_playing: Now_Playing) -> f64 {
+read_position_seconds :: proc(now_playing: Now_Playing) -> f64 {
 	#partial switch now_playing.playback {
 	case .Paused:
 		return now_playing.position_seconds
 	case .Playing:
-		if now_playing.stall_count > 0 || !now_playing.has_started {
-			return now_playing.position_seconds
-		}
+		is_clock_stopped := now_playing.stall_count > 0 || !now_playing.has_started
+		if is_clock_stopped do return now_playing.position_seconds
 
 		elapsed_seconds := max(0, now_ms() - now_playing.position_read_at_ms) / 1000
 		return min(

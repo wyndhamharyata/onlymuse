@@ -4,40 +4,31 @@ import "core:fmt"
 import "core:strings"
 import "core:unicode/utf8"
 import "om:app/core"
-import "om:font"
 import "om:platform"
 import "om:ui"
 
 TEXT_FIELD_FONT_SIZE :: 13
 
-// One line of text to type in, in any script. Only one field has the focus at a time.
+FOCUS_BORDER_ALPHA :: 3 * ACCENT_TINT_ALPHA
+
 Text_Field :: struct {
-	text:            [dynamic]u8,
-	// A byte index into text.
-	cursor:          int,
-	// An input method's unfinished text, shown at the cursor.
-	marked:          string,
-	is_focused:      bool,
-	// After Cmd A, the next key replaces the whole text.
-	is_all_selected: bool,
-	is_hovered:      bool,
-	// A field in an overlay keeps the keyboard when a click goes elsewhere. The overlay closes it.
-	keeps_focus:     bool,
-	// Up and Down move a list's selection instead of the cursor.
-	takes_up_down:   bool,
-	// apply_text_events turns these on for the frame of the event, then off on the next frame.
-	is_changed:      bool,
-	is_submitted:    bool,
-	is_cancelled:    bool,
-	// -1 for Up, 1 for Down.
-	step:            int,
+	text:              [dynamic]u8,
+	cursor:            int,
+	marked:            string,
+	is_focused:        bool,
+	is_all_selected:   bool,
+	is_hovered:        bool,
+	is_keeping_focus:  bool,
+	is_taking_up_down: bool,
+	is_changed:        bool,
+	is_submitted:      bool,
+	is_cancelled:      bool,
+	step:              int,
 }
 
-// Every field from register_text_field, so the keyboard reaches the focused one.
 @(private = "file")
 text_fields: [dynamic]^Text_Field
 
-// Where build_caret drew the focused field's caret, in window points, for the input method.
 @(private = "file")
 caret_rect: [4]f32
 
@@ -80,7 +71,7 @@ insert_text :: proc(field: ^Text_Field, text: string) {
 }
 
 @(private = "file")
-previous_rune_start :: proc(field: ^Text_Field, index: int) -> int {
+to_previous_rune_start :: proc(field: ^Text_Field, index: int) -> int {
 	if index <= 0 do return 0
 
 	_, size := utf8.decode_last_rune(field.text[:index])
@@ -89,7 +80,7 @@ previous_rune_start :: proc(field: ^Text_Field, index: int) -> int {
 }
 
 @(private = "file")
-next_rune_end :: proc(field: ^Text_Field, index: int) -> int {
+to_next_rune_end :: proc(field: ^Text_Field, index: int) -> int {
 	if index >= len(field.text) do return len(field.text)
 
 	_, size := utf8.decode_rune(field.text[index:])
@@ -98,20 +89,19 @@ next_rune_end :: proc(field: ^Text_Field, index: int) -> int {
 }
 
 @(private = "file")
-delete_range :: proc(field: ^Text_Field, first, last: int) {
-	if last <= first do return
+delete_range :: proc(field: ^Text_Field, start, end: int) {
+	if end <= start do return
 
-	remove_range(&field.text, first, last)
-	field.cursor = first
+	remove_range(&field.text, start, end)
+	field.cursor = start
 	field.is_changed = true
 }
 
-// The start of the word before index, as Option Backspace takes it.
 @(private = "file")
-previous_word_start :: proc(field: ^Text_Field, index: int) -> int {
+to_previous_word_start :: proc(field: ^Text_Field, index: int) -> int {
 	start := index
 	for start > 0 && field.text[start - 1] == ' ' do start -= 1
-	for start > 0 && field.text[start - 1] != ' ' do start = previous_rune_start(field, start)
+	for start > 0 && field.text[start - 1] != ' ' do start = to_previous_rune_start(field, start)
 
 	return start
 }
@@ -119,8 +109,9 @@ previous_word_start :: proc(field: ^Text_Field, index: int) -> int {
 @(private = "file")
 apply_command :: proc(field: ^Text_Field, name: string) {
 	cursor := field.cursor
+	is_delete_key := name == "deleteBackward:" || name == "deleteForward:"
 
-	if field.is_all_selected && (name == "deleteBackward:" || name == "deleteForward:") {
+	if field.is_all_selected && is_delete_key {
 		replace_all_if_selected(field)
 		return
 	}
@@ -129,36 +120,45 @@ apply_command :: proc(field: ^Text_Field, name: string) {
 
 	switch name {
 	case "deleteBackward:":
-		delete_range(field, previous_rune_start(field, cursor), cursor)
+		delete_range(field, to_previous_rune_start(field, cursor), cursor)
 	case "deleteForward:":
-		delete_range(field, cursor, next_rune_end(field, cursor))
+		delete_range(field, cursor, to_next_rune_end(field, cursor))
 	case "deleteWordBackward:":
-		delete_range(field, previous_word_start(field, cursor), cursor)
+		delete_range(field, to_previous_word_start(field, cursor), cursor)
 	case "deleteToBeginningOfLine:":
 		delete_range(field, 0, cursor)
-	case "moveLeft:":
-		field.cursor = previous_rune_start(field, cursor)
-	case "moveRight:":
-		field.cursor = next_rune_end(field, cursor)
-	case "moveUp:":
-		if field.takes_up_down do field.step = -1
-		else do field.cursor = 0
-	case "moveDown:":
-		if field.takes_up_down do field.step = 1
-		else do field.cursor = len(field.text)
-	case "moveToBeginningOfLine:", "moveToLeftEndOfLine:", "moveToBeginningOfDocument:":
-		field.cursor = 0
-	case "moveToEndOfLine:", "moveToRightEndOfLine:", "moveToEndOfDocument:":
-		field.cursor = len(field.text)
 	case "insertNewline:":
 		field.is_submitted = true
 	case "cancelOperation:":
 		field.is_cancelled = true
 		field.is_focused = false
+	case:
+		apply_move_command(field, name)
 	}
 }
 
-// Takes the keyboard's text for the focused field, and a click inside or outside a field.
+@(private = "file")
+apply_move_command :: proc(field: ^Text_Field, name: string) {
+	cursor := field.cursor
+
+	switch name {
+	case "moveLeft:":
+		field.cursor = to_previous_rune_start(field, cursor)
+	case "moveRight:":
+		field.cursor = to_next_rune_end(field, cursor)
+	case "moveUp:":
+		if field.is_taking_up_down do field.step = -1
+		else do field.cursor = 0
+	case "moveDown:":
+		if field.is_taking_up_down do field.step = 1
+		else do field.cursor = len(field.text)
+	case "moveToBeginningOfLine:", "moveToLeftEndOfLine:", "moveToBeginningOfDocument:":
+		field.cursor = 0
+	case "moveToEndOfLine:", "moveToRightEndOfLine:", "moveToEndOfDocument:":
+		field.cursor = len(field.text)
+	}
+}
+
 apply_text_events :: proc() {
 	for field in text_fields {
 		field.is_changed = false
@@ -170,13 +170,7 @@ apply_text_events :: proc() {
 	for event in platform.list_events() {
 		#partial switch input in event {
 		case platform.Mouse_Press:
-			for field in text_fields {
-				if field.is_hovered {
-					focus_field(field)
-				} else if !field.keeps_focus {
-					field.is_focused = false
-				}
-			}
+			focus_hovered_field()
 		case platform.Text_Insert:
 			field := find_focused_field() or_continue
 			delete(field.marked)
@@ -204,8 +198,18 @@ apply_text_events :: proc() {
 		}
 	}
 
-	// A field that this frame does not build, such as the closed palette's, takes no click.
 	for field in text_fields do field.is_hovered = false
+}
+
+@(private = "file")
+focus_hovered_field :: proc() {
+	for field in text_fields {
+		if field.is_hovered {
+			focus_field(field)
+		} else if !field.is_keeping_focus {
+			field.is_focused = false
+		}
+	}
 }
 
 find_focused_field :: proc() -> (^Text_Field, bool) {
@@ -214,14 +218,11 @@ find_focused_field :: proc() -> (^Text_Field, bool) {
 	return nil, false
 }
 
-// Once the frame has its boxes, the keyboard goes to the input method of the focused field,
-// or back to shortcuts.
 finish_text_fields :: proc() {
 	_, is_focused := find_focused_field()
 	platform.set_text_input(is_focused, caret_rect)
 }
 
-// The field's box, its text or placeholder, and the caret while focused.
 build_text_field :: proc(
 	field: ^Text_Field,
 	id, placeholder, symbol: string,
@@ -242,7 +243,7 @@ build_text_field :: proc(
 			corner_radius = 8,
 			background = background if background.a > 0 else colors.field,
 			border_width = 1 if is_focused else 0,
-			border_color = to_accent_tint(core.app.accent) * {1, 1, 1, 3},
+			border_color = to_faded(core.app.accent, FOCUS_BORDER_ALPHA),
 			flags = {.Clickable},
 		},
 	)
@@ -256,6 +257,7 @@ build_text_field :: proc(
 		cursor := field.cursor
 		shown := fmt.tprintf("%s%s%s", text[:cursor], field.marked, text[cursor:])
 		is_empty := shown == ""
+		is_text_selected := field.is_all_selected && !is_empty
 
 		line := ui.box(
 			"line",
@@ -263,15 +265,12 @@ build_text_field :: proc(
 				width = ui.fill(),
 				height = ui.fit_text(),
 				text_color = colors.faint if is_empty else colors.text,
+				background = to_accent_tint(core.app.accent) if is_text_selected else {},
 				font_size = font_size,
 				flags = {.Clip},
 			},
 			placeholder if is_empty else shown,
 		)
-
-		if field.is_all_selected && !is_empty {
-			line.style.background = to_accent_tint(core.app.accent)
-		}
 
 		if !is_focused do return box
 		if ui.scope(line) do build_caret(line, text[:cursor], field.marked, font_size)
@@ -280,18 +279,10 @@ build_text_field :: proc(
 	return box
 }
 
-// The caret after the cursor, and a line under unfinished text.
-// Widths come from the shaped text, in points.
 @(private = "file")
 build_caret :: proc(line: ^ui.Box, before, marked: string, font_size: f32) {
-	font_now := font.system_font(.Regular, ui.to_pixels(font_size))
-	to_width :: proc(text: string, font_now: font.Font) -> f32 {
-		if text == "" do return 0
-		return font.shape(text, font_now).size.x / ui.to_pixels(1)
-	}
-
-	before_width := to_width(before, font_now)
-	marked_width := to_width(marked, font_now)
+	before_width := measure_text(before, font_size)
+	marked_width := measure_text(marked, font_size)
 	height := line.rect.w - line.rect.y
 
 	if marked != "" {
@@ -320,7 +311,6 @@ build_caret :: proc(line: ^ui.Box, before, marked: string, font_size: f32) {
 		},
 	)
 
-	// The input method's candidates open under the caret. The rect is in window points.
 	caret_rect =
 		[4]f32{line.rect.x + before_width, line.rect.y, line.rect.x + caret_x + 2, line.rect.w} *
 		core.app.zoom

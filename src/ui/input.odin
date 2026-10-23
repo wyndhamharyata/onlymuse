@@ -2,10 +2,8 @@ package ui
 
 import "om:platform"
 
-// A swipe picks its axis once it moves this far.
 SWIPE_DECIDE_POINTS :: 4
 
-// A swipe goes sideways only when it goes this much more sideways than up or down.
 SWIPE_SIDEWAYS_RATIO :: 1.5
 
 @(private)
@@ -41,46 +39,72 @@ apply_events :: proc() {
 		case platform.Mouse_Exit:
 			state.mouse = {-1, -1}
 		case platform.Scroll:
-			delta :=
-				event.delta / state.zoom if event.is_precise else event.delta * POINTS_PER_LINE
-
-			if event.is_start {
-				state.swipe_axis = nil
-				state.swipe_pending = {}
-			}
-
-			if event.is_precise {
-				axis, is_known := state.swipe_axis.?
-
-				if !is_known {
-					state.swipe_pending += delta
-
-					pending := state.swipe_pending
-					if abs(pending.x) + abs(pending.y) < SWIPE_DECIDE_POINTS do continue
-
-					axis = .X if abs(pending.x) > abs(pending.y) * SWIPE_SIDEWAYS_RATIO else .Y
-					state.swipe_axis = axis
-					delta = pending
-				}
-
-				delta[1 - int(axis)] = 0
-			}
-
-			for axis in Axis {
-				box, ok := state.boxes[state.scroll_keys[axis]]
-				if !ok || delta[int(axis)] == 0 do continue
-
-				box.scroll_target -= delta[int(axis)]
-				// A trackpad already moves smoothly. macOS puts in the glide after a flick.
-				if event.is_precise do box.scroll = box.scroll_target
-			}
-		// The app's shortcuts and text fields read the keys themselves.
+			apply_scroll(event)
 		case platform.Key_Press, platform.Text_Insert, platform.Text_Marked, platform.Text_Command:
 		}
 	}
 }
 
-// Where the left button went down, and whether it is down now.
+@(private)
+apply_scroll :: proc(event: platform.Scroll) {
+	delta := event.delta / state.zoom if event.is_precise else event.delta * POINTS_PER_LINE
+
+	if event.is_start {
+		state.swipe_axis = nil
+		state.undecided_swipe_points = {}
+	}
+
+	if event.is_precise {
+		axis, is_known := state.swipe_axis.?
+
+		if !is_known {
+			state.undecided_swipe_points += delta
+
+			undecided := state.undecided_swipe_points
+			if abs(undecided.x) + abs(undecided.y) < SWIPE_DECIDE_POINTS do return
+
+			axis = .X if abs(undecided.x) > abs(undecided.y) * SWIPE_SIDEWAYS_RATIO else .Y
+			state.swipe_axis = axis
+			delta = undecided
+		}
+
+		delta[1 - int(axis)] = 0
+	}
+
+	for axis in Axis {
+		box, ok := state.boxes[state.scroll_keys[axis]]
+		is_scrolled := ok && delta[int(axis)] != 0
+
+		if !is_scrolled do continue
+
+		box.scroll_target -= delta[int(axis)]
+		// macOS already supplies the glide after a trackpad flick.
+		if event.is_precise do box.scroll = box.scroll_target
+	}
+}
+
+Signal :: struct {
+	box:              ^Box,
+	is_hovered:       bool,
+	is_held:          bool,
+	is_clicked:       bool,
+	is_right_clicked: bool,
+	click_count:      int,
+}
+
+signal :: proc(box: ^Box) -> Signal {
+	is_kept := box.key != 0
+
+	return Signal {
+		box = box,
+		is_hovered = is_kept && box.key == state.hot_key,
+		is_held = is_kept && box.key == state.active_key,
+		is_clicked = is_kept && box.key == state.clicked_key,
+		is_right_clicked = is_kept && box.key == state.right_clicked_key,
+		click_count = state.click_count,
+	}
+}
+
 press_position :: proc() -> ([2]f32, bool) {
 	return state.press_position, state.active_key != 0
 }
@@ -94,9 +118,8 @@ is_inside :: proc(point: [2]f32, rect: [4]f32) -> bool {
 	return point.x >= rect.x && point.x < rect.z && point.y >= rect.y && point.y < rect.w
 }
 
-// The last box drawn under the mouse takes it. That box shows on top.
 @(private)
-find_hot :: proc() {
+apply_mouse_to_boxes :: proc() {
 	state.hot_key = 0
 	state.scroll_keys = {}
 	visit_hot(state.root)
@@ -105,24 +128,28 @@ find_hot :: proc() {
 		is_hot :=
 			box.key == state.hot_key && (state.active_key == 0 || state.active_key == box.key)
 
-		box.hot_fraction = approach(box.hot_fraction, 1 if is_hot else 0, HOT_RATE)
+		box.hot_fraction = approach(box.hot_fraction, 1 if is_hot else 0, HOT_RATE_PER_SECOND)
 		box.active_fraction = approach(
 			box.active_fraction,
 			1 if box.key == state.active_key else 0,
-			HOT_RATE,
+			HOT_RATE_PER_SECOND,
 		)
 	}
 }
 
 @(private)
 visit_hot :: proc(box: ^Box) {
+	flags := box.style.flags
 	is_under_mouse := is_inside(state.mouse, intersect(box.rect, box.clip))
+	is_clipped_away := !is_under_mouse && .Clip in flags
+	is_kept_under_mouse := is_under_mouse && box.key != 0
+	is_hoverable := .Clickable in flags || .Hoverable in flags
 
-	if !is_under_mouse && .Clip in box.style.flags do return
+	if is_clipped_away do return
 
-	if is_under_mouse && box.key != 0 {
-		if .Clickable in box.style.flags || .Hoverable in box.style.flags do state.hot_key = box.key
-		if .Scroll in box.style.flags do state.scroll_keys[box.style.axis] = box.key
+	if is_kept_under_mouse {
+		if is_hoverable do state.hot_key = box.key
+		if .Scroll in flags do state.scroll_keys[box.style.axis] = box.key
 	}
 
 	for child := box.first; child != nil; child = child.next do visit_hot(child)

@@ -6,7 +6,6 @@ import "om:render"
 
 @(private)
 mix :: proc(a, b: [4]f32, fraction: f32) -> [4]f32 {
-	// A hover or press colour with alpha 0 means the style sets none, so the colour a stays.
 	if b.a == 0 do return a
 
 	return a + (b - a) * fraction
@@ -19,10 +18,11 @@ draw :: proc(box: ^Box, clip: [4]f32, parent_opacity: f32) {
 
 	if opacity <= 0 do return
 
-	rect := box.shown_rect if .Animate_Position in style.flags && box.is_shown else box.rect
-	scale := state.scale
-	rect_pixels := rect * scale
-	clip_pixels := clip * scale
+	is_gliding := .Animate_Position in style.flags && box.has_shown_rect
+	rect := box.shown_rect if is_gliding else box.rect
+	pixels_per_point := state.pixels_per_point
+	rect_pixels := rect * pixels_per_point
+	clip_pixels := clip * pixels_per_point
 	is_outside := rect.x > clip.z || rect.z < clip.x || rect.y > clip.w || rect.w < clip.y
 
 	if is_outside && .Clip in style.flags do return
@@ -34,28 +34,19 @@ draw :: proc(box: ^Box, clip: [4]f32, parent_opacity: f32) {
 	)
 
 	has_gradient := style.gradient.y > style.gradient.x
+	has_fill := background.a > 0 || style.border_width > 0 || has_gradient
 
-	if background.a > 0 || style.border_width > 0 || has_gradient {
+	if has_fill {
 		render.push(
 			{
-				end_color = {
-					style.end_background.r,
-					style.end_background.g,
-					style.end_background.b,
-					style.end_background.a * opacity,
-				},
+				end_color = to_faded_color(style.end_background, opacity),
 				gradient = style.gradient,
 				rect = rect_pixels,
-				color = {background.r, background.g, background.b, background.a * opacity},
-				border_color = {
-					style.border_color.r,
-					style.border_color.g,
-					style.border_color.b,
-					style.border_color.a * opacity,
-				},
-				border_width = style.border_width * scale,
-				corner_radius = style.corner_radius * scale,
-				softness = style.softness * scale,
+				color = to_faded_color(background, opacity),
+				border_color = to_faded_color(style.border_color, opacity),
+				border_width = style.border_width * pixels_per_point,
+				corner_radius = style.corner_radius * pixels_per_point,
+				softness = style.softness * pixels_per_point,
 				clip = clip_pixels,
 			},
 		)
@@ -70,16 +61,21 @@ draw :: proc(box: ^Box, clip: [4]f32, parent_opacity: f32) {
 }
 
 @(private)
+to_faded_color :: proc(color: [4]f32, opacity: f32) -> [4]f32 {
+	return {color.r, color.g, color.b, color.a * opacity}
+}
+
+@(private)
 draw_text :: proc(box: ^Box, rect: [4]f32, clip_pixels: [4]f32, opacity: f32) {
 	style := box.style
-	scale := state.scale
+	pixels_per_point := state.pixels_per_point
 	inner := [4]f32 {
 		rect.x + style.padding.x,
 		rect.y + style.padding.y,
 		rect.z - style.padding.z,
 		rect.w - style.padding.w,
 	}
-	text_size := box.shaped.size / scale
+	text_size := box.shaped.size_pixels / pixels_per_point
 	left := inner.x
 
 	switch style.text_align {
@@ -93,13 +89,13 @@ draw_text :: proc(box: ^Box, rect: [4]f32, clip_pixels: [4]f32, opacity: f32) {
 	left -= style.text_offset
 
 	top := inner.y + (inner.w - inner.y - text_size.y) / 2
-	origin := [2]f32{math.round(left * scale), math.round(top * scale)}
+	origin := [2]f32{math.round(left * pixels_per_point), math.round(top * pixels_per_point)}
 
 	font.draw(
 		box.shaped,
 		origin,
 		style.text_color,
-		intersect(clip_pixels, inner * scale),
+		intersect(clip_pixels, inner * pixels_per_point),
 		box.color_of,
 		box.data,
 		opacity,

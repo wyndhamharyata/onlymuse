@@ -1,25 +1,22 @@
-// This package keeps the app's SQLite file.
-// The file holds Apple's answers, the play log and the saved state of the window.
 package store
 
 import "core:fmt"
 import "core:os"
 import "core:strings"
-import "core:sync"
 import "core:time"
 import "om:console"
 import "om:mac"
 
+MAX_ANSWER_AGE_DAYS :: 60
+
 Saved_Answer :: struct {
 	body:          string,
-	// Unix time in ms.
 	fetched_at_ms: i64,
 }
 
 @(private)
 state: struct {
 	database: mac.Sqlite,
-	mutex:    sync.Mutex,
 }
 
 @(private)
@@ -56,7 +53,6 @@ SCHEMA :: `
 `
 
 
-// OM_DATA names the folder, for the tests.
 read_folder :: proc() -> string {
 	if folder := os.get_env("OM_DATA", context.temp_allocator); folder != "" do return folder
 
@@ -67,8 +63,9 @@ read_folder :: proc() -> string {
 }
 
 start :: proc() {
-	os.make_directory_all(read_folder())
-	path := fmt.tprintf("%s/onlymuse.sqlite", read_folder())
+	folder := read_folder()
+	os.make_directory_all(folder)
+	path := fmt.tprintf("%s/onlymuse.sqlite", folder)
 
 	// FULLMUTEX lets several threads share this one connection.
 	flags := i32(mac.SQLITE_OPEN_READWRITE | mac.SQLITE_OPEN_CREATE | mac.SQLITE_OPEN_FULLMUTEX)
@@ -85,11 +82,14 @@ start :: proc() {
 	}
 
 	// WAL lets a read go on during a write. With WAL, NORMAL stays safe and skips a sync per write.
-	// busy_timeout waits up to 2000 ms for a lock that another connection holds.
 	run("pragma journal_mode = wal; pragma synchronous = normal; pragma busy_timeout = 2000;")
 	run(SCHEMA)
-	// No answer stays fresh for 60 days, and a page shown since then saved it again.
-	run("delete from responses where fetched_at < (unixepoch() - 60 * 24 * 60 * 60) * 1000;")
+	run(
+		fmt.ctprintf(
+			"delete from responses where fetched_at < (unixepoch() - %d) * 1000;",
+			MAX_ANSWER_AGE_DAYS * 24 * 60 * 60,
+		),
+	)
 }
 
 @(private)
@@ -115,13 +115,11 @@ bind_text :: proc(statement: mac.Sqlite_Statement, index: i32, text: string) {
 @(private)
 prepare :: proc(sql: cstring) -> (mac.Sqlite_Statement, bool) {
 	statement: mac.Sqlite_Statement
-	// -1 tells SQLite that sql ends at its first zero byte.
 	is_ready := mac.sqlite3_prepare_v2(state.database, sql, -1, &statement, nil) == mac.SQLITE_OK
 
 	return statement, is_ready
 }
 
-// A write that fails, such as on a full disk, shows on the Console page.
 @(private)
 step_write :: proc(statement: mac.Sqlite_Statement) {
 	if mac.sqlite3_step(statement) != mac.SQLITE_DONE {
@@ -130,7 +128,7 @@ step_write :: proc(statement: mac.Sqlite_Statement) {
 }
 
 @(private)
-column_text :: proc(
+read_column_text :: proc(
 	statement: mac.Sqlite_Statement,
 	column: i32,
 	allocator := context.allocator,
@@ -152,7 +150,8 @@ find_answer :: proc(path: string, allocator := context.allocator) -> (Saved_Answ
 
 	if mac.sqlite3_step(statement) != mac.SQLITE_ROW do return {}, false
 
-	return {column_text(statement, 0, allocator), mac.sqlite3_column_int64(statement, 1)}, true
+	return {read_column_text(statement, 0, allocator), mac.sqlite3_column_int64(statement, 1)},
+		true
 }
 
 save_answer :: proc(path, body: string) {
@@ -169,7 +168,6 @@ save_answer :: proc(path, body: string) {
 	step_write(statement)
 }
 
-// A saved value, as JSON.
 find_state :: proc(key: string, allocator := context.allocator) -> (string, bool) {
 	statement, ok := prepare("select value from state where key = ?")
 	if !ok do return "", false
@@ -179,12 +177,10 @@ find_state :: proc(key: string, allocator := context.allocator) -> (string, bool
 
 	if mac.sqlite3_step(statement) != mac.SQLITE_ROW do return "", false
 
-	return column_text(statement, 0, allocator), true
+	return read_column_text(statement, 0, allocator), true
 }
 
 save_state :: proc(key, value: string) {
-	sync.guard(&state.mutex)
-
 	statement, ok := prepare(
 		"insert into state (key, value, saved_at) values (?1, ?2, ?3) on conflict (key) do update set value = ?2, saved_at = ?3",
 	)
@@ -197,7 +193,6 @@ save_state :: proc(key, value: string) {
 	step_write(statement)
 }
 
-// The Apple Music song that a YouTube song is, as JSON. It is empty when Apple has none.
 find_match :: proc(youtube_id: string, allocator := context.allocator) -> (string, bool) {
 	statement, ok := prepare("select song from matches where youtube_id = ?")
 	if !ok do return "", false
@@ -207,10 +202,9 @@ find_match :: proc(youtube_id: string, allocator := context.allocator) -> (strin
 
 	if mac.sqlite3_step(statement) != mac.SQLITE_ROW do return "", false
 
-	return column_text(statement, 0, allocator), true
+	return read_column_text(statement, 0, allocator), true
 }
 
-// True for a match the person turned down. delete_matches keeps these rejections.
 is_match_rejected :: proc(youtube_id: string) -> bool {
 	statement, ok := prepare("select 1 from rejected_matches where youtube_id = ?")
 	if !ok do return false
@@ -239,7 +233,6 @@ delete_rejected_match :: proc(youtube_id: string) {
 	step_write(statement)
 }
 
-// src/app/matching calls this when its MATCH_RULE_VERSION differs from the saved one.
 delete_matches :: proc() {
 	run("delete from matches")
 }
@@ -257,7 +250,6 @@ save_match :: proc(youtube_id, song_json: string) {
 	step_write(statement)
 }
 
-// A song that played to its middle, or that the person skipped before its middle.
 // Music.app keeps only a count and the last date.
 Play :: struct {
 	catalog_id:   string,
@@ -265,7 +257,6 @@ Play :: struct {
 	artist:       string,
 	album:        string,
 	is_skip:      bool,
-	// Unix time in ms.
 	played_at_ms: i64,
 }
 
@@ -285,7 +276,6 @@ save_play :: proc(play: Play) {
 	step_write(statement)
 }
 
-// Every play since since_ms, oldest first.
 list_plays :: proc(since_ms: i64, allocator := context.allocator) -> []Play {
 	statement, ok := prepare(
 		"select catalog_id, name, artist, album, is_skip, played_at from plays where played_at >= ?1 order by played_at",
@@ -301,10 +291,10 @@ list_plays :: proc(since_ms: i64, allocator := context.allocator) -> []Play {
 		append(
 			&plays,
 			Play {
-				catalog_id = column_text(statement, 0, allocator),
-				name = column_text(statement, 1, allocator),
-				artist = column_text(statement, 2, allocator),
-				album = column_text(statement, 3, allocator),
+				catalog_id = read_column_text(statement, 0, allocator),
+				name = read_column_text(statement, 1, allocator),
+				artist = read_column_text(statement, 2, allocator),
+				album = read_column_text(statement, 3, allocator),
 				is_skip = mac.sqlite3_column_int64(statement, 4) != 0,
 				played_at_ms = mac.sqlite3_column_int64(statement, 5),
 			},

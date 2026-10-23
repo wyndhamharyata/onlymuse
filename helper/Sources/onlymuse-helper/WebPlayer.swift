@@ -1,7 +1,6 @@
 import AppKit
 import WebKit
 
-// The music.apple.com web player, in a window that shows only to sign in. WebKit keeps the sign-in, as Safari does.
 @MainActor
 final class WebPlayer: NSObject, WKUIDelegate, NSWindowDelegate {
   private static let url = URL(string: "https://music.apple.com/id/browse")!
@@ -13,11 +12,9 @@ final class WebPlayer: NSObject, WKUIDelegate, NSWindowDelegate {
       return JSON.stringify({ developerToken: instance.developerToken ?? "", userToken: instance.musicUserToken ?? "" });
     })()
     """
-  // authorize() opens Apple's sign-in popup, so the window skips the web player's own pages.
   private static let authorizeScript = "window.MusicKit.getInstance().authorize(); true"
   private static let refreshTimeoutSeconds = 30.0
   private static let pollSeconds = 1.0
-  // MusicKit restores a saved sign-in a moment after it gives the developer token.
   private static let pollsBeforeSignInNeeded = 3
 
   private var window: NSWindow?
@@ -29,20 +26,20 @@ final class WebPlayer: NSObject, WKUIDelegate, NSWindowDelegate {
   private var signedOutPollCount = 0
 
   func refreshTokens() {
-    // The sign-in's own poll sends the tokens. A refresh would end it and close the window while the person types.
+    // The sign-in's own poll sends the tokens. A refresh closes the window as the person types.
     guard !isSigningIn else { return }
 
-    startPolling(isSigningIn: false)
+    startPolling()
   }
 
   func signIn() {
     isSigningIn = true
-    readWindow().makeKeyAndOrderFront(nil)
+    startWindow().makeKeyAndOrderFront(nil)
     NSApp.activate()
-    startPolling(isSigningIn: true)
+    startPolling()
   }
 
-  private func readWindow() -> NSWindow {
+  private func startWindow() -> NSWindow {
     if let window { return window }
 
     let configuration = WKWebViewConfiguration()
@@ -56,21 +53,28 @@ final class WebPlayer: NSObject, WKUIDelegate, NSWindowDelegate {
     webView.uiDelegate = self
     webView.load(URLRequest(url: Self.url))
 
-    let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 720), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+    let window = makeSignInWindow(showing: webView, size: NSSize(width: 520, height: 720), styleMask: [.titled, .closable, .resizable])
 
-    window.title = "Sign in to Apple Music"
-    window.contentView = webView
-    window.isReleasedWhenClosed = false
-    window.delegate = self
-    window.center()
     self.window = window
     self.webView = webView
 
     return window
   }
 
-  private func startPolling(isSigningIn: Bool) {
-    _ = readWindow()
+  private func makeSignInWindow(showing view: WKWebView, size: NSSize, styleMask: NSWindow.StyleMask) -> NSWindow {
+    let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: styleMask, backing: .buffered, defer: false)
+
+    window.title = "Sign in to Apple Music"
+    window.contentView = view
+    window.isReleasedWhenClosed = false
+    window.delegate = self
+    window.center()
+
+    return window
+  }
+
+  private func startPolling() {
+    _ = startWindow()
     signedOutPollCount = 0
     pollTask?.cancel()
     pollTask = Task { [weak self] in
@@ -81,11 +85,13 @@ final class WebPlayer: NSObject, WKUIDelegate, NSWindowDelegate {
 
         guard let self else { return }
 
-        let isDone = await self.applyTokens(isSigningIn: isSigningIn)
+        let isDone = await self.applyTokens()
 
         if isDone { return }
 
-        if !isSigningIn && Date() > deadline {
+        let hasTimedOut = !self.isSigningIn && Date() > deadline
+
+        if hasTimedOut {
           sendError("The web player gave no developer token within \(Int(Self.refreshTimeoutSeconds)) seconds.")
           self.finish()
           return
@@ -94,32 +100,30 @@ final class WebPlayer: NSObject, WKUIDelegate, NSWindowDelegate {
     }
   }
 
-  // True once the page answered for this attempt, with both tokens or with no sign-in.
-  private func applyTokens(isSigningIn: Bool) async -> Bool {
+  private func applyTokens() async -> Bool {
     guard let page = await readPageTokens(), !page.developerToken.isEmpty else { return false }
 
-    if page.userToken.isEmpty && isSigningIn && !hasAskedToAuthorize {
+    if !page.userToken.isEmpty {
+      send(["type": "tokens", "developerToken": page.developerToken, "userToken": page.userToken])
+      finish()
+      return true
+    }
+
+    if isSigningIn && !hasAskedToAuthorize {
       hasAskedToAuthorize = true
       _ = try? await webView?.evaluateJavaScript(Self.authorizeScript)
     }
 
-    if page.userToken.isEmpty {
-      signedOutPollCount += 1
+    signedOutPollCount += 1
 
-      let isSignedOut = !isSigningIn && signedOutPollCount >= Self.pollsBeforeSignInNeeded
+    let isSignedOut = !isSigningIn && signedOutPollCount >= Self.pollsBeforeSignInNeeded
 
-      if isSignedOut {
-        send(["type": "signInNeeded"])
-        finish()
-      }
-
-      return isSignedOut
+    if isSignedOut {
+      send(["type": "signInNeeded"])
+      finish()
     }
 
-    send(["type": "tokens", "developerToken": page.developerToken, "userToken": page.userToken])
-    finish()
-
-    return true
+    return isSignedOut
   }
 
   private func readPageTokens() async -> (developerToken: String, userToken: String)? {
@@ -129,7 +133,6 @@ final class WebPlayer: NSObject, WKUIDelegate, NSWindowDelegate {
     return (json["developerToken"] ?? "", json["userToken"] ?? "")
   }
 
-  // The web view goes away with its window, so an idle helper holds no web page.
   private func finish() {
     isSigningIn = false
     hasAskedToAuthorize = false
@@ -138,6 +141,7 @@ final class WebPlayer: NSObject, WKUIDelegate, NSWindowDelegate {
     window?.close()
     window = nil
     webView = nil
+
     for popup in popupWindows {
       closePage(popup.contentView as? WKWebView)
       popup.delegate = nil
@@ -151,7 +155,7 @@ final class WebPlayer: NSObject, WKUIDelegate, NSWindowDelegate {
     guard isSigningIn, let closing = notification.object as? NSWindow else { return }
 
     if closing !== window {
-      closePopup(closing)
+      applyPopupClosed(closing)
       return
     }
 
@@ -160,18 +164,12 @@ final class WebPlayer: NSObject, WKUIDelegate, NSWindowDelegate {
     send(["type": "signInNeeded"])
   }
 
-  // Apple's sign-in opens in a popup. It takes the web player's place on screen while it is open.
   func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
     let popup = WKWebView(frame: .zero, configuration: configuration)
-    let popupWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 640), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+    let popupWindow = makeSignInWindow(showing: popup, size: NSSize(width: 480, height: 640), styleMask: [.titled, .closable])
 
     popup.customUserAgent = Self.userAgent
     popup.uiDelegate = self
-    popupWindow.title = "Sign in to Apple Music"
-    popupWindow.contentView = popup
-    popupWindow.isReleasedWhenClosed = false
-    popupWindow.delegate = self
-    popupWindow.center()
     popupWindows.append(popupWindow)
     window?.orderOut(nil)
     popupWindow.makeKeyAndOrderFront(nil)
@@ -185,19 +183,17 @@ final class WebPlayer: NSObject, WKUIDelegate, NSWindowDelegate {
 
     popupWindow.delegate = nil
     popupWindow.close()
-    closePopup(popupWindow)
+    applyPopupClosed(popupWindow)
   }
 
-  // A popup closed before the sign-in finished, so the web player shows again with its own Sign In.
-  private func closePopup(_ popupWindow: NSWindow) {
+  private func applyPopupClosed(_ popupWindow: NSWindow) {
     popupWindows.removeAll { $0 === popupWindow }
 
     if isSigningIn && popupWindows.isEmpty { window?.makeKeyAndOrderFront(nil) }
   }
 }
 
-// Letting go of a web view keeps its page's process running, with 150 MB or more. WebKit's _close ends the
-// page, and so the process. _close is not public, so a WebKit without it only stops the page loading.
+// A released web view keeps a 150 MB page process. WebKit's private _close ends it.
 @MainActor
 func closePage(_ view: WKWebView?) {
   guard let view else { return }

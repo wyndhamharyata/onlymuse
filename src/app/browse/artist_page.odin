@@ -16,8 +16,6 @@ ARTIST_ALBUM_POINTS :: 150
 
 SIMILAR_ARTIST_POINTS :: 130
 
-// Read_Text keeps the text read from an answer until the answer's version changes.
-// The page asks for the text every frame, so it reads each answer once.
 @(private = "file")
 Read_Text :: struct {
 	key:     string,
@@ -33,9 +31,8 @@ find_read_text :: proc(read: ^Read_Text, key: string, version: int) -> (string, 
 	return read.text, read.key == key && read.version == version
 }
 
-// This frees the old text. Call it before the frame builds anything with the old text.
 @(private = "file")
-save_read_text :: proc(read: ^Read_Text, key: string, version: int, text: string) -> string {
+keep_read_text :: proc(read: ^Read_Text, key: string, version: int, text: string) -> string {
 	delete(read.key)
 	delete(read.text)
 	read^ = {strings.clone(key), version, strings.clone(text)}
@@ -44,8 +41,7 @@ save_read_text :: proc(read: ^Read_Text, key: string, version: int, text: string
 }
 
 // Music.app gives a song's artist only as a name.
-// This returns the catalog artist of that exact name, or else the first search result.
-find_artist_id :: proc(artist_name: string) -> (string, apple.Phase) {
+watch_artist_id :: proc(artist_name: string) -> (string, apple.Phase) {
 	watched := apple.watch(
 		fmt.tprintf(
 			"/v1/catalog/%s/search?term=%s&types=artists&limit=12",
@@ -58,27 +54,21 @@ find_artist_id :: proc(artist_name: string) -> (string, apple.Phase) {
 		return id, .Ready
 	}
 
-	Search_Answer :: struct {
-		results: struct {
-			artists: apple.Related,
-		},
-	}
-	answer: Search_Answer
+	answer: apple.Search_Answer
 	_ = core.unmarshal_text(watched.body, &answer)
 
 	artists := answer.results.artists.data
 	id := artists[0].id if len(artists) > 0 else ""
 	for artist in artists do if artist.attributes.name == artist_name do id = artist.id
 
-	return save_read_text(&artist_id_by_name, artist_name, watched.version, id), .Ready
+	return keep_read_text(&artist_id_by_name, artist_name, watched.version, id), .Ready
 }
 
-// When the player bar opens an artist page by name, the page finds the artist's ID first.
 build_artist_page :: proc(page_id: string, name: string) {
 	artist_id := page_id
 
 	if artist_id == "" {
-		found, phase := find_artist_id(name)
+		found, phase := watch_artist_id(name)
 
 		if found == "" {
 			page := kit.page_scroll("artist")
@@ -98,31 +88,13 @@ build_artist_page :: proc(page_id: string, name: string) {
 	views := "top-songs,latest-release,full-albums,similar-artists"
 	path := fmt.tprintf("/v1/catalog/%s/artists/%s?views=%s", apple.STOREFRONT, artist_id, views)
 	watched := apple.watch(path)
-	catalog_name := ""
-
-	if watched.phase == .Ready {
-		ok: bool
-		catalog_name, ok = find_read_text(&catalog_artist_name, path, watched.version)
-
-		if !ok {
-			resources := apple.to_resources(watched.body, context.temp_allocator)
-			catalog_name = save_read_text(
-				&catalog_artist_name,
-				path,
-				watched.version,
-				resources[0].attributes.name if len(resources) > 0 else "",
-			)
-		}
-	}
-
-	library_albums := watch_library_albums_of(catalog_name)
-	// One version for both answers, so the page reads again when either answer changes.
-	data, is_stale := core.find_page_data(
+	library_albums := watch_library_albums_of(find_catalog_artist_name(path, watched))
+	data, needs_read := core.find_page_data(
 		path,
-		watched.version * 31 + library_albums.version,
+		core.mix_version(watched.version, library_albums.version),
 		watched.phase,
 	)
-	if is_stale && watched.phase == .Ready do read_artist(data, watched.body, library_albums)
+	if needs_read do read_artist(data, watched.body, library_albums)
 
 	page := kit.page_scroll("artist")
 	kit.run_bench_scroll(page)
@@ -133,7 +105,7 @@ build_artist_page :: proc(page_id: string, name: string) {
 			return
 		}
 
-		width := page.size.x - page.style.padding.x - page.style.padding.z
+		width := kit.to_content_width(page)
 		channel := youtube_lists.watch_youtube_artist(data.title)
 		detail := data.detail
 
@@ -146,18 +118,9 @@ build_artist_page :: proc(page_id: string, name: string) {
 		build_artist_middle(data)
 		if width <= 0 do return
 
-		lists.build_card_row(
-			"library",
-			"In Your Library",
-			data.library_cards,
-			lists.to_tile_size(width, ARTIST_ALBUM_POINTS, lists.CARD_GAP_POINTS),
-		)
-		lists.build_card_row(
-			"albums",
-			"Albums",
-			data.cards,
-			lists.to_tile_size(width, ARTIST_ALBUM_POINTS, lists.CARD_GAP_POINTS),
-		)
+		album_tile_points := lists.to_tile_size(width, ARTIST_ALBUM_POINTS, lists.CARD_GAP_POINTS)
+		lists.build_card_row("library", "In Your Library", data.library_cards, album_tile_points)
+		lists.build_card_row("albums", "Albums", data.cards, album_tile_points)
 
 		for shelf, index in channel.shelves {
 			if !is_youtube_only_shelf(shelf) do continue
@@ -176,28 +139,28 @@ build_artist_page :: proc(page_id: string, name: string) {
 	}
 }
 
+@(private = "file")
+find_catalog_artist_name :: proc(path: string, watched: apple.Watched) -> string {
+	if watched.phase != .Ready do return ""
+	if name, ok := find_read_text(&catalog_artist_name, path, watched.version); ok do return name
+
+	resources := apple.to_resources(watched.body, context.temp_allocator)
+	name := resources[0].attributes.name if len(resources) > 0 else ""
+
+	return keep_read_text(&catalog_artist_name, path, watched.version, name)
+}
+
 // Apple's library search misses a term with an apostrophe.
-// This searches for the longest word of the name, then checks the full name.
 @(private = "file")
 watch_library_albums_of :: proc(artist_name: string) -> apple.Watched {
 	if artist_name == "" do return {phase = .Loading}
 
+	words := strings.fields_proc(artist_name, proc(character: rune) -> bool {
+			return !unicode.is_letter(character) && !unicode.is_digit(character)
+		}, context.temp_allocator)
 	longest := ""
-	word_start := -1
 
-	for character, index in artist_name {
-		is_word_character := unicode.is_letter(character) || unicode.is_digit(character)
-		if is_word_character && word_start < 0 do word_start = index
-
-		if !is_word_character && word_start >= 0 {
-			if index - word_start > len(longest) do longest = artist_name[word_start:index]
-			word_start = -1
-		}
-	}
-
-	if word_start >= 0 && len(artist_name) - word_start > len(longest) {
-		longest = artist_name[word_start:]
-	}
+	for word in words do if len(word) > len(longest) do longest = word
 
 	search := apple.watch(
 		fmt.tprintf(
@@ -210,7 +173,7 @@ watch_library_albums_of :: proc(artist_name: string) -> apple.Watched {
 	id, ok := find_read_text(&library_artist_id, artist_name, search.version)
 
 	if !ok {
-		id = save_read_text(
+		id = keep_read_text(
 			&library_artist_id,
 			artist_name,
 			search.version,
@@ -226,17 +189,9 @@ watch_library_albums_of :: proc(artist_name: string) -> apple.Watched {
 	return albums
 }
 
-// Returns the ID of the library artist with exactly this name, or empty when there is none.
 @(private = "file")
 find_library_artist_id :: proc(body, artist_name: string) -> string {
-	Search_Answer :: struct {
-		results: struct {
-			library_artists: struct {
-				data: []apple.Resource,
-			} `json:"library-artists"`,
-		},
-	}
-	answer: Search_Answer
+	answer: apple.Search_Answer
 	_ = core.unmarshal_text(body, &answer)
 
 	for artist in answer.results.library_artists.data {
@@ -261,25 +216,22 @@ read_artist :: proc(data: ^core.Page_Data, body: string, library_albums: apple.W
 	data.detail = attributes.genre_names[0] if len(attributes.genre_names) > 0 else ""
 	data.artwork = attributes.artwork
 
-	top_songs := apple.list_view(artist, "top-songs")
-	songs := make([]core.Catalog_Song, len(top_songs), allocator)
-	for song, index in top_songs do songs[index] = apple.to_catalog_song(song)
-	data.songs = songs
+	data.songs = apple.to_catalog_songs(apple.read_view(artist, "top-songs"), allocator)
 
-	data.latest = apple.list_cards(apple.list_view(artist, "latest-release"), allocator)
-	data.cards = apple.list_cards(apple.list_view(artist, "full-albums"), allocator)
-	data.similar = apple.list_cards(apple.list_view(artist, "similar-artists"), allocator)
+	data.latest = apple.to_cards(apple.read_view(artist, "latest-release"), allocator)
+	data.cards = apple.to_cards(apple.read_view(artist, "full-albums"), allocator)
+	data.similar = apple.to_cards(apple.read_view(artist, "similar-artists"), allocator)
 
-	if library_albums.phase == .Ready && library_albums.body != "" {
-		data.library_cards = apple.list_cards(
+	has_library_albums := library_albums.phase == .Ready && library_albums.body != ""
+
+	if has_library_albums {
+		data.library_cards = apple.to_cards(
 			apple.to_resources(library_albums.body, allocator),
 			allocator,
 		)
 	}
 }
 
-// Answers yes for a shelf of videos, live performances or playlists from the YouTube channel.
-// Apple already gives the artist's albums, singles and similar artists.
 @(private = "file")
 is_youtube_only_shelf :: proc(shelf: apple.Shelf) -> bool {
 	return shelf.is_wide || (len(shelf.cards) > 0 && strings.has_prefix(shelf.cards[0].id, "VL"))

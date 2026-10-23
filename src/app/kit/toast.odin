@@ -7,6 +7,12 @@ import "om:ui"
 
 TOAST_SECONDS :: 2.5
 
+TOAST_FADE_SECONDS :: 0.3
+
+TOAST_PADDING_POINTS :: 14
+
+TOAST_MARGIN_POINTS :: 12
+
 @(private = "file")
 toast: struct {
 	text:     string,
@@ -19,7 +25,6 @@ show_toast :: proc(text: string) {
 	toast.shown_at = time.tick_now()
 }
 
-// Over the page, just above the player bar, fading out at the end.
 build_toast :: proc() {
 	if toast.text == "" do return
 
@@ -31,26 +36,26 @@ build_toast :: proc() {
 		return
 	}
 
-	// The toast fades out over its last 0.3 s.
-	opacity := min(1, (TOAST_SECONDS - seconds) / 0.3)
+	opacity := min(1, (TOAST_SECONDS - seconds) / TOAST_FADE_SECONDS)
 	root := ui.current_parent()
 	window_size := [2]f32{root.style.width.value, root.style.height.value}
-	width := measure_text(toast.text, 12.5) + 28
+	width := measure_text(toast.text, SMALL_TEXT_POINTS) + 2 * TOAST_PADDING_POINTS
+	top := window_size.y - PLAYER_HEIGHT_POINTS - TOAST_MARGIN_POINTS - BUTTON_HEIGHT_POINTS
 
 	ui.box(
 		"toast",
 		{
 			width = ui.points(width),
-			height = ui.points(32),
-			padding = {14, 0, 14, 0},
+			height = ui.points(BUTTON_HEIGHT_POINTS),
+			padding = {TOAST_PADDING_POINTS, 0, TOAST_PADDING_POINTS, 0},
 			corner_radius = 10,
-			background = to_color(0x2c2c31ff),
+			background = colors.toast,
 			border_width = 1,
-			border_color = to_color(0xffffff1c),
+			border_color = colors.popover_border,
 			text_color = colors.text,
-			font_size = 12.5,
+			font_size = SMALL_TEXT_POINTS,
 			fade = 1 - opacity,
-			position = {(window_size.x - width) / 2, window_size.y - PLAYER_HEIGHT_POINTS - 44},
+			position = {(window_size.x - width) / 2, top},
 			flags = {.Floating},
 		},
 		toast.text,

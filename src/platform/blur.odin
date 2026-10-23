@@ -18,8 +18,6 @@ Blur_View :: struct {
 	using _: Visual_Effect_View,
 }
 
-// Tints the blur with color, in sRGB. The window server paints it under each frame, so a scrolled
-// frame does not shade every pixel of the window for it.
 set_background :: proc(color: [4]f32) {
 	ns_color := objc_send(
 		^NS.Color,
@@ -39,7 +37,6 @@ set_background :: proc(color: [4]f32) {
 	)
 }
 
-// Lets the blur view run AppKit's own updateLayer before it removes the tint.
 @(private)
 Objc_Super :: struct {
 	receiver:    ^Blur_View,
@@ -56,7 +53,6 @@ Blur_View_updateLayer :: proc "c" (self: ^Blur_View) {
 
 @(private)
 remove_layer_background :: proc "c" (layer: ^Layer) {
-	// The Metal layer's colour is the window's own tint, from set_background.
 	if layer == nil || rawptr(layer) == rawptr(state.window.layer) do return
 
 	objc_send(nil, layer, "setBackgroundColor:", rawptr(nil))
@@ -79,7 +75,7 @@ remove_layer_background :: proc "c" (layer: ^Layer) {
 			description := objc_send(^NS.String, filter, "description")
 
 			// The blur raises saturation with a filter named "colorSaturate".
-			if objc_send(NS.BOOL, description, "containsString:", NS.AT("Saturat")) do continue
+			if objc_send(NS.BOOL, description, "containsString:", NS.AT("colorSaturate")) do continue
 
 			objc_send(nil, kept, "addObject:", filter)
 		}
@@ -93,7 +89,6 @@ remove_layer_background :: proc "c" (layer: ^Layer) {
 	if sublayers == nil do return
 
 	for index in 0 ..< sublayers->count() {
-		// Every sublayer of a CALayer is a CALayer.
 		remove_layer_background(cast(^Layer)sublayers->object(index))
 	}
 }

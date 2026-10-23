@@ -14,12 +14,10 @@ import "om:net"
 import "om:platform"
 import "om:youtube"
 
-// One write to a library playlist on Apple, with the toasts it shows when Apple answers.
 @(private = "file")
 Write_Job :: struct {
 	path, body:             string,
 	done_text, failed_text: string,
-	// The app asks for this path again after the write, so the page shows the change.
 	refresh_path:           string,
 }
 
@@ -52,21 +50,17 @@ start_write :: proc(job: Write_Job) {
 	thread.create_and_start_with_data(copied, run_write, self_cleanup = true)
 }
 
-// apple.post waits for Apple's answer, so run_write runs on a thread of its own.
 @(private = "file")
 run_write :: proc(data: rawptr) {
 	job := cast(^Write_Job)data
 	defer net.stop_thread()
 	status := apple.post(job.path, job.body).status
-	is_done := status >= 200 && status < 300
+	is_done := is_success_status(status)
+	toast := strings.clone(job.done_text) if is_done else to_failure_text(job.failed_text, status)
 
 	{
 		sync.guard(&write_results.mutex)
-
-		failure_text :=
-			fmt.aprintf("%s: no answer from Apple.", job.failed_text) if status == 0 else fmt.aprintf("%s: Apple answered %d.", job.failed_text, status)
-		append(&write_results.toasts, strings.clone(job.done_text) if is_done else failure_text)
-		if is_done do delete(failure_text)
+		append(&write_results.toasts, toast)
 
 		if is_done && job.refresh_path != "" {
 			append(&write_results.refresh, strings.clone(job.refresh_path))
@@ -80,11 +74,21 @@ run_write :: proc(data: rawptr) {
 	delete(job.failed_text)
 	delete(job.refresh_path)
 	free(job)
-	// The app frees temp memory each frame on the main thread only.
 	free_all(context.temp_allocator)
 }
 
-// Runs once a frame. It shows the toasts of finished writes and refreshes the paths they changed.
+@(private = "file")
+is_success_status :: proc(status: int) -> bool {
+	return status >= 200 && status < 300
+}
+
+@(private = "file")
+to_failure_text :: proc(failed_text: string, status: int) -> string {
+	if status == 0 do return fmt.aprintf("%s. Apple did not answer.", failed_text)
+
+	return fmt.aprintf("%s. Apple answered %d.", failed_text, status)
+}
+
 apply_write_results :: proc() {
 	sync.guard(&write_results.mutex)
 
@@ -109,6 +113,8 @@ apply_write_results :: proc() {
 		if created.should_open_page {
 			core.navigate({kind = .Playlist, id = created.id, title = created.name})
 		}
+
+		delete_created_playlist(created)
 	}
 
 	clear(&write_results.toasts)
@@ -122,10 +128,9 @@ Song_Reference :: struct {
 	type: string,
 }
 
-// Apple's playlists hold only Apple songs.
-// So a song only on YouTube goes into onlymuse's own part of the playlist.
+// Apple's playlists hold only Apple songs, so a song only on YouTube goes in onlymuse's own part.
 add_to_playlist :: proc(playlist_id, playlist_name: string, chosen: core.Catalog_Song) {
-	song := matching.find_playable(chosen)
+	song := matching.watch_playable(chosen)
 
 	if youtube.is_song_id(song.id) {
 		youtube_lists.add_playlist_youtube_songs(playlist_id, {{"", song}})
@@ -156,7 +161,7 @@ add_to_playlist :: proc(playlist_id, playlist_name: string, chosen: core.Catalog
 
 @(private)
 create_playlist_with :: proc(name: string, chosen: core.Catalog_Song) {
-	song := matching.find_playable(chosen)
+	song := matching.watch_playable(chosen)
 	done_text := fmt.tprintf("Made %s with %s", name, song.name)
 
 	if youtube.is_song_id(song.id) {
@@ -167,18 +172,14 @@ create_playlist_with :: proc(name: string, chosen: core.Catalog_Song) {
 	create_playlist(name, {song}, nil, done_text)
 }
 
-// The first page of the library's playlists, as list_playlists watches it.
 PLAYLISTS_PATH :: "/v1/me/library/playlists?limit=100&offset=0"
 
 @(private = "file")
 Create_Job :: struct {
-	name, body, done_text: string,
-	youtube_songs:         []youtube_lists.Playlist_YouTube_Song,
-	should_open_page:      bool,
+	using playlist: Created_Playlist,
+	body:           string,
 }
 
-// Makes a library playlist of Apple songs.
-// Once Apple gives its ID, onlymuse keeps the YouTube-only songs with it.
 create_playlist :: proc(
 	name: string,
 	songs: []core.Catalog_Song,
@@ -213,17 +214,18 @@ create_playlist :: proc(
 
 	job := new(Create_Job)
 	job^ = {
-		strings.clone(name),
-		strings.clone(string(body)),
-		strings.clone(done_text),
-		kept,
-		should_open_page,
+		playlist = {
+			name = strings.clone(name),
+			done_text = strings.clone(done_text),
+			youtube_songs = kept,
+			should_open_page = should_open_page,
+		},
+		body = strings.clone(string(body)),
 	}
 
 	thread.create_and_start_with_data(job, run_create, self_cleanup = true)
 }
 
-// Runs on a thread of its own. The created playlist reaches the main thread through write_results.
 @(private = "file")
 run_create :: proc(data: rawptr) {
 	job := cast(^Create_Job)data
@@ -235,29 +237,33 @@ run_create :: proc(data: rawptr) {
 
 	answer := apple.post("/v1/me/library/playlists", job.body)
 	resources :=
-		apple.to_resources(answer.body, context.temp_allocator) if answer.status >= 200 && answer.status < 300 else nil
+		apple.to_resources(answer.body, context.temp_allocator) if is_success_status(answer.status) else nil
 
 	sync.guard(&write_results.mutex)
 	defer platform.wake()
 
 	if len(resources) == 0 {
-		append(
-			&write_results.toasts,
-			fmt.aprintf("Could not make %s: Apple answered %d.", job.name, answer.status),
-		)
-		delete(job.name)
-		delete(job.done_text)
+		failed_text := fmt.tprintf("Could not make %s", job.name)
+		append(&write_results.toasts, to_failure_text(failed_text, answer.status))
+		delete_created_playlist(job.playlist)
 		return
 	}
 
-	append(
-		&write_results.created,
-		Created_Playlist {
-			strings.clone(resources[0].id),
-			job.name,
-			job.done_text,
-			job.youtube_songs,
-			job.should_open_page,
-		},
-	)
+	created := job.playlist
+	created.id = strings.clone(resources[0].id)
+	append(&write_results.created, created)
+}
+
+@(private = "file")
+delete_created_playlist :: proc(playlist: Created_Playlist) {
+	delete(playlist.id)
+	delete(playlist.name)
+	delete(playlist.done_text)
+
+	for song in playlist.youtube_songs {
+		delete(song.after)
+		core.delete_song(song.song)
+	}
+
+	delete(playlist.youtube_songs)
 }

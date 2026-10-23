@@ -1,4 +1,3 @@
-// The command palette, opened with Cmd K.
 package palette
 
 import "core:mem/virtual"
@@ -10,19 +9,24 @@ import "om:apple"
 import "om:helper"
 import "om:ui"
 
-PALETTE_POINTS :: 560
+PALETTE_WIDTH_POINTS :: 560
 
 PALETTE_TOP_POINTS :: 70
 
-PALETTE_ROW_POINTS :: 36
+PALETTE_ROW_HEIGHT_POINTS :: 36
 
-PALETTE_LIST_POINTS :: 420
+PALETTE_LIST_MAX_HEIGHT_POINTS :: 420
 
-// The palette asks Apple Music once typing stops for this long, not at each key press.
 PALETTE_SETTLE_MS :: 300
 
-// The most results each group shows.
-PALETTE_GROUP_LIMIT :: 5
+MAX_GROUP_RESULT_COUNT :: 5
+
+PALETTE_FIELD_HEIGHT_POINTS :: 40
+
+PALETTE_FIELD_FONT_SIZE :: 16
+
+// kit.build_text_field draws its own field colour when the alpha is 0. This shows the panel's.
+PALETTE_FIELD_BACKGROUND :: [4]f32{0, 0, 0, 0.001}
 
 @(private)
 Palette_Action :: enum {
@@ -52,7 +56,6 @@ Palette_Result :: struct {
 	page:     core.Page,
 	song:     core.Catalog_Song,
 	card:     apple.Card,
-	// The song's place in the library, for Play_Library_Song.
 	index:    int,
 }
 
@@ -61,24 +64,21 @@ palette: struct {
 	is_open:             bool,
 	field:               kit.Text_Field,
 	selected_index:      int,
-	// update_results builds the results again in arena when the term or its data changes.
 	arena:               virtual.Arena,
 	results:             []Palette_Result,
 	built_term:          string,
 	built_signature:     int,
-	// When the term last changed.
 	typed_at_ms:         f64,
 	opened_frame:        int,
 	last_mouse_position: [2]f32,
 }
 
 start_palette :: proc() {
-	palette.field.keeps_focus = true
-	palette.field.takes_up_down = true
+	palette.field.is_keeping_focus = true
+	palette.field.is_taking_up_down = true
 	kit.register_text_field(&palette.field)
 }
 
-// Cmd K opens the palette. A second Cmd K closes it.
 toggle_palette :: proc() {
 	if palette.is_open {
 		close_palette()
@@ -93,7 +93,6 @@ toggle_palette :: proc() {
 	kit.focus_field(&palette.field)
 }
 
-// OM_PALETTE opens the palette with a term. A test cannot type into a window behind the others.
 open_palette_for_test :: proc(term: string) {
 	toggle_palette()
 	kit.set_field_text(&palette.field, term)
@@ -120,9 +119,10 @@ build_palette :: proc() {
 		palette.selected_index = 0
 	}
 
-	update_results()
+	watch_results()
 
 	result_count := len(palette.results)
+
 	if result_count > 0 {
 		palette.selected_index =
 			(palette.selected_index + field.step + result_count) % result_count
@@ -150,7 +150,7 @@ build_palette :: proc() {
 	picked := -1
 
 	if ui.scope(cover) {
-		width := min(PALETTE_POINTS, window_size.x - 40)
+		width := min(PALETTE_WIDTH_POINTS, window_size.x - 40)
 		position := [2]f32{(window_size.x - width) / 2, PALETTE_TOP_POINTS}
 
 		ui.box(
@@ -188,9 +188,9 @@ build_palette :: proc() {
 				"palette field",
 				"Go to a page, an artist, a song, or do something",
 				"magnifyingglass",
-				40,
-				16,
-				{0, 0, 0, 0.001},
+				PALETTE_FIELD_HEIGHT_POINTS,
+				PALETTE_FIELD_FONT_SIZE,
+				PALETTE_FIELD_BACKGROUND,
 			)
 			picked = build_results()
 		}
@@ -209,24 +209,23 @@ build_palette :: proc() {
 @(private = "file")
 run_result :: proc(result: Palette_Result) {
 	switch result.action {
-	// navigate, play_songs and open_card keep their own copies, so the arena may free the results.
 	case .Navigate:
 		core.navigate(result.page)
 	case .Play_Library_Song:
-		songs, _, _ := core.list_library_songs()
+		songs, _, _ := core.watch_library_songs()
 		if result.index < len(songs) do playback.play_songs(songs, result.index)
 	case .Play_Song:
 		playback.play_songs([]core.Catalog_Song{result.song}, 0)
 	case .Open_Card:
 		lists.open_card([]apple.Card{result.card}, 0)
 	case .Play_Pause:
-		helper.send(`{"type":"playPause"}`)
+		helper.send_play_pause()
 	case .Next:
 		playback.skip_to_next()
 	case .Previous:
-		playback.skip_to_previous(helper.to_position_seconds(core.app.now_playing))
+		playback.skip_to_previous(helper.read_position_seconds(core.app.now_playing))
 	case .Shuffle_All:
-		songs, _, _ := core.list_library_songs()
+		songs, _, _ := core.watch_library_songs()
 		playback.shuffle_songs(songs)
 	case .Favourite:
 		if song, persistent_id, ok := playback.find_playing_song(); ok {

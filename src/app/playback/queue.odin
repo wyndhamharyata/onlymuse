@@ -1,12 +1,10 @@
-// The queue, shuffle, the play log, favourites and what Music.app knows of each song.
-// The package draws nothing but the menu of the shuffle rules.
 package playback
 
 import "core:encoding/json"
-import "core:fmt"
 import "core:strings"
 import "core:sync"
 import "om:app/core"
+import "om:app/matching"
 import "om:console"
 import "om:helper"
 import "om:platform"
@@ -19,19 +17,14 @@ Resume_Point :: struct {
 }
 
 // Music.app keeps no queue after a song that AppleScript starts, so the app plays each next song.
-// The store saves this queue under the key "queue".
 Queue_State :: struct {
 	songs:                 []core.Catalog_Song,
-	// The songs in the order they came, so shuffle can turn off again.
 	original_songs:        []core.Catalog_Song `json:"originalSongs"`,
 	index:                 int,
 	is_shuffled:           bool `json:"isShuffled"`,
 	repeat:                string,
 	is_adding:             bool `json:"isAdding"`,
-	// The ID is empty when the queue's song is not playing.
 	playing_persistent_id: string `json:"playingPersistentID"`,
-	// The last song Music.app played, which the player shows when Music.app stops. It changes
-	// every few seconds, so the store saves it apart from the queue's thousands of songs.
 	resume_point:          Resume_Point `json:"-"`,
 }
 
@@ -43,37 +36,34 @@ Request_Kind :: enum {
 	Resume,
 }
 
-// A message that the queue sent to the helper, kept until the helper answers it.
 @(private = "file")
 Request :: struct {
 	kind:            Request_Kind,
 	play_count:      int,
-	// A number, not handoff_key, as sync_handoff frees the old key when a new one replaces it.
 	handoff_version: int,
 	index:           int,
 	after:           string,
+	is_queue_song:   bool,
 }
 
-// A song this close to its end counts as ended when Music.app moves on or stops.
 END_TOLERANCE_SECONDS :: 3.0
 
 // Previous starts the song again past this point, as Music.app does.
 RESTART_AFTER_SECONDS :: 3.0
 
-// Music.app starts a library song within a second or two. For a song with no file, Music.app
-// shows a dialog and never starts it.
+// For a song with no file, Music.app shows a dialog and never starts it.
 START_TIMEOUT_SECONDS :: 8.0
 
-// Music.app can play a song new to the library for a few seconds, then stop on it for good.
-// After 2 still positions, about 4 s, the queue plays it again, as a switch away and back does.
+POSITION_POST_SECONDS :: 2
+
+// Music.app can stop for good on a song new to the library. A second play starts it.
 STALLED_POSITION_COUNT :: 2
 
-// Music.app can take several seconds to load a song at 0:00, so it gets 8 positions, about 16 s.
+// Music.app can take several seconds to load a song at 0:00, so it gets more still positions.
 UNSTARTED_POSITION_COUNT :: 8
 
 MAX_RESTART_COUNT :: 2
 
-// The queue saves the position of the playing song this often, the most a force quit can lose.
 POSITION_SAVE_SECONDS :: 5.0
 
 queue: Queue_State
@@ -86,18 +76,13 @@ queue_state: struct {
 	has_handoff:         bool,
 	handoff_key:         string,
 	handoff_version:     int,
-	// It counts up with each play, so an older play that is still adding a song knows to stop.
 	play_count:          int,
 	requests:            map[int]Request,
-	// The thread that adds a song to the library sets this to the play count it added for.
 	added_play_count:    int,
 	add_mutex:           sync.Mutex,
 	poll_deadline_ms:    f64,
-	// The time by which a song matched from YouTube must start. It is 0 when the queue awaits none.
 	start_deadline_ms:   f64,
-	// The YouTube page has the queue's song but did not start it yet.
 	is_starting_youtube: bool,
-	// How many times the queue started the playing song again after Music.app stopped on it.
 	restart_count:       int,
 	next_poll_ms:        f64,
 	is_polling:          bool,
@@ -113,7 +98,6 @@ start_queue :: proc() {
 		_ = json.unmarshal_string(text, &queue.resume_point)
 	}
 
-	// If the app quit while it added a song, that add is over now.
 	queue.is_adding = false
 	if queue.repeat == "" do queue.repeat = "off"
 	if queue.index >= len(queue.songs) do queue.index = len(queue.songs) - 1
@@ -134,20 +118,19 @@ save_resume_point :: proc() {
 @(private)
 save_queue_and_handoff :: proc() {
 	save_queue()
-	sync_handoff()
+	send_handoff()
 }
 
 to_song_match :: proc(song: core.Catalog_Song) -> helper.Song_Match {
 	return {
-		song.name,
-		song.artist_name,
-		song.album_name,
-		song.duration_seconds,
-		youtube.to_video_id(song.id),
+		name = song.name,
+		artist_name = song.artist_name,
+		album_name = song.album_name,
+		duration_seconds = song.duration_seconds,
+		youtube_id = youtube.to_video_id(song.id),
 	}
 }
 
-// Repeat all goes from the last song back to the first. It returns -1 when the queue is over.
 @(private)
 find_next_index :: proc() -> int {
 	if queue.index + 1 < len(queue.songs) do return queue.index + 1
@@ -156,19 +139,18 @@ find_next_index :: proc() -> int {
 	return -1
 }
 
-// A YouTube song with a match plays from Apple Music. The match takes its place in the queue.
-@(private)
-play_at :: proc(index: int) {
+play_queue_at :: proc(index: int) {
 	queue_state.play_count += 1
-	queue_state.is_polling = false
 	set_playable(index)
 	queue.index = index
+	start_matches()
+
+	queue_state.is_polling = false
 	queue_state.start_deadline_ms = 0
 	queue_state.is_starting_youtube = false
 	queue_state.restart_count = 0
-	start_matches()
 	queue.is_adding = false
-	queue.playing_persistent_id = ""
+	set_playing_persistent_id("")
 	save_queue_and_handoff()
 
 	request_id := helper.send_play(to_song_match(queue.songs[index]))
@@ -178,13 +160,16 @@ play_at :: proc(index: int) {
 	}
 }
 
-// Takes in the helper's answer to a playSong or setNext.
+@(private)
+set_playing_persistent_id :: proc(persistent_id: string) {
+	old := queue.playing_persistent_id
+	queue.playing_persistent_id = strings.clone(persistent_id)
+	delete(old)
+}
+
 apply_queue_answer :: proc(request_id: int, answered_id: string) {
 	request, ok := queue_state.requests[request_id]
 	if !ok do return
-
-	// The message lives for one frame. The queue keeps the ID.
-	persistent_id := strings.clone(answered_id)
 
 	delete_key(&queue_state.requests, request_id)
 
@@ -192,72 +177,90 @@ apply_queue_answer :: proc(request_id: int, answered_id: string) {
 
 	switch request.kind {
 	case .Set_Next:
-		is_wanted :=
-			request.handoff_version == queue_state.handoff_version &&
-			request.after != "" &&
-			request.index >= 0 &&
-			persistent_id != ""
-		if is_wanted do queue_state.handoff = {request.after, request.index, persistent_id}
-		queue_state.has_handoff = is_wanted
+		apply_set_next_answer(request, answered_id)
 	case .Play:
-		if !is_current do return
-
-		if persistent_id != "" {
-			queue.playing_persistent_id = persistent_id
-			queue_state.is_starting_youtube = youtube.is_song_id(persistent_id)
-			save_queue_and_handoff()
-			await_start()
-			return
-		}
-
-		// Music.app shows a song new to the library after a few seconds, about 6 s in NOTES.md.
-		queue.is_adding = true
-		save_queue_and_handoff()
-		start_adding(queue.songs[queue.index].id, queue_state.play_count)
+		if is_current do apply_play_answer(answered_id)
 	case .Poll:
-		if !is_current do return
-
-		is_polled := persistent_id != "" || helper.now_ms() > queue_state.poll_deadline_ms
-
-		if !is_polled {
-			queue_state.next_poll_ms = helper.now_ms() + ADD_POLL_SECONDS * 1000
-			platform.request_frame_after(ADD_POLL_SECONDS)
-			return
-		}
-
-		if persistent_id == "" {
-			console.add(
-				"Queue",
-				"%s did not reach the library of Music.app.",
-				queue.songs[queue.index].name,
-			)
-		}
-
-		if persistent_id == "" && fall_back_to_youtube() do return
-
-		queue_state.is_polling = false
-		queue.is_adding = false
-		queue.playing_persistent_id = persistent_id
-		save_queue_and_handoff()
-		if persistent_id != "" do await_start()
+		if is_current do apply_poll_answer(answered_id)
 	case .Resume:
-		if persistent_id == "" do return
-
-		if request.after == "queue" {
-			queue.playing_persistent_id = persistent_id
-			save_queue_and_handoff()
-		}
-
-		helper.send(
-			fmt.tprintf(
-				`{{"type":"seek","positionSeconds":%.3f}}`,
-				queue.resume_point.position_seconds,
-			),
-		)
+		apply_resume_answer(request, answered_id)
 	}
 }
 
-// The YouTube page loads a song for some seconds before it plays. The player says so meanwhile.
+@(private = "file")
+apply_set_next_answer :: proc(request: Request, answered_id: string) {
+	is_wanted :=
+		request.handoff_version == queue_state.handoff_version &&
+		request.after != "" &&
+		request.index >= 0 &&
+		answered_id != ""
+
+	queue_state.has_handoff = is_wanted
+
+	if !is_wanted {
+		delete(request.after)
+		return
+	}
+
+	delete(queue_state.handoff.after_persistent_id)
+	delete(queue_state.handoff.persistent_id)
+	queue_state.handoff = {request.after, request.index, strings.clone(answered_id)}
+}
+
+@(private = "file")
+apply_play_answer :: proc(answered_id: string) {
+	if answered_id != "" {
+		set_playing_persistent_id(answered_id)
+		queue_state.is_starting_youtube = youtube.is_song_id(answered_id)
+		save_queue_and_handoff()
+		set_start_deadline()
+		return
+	}
+
+	// Music.app shows a song new to the library after a few seconds, about 6 s in NOTES.md.
+	queue.is_adding = true
+	save_queue_and_handoff()
+	start_adding(queue.songs[queue.index].id, queue_state.play_count)
+}
+
+@(private = "file")
+apply_poll_answer :: proc(answered_id: string) {
+	is_poll_over := answered_id != "" || helper.now_ms() > queue_state.poll_deadline_ms
+
+	if !is_poll_over {
+		queue_state.next_poll_ms = helper.now_ms() + ADD_POLL_SECONDS * 1000
+		platform.request_frame_after(ADD_POLL_SECONDS)
+		return
+	}
+
+	if answered_id == "" {
+		console.add(
+			"Queue",
+			"%s did not reach the library of Music.app.",
+			queue.songs[queue.index].name,
+		)
+		if fall_back_to_youtube() do return
+	}
+
+	queue_state.is_polling = false
+	queue.is_adding = false
+	set_playing_persistent_id(answered_id)
+	save_queue_and_handoff()
+	if answered_id != "" do set_start_deadline()
+}
+
+@(private = "file")
+apply_resume_answer :: proc(request: Request, answered_id: string) {
+	if answered_id == "" do return
+
+	if request.is_queue_song {
+		set_playing_persistent_id(answered_id)
+		save_queue_and_handoff()
+	}
+
+	helper.send_seek(queue.resume_point.position_seconds)
+}
+
 is_starting_youtube_song :: proc() -> bool {
 	now_playing := core.app.now_playing
 	is_loading :=
@@ -268,7 +271,6 @@ is_starting_youtube_song :: proc() -> bool {
 	return queue_state.is_starting_youtube || is_loading
 }
 
-// The queue's song when it is the one playing, for its artwork and its lossless badge.
 find_queue_song :: proc(persistent_id: string) -> (core.Catalog_Song, bool) {
 	is_current :=
 		persistent_id != "" && persistent_id == queue.playing_persistent_id && queue.index >= 0
@@ -276,7 +278,12 @@ find_queue_song :: proc(persistent_id: string) -> (core.Catalog_Song, bool) {
 	return queue.songs[queue.index] if is_current else {}, is_current
 }
 
-// Plays the last song again from where it was. Music.app may have quit or stopped since.
+is_current_song :: proc(song: core.Catalog_Song) -> bool {
+	current, is_queue_song := find_queue_song(core.app.now_playing.song.persistent_id)
+
+	return is_queue_song && matching.is_same_queue_song(current, song)
+}
+
 resume_last_song :: proc() {
 	resume := queue.resume_point
 	if resume.song.persistent_id == "" do return
@@ -286,16 +293,16 @@ resume_last_song :: proc() {
 	is_queue_song := resume.song.persistent_id == queue.playing_persistent_id
 	request_id := helper.send_play(
 		{
-			resume.song.name,
-			resume.song.artist,
-			resume.song.album,
-			resume.song.duration_seconds,
-			youtube.to_video_id(resume.song.persistent_id),
+			name = resume.song.name,
+			artist_name = resume.song.artist_name,
+			album_name = resume.song.album_name,
+			duration_seconds = resume.song.duration_seconds,
+			youtube_id = youtube.to_video_id(resume.song.persistent_id),
 		},
 	)
 	queue_state.requests[request_id] = {
-		kind       = .Resume,
-		play_count = queue_state.play_count,
-		after      = "queue" if is_queue_song else "",
+		kind          = .Resume,
+		play_count    = queue_state.play_count,
+		is_queue_song = is_queue_song,
 	}
 }

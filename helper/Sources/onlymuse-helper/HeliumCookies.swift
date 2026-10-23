@@ -3,9 +3,7 @@ import Foundation
 import Security
 import SQLite3
 
-// The youtube.com cookies of the Helium browser. Google refuses a sign-in inside an app's own web page, so
-// onlymuse uses the sign-in Helium already has. Helium is Chromium, which encrypts each cookie with AES-128 and a
-// key that it makes from a password it keeps in the Keychain. macOS asks the person once before the helper reads it.
+// Google refuses a sign-in inside a web view, so onlymuse reads Helium's youtube.com cookies.
 enum HeliumCookies {
   struct Cookie {
     let host: String
@@ -23,18 +21,17 @@ enum HeliumCookies {
   // Chromium's own values for macOS, in os_crypt.
   private static let salt = "saltysalt"
   private static let keyRounds: UInt32 = 1003
-  private static let keyLength = 16
+  private static let keyByteCount = 16
   private static let encryptedPrefix = "v10"
   // From database version 24, Chromium puts the SHA-256 of the cookie's host before its value.
   private static let hostHashVersion = 24
-  private static let hostHashLength = 32
+  private static let hostHashByteCount = 32
 
   enum Failure: Error {
     case noDatabase
     case noKey
   }
 
-  // This blocks while macOS asks for the Keychain, so it runs off the main thread.
   static func readYouTubeCookies() -> Result<[Cookie], Failure> {
     guard let password = readKeychainPassword() else { return .failure(.noKey) }
     guard let rows = readRows() else { return .failure(.noDatabase) }
@@ -85,7 +82,7 @@ enum HeliumCookies {
     guard sqlite3_open_v2(copyURL.path, &database, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else { return nil }
     defer { sqlite3_close(database) }
 
-    let version = Int(readText(database, "select value from meta where key = 'version'").first?.first ?? "") ?? 0
+    let version = Int(readFirstText(database, "select value from meta where key = 'version'") ?? "") ?? 0
     var statement: OpaquePointer?
     let sql = "select host_key, name, encrypted_value, path, is_secure, is_httponly from cookies where host_key = 'youtube.com' or host_key like '%.youtube.com'"
 
@@ -112,24 +109,19 @@ enum HeliumCookies {
     return (version, rows)
   }
 
-  private static func readText(_ database: OpaquePointer?, _ sql: String) -> [[String]] {
+  private static func readFirstText(_ database: OpaquePointer?, _ sql: String) -> String? {
     var statement: OpaquePointer?
 
-    guard sqlite3_prepare_v2(database, sql, -1, &statement, nil) == SQLITE_OK else { return [] }
+    guard sqlite3_prepare_v2(database, sql, -1, &statement, nil) == SQLITE_OK else { return nil }
     defer { sqlite3_finalize(statement) }
 
-    var rows: [[String]] = []
+    guard sqlite3_step(statement) == SQLITE_ROW else { return nil }
 
-    while sqlite3_step(statement) == SQLITE_ROW {
-      rows.append([sqlite3_column_text(statement, 0).map { String(cString: $0) } ?? ""])
-    }
-
-    return rows
+    return sqlite3_column_text(statement, 0).map { String(cString: $0) }
   }
 
-  // PBKDF2 with SHA-1, as Chromium makes its cookie key on macOS.
   private static func toKey(password: Data) -> Data {
-    var key = Data(count: keyLength)
+    var key = Data(count: keyByteCount)
     let saltBytes = Array(salt.utf8)
 
     key.withUnsafeMutableBytes { keyBuffer in
@@ -139,7 +131,7 @@ enum HeliumCookies {
           passwordBuffer.baseAddress?.assumingMemoryBound(to: CChar.self), password.count,
           saltBytes, saltBytes.count,
           CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA1), keyRounds,
-          keyBuffer.baseAddress?.assumingMemoryBound(to: UInt8.self), keyLength
+          keyBuffer.baseAddress?.assumingMemoryBound(to: UInt8.self), keyByteCount
         )
       }
     }
@@ -152,7 +144,7 @@ enum HeliumCookies {
     guard encrypted.starts(with: Data(encryptedPrefix.utf8)) else { return nil }
 
     let body = encrypted.dropFirst(encryptedPrefix.count)
-    let iv = Data(repeating: 0x20, count: kCCBlockSizeAES128)
+    let initializationVector = Data(repeating: 0x20, count: kCCBlockSizeAES128)
     var plain = Data(count: body.count + kCCBlockSizeAES128)
     var plainLength = 0
     let plainCapacity = plain.count
@@ -160,10 +152,10 @@ enum HeliumCookies {
     let status = plain.withUnsafeMutableBytes { plainBuffer in
       body.withUnsafeBytes { bodyBuffer in
         key.withUnsafeBytes { keyBuffer in
-          iv.withUnsafeBytes { ivBuffer in
+          initializationVector.withUnsafeBytes { vectorBuffer in
             CCCrypt(
               CCOperation(kCCDecrypt), CCAlgorithm(kCCAlgorithmAES128), CCOptions(kCCOptionPKCS7Padding),
-              keyBuffer.baseAddress, key.count, ivBuffer.baseAddress,
+              keyBuffer.baseAddress, key.count, vectorBuffer.baseAddress,
               bodyBuffer.baseAddress, body.count,
               plainBuffer.baseAddress, plainCapacity, &plainLength
             )
@@ -175,7 +167,8 @@ enum HeliumCookies {
     guard status == kCCSuccess else { return nil }
 
     var value = plain.prefix(plainLength)
-    if hasHostHash { value = value.dropFirst(hostHashLength) }
+
+    if hasHostHash { value = value.dropFirst(hostHashByteCount) }
 
     return String(data: value, encoding: .utf8)
   }

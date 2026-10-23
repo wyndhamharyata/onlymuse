@@ -2,8 +2,6 @@ import AppKit
 import Network
 import WebKit
 
-// The helper speaks JSON lines with the app over stdin and stdout.
-
 func readAccentMessage() -> [String: Any] {
   let color = NSColor.controlAccentColor.usingColorSpace(.sRGB) ?? .systemBlue
   let hex = String(format: "#%02X%02X%02X", Int(color.redComponent * 255), Int(color.greenComponent * 255), Int(color.blueComponent * 255))
@@ -11,32 +9,27 @@ func readAccentMessage() -> [String: Any] {
   return ["type": "accent", "color": hex]
 }
 
-// The helper is an app with no Dock icon, so AppKit tells it when the accent colour changes.
 let application = NSApplication.shared
-// A window behind the others is a bench or test run, which must keep the music as it is when it ends.
-let pausesWhenAppEnds = ProcessInfo.processInfo.environment["GPUIX_BACKGROUND"] != "1"
+let isPausedWhenAppEnds = ProcessInfo.processInfo.environment["GPUIX_BACKGROUND"] != "1"
 let music = MusicApp()
-let youTube = YouTube(music: music, isQuiet: !pausesWhenAppEnds)
+let youTube = YouTube(music: music, isQuiet: !isPausedWhenAppEnds)
 let handoff = Handoff(music: music, youTube: youTube)
 
-// A write to an app that ended then fails, instead of ending the helper before it pauses Music.app.
 signal(SIGPIPE, SIG_IGN)
 
-// The helper's pages connect through it, so none uses HTTP/3.
 let localProxy = LocalProxy()
-
 let proxyReady = DispatchSemaphore(value: 0)
+let proxyStartTimeoutSeconds = 2.0
 
 localProxy.start { _ in proxyReady.signal() }
 
-// The first pages load below. They must not start before the helper sets the proxy. Listening takes milliseconds.
-if proxyReady.wait(timeout: .now() + 2) == .success, let port = localProxy.port {
+if proxyReady.wait(timeout: .now() + proxyStartTimeoutSeconds) == .success, let port = localProxy.port {
   WKWebsiteDataStore.default().proxyConfigurations = [ProxyConfiguration(httpCONNECTProxy: .hostPort(host: "127.0.0.1", port: port))]
 }
 
 @MainActor
 func pauseWhenAppEnds() {
-  guard pausesWhenAppEnds else { return }
+  guard isPausedWhenAppEnds else { return }
 
   music.pauseIfRunning()
   youTube.stop()
@@ -44,8 +37,8 @@ func pauseWhenAppEnds() {
 
 application.setActivationPolicy(.accessory)
 
-// ⌘V and the other editing keys reach a sign-in page only through an Edit menu. The helper shows no menu bar, but its keys still work.
-func toEditMenu() -> NSMenu {
+// ⌘V and other editing keys reach a sign-in page only through an Edit menu, even a hidden one.
+func makeEditMenu() -> NSMenu {
   let bar = NSMenu()
   let editItem = NSMenuItem()
   let edit = NSMenu(title: "Edit")
@@ -63,20 +56,16 @@ func toEditMenu() -> NSMenu {
   return bar
 }
 
-application.mainMenu = toEditMenu()
+application.mainMenu = makeEditMenu()
 
-// The handoff reacts first, so the queue's next song replaces a pick of Music.app's before more of it plays.
 DistributedNotificationCenter.default().addObserver(forName: .init("com.apple.Music.playerInfo"), object: nil, queue: .main) { _ in
   MainActor.assumeIsolated {
-    // Music.app pauses when a YouTube song starts. Only a song it plays again takes the player back. Just after
-    // the pause, Music.app may still say it plays.
-    if youTube.isActive {
-      guard !youTube.hasJustPausedMusic, music.readPlayback() != nil else { return }
+    let hasMusicTakenOver = !youTube.isActive || (!youTube.hasJustPausedMusic && music.readPlayback() != nil)
 
-      youTube.stop()
-    }
+    guard hasMusicTakenOver else { return }
 
-    handoff.onPlayerChange()
+    youTube.stop()
+    handoff.applyPlayerChange()
     send(music.readNowPlaying())
   }
 }
@@ -89,28 +78,23 @@ let workspaceNotifications = [NSWorkspace.didLaunchApplicationNotification, NSWo
 
 for name in workspaceNotifications {
   NSWorkspace.shared.notificationCenter.addObserver(forName: name, object: nil, queue: .main) { notification in
-    let launched = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+    let changedApp = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
 
-    guard launched?.bundleIdentifier == MusicApp.bundleIdentifier else { return }
+    guard changedApp?.bundleIdentifier == MusicApp.bundleIdentifier else { return }
 
     MainActor.assumeIsolated { send(music.readNowPlaying()) }
   }
 }
 
-let volumeCheckSeconds = 2.0
+// Music.app posts nothing as a song plays or its volume slider moves, so the helper reads both.
+let musicCheckSeconds = 2.0
 
-Timer.scheduledTimer(withTimeInterval: volumeCheckSeconds, repeats: true) { _ in
+Timer.scheduledTimer(withTimeInterval: musicCheckSeconds, repeats: true) { _ in
   MainActor.assumeIsolated {
-    if !youTube.isActive { music.sendVolumeWhenChanged() }
-  }
-}
+    guard !youTube.isActive else { return }
 
-// Music.app posts no position as a song plays, so the helper sends it. The app's clock then follows a seek in Music.app.
-let positionCheckSeconds = 2.0
-
-Timer.scheduledTimer(withTimeInterval: positionCheckSeconds, repeats: true) { _ in
-  MainActor.assumeIsolated {
-    if !youTube.isActive, let position = music.readPosition() { send(position) }
+    music.sendVolumeWhenChanged()
+    if let position = music.readPosition() { send(position) }
   }
 }
 
@@ -121,47 +105,17 @@ startReadingCommands(onCommand: { command in
   case "refreshTokens": webPlayer.refreshTokens()
   case "signIn": webPlayer.signIn()
   case "youtubeSignIn": youTube.sendCookie()
-  case "playSong":
-    guard let requestId = command.requestId, let song = command.song else { return }
-    var persistentID: Any = NSNull()
-
-    if let videoID = song.youTubeVideoID {
-      persistentID = youTube.play(song, videoID: videoID)
-    } else {
-      youTube.stop()
-      persistentID = music.playSong(song) ?? NSNull()
-    }
-
-    send(["type": "playSongResult", "requestId": requestId, "persistentID": persistentID])
-  case "trackInfo":
-    guard let persistentID = command.persistentID else { return }
-    send(music.readTrackInfo(persistentID: persistentID))
-  case "setFavorite":
-    guard let favorited = command.favorited else { return }
-    let changedID = music.setFavorite(persistentID: command.persistentID, match: command.song, favorited: favorited)
-    var result: [String: Any] = ["type": "setFavoriteResult", "favorited": favorited, "persistentID": changedID ?? NSNull()]
-    if let requestId = command.requestId { result["requestId"] = requestId }
-    send(result)
-    if let changedID { send(music.readTrackInfo(persistentID: changedID)) }
-  case "setNext":
-    guard let requestId = command.requestId else { return }
-    youTube.keepsPage = command.keepsYouTube ?? false
-    // After a YouTube song, the app starts the next song itself once the page says the song ended.
-    let isAfterYouTube = command.afterPersistentID?.hasPrefix(YouTube.idPrefix) ?? false
-    let persistentID: Any = handoff.set(afterID: isAfterYouTube ? nil : command.afterPersistentID, next: command.song) ?? NSNull()
-    send(["type": "setNextResult", "requestId": requestId, "persistentID": persistentID])
+  case "playSong", "setNext": handoff.apply(command)
   case "playPause", "seek", "setVolume":
     guard !youTube.isActive else { return youTube.apply(command) }
 
     music.apply(command)
-    // A seek moves the end. Music.app posts nothing for it.
     if command.type == "seek" { handoff.arm() }
   default:
     music.apply(command)
   }
 }, onAppGone: { pauseWhenAppEnds() })
 
-// Ctrl-C and a closed terminal signal the helper with the app, so the helper pauses before the pipe closes.
 var signalSources: [DispatchSourceSignal] = []
 
 for signalNumber in [SIGINT, SIGTERM, SIGHUP] {

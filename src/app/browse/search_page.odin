@@ -5,13 +5,14 @@ import "core:fmt"
 import "om:app/core"
 import "om:app/kit"
 import "om:app/lists"
-import "om:app/matching"
 import "om:app/playback"
 import "om:app/youtube_pages"
 import "om:apple"
 import "om:ui"
 
 SHOWN_SEARCH_SONG_COUNT :: 6
+
+TOP_RESULT_POINTS :: 180
 
 build_search_page :: proc(term: string) {
 	path := fmt.tprintf(
@@ -20,25 +21,16 @@ build_search_page :: proc(term: string) {
 		apple.to_query_text(term),
 	)
 	watched := apple.watch(path)
-	data, is_stale := core.find_page_data(path, watched.version, watched.phase)
+	data, needs_read := core.find_page_data(path, watched.version, watched.phase)
 
-	if is_stale && watched.phase == .Ready {
-		Search_Answer :: struct {
-			results: struct {
-				songs:   apple.Related,
-				albums:  apple.Related,
-				artists: apple.Related,
-			},
-		}
+	if needs_read {
 		allocator := core.page_allocator(data)
-		answer: Search_Answer
+		answer: apple.Search_Answer
 		_ = json.unmarshal_string(watched.body, &answer, allocator = allocator)
 
-		songs := make([]core.Catalog_Song, len(answer.results.songs.data), allocator)
-		for song, index in answer.results.songs.data do songs[index] = apple.to_catalog_song(song)
-		data.songs = songs
-		data.cards = apple.list_cards(answer.results.albums.data, allocator)
-		data.similar = apple.list_cards(answer.results.artists.data, allocator)
+		data.songs = apple.to_catalog_songs(answer.results.songs.data, allocator)
+		data.cards = apple.to_cards(answer.results.albums.data, allocator)
+		data.artists = apple.to_cards(answer.results.artists.data, allocator)
 	}
 
 	page := kit.page_scroll("search")
@@ -51,10 +43,9 @@ build_search_page :: proc(term: string) {
 			return
 		}
 
-		width := page.size.x - page.style.padding.x - page.style.padding.z
+		width := kit.to_content_width(page)
 
-		// YouTube may have what Apple lacks.
-		if len(data.songs) + len(data.cards) + len(data.similar) == 0 {
+		if len(data.songs) + len(data.cards) + len(data.artists) == 0 {
 			kit.note(fmt.tprintf("Apple Music has nothing for \"%s\".", term))
 			youtube_pages.build_youtube_search_results(term, nil, width)
 			return
@@ -73,20 +64,19 @@ build_search_page :: proc(term: string) {
 		lists.build_card_row(
 			"artists",
 			"Artists",
-			data.similar,
+			data.artists,
 			lists.to_tile_size(width, SIMILAR_ARTIST_POINTS, lists.CARD_GAP_POINTS),
 			true,
 		)
 	}
 }
 
-// Builds the Top Result artist and the first songs at the top of the search page.
 @(private = "file")
 build_search_top :: proc(data: ^core.Page_Data) {
 	top := ui.box("top", {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 20})
 
 	if ui.scope(top) {
-		if len(data.similar) > 0 {
+		if len(data.artists) > 0 {
 			result := ui.box(
 				"top result",
 				{
@@ -98,20 +88,10 @@ build_search_top :: proc(data: ^core.Page_Data) {
 			)
 
 			if ui.scope(result) {
-				ui.box(
-					"",
-					{
-						width = ui.fill(),
-						height = ui.fit_text(),
-						text_color = kit.colors.text,
-						font_size = 17,
-						font_weight = .Bold,
-					},
-					"Top Result",
-				)
+				lists.build_shelf_title("Top Result", false)
 
-				if lists.build_card_tile("top artist", data.similar[0], TOP_RESULT_POINTS, true) {
-					lists.open_card(data.similar, 0)
+				if lists.build_card_tile("top artist", data.artists[0], TOP_RESULT_POINTS, true) {
+					lists.open_card(data.artists, 0)
 				}
 			}
 		}
@@ -121,7 +101,6 @@ build_search_top :: proc(data: ^core.Page_Data) {
 			"songs",
 			{width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 0},
 		)
-		current, is_playing := playback.find_queue_song(core.app.now_playing.song.persistent_id)
 
 		if ui.scope(list) {
 			ui.box(
@@ -130,7 +109,7 @@ build_search_top :: proc(data: ^core.Page_Data) {
 					width = ui.fill(),
 					height = ui.fit_text(),
 					text_color = kit.colors.text,
-					font_size = 17,
+					font_size = kit.SHELF_TITLE_POINTS,
 					font_weight = .Bold,
 					padding = {0, 0, 0, 10},
 				},
@@ -144,7 +123,7 @@ build_search_top :: proc(data: ^core.Page_Data) {
 					fmt.tprintf("%d %s", index, song.id),
 					song,
 					subtitle,
-					is_playing && matching.is_same_queue_song(current, song),
+					playback.is_current_song(song),
 				) {
 					playback.play_songs(songs, index)
 				}

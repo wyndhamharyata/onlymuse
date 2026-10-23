@@ -6,13 +6,15 @@ import "om:ui"
 
 MENU_ITEM_HEIGHT_POINTS :: 26
 
-// A menu's panel, kept inside the window.
+MENU_MARGIN_POINTS :: 8
+
 menu_box :: proc(id: string, position: [2]f32, width: f32, window_size: [2]f32) -> ^ui.Box {
-	// The height comes from the last frame's layout. A menu's first frame guesses 200 points.
 	existing := ui.find_box(id, ui.current_parent())
 	height: f32 = existing.size.y if existing != nil else 200
-	x := clamp(position.x, 8, window_size.x - width - 8)
-	y := clamp(position.y, 8, max(8, window_size.y - height - 8))
+	max_x := window_size.x - width - MENU_MARGIN_POINTS
+	max_y := max(MENU_MARGIN_POINTS, window_size.y - height - MENU_MARGIN_POINTS)
+	x := clamp(position.x, MENU_MARGIN_POINTS, max_x)
+	y := clamp(position.y, MENU_MARGIN_POINTS, max_y)
 
 	ui.box(
 		fmt.tprintf("%s shadow", id),
@@ -36,16 +38,15 @@ menu_box :: proc(id: string, position: [2]f32, width: f32, window_size: [2]f32) 
 			gap = 1,
 			padding = {5, 5, 5, 5},
 			corner_radius = 10,
-			background = to_color(0x2c2c31f5),
+			background = colors.popover,
 			border_width = 1,
-			border_color = to_color(0xffffff1c),
+			border_color = colors.popover_border,
 			position = {x, y},
 			flags = {.Floating, .Clickable},
 		},
 	)
 }
 
-// A selected item, such as the open submenu's, takes the accent.
 menu_item_signal :: proc(
 	id, label: string,
 	hint := "",
@@ -68,7 +69,8 @@ menu_item_signal :: proc(
 	)
 
 	text_color := color if color.a > 0 else colors.text
-	if is_selected || item.hot_fraction > 0.5 do text_color = to_color(0xffffffff)
+	has_accent_fill := is_selected || item.hot_fraction > 0.5
+	if has_accent_fill do text_color = colors.white
 
 	if ui.scope(item) {
 		ui.box(

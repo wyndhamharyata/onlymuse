@@ -1,5 +1,3 @@
-// platform calls draw_frame on each refresh of the screen while the app wants frames.
-// The app wants frames after an event, during an animation and when request_frame asks.
 package app
 
 import "core:fmt"
@@ -23,7 +21,6 @@ import "om:platform"
 import "om:render"
 import "om:ui"
 
-// Returns true while the app wants another frame.
 draw_frame :: proc() -> bool {
 	start, frame_seconds := begin_frame()
 	apply_input()
@@ -34,12 +31,10 @@ draw_frame :: proc() -> bool {
 	image.begin_frame()
 	icon.begin_frame()
 	ui.begin_frame(window.size_points, window.pixels_per_point, core.app.zoom, frame_seconds)
-	kit.update_accent(frame_seconds, player.find_player_artwork_source())
+	kit.set_accent(frame_seconds, player.find_player_artwork_source())
 
 	root := ui.current_parent()
 	root.style.axis = .Y
-	// The window's layer paints this colour under every frame. A capture saves the frame alone,
-	// so only a capture draws the colour itself.
 	if core.app.capture_path != "" do root.style.background = kit.colors.window
 	is_lyrics_moving := false
 
@@ -53,6 +48,7 @@ draw_frame :: proc() -> bool {
 
 	player.build_player_bar()
 	menus.build_song_menu()
+	menus.apply_drag_release()
 	menus.build_drag_ghost()
 	palette.build_palette()
 	playback.build_shuffle_rules()
@@ -76,9 +72,7 @@ draw_frame :: proc() -> bool {
 	)
 }
 
-// Frees what the last frame let go of. It also times this frame.
 begin_frame :: proc() -> (start: time.Tick, frame_seconds: f32) {
-	// Render drew the last frame, so this frame reuses its memory.
 	free_all(context.temp_allocator)
 	core.free_retired_memory()
 	playback.free_retired_songs()
@@ -92,11 +86,15 @@ begin_frame :: proc() -> (start: time.Tick, frame_seconds: f32) {
 	return start, frame_seconds
 }
 
-// Takes in what changed since the last frame: helper messages, the queue, writes, typing and keys.
+TEST_TYPING_DELAY_SECONDS :: 1
+
+CAPTURE_MIN_FRAME_COUNT :: 3
+
 apply_input :: proc() {
-	// The OM_TYPE text goes in before the frame reads its events, so this frame gets the keys.
-	if core.app.test_typing != "" &&
-	   time.duration_seconds(time.tick_since(core.app.started_at)) > 1 {
+	seconds_since_start := time.duration_seconds(time.tick_since(core.app.started_at))
+	is_typing_due := core.app.test_typing != "" && seconds_since_start > TEST_TYPING_DELAY_SECONDS
+
+	if is_typing_due {
 		has_context := platform.type_for_test(core.app.test_typing)
 		fmt.eprintfln("typed %q, input context: %v", core.app.test_typing, has_context)
 		core.app.test_typing = ""
@@ -104,16 +102,16 @@ apply_input :: proc() {
 
 	apply_helper_messages()
 	playback.update_queue()
-	playback.update_play_log()
+	playback.apply_now_playing_to_play_log()
 	menus.apply_write_results()
 	kit.apply_text_events()
 	apply_keys()
 }
 
-// Saves a scroll that came to rest. Then it sends the frame to the screen.
-// It also runs the capture and the bench.
 finish_frame :: proc(start: time.Tick) {
-	if core.is_scroll_changed && !ui.is_animating() {
+	is_scroll_at_rest := core.is_scroll_changed && !ui.is_animating()
+
+	if is_scroll_at_rest {
 		core.is_scroll_changed = false
 		core.save_navigation()
 	}
@@ -122,17 +120,18 @@ finish_frame :: proc(start: time.Tick) {
 
 	is_capture_frame :=
 		core.app.capture_path != "" &&
-		core.app.frame_count >= 3 &&
+		core.app.frame_count >= CAPTURE_MIN_FRAME_COUNT &&
 		time.tick_diff(core.app.capture_time, start) >= 0
 	if is_capture_frame do render.request_capture(core.app.capture_path)
 
-	// Only the bench reads more than the last duration.
 	if !core.app.is_bench do clear(&core.app.build_durations)
 	append(&core.app.build_durations, time.tick_since(start))
 
+	is_bench_done := core.app.is_bench && core.app.frame_count == core.app.bench_frame_count
+
 	render.end_frame(core.app.window.drawable)
 	if is_capture_frame do platform.quit()
-	if core.app.is_bench && core.app.frame_count == core.app.bench_frame_count do finish_bench()
+	if is_bench_done do finish_bench()
 }
 
 apply_helper_messages :: proc() {
@@ -154,8 +153,8 @@ apply_helper_messages :: proc() {
 			if !strings.contains(message.text, "get current track") {
 				console.add("Helper", "%s", message.text)
 			}
-		case "trackInfo":
-			playback.apply_track_info(message)
+		case "songInfo":
+			playback.apply_song_info(message)
 		case "setFavoriteResult":
 			playback.apply_favourite_answer(message)
 		case "playSongResult", "setNextResult":
@@ -166,7 +165,6 @@ apply_helper_messages :: proc() {
 	}
 }
 
-// The Command key shortcuts: zoom, quit, the command palette, favourite and the lyrics lead.
 apply_keys :: proc() {
 	for event in platform.list_events() {
 		key, is_key := event.(platform.Key_Press)
@@ -176,9 +174,9 @@ apply_keys :: proc() {
 
 		switch key.characters {
 		case "=", "+":
-			set_zoom(zoom_steps[min(find_zoom_step() + 1, len(zoom_steps) - 1)])
+			set_zoom(zoom_steps[min(to_nearest_zoom_step(core.app.zoom) + 1, len(zoom_steps) - 1)])
 		case "-":
-			set_zoom(zoom_steps[max(find_zoom_step() - 1, 0)])
+			set_zoom(to_smaller_zoom(core.app.zoom))
 		case "0":
 			set_zoom(1)
 		case "q":

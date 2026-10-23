@@ -1,5 +1,3 @@
-// This package sends HTTP requests through libcurl.
-// Each thread keeps its own curl handle, so curl reuses its connections.
 package net
 
 import "base:runtime"
@@ -9,7 +7,6 @@ import "core:time"
 import "om:mac"
 
 Response :: struct {
-	// 0 when the request never got an answer.
 	status:       int,
 	content_type: string,
 	body:         []u8,
@@ -19,7 +16,6 @@ Response :: struct {
 USER_AGENT :: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15"
 TIMEOUT_MS :: 15_000
 // Apple's image server resets a connection now and then. It answers 429 or 5xx when it is busy.
-// fetch waits each delay in turn and tries those requests again.
 @(private)
 retry_delays := [?]time.Duration {
 	250 * time.Millisecond,
@@ -34,7 +30,6 @@ start :: proc() {
 	mac.curl_global_init(mac.CURL_GLOBAL_DEFAULT)
 }
 
-// Frees the thread's curl handle and the connection it keeps. A thread that ends calls it last.
 stop_thread :: proc() {
 	if thread_handle == nil do return
 
@@ -53,11 +48,9 @@ append_body :: proc "c" (data: [^]u8, size, count: c.size_t, user: rawptr) -> c.
 
 Method :: enum {
 	Get,
-	// A POST carries a JSON body or an empty one, as Apple's library writes take.
 	Post,
 }
 
-// fetch blocks the thread until the answer comes. The body and the content type use allocator.
 // fetch never retries a POST. A retry after a lost answer could put a song in the library twice.
 fetch :: proc(
 	url: string,
@@ -71,8 +64,9 @@ fetch :: proc(
 		if method == .Post do return response
 
 		is_retryable := response.status == 0 || response.status == 429 || response.status >= 500
+		has_retries_left := attempt < len(retry_delays)
 
-		if !is_retryable || attempt >= len(retry_delays) do return response
+		if !is_retryable || !has_retries_left do return response
 
 		delete(response.body, allocator)
 		time.sleep(retry_delays[attempt])

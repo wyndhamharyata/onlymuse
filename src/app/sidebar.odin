@@ -5,9 +5,6 @@ import "om:app/kit"
 import "om:app/menus"
 import "om:ui"
 
-// The traffic lights take the top of the sidebar.
-TRAFFIC_LIGHTS_HEIGHT_POINTS :: 44
-
 build_sidebar :: proc() {
 	sidebar := ui.box(
 		"sidebar",
@@ -15,12 +12,11 @@ build_sidebar :: proc() {
 			width = ui.points(kit.SIDEBAR_WIDTH_POINTS),
 			height = ui.fill(),
 			axis = .Y,
-			padding = {8, TRAFFIC_LIGHTS_HEIGHT_POINTS, 8, 0},
+			padding = {8, kit.TOOLBAR_HEIGHT_POINTS, 8, 0},
 			background = kit.colors.sidebar,
 		},
 	)
 
-	// ui.scope pops the parent where the if ends, so the children stay inside its block.
 	if ui.scope(sidebar) {
 		build_search_field()
 
@@ -37,23 +33,12 @@ build_sidebar :: proc() {
 		)
 
 		if ui.scope(list) {
-			build_group_title("Apple Music")
-			for item in core.apple_music_items {
-				build_sidebar_item(item.label, item.symbol, core.app.accent, {kind = item.kind})
-			}
-
-			build_group_title("YouTube Music")
-			for item in core.youtube_items {
-				build_sidebar_item(item.label, item.symbol, kit.colors.youtube, item.page)
-			}
-
-			build_group_title("Library")
-			for item in core.library_items {
-				build_sidebar_item(item.label, item.symbol, core.app.accent, {kind = item.kind})
-			}
+			build_sidebar_group("Apple Music", core.apple_music_items, core.app.accent)
+			build_sidebar_group("YouTube Music", core.youtube_items, kit.colors.youtube)
+			build_sidebar_group("Library", core.library_items, core.app.accent)
 
 			build_group_title("Playlists")
-			playlists, _, _ := core.list_playlists()
+			playlists, _, _ := core.watch_playlists()
 			for playlist in playlists {
 				build_sidebar_item(
 					playlist.name,
@@ -65,6 +50,11 @@ build_sidebar :: proc() {
 			}
 		}
 	}
+}
+
+build_sidebar_group :: proc(title: string, items: []core.Sidebar_Item, symbol_color: [4]f32) {
+	build_group_title(title)
+	for item in items do build_sidebar_item(item.label, item.symbol, symbol_color, item.page)
 }
 
 build_group_title :: proc(title: string) {
@@ -82,7 +72,6 @@ build_group_title :: proc(title: string) {
 	)
 }
 
-// A playlist the person made takes a song dragged onto it.
 build_sidebar_item :: proc(
 	label, symbol: string,
 	symbol_color: [4]f32,
@@ -90,7 +79,6 @@ build_sidebar_item :: proc(
 	can_take_songs := false,
 ) {
 	is_selected := core.current_page() == page
-	// The selected row takes the accent, as the playing song does.
 	background := kit.to_accent_tint(core.app.accent) if is_selected else {}
 	row := ui.box(
 		label if page.id == "" else page.id,
@@ -109,9 +97,10 @@ build_sidebar_item :: proc(
 		},
 	)
 
-	if ui.signal(row).is_clicked do core.navigate(page)
+	signal := ui.signal(row)
+	if signal.is_clicked do core.navigate(page)
 
-	if menus.apply_song_drop(ui.signal(row).is_hovered, page.id, page.title, can_take_songs) {
+	if menus.apply_song_drop(signal.is_hovered, page.id, page.title, can_take_songs) {
 		row.style.background = kit.to_accent_tint(core.app.accent)
 		row.style.border_width = 1.5
 		row.style.border_color = core.app.accent

@@ -6,7 +6,6 @@ import "om:app/core"
 import "om:app/kit"
 import "om:app/menus"
 import "om:app/playback"
-import "om:apple"
 import "om:helper"
 import "om:platform"
 import "om:ui"
@@ -15,15 +14,14 @@ STAGE_COVER_POINTS :: 280
 
 SMALL_STAGE_COVER_POINTS :: 220
 
-// On a page narrower than this, the two detail cards stack.
+LARGE_COVER_MIN_WIDTH_POINTS :: 760
+
 SIDE_BY_SIDE_POINTS :: 560
 
 HERO_GAP_POINTS :: 26
 
-// The text beside the cover takes at least this much, else the text goes under the cover.
 MIN_INFO_POINTS :: 360
 
-// The top of the Now Playing page: the large cover, the song, its artist and album, and actions.
 @(private)
 build_hero :: proc(
 	details: Song_Details,
@@ -31,7 +29,8 @@ build_hero :: proc(
 	shown: helper.Song,
 	width: f32,
 ) {
-	cover_points: f32 = STAGE_COVER_POINTS if width >= 760 else SMALL_STAGE_COVER_POINTS
+	cover_points: f32 =
+		STAGE_COVER_POINTS if width >= LARGE_COVER_MIN_WIDTH_POINTS else SMALL_STAGE_COVER_POINTS
 	cover_points = min(cover_points, width)
 	is_side_by_side := width - cover_points - HERO_GAP_POINTS >= MIN_INFO_POINTS
 	info_width := width - cover_points - HERO_GAP_POINTS if is_side_by_side else width
@@ -52,7 +51,6 @@ build_hero :: proc(
 		)
 
 		if ui.scope(cover) {
-			// A soft shadow below the cover, as if it floats over its colours.
 			ui.box(
 				"shadow",
 				{
@@ -66,11 +64,11 @@ build_hero :: proc(
 				},
 			)
 
-			source := apple.to_artwork_url(
+			source := to_cover_source(
 				details.song.artwork,
 				kit.to_artwork_pixels(cover_points),
+				shown.artwork_path,
 			)
-			if source == "" do source = shown.artwork_path
 			kit.artwork_box(
 				source,
 				cover_points,
@@ -99,14 +97,16 @@ build_hero :: proc(
 				details.song.name,
 			)
 
+			has_artist := details.artist_id != ""
 			artist_flags := ui.Flags{.Truncate_Text}
-			if details.artist_id != "" do artist_flags |= {.Clickable}
+			if has_artist do artist_flags |= {.Clickable}
+			artist_color := core.app.accent if has_artist else kit.colors.text
 			artist := ui.box(
 				"artist",
 				{
 					width = ui.fill(),
 					height = ui.fit_text(),
-					text_color = core.app.accent if details.artist_id != "" else kit.colors.text,
+					text_color = artist_color,
 					font_size = 20,
 					font_weight = .Semibold,
 					flags = artist_flags,
@@ -144,7 +144,6 @@ build_hero :: proc(
 	}
 }
 
-// The title keeps its two or three lines rather than filling the column with one word each.
 @(private = "file")
 to_title_size :: proc(info_width: f32) -> f32 {
 	if info_width >= 520 do return 44
@@ -154,11 +153,11 @@ to_title_size :: proc(info_width: f32) -> f32 {
 	return 24
 }
 
-// The pills under the album, such as Lossless, Dolby Atmos, the language and Explicit.
 @(private = "file")
 build_pills :: proc(details: Song_Details, info: playback.Song_Info) {
 	pills := make([dynamic]string, context.temp_allocator)
-	rate := fmt.tprintf("%.1f kHz", f64(info.sample_rate) / 1000) if info.sample_rate > 0 else ""
+	rate := to_sample_rate_text(info.sample_rate_hz) if info.sample_rate_hz > 0 else ""
+	lyrics_text := to_lyrics_text(details.lyrics)
 	quality := ""
 
 	if slice.contains(details.traits, "hi-res-lossless") {
@@ -174,9 +173,7 @@ build_pills :: proc(details: Song_Details, info: playback.Song_Info) {
 	if slice.contains(details.traits, "atmos") do append(&pills, "Dolby Atmos")
 	if details.is_digital_master do append(&pills, "Apple Digital Master")
 	if details.language != "" do append(&pills, details.language)
-	if details.lyrics != "" && details.lyrics != "None" {
-		append(&pills, "Word-by-word lyrics" if details.lyrics == "Word by word" else "Lyrics")
-	}
+	if lyrics_text != "" do append(&pills, lyrics_text)
 	if details.is_explicit do append(&pills, "Explicit")
 
 	if len(pills) == 0 do return
@@ -206,7 +203,7 @@ build_pills :: proc(details: Song_Details, info: playback.Song_Info) {
 					corner_radius = 13,
 					background = kit.to_color(0xffffff14),
 					border_width = 1,
-					border_color = kit.to_color(0xffffff1c),
+					border_color = kit.colors.popover_border,
 					text_color = core.app.accent if is_quality else kit.colors.text,
 					font_size = 12,
 					font_weight = .Semibold,
@@ -217,7 +214,20 @@ build_pills :: proc(details: Song_Details, info: playback.Song_Info) {
 	}
 }
 
-// The Favourite, Add to Playlist and Copy Link buttons.
+@(private = "file")
+to_lyrics_text :: proc(kind: Lyrics_Kind) -> string {
+	switch kind {
+	case .None:
+		return ""
+	case .Plain:
+		return "Lyrics"
+	case .Word_By_Word:
+		return "Word-by-word lyrics"
+	}
+
+	return ""
+}
+
 @(private = "file")
 build_actions :: proc(details: Song_Details, persistent_id: string) {
 	row := ui.box(
@@ -233,13 +243,13 @@ build_actions :: proc(details: Song_Details, persistent_id: string) {
 	)
 
 	if ui.scope(row) {
-		is_on := playback.is_favourite(details.song, persistent_id)
+		is_favourite := playback.is_favourite(details.song, persistent_id)
 
 		if kit.action_button(
 			"Favourite",
-			"heart.circle.fill" if is_on else "heart.circle",
+			"heart.circle.fill" if is_favourite else "heart.circle",
 			false,
-			core.app.accent if is_on else kit.colors.text,
+			core.app.accent if is_favourite else kit.colors.text,
 		) {
 			playback.toggle_favourite(details.song, persistent_id)
 		}
@@ -253,7 +263,7 @@ build_actions :: proc(details: Song_Details, persistent_id: string) {
 		}
 
 		if details.url != "" && kit.action_button("Copy Link", "link", false) {
-			platform.write_clipboard(details.url)
+			platform.set_clipboard(details.url)
 			kit.show_toast("Copied the link to the song")
 		}
 	}

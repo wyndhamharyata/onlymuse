@@ -1,22 +1,23 @@
 import AppKit
 
-// This class controls Music.app through AppleScript. Every script checks first that Music.app runs, so reading the state never opens it.
+// Each read checks isRunning first, as an AppleScript tell would open Music.app.
 @MainActor
 final class MusicApp {
   nonisolated static let bundleIdentifier = "com.apple.Music"
+  private static let fieldSeparatorCode: UInt8 = 31
+  private static let fieldSeparator = String(UnicodeScalar(fieldSeparatorCode))
 
   private let artworkFolder = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
     .appending(path: "onlymuse/artwork")
 
-  // The script joins the fields with the unit separator, so a song name can hold any other character.
   private let nowPlayingScript = NSAppleScript(source: """
     tell application "Music"
-      set separator to character id 31
+      set separator to character id \(MusicApp.fieldSeparatorCode)
       set volumeText to (sound volume as text)
       set stateText to (player state as text)
       if stateText is "stopped" then return stateText & separator & volumeText
-      set t to current track
-      return stateText & separator & volumeText & separator & (player position as text) & separator & (name of t) & separator & (artist of t) & separator & (album of t) & separator & (persistent ID of t) & separator & (duration of t as text)
+      set playingSong to current track
+      return stateText & separator & volumeText & separator & (player position as text) & separator & (name of playingSong) & separator & (artist of playingSong) & separator & (album of playingSong) & separator & (persistent ID of playingSong) & separator & (duration of playingSong as text)
     end tell
     """)!
 
@@ -45,13 +46,13 @@ final class MusicApp {
   }
 
   func readNowPlaying() -> [String: Any] {
-    guard isRunning else { return ["type": "nowPlaying", "state": "closed"] }
-    guard let text = run(nowPlayingScript)?.stringValue else { return ["type": "nowPlaying", "state": "closed"] }
+    guard isRunning, let text = run(nowPlayingScript)?.stringValue else { return ["type": "nowPlaying", "state": "closed"] }
 
-    // The artwork below can take a while, so the app counts the position on from when the helper read it.
-    let positionReadAtMs = Self.nowMs()
+    let positionReadAtMs = nowMs
+    let fields = text.components(separatedBy: Self.fieldSeparator)
 
-    let fields = text.components(separatedBy: "\u{1F}")
+    guard fields.count >= 2 else { return ["type": "nowPlaying", "state": "stopped"] }
+
     let volumePercent = Int(fields[1]) ?? 0
 
     guard fields.count == 8 else { return ["type": "nowPlaying", "state": "stopped", "volumePercent": volumePercent] }
@@ -62,7 +63,7 @@ final class MusicApp {
       "durationSeconds": Self.readSeconds(fields[7]),
     ]
 
-    if let path = readArtworkPath(persistentID: persistentID) { song["artworkPath"] = path }
+    if let path = saveArtwork(persistentID: persistentID) { song["artworkPath"] = path }
 
     return [
       "type": "nowPlaying", "state": Self.toState(fields[0]), "volumePercent": volumePercent,
@@ -70,18 +71,10 @@ final class MusicApp {
     ]
   }
 
-  // This reads the position alone, with no artwork, so the app's clock stays with Music.app's. It returns nil unless Music.app plays.
   func readPosition() -> [String: Any]? {
     guard let playback = readPlayback() else { return nil }
 
-    return [
-      "type": "position", "persistentID": playback.persistentID,
-      "positionSeconds": playback.positionSeconds, "positionReadAtMs": Self.nowMs(),
-    ]
-  }
-
-  static func nowMs() -> Double {
-    Date().timeIntervalSince1970 * 1000
+    return makePositionMessage(persistentID: playback.persistentID, positionSeconds: playback.positionSeconds)
   }
 
   func apply(_ command: Command) {
@@ -95,19 +88,23 @@ final class MusicApp {
     case "seek":
       guard let positionSeconds = command.positionSeconds, isRunning else { return }
       _ = run(NSAppleScript(source: "tell application \"Music\" to set player position to \(positionSeconds)")!)
-      // Music.app posts nothing for a new position or volume, so the helper sends its state itself.
       send(readNowPlaying())
     case "setVolume":
-      guard let volumePercent = command.volumePercent, isRunning else { return }
-      let clampedPercent = min(max(volumePercent, 0), 100)
-      _ = run(NSAppleScript(source: "tell application \"Music\" to set sound volume to \(clampedPercent)")!)
+      guard let volumePercent = command.volumePercent?.value, isRunning else { return }
+
+      _ = run(NSAppleScript(source: "tell application \"Music\" to set sound volume to \(volumePercent)")!)
       send(readNowPlaying())
+    case "songInfo":
+      guard let persistentID = command.persistentID else { return }
+
+      send(readSongInfo(persistentID: persistentID))
+    case "setFavorite":
+      applyFavorite(command)
     default:
       sendError("The helper has no command named \(command.type).")
     }
   }
 
-  // This plays the library song closest in length to the match. It returns nil when the library holds no such song yet.
   func playSong(_ match: SongMatch) -> String? {
     if !isRunning { launch() }
 
@@ -118,7 +115,6 @@ final class MusicApp {
     return persistentID
   }
 
-  // This sends pause, not play/pause, and only when Music.app runs. It then never starts music or opens Music.app.
   func pauseIfRunning() {
     guard isRunning else { return }
 
@@ -126,36 +122,40 @@ final class MusicApp {
   }
 
   func play(persistentID: String) {
-    _ = run(NSAppleScript(source: "tell application \"Music\" to play (first track of library playlist 1 whose persistent ID is \"\(persistentID)\")")!)
+    _ = run(NSAppleScript(source: "tell application \"Music\" to play (first track of library playlist 1 whose persistent ID is \(Self.toAppleScriptText(persistentID)))")!)
   }
 
-  // This reads what Music.app knows of a song and Apple's API does not: its plays, dates, favourite and file. It changes nothing.
-  // The current track comes first, so a streamed song not in the library still answers what it can.
-  func readTrackInfo(persistentID: String) -> [String: Any] {
-    var info: [String: Any] = ["type": "trackInfo", "persistentID": persistentID]
+  private static func toFindSongScript(persistentID: String) -> String {
+    let id = toAppleScriptText(persistentID)
+
+    return """
+      set foundSong to missing value
+      try
+        if persistent ID of current track is \(id) then set foundSong to current track
+      end try
+      if foundSong is missing value then
+        set found to (every track of library playlist 1 whose persistent ID is \(id))
+        if (count of found) is 0 then return missing value
+        set foundSong to item 1 of found
+      end if
+      """
+  }
+
+  func readSongInfo(persistentID: String) -> [String: Any] {
+    var info: [String: Any] = ["type": "songInfo", "persistentID": persistentID]
 
     guard isRunning, !persistentID.isEmpty else { return info }
 
-    // Each property gets a try of its own, as a streamed song has some and not others.
     let names = [
       "played count", "played date", "skipped count", "skipped date", "date added", "favorited", "rating",
       "bit rate", "sample rate", "kind", "bpm", "size",
     ]
     let reads = names.enumerated().map { index, name in
-      "  set item \(index + 1) of answers to missing value\n  try\n    set item \(index + 1) of answers to (\(name) of t)\n  end try"
+      "  set item \(index + 1) of answers to missing value\n  try\n    set item \(index + 1) of answers to (\(name) of foundSong)\n  end try"
     }.joined(separator: "\n")
-    let id = Self.toAppleScriptText(persistentID)
     let script = NSAppleScript(source: """
       tell application "Music"
-        set t to missing value
-        try
-          if persistent ID of current track is \(id) then set t to current track
-        end try
-        if t is missing value then
-          set found to (every track of library playlist 1 whose persistent ID is \(id))
-          if (count of found) is 0 then return missing value
-          set t to item 1 of found
-        end if
+      \(Self.toFindSongScript(persistentID: persistentID))
         set answers to {\(names.map { _ in "missing value" }.joined(separator: ", "))}
       \(reads)
         return answers
@@ -181,32 +181,30 @@ final class MusicApp {
         info[key] = Int(item.int32Value)
       }
     }
-    // Only a song in the library has a date added.
+
     info["isInLibrary"] = info["dateAddedMs"] != nil
 
     return info
   }
 
-  // This sets Music.app's favourite, which also puts the song in Favourite Songs. It works on the playing song or a library song.
-  func setFavorite(persistentID: String?, match: SongMatch?, favorited: Bool) -> String? {
-    guard isRunning else { return nil }
+  private func applyFavorite(_ command: Command) {
+    guard let favorited = command.favorited else { return }
 
-    var id = persistentID ?? ""
-    if id.isEmpty, let match { id = findSong(match) ?? "" }
-    guard !id.isEmpty else { return nil }
+    let changedID = setFavorite(persistentID: command.persistentID, match: command.song, favorited: favorited)
+    var result: [String: Any] = ["type": "setFavoriteResult", "favorited": favorited, "persistentID": changedID ?? NSNull()]
 
-    let quoted = Self.toAppleScriptText(id)
+    if let requestId = command.requestId { result["requestId"] = requestId }
+    send(result)
+    if let changedID { send(readSongInfo(persistentID: changedID)) }
+  }
+
+  private func setFavorite(persistentID: String?, match: SongMatch?, favorited: Bool) -> String? {
+    guard isRunning, let id = persistentID ?? match.flatMap({ findSong($0) }) else { return nil }
+
     let script = NSAppleScript(source: """
       tell application "Music"
-        try
-          if persistent ID of current track is \(quoted) then
-            set favorited of current track to \(favorited)
-            return "done"
-          end if
-        end try
-        set found to (every track of library playlist 1 whose persistent ID is \(quoted))
-        if (count of found) is 0 then return ""
-        set favorited of item 1 of found to \(favorited)
+      \(Self.toFindSongScript(persistentID: id))
+        set favorited of foundSong to \(favorited)
         return "done"
       end tell
       """)!
@@ -214,25 +212,23 @@ final class MusicApp {
     return run(script)?.stringValue == "done" ? id : nil
   }
 
-  // "played count" as "playedCount".
   private static func toCamelCase(_ name: String) -> String {
     let words = name.split(separator: " ")
 
     return words.enumerated().map { index, word in index == 0 ? String(word) : word.capitalized }.joined()
   }
 
-  // The persistent ID of the library song closest in length to the match, without playing it.
   func findSong(_ match: SongMatch) -> String? {
     let name = Self.toAppleScriptText(match.name)
     let artist = Self.toAppleScriptText(match.artistName)
     let album = Self.toAppleScriptText(match.albumName)
     let findScript = NSAppleScript(source: """
       tell application "Music"
-        set separator to character id 31
+        set separator to character id \(Self.fieldSeparatorCode)
         set found to (every track of library playlist 1 whose name is \(name) and artist is \(artist) and album is \(album))
         set foundRows to {}
-        repeat with t in found
-          set end of foundRows to (persistent ID of t) & separator & (duration of t as text)
+        repeat with candidate in found
+          set end of foundRows to (persistent ID of candidate) & separator & (duration of candidate as text)
         end repeat
         set AppleScript's text item delimiters to linefeed
         return foundRows as text
@@ -242,57 +238,55 @@ final class MusicApp {
     guard let text = run(findScript)?.stringValue, !text.isEmpty else { return nil }
 
     let candidates = text.split(separator: "\n").map { line in
-      let fields = line.split(separator: "\u{1F}")
+      let fields = line.components(separatedBy: Self.fieldSeparator)
 
       return (persistentID: String(fields[0]), durationSeconds: Self.readSeconds(String(fields[1])))
     }
 
-    return candidates.min(by: { abs($0.durationSeconds - match.durationSeconds) < abs($1.durationSeconds - match.durationSeconds) })?.persistentID
+    let toLengthGap = { (candidate: (persistentID: String, durationSeconds: Double)) in abs(candidate.durationSeconds - match.durationSeconds) }
+
+    return candidates.min(by: { toLengthGap($0) < toLengthGap($1) })?.persistentID
   }
 
   private let playbackScript = NSAppleScript(source: """
     tell application "Music"
       if player state is not playing then return ""
-      set t to current track
-      return (persistent ID of t) & (character id 31) & (player position as text) & (character id 31) & (duration of t as text)
+      set separator to character id \(MusicApp.fieldSeparatorCode)
+      set playingSong to current track
+      return (persistent ID of playingSong) & separator & (player position as text) & separator & (duration of playingSong as text)
     end tell
     """)!
 
-  // This reads the song Music.app plays and how far it is, with no artwork, so it is quick. It returns nil unless Music.app plays.
   func readPlayback() -> (persistentID: String, positionSeconds: Double, durationSeconds: Double)? {
     guard isRunning, let text = run(playbackScript)?.stringValue, !text.isEmpty else { return nil }
 
-    let fields = text.components(separatedBy: "\u{1F}")
+    let fields = text.components(separatedBy: Self.fieldSeparator)
 
     guard fields.count == 3 else { return nil }
 
     return (fields[0], Self.readSeconds(fields[1]), Self.readSeconds(fields[2]))
   }
 
-  // A quoted AppleScript string, so a song name with a quote or a backslash stays text.
   private static func toAppleScriptText(_ text: String) -> String {
     let escaped = text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
 
     return "\"\(escaped)\""
   }
 
-  // It returns nil when Music.app is not running.
   func readVolumePercent() -> Int? {
     guard isRunning else { return nil }
 
     return run(volumeScript).map { Int($0.int32Value) }
   }
 
-  // Music.app posts nothing when its own volume slider moves, so the helper asks every few seconds.
   func sendVolumeWhenChanged() {
-    guard isRunning, let volumePercent = run(volumeScript).map({ Int($0.int32Value) }) else { return }
+    guard let volumePercent = readVolumePercent() else { return }
     guard volumePercent != lastVolumePercent else { return }
 
     lastVolumePercent = volumePercent
     send(readNowPlaying())
   }
 
-  // This opens Music.app in the background, so it never comes in front of onlymuse.
   private func launch() {
     guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.bundleIdentifier) else { return }
 
@@ -302,30 +296,26 @@ final class MusicApp {
     NSWorkspace.shared.openApplication(at: url, configuration: configuration)
   }
 
-  private func run(_ script: NSAppleScript, reportsError: Bool = true) -> NSAppleEventDescriptor? {
+  private func run(_ script: NSAppleScript, isErrorReported: Bool = true) -> NSAppleEventDescriptor? {
     var error: NSDictionary?
     let result = script.executeAndReturnError(&error)
 
-    if let error {
-      guard reportsError else { return nil }
-      sendError("Music.app answered with an error: \(error[NSAppleScript.errorMessage] as? String ?? "\(error)")")
-      return nil
-    }
+    guard let error else { return result }
 
-    return result
+    if isErrorReported { sendError("Music.app answered with an error: \(error[NSAppleScript.errorMessage] as? String ?? "\(error)")") }
+
+    return nil
   }
 
-  // The helper saves the artwork of a song once, under its persistent ID.
-  private func readArtworkPath(persistentID: String) -> String? {
+  private func saveArtwork(persistentID: String) -> String? {
     let saved = try? FileManager.default.contentsOfDirectory(atPath: artworkFolder.path)
 
     if let name = saved?.first(where: { $0.hasPrefix(persistentID + ".") }) {
       return artworkFolder.appending(path: name).path
     }
 
-    // A streamed song answers with the four bytes "msng", AppleScript's missing value, instead of an image.
-    // A streamed song often has no artwork Music.app can give, which is no error.
-    guard let data = run(artworkScript, reportsError: false)?.data else { return nil }
+    // A streamed song may answer "msng", AppleScript's missing value, instead of artwork.
+    guard let data = run(artworkScript, isErrorReported: false)?.data else { return nil }
 
     let isPng = data.starts(with: [0x89, 0x50, 0x4E, 0x47])
     let isJpeg = data.starts(with: [0xFF, 0xD8])

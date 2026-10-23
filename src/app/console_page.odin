@@ -12,9 +12,9 @@ CONSOLE_TIME_POINTS :: 62
 
 CONSOLE_SOURCE_POINTS :: 62
 
-// Every error and refused request since onlymuse started, newest first.
 build_console_page :: proc() {
 	entries := console.list()
+	has_entries := len(entries) > 0
 	count_text := fmt.tprintf(
 		"%d %s since onlymuse started",
 		len(entries),
@@ -37,17 +37,17 @@ build_console_page :: proc() {
 			if ui.scope(heading) {
 				kit.page_heading("Console")
 				kit.text_box(
-					count_text if len(entries) > 0 else "No errors since onlymuse started.",
+					count_text if has_entries else "No errors since onlymuse started.",
 					kit.colors.dim,
 				)
 			}
 
-			if len(entries) > 0 && kit.action_button("Copy All", "doc.on.doc", false) {
-				platform.write_clipboard(to_console_text(entries))
+			if has_entries && kit.action_button("Copy All", "doc.on.doc", false) {
+				platform.set_clipboard(to_console_text(entries))
 				kit.show_toast(fmt.tprintf("Copied %s", count_text))
 			}
 
-			if len(entries) > 0 && kit.action_button("Clear", "trash", false) {
+			if has_entries && kit.action_button("Clear", "trash", false) {
 				console.clear_entries()
 			}
 		}
@@ -106,7 +106,7 @@ build_console_row :: proc(index: int, entry: console.Entry) {
 				width = ui.fill(),
 				height = ui.fit_text(),
 				text_color = kit.colors.text,
-				font_size = 12.5,
+				font_size = kit.SMALL_TEXT_POINTS,
 				flags = {.Wrap_Text},
 			},
 			entry.text,
@@ -114,7 +114,6 @@ build_console_row :: proc(index: int, entry: console.Entry) {
 	}
 }
 
-// One line per entry, oldest first, as a log file reads.
 @(private = "file")
 to_console_text :: proc(entries: []console.Entry) -> string {
 	builder := strings.builder_make(context.temp_allocator)
@@ -126,8 +125,9 @@ to_console_text :: proc(entries: []console.Entry) -> string {
 	return strings.to_string(builder)
 }
 
-// "18:50:17", in the Mac's own time zone.
 @(private = "file")
 to_console_time :: proc(at: time.Time) -> string {
-	return platform.format_date(f64(time.to_unix_nanoseconds(at)) / 1e6, "HH:mm:ss")
+	at_ms := f64(time.to_unix_nanoseconds(at)) / f64(time.Millisecond)
+
+	return platform.format_date(at_ms, "HH:mm:ss")
 }

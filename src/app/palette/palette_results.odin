@@ -11,38 +11,45 @@ import "om:apple"
 import "om:helper"
 import "om:platform"
 
+MAX_PAGE_RESULT_COUNT :: MAX_GROUP_RESULT_COUNT * 2
+
+CATALOG_SEARCH_LIMIT :: 4
+
+CATALOG_CARD_COUNT :: 2
+
 @(private)
-update_results :: proc() {
+watch_results :: proc() {
 	term := strings.to_lower(
 		strings.trim_space(kit.to_field_text(&palette.field)),
 		context.temp_allocator,
 	)
-	songs, song_signature, _ := core.list_library_songs()
-	albums, album_signature, _ := core.list_library_albums()
-	artists, artist_signature, _ := core.list_library_artists()
-	playlists, _, _ := core.list_playlists()
+	songs, song_signature, _ := core.watch_library_songs()
+	albums, album_signature, _ := core.watch_library_albums()
+	artists, artist_signature, _ := core.watch_library_artists()
+	playlists, _, _ := core.watch_playlists()
 
-	// The palette asks Apple Music only after typing stops for PALETTE_SETTLE_MS.
 	catalog: apple.Watched
 	is_settled := helper.now_ms() - palette.typed_at_ms >= PALETTE_SETTLE_MS
+	is_search_due := term != "" && is_settled
 	if term != "" && !is_settled do platform.request_frame_after(PALETTE_SETTLE_MS / 1000.0)
 
-	if term != "" && is_settled {
+	if is_search_due {
 		catalog = apple.watch(
 			fmt.tprintf(
-				"/v1/catalog/%s/search?term=%s&types=songs,albums,artists&limit=4",
+				"/v1/catalog/%s/search?term=%s&types=songs,albums,artists&limit=%d",
 				apple.STOREFRONT,
 				apple.to_query_text(term),
+				CATALOG_SEARCH_LIMIT,
 			),
 		)
 	}
 
-	// One number for all the data under the results, so a change in any of it builds them again.
-	signature :=
-		((song_signature * 31 + album_signature) * 31 + artist_signature) * 31 +
-		catalog.version +
-		len(playlists) * 7
-	if term == palette.built_term && signature == palette.built_signature do return
+	signature := core.mix_version(song_signature, album_signature)
+	signature = core.mix_version(signature, artist_signature)
+	signature = core.mix_version(signature, catalog.version)
+	signature = core.mix_version(signature, len(playlists))
+	is_built := term == palette.built_term && signature == palette.built_signature
+	if is_built do return
 
 	core.retire_arena(palette.arena)
 	palette.arena = {}
@@ -61,18 +68,7 @@ update_results :: proc() {
 		for card, index in artists do names[index] = card.name
 
 		for index in list_best_indexes(names, nil, term) {
-			card := artists[index]
-			append(
-				&results,
-				Palette_Result {
-					group = "Artists",
-					title = strings.clone(card.name, allocator),
-					artwork = clone_artwork(card.artwork, allocator),
-					is_round = true,
-					action = .Open_Card,
-					card = core.copy_card(card, allocator),
-				},
-			)
+			append_card(&results, artists[index], "Artists", "", allocator)
 		}
 
 		names = make([]string, len(albums), context.temp_allocator)
@@ -80,17 +76,7 @@ update_results :: proc() {
 
 		for index in list_best_indexes(names, nil, term) {
 			card := albums[index]
-			append(
-				&results,
-				Palette_Result {
-					group = "Albums",
-					title = strings.clone(card.name, allocator),
-					subtitle = strings.clone(card.subtitle, allocator),
-					artwork = clone_artwork(card.artwork, allocator),
-					action = .Open_Card,
-					card = core.copy_card(card, allocator),
-				},
-			)
+			append_card(&results, card, "Albums", card.subtitle, allocator)
 		}
 
 		names = make([]string, len(songs), context.temp_allocator)
@@ -109,7 +95,7 @@ update_results :: proc() {
 					group = "Songs",
 					title = strings.clone(song.name, allocator),
 					subtitle = strings.clone(song.artist_name, allocator),
-					artwork = clone_artwork(song.artwork, allocator),
+					artwork = core.copy_artwork(song.artwork, allocator),
 					action = .Play_Library_Song,
 					index = index,
 				},
@@ -123,14 +109,11 @@ update_results :: proc() {
 	palette.selected_index = min(palette.selected_index, max(0, len(results) - 1))
 }
 
-// Answers yes when the name holds the term, whatever the case of the name.
 @(private = "file")
 has_term :: proc(name, term: string) -> bool {
 	return to_term_score(name, term) >= 0
 }
 
-// Returns 0 when the name starts with the term, 1 when a word in the name starts with it,
-// 2 when the name holds the term elsewhere, or -1 when the name does not hold it.
 @(private = "file")
 to_term_score :: proc(name, term: string) -> int {
 	if term == "" do return 0
@@ -141,7 +124,9 @@ to_term_score :: proc(name, term: string) -> int {
 	if at == 0 do return 0
 
 	for start := at; start >= 0; {
-		if lower[start - 1] == ' ' || lower[start - 1] == '(' || lower[start - 1] == '-' do return 1
+		before := lower[start - 1]
+		is_word_start := before == ' ' || before == '(' || before == '-'
+		if is_word_start do return 1
 
 		next := strings.index(lower[start + 1:], term)
 		if next < 0 do break
@@ -151,8 +136,6 @@ to_term_score :: proc(name, term: string) -> int {
 	return 2
 }
 
-// Lists the indexes of the names that hold the term, best first, at most PALETTE_GROUP_LIMIT.
-// A second name, such as a song's artist, scores one step lower than the first.
 @(private = "file")
 list_best_indexes :: proc(names, second_names: []string, term: string) -> []int {
 	Scored_Name :: struct {
@@ -164,13 +147,15 @@ list_best_indexes :: proc(names, second_names: []string, term: string) -> []int 
 		score := to_term_score(name, term)
 		second_score := to_term_score(second_names[index], term) if second_names != nil else -1
 
-		if second_score >= 0 && (score < 0 || second_score + 1 < score) do score = second_score + 1
+		is_second_better := second_score >= 0 && (score < 0 || second_score + 1 < score)
+
+		if is_second_better do score = second_score + 1
 		if score >= 0 do append(&found, Scored_Name{index, score})
 	}
 
 	slice.stable_sort_by(found[:], proc(a, b: Scored_Name) -> bool {return a.score < b.score})
 
-	best := make([]int, min(len(found), PALETTE_GROUP_LIMIT), context.temp_allocator)
+	best := make([]int, min(len(found), MAX_GROUP_RESULT_COUNT), context.temp_allocator)
 	for &index, place in best do index = found[place].index
 
 	return best
@@ -198,14 +183,12 @@ append_actions :: proc(
 		{"Show Up Next", "list.bullet", "", .Show_Up_Next},
 	}
 
+	max_count := len(actions) if term == "" else MAX_GROUP_RESULT_COUNT
 	count := 0
 
 	for action in actions {
 		if action.action == .Favourite && !has_song do continue
-		if !has_term(action.title, term) ||
-		   count >= (len(actions) if term == "" else PALETTE_GROUP_LIMIT) {
-			continue
-		}
+		if !has_term(action.title, term) || count >= max_count do continue
 
 		result := Palette_Result {
 			group    = "Actions",
@@ -240,7 +223,7 @@ append_pages :: proc(
 			core.console_items,
 		}) {
 		for item in items {
-			if !has_term(item.label, term) || count >= PALETTE_GROUP_LIMIT * 2 do continue
+			if !has_term(item.label, term) || count >= MAX_PAGE_RESULT_COUNT do continue
 
 			append(
 				results,
@@ -249,7 +232,7 @@ append_pages :: proc(
 					title = item.label,
 					symbol = item.symbol,
 					action = .Navigate,
-					page = {kind = item.kind},
+					page = item.page,
 				},
 			)
 			count += 1
@@ -257,8 +240,10 @@ append_pages :: proc(
 	}
 
 	count = 0
+
 	for playlist in playlists {
-		if term == "" || !has_term(playlist.name, term) || count >= PALETTE_GROUP_LIMIT do continue
+		is_shown := term != "" && has_term(playlist.name, term) && count < MAX_GROUP_RESULT_COUNT
+		if !is_shown do continue
 
 		name := strings.clone(playlist.name, allocator)
 		append(
@@ -285,48 +270,24 @@ append_catalog :: proc(
 	body: string,
 	allocator := context.allocator,
 ) {
-	Search_Answer :: struct {
-		results: struct {
-			songs:   apple.Related,
-			albums:  apple.Related,
-			artists: apple.Related,
-		},
-	}
-	answer: Search_Answer
+	answer: apple.Search_Answer
 	_ = core.unmarshal_text(body, &answer)
 
-	for artist in answer.results.artists.data[:min(2, len(answer.results.artists.data))] {
-		card := apple.to_card(artist)
-		append(
-			results,
-			Palette_Result {
-				group = "Apple Music",
-				title = strings.clone(card.name, allocator),
-				subtitle = "Artist",
-				artwork = clone_artwork(card.artwork, allocator),
-				is_round = true,
-				action = .Open_Card,
-				card = core.copy_card(card, allocator),
-			},
-		)
+	artists := answer.results.artists.data
+	albums := answer.results.albums.data
+	songs := answer.results.songs.data
+
+	for artist in artists[:min(CATALOG_CARD_COUNT, len(artists))] {
+		append_card(results, apple.to_card(artist), "Apple Music", "Artist", allocator)
 	}
 
-	for album in answer.results.albums.data[:min(2, len(answer.results.albums.data))] {
+	for album in albums[:min(CATALOG_CARD_COUNT, len(albums))] {
 		card := apple.to_card(album)
-		append(
-			results,
-			Palette_Result {
-				group = "Apple Music",
-				title = strings.clone(card.name, allocator),
-				subtitle = fmt.aprintf("Album · %s", card.subtitle, allocator = allocator),
-				artwork = clone_artwork(card.artwork, allocator),
-				action = .Open_Card,
-				card = core.copy_card(card, allocator),
-			},
-		)
+		subtitle := fmt.tprintf("Album · %s", card.subtitle)
+		append_card(results, card, "Apple Music", subtitle, allocator)
 	}
 
-	for resource in answer.results.songs.data[:min(4, len(answer.results.songs.data))] {
+	for resource in songs[:min(CATALOG_SEARCH_LIMIT, len(songs))] {
 		song := apple.to_catalog_song(resource)
 		append(
 			results,
@@ -334,7 +295,7 @@ append_catalog :: proc(
 				group = "Apple Music",
 				title = strings.clone(song.name, allocator),
 				subtitle = fmt.aprintf("Song · %s", song.artist_name, allocator = allocator),
-				artwork = clone_artwork(song.artwork, allocator),
+				artwork = core.copy_artwork(song.artwork, allocator),
 				action = .Play_Song,
 				song = core.copy_song(song, allocator),
 			},
@@ -343,10 +304,22 @@ append_catalog :: proc(
 }
 
 @(private = "file")
-clone_artwork :: proc(artwork: apple.Artwork, allocator := context.allocator) -> apple.Artwork {
-	return {
-		strings.clone(artwork.url, allocator),
-		strings.clone(artwork.bg_color, allocator),
-		strings.clone(artwork.text_color1, allocator),
-	}
+append_card :: proc(
+	results: ^[dynamic]Palette_Result,
+	card: apple.Card,
+	group, subtitle: string,
+	allocator := context.allocator,
+) {
+	append(
+		results,
+		Palette_Result {
+			group = group,
+			title = strings.clone(card.name, allocator),
+			subtitle = strings.clone(subtitle, allocator),
+			artwork = core.copy_artwork(card.artwork, allocator),
+			is_round = card.kind == .Artist,
+			action = .Open_Card,
+			card = core.copy_card(card, allocator),
+		},
+	)
 }

@@ -15,40 +15,48 @@ to_color :: proc "contextless" (hex: u32) -> [4]f32 {
 	}
 }
 
-// "#F7821B", as the helper sends the system accent.
 to_color_from_hex :: proc(hex: string) -> [4]f32 {
 	if len(hex) != 7 || hex[0] != '#' do return DEFAULT_ACCENT
 
-	return parse_hex_color(hex[1:]) or_else DEFAULT_ACCENT
+	return to_color_from_hex_digits(hex[1:]) or_else DEFAULT_ACCENT
 }
 
-// The colours of the design's mock. The window blurs what is behind it and tints it near black at 75%.
 colors := struct {
 	window, sidebar, player, panel, ink, line, card, hover, selected, field, text, dim, faint, track, youtube: [4]f32,
+	white, popover, toast, drag_ghost, popover_border:                                                         [4]f32,
+	detail_card, detail_card_border:                                                                           [4]f32,
 } {
-	window   = to_color(0x0e0e10bf),
-	sidebar  = to_color(0xffffff08),
-	player   = to_color(0xffffff06),
-	panel    = to_color(0xffffff06),
-	// A solid colour for marks on white, such as the play icon.
-	ink      = to_color(0x1b1b1eff),
-	line     = to_color(0x2e2e33ff),
-	card     = to_color(0x2a2a2fff),
-	hover    = to_color(0xffffff12),
-	selected = to_color(0xffffff1a),
-	field    = to_color(0xffffff12),
-	text     = to_color(0xf2f2f4ff),
-	dim      = to_color(0xacacb4ff),
-	faint    = to_color(0x8a8a93ff),
-	track    = to_color(0x3a3a40ff),
-	// YouTube's red, on whatever plays from YouTube.
-	youtube  = to_color(0xff4e45ff),
+	window             = to_color(0x0e0e10bf),
+	sidebar            = to_color(0xffffff08),
+	player             = to_color(0xffffff06),
+	panel              = to_color(0xffffff06),
+	ink                = to_color(0x1b1b1eff),
+	line               = to_color(0x2e2e33ff),
+	card               = to_color(0x2a2a2fff),
+	hover              = to_color(0xffffff12),
+	selected           = to_color(0xffffff1a),
+	field              = to_color(0xffffff12),
+	text               = to_color(0xf2f2f4ff),
+	dim                = to_color(0xacacb4ff),
+	faint              = to_color(0x8a8a93ff),
+	track              = to_color(0x3a3a40ff),
+	youtube            = to_color(0xff4e45ff),
+	white              = to_color(0xffffffff),
+	popover            = to_color(0x2c2c31f5),
+	toast              = to_color(0x2c2c31ff),
+	drag_ghost         = to_color(0x2c2c31f0),
+	popover_border     = to_color(0xffffff1c),
+	detail_card        = to_color(0xffffff0a),
+	detail_card_border = to_color(0xffffff10),
 }
 
 DEFAULT_ACCENT :: [4]f32{0x0a / 255.0, 0x84 / 255.0, 1, 1}
 
-// 0x2e of 0xff, about 18 percent, as the selected rows in the design.
 ACCENT_TINT_ALPHA :: 0x2e / 255.0
+
+to_faded :: proc(color: [4]f32, opacity: f32) -> [4]f32 {
+	return {color.r, color.g, color.b, color.a * opacity}
+}
 
 to_accent_tint :: proc(accent: [4]f32) -> [4]f32 {
 	return {accent.r, accent.g, accent.b, ACCENT_TINT_ALPHA}
@@ -58,21 +66,25 @@ SIDEBAR_WIDTH_POINTS :: 228
 
 PLAYER_HEIGHT_POINTS :: 70
 
-// The toolbar is as tall as the traffic lights' strip.
 TOOLBAR_HEIGHT_POINTS :: 44
 
 PAGE_PADDING_POINTS :: 20
 
+SHELF_TITLE_POINTS :: 17
+
+SMALL_TEXT_POINTS :: 12.5
+
+BUTTON_HEIGHT_POINTS :: 32
+
+ICON_BUTTON_PADDING_POINTS :: 4
+
 PANEL_WIDTH_POINTS :: 320
 
-// Room at zoom 1 for the sidebar, the panel, a page two tiles wide and the player bar's three
-// parts at full width. The smallest window is these sizes times the zoom.
 MIN_WINDOW_WIDTH_POINTS :: 1000
 
 MIN_WINDOW_HEIGHT_POINTS :: 600
 
-// "2a2a2f", as Apple sends artwork colours.
-parse_hex_color :: proc(hex: string) -> ([4]f32, bool) {
+to_color_from_hex_digits :: proc(hex: string) -> ([4]f32, bool) {
 	if len(hex) != 6 do return {}, false
 
 	value, ok := strconv.parse_u64_of_base(hex, 16)
@@ -85,7 +97,6 @@ mix_color :: proc(from, to: [4]f32, amount: f32) -> [4]f32 {
 	return from + (to - from) * amount
 }
 
-// Hue in degrees, saturation and lightness from 0 to 1.
 to_color_from_hsl :: proc(hue, saturation, lightness: f32) -> [4]f32 {
 	chroma := (1 - abs(2 * lightness - 1)) * saturation
 	sector := math.mod(hue, 360) / 60
@@ -112,54 +123,55 @@ to_color_from_hsl :: proc(hue, saturation, lightness: f32) -> [4]f32 {
 	return {rgb.r + base, rgb.g + base, rgb.b + base, 1}
 }
 
-// A cover less colourful than this, such as a black and white photo, keeps the system accent.
 MIN_COVER_VIVIDNESS :: 0.015
 
-// The accent is text on the dark window and the fill of a button under white text.
-// So an accent from a cover keeps its saturation and lightness within these.
-COVER_ACCENT_SATURATION :: [2]f32{0.55, 0.9}
+MIN_COVER_ACCENT_SATURATION :: 0.55
 
-COVER_ACCENT_LIGHTNESS :: [2]f32{0.5, 0.65}
+MAX_COVER_ACCENT_SATURATION :: 0.9
 
-// Blue and purple look darker than orange at the same lightness. to_cover_accent raises the
-// lightness, at most to MAX_COVER_ACCENT_LIGHTNESS, until it is as bright as system blue, #0A84FF.
+MIN_COVER_ACCENT_LIGHTNESS :: 0.5
+
+MAX_COVER_ACCENT_LIGHTNESS :: 0.65
+
 MIN_ACCENT_LUMINANCE :: 0.24
 
-MAX_COVER_ACCENT_LIGHTNESS :: 0.8
+MAX_RAISED_ACCENT_LIGHTNESS :: 0.8
 
-// How fast the accent turns to a new cover's colour.
 ACCENT_RATE_PER_SECOND :: 8
 
-// Turns app.accent toward the playing cover's colour, or the system accent without one.
-// artwork_source is the player's cover, empty when it has none.
-update_accent :: proc(frame_seconds: f32, artwork_source: string) {
+MAX_ACCENT_FRAME_SECONDS :: 0.1
+
+ACCENT_SETTLED_DISTANCE :: 0.003
+
+set_accent :: proc(frame_seconds: f32, artwork_source: string) {
 	target := core.app.system_accent
 	color: image.Color
 	has_color := false
 
 	if artwork_source != "" do color, has_color = image.find_color(artwork_source)
-	if has_color && color.vividness >= MIN_COVER_VIVIDNESS do target = to_cover_accent(color.rgb)
+	is_cover_vivid := has_color && color.vividness >= MIN_COVER_VIVIDNESS
+	if is_cover_vivid do target = to_cover_accent(color.rgb)
 
-	amount := 1 - math.exp(-ACCENT_RATE_PER_SECOND * min(frame_seconds, 0.1))
+	amount := 1 - math.exp(-ACCENT_RATE_PER_SECOND * min(frame_seconds, MAX_ACCENT_FRAME_SECONDS))
 	core.app.accent += (target - core.app.accent) * amount
+	difference := target.rgb - core.app.accent.rgb
+	distance := abs(difference.r) + abs(difference.g) + abs(difference.b)
 
-	if abs(target.r - core.app.accent.r) +
-		   abs(target.g - core.app.accent.g) +
-		   abs(target.b - core.app.accent.b) >
-	   0.003 {
-		platform.request_frame()
-	} else {
+	if distance <= ACCENT_SETTLED_DISTANCE {
 		core.app.accent = target
+		return
 	}
+
+	platform.request_frame()
 }
 
 to_cover_accent :: proc(rgb: [3]f32) -> [4]f32 {
 	hue, saturation, lightness := to_hsl(rgb)
-	saturation = clamp(saturation, COVER_ACCENT_SATURATION[0], COVER_ACCENT_SATURATION[1])
-	lightness = clamp(lightness, COVER_ACCENT_LIGHTNESS[0], COVER_ACCENT_LIGHTNESS[1])
+	saturation = clamp(saturation, MIN_COVER_ACCENT_SATURATION, MAX_COVER_ACCENT_SATURATION)
+	lightness = clamp(lightness, MIN_COVER_ACCENT_LIGHTNESS, MAX_COVER_ACCENT_LIGHTNESS)
 	color := to_rgb_from_hsl(hue, saturation, lightness)
 
-	for to_luminance(color) < MIN_ACCENT_LUMINANCE && lightness < MAX_COVER_ACCENT_LIGHTNESS {
+	for to_luminance(color) < MIN_ACCENT_LUMINANCE && lightness < MAX_RAISED_ACCENT_LIGHTNESS {
 		lightness += 0.02
 		color = to_rgb_from_hsl(hue, saturation, lightness)
 	}
@@ -167,17 +179,17 @@ to_cover_accent :: proc(rgb: [3]f32) -> [4]f32 {
 	return {color.r, color.g, color.b, 1}
 }
 
-// How bright a colour looks, from 0 to 1, as WCAG measures it.
 @(private = "file")
 to_luminance :: proc(rgb: [3]f32) -> f32 {
-	to_linear :: proc(value: f32) -> f32 {return(
-			value / 12.92 if value <= 0.04045 else math.pow((value + 0.055) / 1.055, 2.4) \
-		)}
-
 	return 0.2126 * to_linear(rgb.r) + 0.7152 * to_linear(rgb.g) + 0.0722 * to_linear(rgb.b)
 }
 
-// Hue in turns, from 0 to 1.
+// One sRGB channel as linear light, as WCAG gives it.
+@(private = "file")
+to_linear :: proc(value: f32) -> f32 {
+	return value / 12.92 if value <= 0.04045 else math.pow((value + 0.055) / 1.055, 2.4)
+}
+
 @(private = "file")
 to_hsl :: proc(rgb: [3]f32) -> (hue, saturation, lightness: f32) {
 	brightest := max(rgb.r, rgb.g, rgb.b)
@@ -203,7 +215,6 @@ to_hsl :: proc(rgb: [3]f32) -> (hue, saturation, lightness: f32) {
 	return
 }
 
-// Hue in turns, from 0 to 1.
 @(private = "file")
 to_rgb_from_hsl :: proc(hue, saturation, lightness: f32) -> [3]f32 {
 	return to_color_from_hsl(hue * 360, saturation, lightness).rgb

@@ -10,28 +10,34 @@ import "om:helper"
 import "om:platform"
 import "om:ui"
 
-NARROW_STATS_POINTS :: 720
+MIN_FOUR_COLUMNS_POINTS :: 720
 
-ONE_STAT_POINTS :: 380
+MIN_TWO_COLUMNS_POINTS :: 380
 
-// The plays card is at least this wide to show its bars beside its numbers.
-SPARK_BESIDE_POINTS :: 260
+MIN_BARS_BESIDE_POINTS :: 260
+
+STAT_GAP_POINTS :: 10
+
+BARS_HEIGHT_POINTS :: 30
 
 STAT_WEEKS :: 8
 
-// The PLAYS, LAST PLAYED, IN LIBRARY SINCE and SKIPS cards of the Now Playing page.
+RANK_DAYS :: 30
+
 @(private)
 build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f32) {
 	weeks, rank := list_weekly_plays(song)
-	last := info.played_date_ms
-	added := info.date_added_ms
-	skipped := info.skipped_date_ms
+	last_ms := info.played_date_ms
+	added_ms := info.date_added_ms
+	skipped_ms := info.skipped_date_ms
+	now_ms := helper.now_ms()
+	zone_seconds := f64(platform.read_local_offset_seconds())
 
 	Stat :: struct {
 		id, label, value, note: string,
 		weight:                 f32,
 		weeks:                  [STAT_WEEKS]int,
-		has_spark:              bool,
+		has_bars:               bool,
 	}
 
 	stats := [4]Stat {
@@ -39,7 +45,7 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f3
 			"plays",
 			"PLAYS",
 			fmt.tprintf("%d", info.played_count),
-			fmt.tprintf("#%d this month", rank) if rank > 0 else "",
+			fmt.tprintf("#%d in the last %d days", rank, RANK_DAYS) if rank > 0 else "",
 			1.4,
 			weeks,
 			true,
@@ -47,8 +53,8 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f3
 		{
 			"last played",
 			"LAST PLAYED",
-			to_day_text(last) if last > 0 else "Never",
-			platform.format_date(last, "HH:mm") if last > 0 else "",
+			to_day_text(last_ms, now_ms, zone_seconds) if last_ms > 0 else "Never",
+			platform.format_date(last_ms, "HH:mm") if last_ms > 0 else "",
 			1,
 			{},
 			false,
@@ -56,8 +62,8 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f3
 		{
 			"added",
 			"IN LIBRARY SINCE",
-			platform.format_date(added, "d MMM") if added > 0 else "—",
-			platform.format_date(added, "yyyy") if added > 0 else "",
+			platform.format_date(added_ms, "d MMM") if added_ms > 0 else "Unknown",
+			platform.format_date(added_ms, "yyyy") if added_ms > 0 else "",
 			1,
 			{},
 			false,
@@ -66,20 +72,25 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f3
 			"skips",
 			"SKIPS",
 			fmt.tprintf("%d", info.skipped_count),
-			fmt.tprintf("last on %s", platform.format_date(skipped, "d MMM")) if skipped > 0 else "",
+			fmt.tprintf("last on %s", platform.format_date(skipped_ms, "d MMM")) if skipped_ms > 0 else "",
 			1,
 			{},
 			false,
 		},
 	}
 
-	// On a page narrower than these, four or two cards have no room for their own numbers.
-	columns := 4 if width >= NARROW_STATS_POINTS else 2 if width >= ONE_STAT_POINTS else 1
+	columns := 1
+
+	if width >= MIN_FOUR_COLUMNS_POINTS {
+		columns = 4
+	} else if width >= MIN_TWO_COLUMNS_POINTS {
+		columns = 2
+	}
 
 	for start := 0; start < len(stats); start += columns {
 		row := ui.box(
 			fmt.tprintf("stats %d", start),
-			{width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 10},
+			{width = ui.fill(), height = ui.fit_children(), axis = .X, gap = STAT_GAP_POINTS},
 		)
 		in_row := stats[start:min(start + columns, len(stats))]
 		row_weight: f32
@@ -87,9 +98,9 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f3
 
 		if ui.scope(row) {
 			for stat in in_row {
-				// The bars go under the numbers when the numbers have no room beside them.
-				card_width := (width - 10 * f32(len(in_row) - 1)) * stat.weight / row_weight
-				is_stacked := stat.has_spark && card_width < SPARK_BESIDE_POINTS
+				gaps_width := STAT_GAP_POINTS * f32(len(in_row) - 1)
+				card_width := (width - gaps_width) * stat.weight / row_weight
+				is_stacked := stat.has_bars && card_width < MIN_BARS_BESIDE_POINTS
 				card := build_stat_card(
 					stat.id,
 					stat.label,
@@ -99,8 +110,8 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f3
 					is_stacked,
 				)
 
-				if stat.has_spark {
-					if ui.scope(card) do build_spark(stat.weeks)
+				if stat.has_bars {
+					if ui.scope(card) do build_bars(stat.weeks)
 				}
 			}
 		}
@@ -123,9 +134,9 @@ build_stat_card :: proc(
 			gap = 8 if is_stacked else 0,
 			padding = {14, 12, 14, 12},
 			corner_radius = 10,
-			background = kit.to_color(0xffffff0a),
+			background = kit.colors.detail_card,
 			border_width = 1,
-			border_color = kit.to_color(0xffffff10),
+			border_color = kit.colors.detail_card_border,
 		},
 	)
 
@@ -176,11 +187,8 @@ build_stat_card :: proc(
 	return card
 }
 
-// The song's plays in each of the last STAT_WEEKS weeks, oldest first, from the app's own log.
-// Its rank among the songs played in the last 30 days, or 0 when it has no play there.
 @(private = "file")
 weekly_plays: struct {
-	// The page asks each frame. The counts hold until the song, the log length or the hour changes.
 	song_id:   string,
 	log_count: int,
 	hour:      i64,
@@ -191,7 +199,7 @@ weekly_plays: struct {
 @(private = "file")
 list_weekly_plays :: proc(song: core.Catalog_Song) -> (weeks: [STAT_WEEKS]int, rank: int) {
 	now_ms := i64(helper.now_ms())
-	hour := now_ms / 3_600_000
+	hour := now_ms / core.HOUR_MS
 	is_counted :=
 		weekly_plays.song_id == song.id &&
 		weekly_plays.log_count == len(playback.play_log) &&
@@ -213,50 +221,54 @@ list_weekly_plays_from_log :: proc(
 	weeks: [STAT_WEEKS]int,
 	rank: int,
 ) {
-	week_ms: i64 = 7 * 86_400_000
-	month_start_ms := now_ms - 30 * 86_400_000
+	week_ms: i64 = 7 * core.DAY_MS
+	rank_start_ms := now_ms - RANK_DAYS * core.DAY_MS
 	counts := make(map[string]int, context.temp_allocator)
-	own := 0
+	own_count := 0
 
 	for play in playback.play_log {
 		if play.is_skip do continue
 
-		if playback.is_same_song(play, song) {
-			age := int((now_ms - play.played_at_ms) / week_ms)
-			// A play dated ahead of now, after the Mac's clock moved back, has a negative age.
-			if age >= 0 && age < STAT_WEEKS do weeks[STAT_WEEKS - 1 - age] += 1
-		}
+		is_own := playback.is_same_song(play, song)
+		age := int((now_ms - play.played_at_ms) / week_ms)
+		// A play dated ahead of now, after the Mac's clock moved back, has a negative age.
+		is_in_range := age >= 0 && age < STAT_WEEKS
+		if is_own && is_in_range do weeks[STAT_WEEKS - 1 - age] += 1
 
-		if play.played_at_ms >= month_start_ms {
-			// \x1f, the ASCII unit separator, never shows in a name, so it keeps the two apart.
+		if play.played_at_ms >= rank_start_ms {
 			key := fmt.tprintf("%s\x1f%s", play.name, play.artist)
 			counts[key] += 1
-			if playback.is_same_song(play, song) do own = counts[key]
+			if is_own do own_count = counts[key]
 		}
 	}
 
-	if own == 0 do return weeks, 0
+	if own_count == 0 do return weeks, 0
 
 	rank = 1
-	for _, count in counts do if count > own do rank += 1
+	for _, count in counts do if count > own_count do rank += 1
 
 	return weeks, rank
 }
 
-// The bars of the PLAYS card, one for each week, oldest first.
 @(private = "file")
-build_spark :: proc(weeks: [STAT_WEEKS]int) {
-	most := 1
-	for count in weeks do most = max(most, count)
+build_bars :: proc(weeks: [STAT_WEEKS]int) {
+	max_count := 1
+	for count in weeks do max_count = max(max_count, count)
 
-	spark := ui.box(
-		"spark",
-		{width = ui.points(120), height = ui.points(30), axis = .X, align = .End, gap = 3},
+	bars := ui.box(
+		"bars",
+		{
+			width = ui.points(120),
+			height = ui.points(BARS_HEIGHT_POINTS),
+			axis = .X,
+			align = .End,
+			gap = 3,
+		},
 	)
 
-	if ui.scope(spark) {
+	if ui.scope(bars) {
 		for count, index in weeks {
-			height := max(3, 30 * f32(count) / f32(most))
+			height := max(3, BARS_HEIGHT_POINTS * f32(count) / f32(max_count))
 
 			ui.box(
 				fmt.tprintf("week %d", index),
@@ -276,14 +288,14 @@ build_spark :: proc(weeks: [STAT_WEEKS]int) {
 	}
 }
 
-// "Today", "Yesterday" or "3 Oct", by local day.
 @(private = "file")
-to_day_text :: proc(unix_ms: f64) -> string {
-	zone_seconds := f64(platform.local_offset_seconds())
-	to_day :: proc(time_ms, offset_seconds: f64) -> int {
-		return int(math.floor((time_ms / 1000 + offset_seconds) / 86_400))
-	}
-	days := to_day(helper.now_ms(), zone_seconds) - to_day(unix_ms, zone_seconds)
+to_day :: proc(time_ms, zone_seconds: f64) -> int {
+	return int(math.floor((time_ms / 1000 + zone_seconds) / core.DAY_SECONDS))
+}
+
+@(private = "file")
+to_day_text :: proc(unix_ms, now_ms, zone_seconds: f64) -> string {
+	days := to_day(now_ms, zone_seconds) - to_day(unix_ms, zone_seconds)
 
 	switch days {
 	case 0:

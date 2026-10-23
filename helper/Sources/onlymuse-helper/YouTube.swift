@@ -1,8 +1,6 @@
 import AppKit
 import WebKit
 
-// This class keeps music.youtube.com in a page that no one sees. It plays YouTube songs with the page's own player,
-// audio and all, so Premium's quality and its lack of ads apply. Helium's YouTube cookies sign the page in.
 @MainActor
 final class YouTube: NSObject, WKNavigationDelegate {
   static let idPrefix = "yt:"
@@ -10,22 +8,15 @@ final class YouTube: NSObject, WKNavigationDelegate {
   private static let nudgeSeconds = 1.0
   private static let maxNudgeCount = 30
   static let pollSeconds = 0.5
-  // A song that stops by itself for this long after it played loads again where it stopped, at most maxReloadCount times.
   static let stuckSeconds = 10.0
-  static let maxReloadCount = 2
-  // A song starts about a second after the page has it. The helper asks again for a song that did not start this
-  // long after, then opens the page again with it.
   static let slowStartSeconds = 4.0
-  // The helper asks again once, then opens the page again once, then gives up.
-  static let maxStartRetryCount = 2
-  // Music.app's posts this soon after the helper paused it may still say it plays.
+  static let maxRetryCount = 2
+  // Just after the helper pauses Music.app, its posts may still say it plays.
   private static let pauseSettleSeconds = 2.0
-  // The page goes this long after the last YouTube song, as it holds 200 MB or more, unless the queue has more.
-  // The next song loads it again.
   private static let idleCloseSeconds = 5.0 * 60
   static let positionSendSeconds = 2.0
+
   private let music: MusicApp
-  // A test or bench run plays YouTube muted. It never pauses Music.app.
   let isQuiet: Bool
   var playerView: WKWebView?
   private var playerWindow: NSWindow?
@@ -34,27 +25,27 @@ final class YouTube: NSObject, WKNavigationDelegate {
   private var idleTimer: Timer?
   var song: SongMatch?
   var videoID = ""
-  // The song that loads ahead, to play next.
   private var preparedID = ""
   var isPageLoaded = false
   private var pausedMusicAt = Date.distantPast
-  var lastState = ""
+  var lastState: String?
   var lastPositionSentAt = Date.distantPast
   var playedSeconds = 0.0
   var stuckSince: Date?
   var reloadCount = 0
   var startAskedAt = Date.distantPast
   var startRetryCount = 0
-  // Where the song starts once the page opens again, after it stopped partway.
   var resumeSeconds = 0.0
   var volumePercent = 100
 
-  // True from a YouTube song's start until another source plays, so Music.app's posts do not change the player.
   private(set) var isActive = false
 
-  // The queue plays a YouTube song later, so the page stays open, as loading it again takes 10 s or more.
-  var keepsPage = false {
-    didSet { if oldValue && !keepsPage && !isActive { startIdleTimer() } }
+  var isPageKept = false {
+    didSet {
+      let isPageNoLongerNeeded = oldValue && !isPageKept && !isActive
+
+      if isPageNoLongerNeeded { startIdleTimer() }
+    }
   }
 
   var hasJustPausedMusic: Bool { Date().timeIntervalSince(pausedMusicAt) < Self.pauseSettleSeconds }
@@ -64,8 +55,6 @@ final class YouTube: NSObject, WKNavigationDelegate {
     self.isQuiet = isQuiet
   }
 
-  // This sends Helium's youtube.com cookies to the app, which signs each request with them. It also gives them to
-  // the player's page. A quiet run never asks the Keychain, so a test shows no prompt. The page then plays signed out.
   func sendCookie() {
     guard !isQuiet else { return send(["type": "youtubeCookie", "cookie": ""]) }
 
@@ -98,7 +87,6 @@ final class YouTube: NSObject, WKNavigationDelegate {
       if let httpCookie = HTTPCookie(properties: properties) { store.setCookie(httpCookie) }
     }
 
-    // A page that loaded before holds the old sign-in.
     if !isActive { resetPlayer() }
   }
 
@@ -108,48 +96,49 @@ final class YouTube: NSObject, WKNavigationDelegate {
     isPageLoaded = true
     startAskedAt = Date()
     stuckSince = nil
-    // A song that the app asked to play while its page still loaded ahead plays now.
-    if isActive && preparedID == "" {
-      run(toPlayScript(forcesLoad: resumeSeconds > 0, startSeconds: resumeSeconds))
+
+    let isSongWaitingForPage = isActive && preparedID == ""
+
+    if isSongWaitingForPage {
+      run(toPlayScript(isLoadForced: resumeSeconds > 0, startSeconds: resumeSeconds))
       resumeSeconds = 0
     } else {
-      run("window.onlymuseVideoID = \(quoted(videoID)); window.onlymuseIsPreparing = \(preparedID != "")")
+      run("window.onlymuseVideoID = \(toJavaScriptText(videoID)); window.onlymuseIsPreparing = \(preparedID != "")")
     }
   }
 
-  // This plays the song from YouTube. It answers with the song's persistent ID, as Music.app's songs have one.
   func play(_ match: SongMatch, videoID: String) -> String {
-    idleTimer?.invalidate()
-    idleTimer = nil
+    stopIdleTimer()
     isActive = true
     song = match
     self.videoID = videoID
-    lastState = ""
+    lastState = nil
     playedSeconds = 0
     stuckSince = nil
     reloadCount = 0
     startAskedAt = Date()
     startRetryCount = 0
     resumeSeconds = 0
+
     if !isQuiet {
       music.pauseIfRunning()
       pausedMusicAt = Date()
+      if let volumePercent = music.readVolumePercent() { self.volumePercent = volumePercent }
     }
-    if !isQuiet, let volume = music.readVolumePercent() { volumePercent = volume }
 
     stopNudging()
+
     let isLoadingAhead = playerView != nil && !isPageLoaded && preparedID == videoID
+
     preparedID = ""
 
-    // The page's first load plays the song in its address. didFinish then names it as the one to keep.
     if isPageLoaded {
       run(toPlayScript())
     } else if !isLoadingAhead {
-      readPlayerView().load(URLRequest(url: URL(string: "https://music.youtube.com/watch?v=\(videoID)")!))
+      startPlayerView().load(URLRequest(url: Self.toWatchURL(videoID: videoID)))
     }
 
-    // The app shows the song at once, still, until the page plays it, as Music.app no longer plays.
-    var loading = toNowPlaying(state: "playing", positionSeconds: 0, durationSeconds: match.durationSeconds)
+    var loading = makeNowPlaying(state: "playing", positionSeconds: 0, durationSeconds: match.durationSeconds)
     loading["isLoading"] = true
     send(loading)
     startPolling()
@@ -157,21 +146,19 @@ final class YouTube: NSObject, WKNavigationDelegate {
     return Self.idPrefix + videoID
   }
 
-  // This loads the song to play after Music.app's, muted and paused, so it starts at once when its turn comes. It
-  // works only while no YouTube song plays, as the page has one player. An empty ID lets the page go when it is idle.
   func prepare(videoID: String) {
     guard !isActive, videoID != preparedID else { return }
 
     preparedID = videoID
+
     guard videoID != "" else { return startIdleTimer() }
 
-    idleTimer?.invalidate()
-    idleTimer = nil
+    stopIdleTimer()
 
     if isPageLoaded {
-      run("window.onlymuseIsPreparing = true; document.getElementById('movie_player').loadVideoById(\(quoted(videoID)))")
+      run("window.onlymuseIsPreparing = true; document.getElementById('movie_player').loadVideoById(\(toJavaScriptText(videoID)))")
     } else {
-      readPlayerView().load(URLRequest(url: URL(string: "https://music.youtube.com/watch?v=\(videoID)#\(Self.prepareHash)")!))
+      startPlayerView().load(URLRequest(url: Self.toWatchURL(videoID: videoID, isPreparing: true)))
     }
 
     startNudging()
@@ -201,7 +188,6 @@ final class YouTube: NSObject, WKNavigationDelegate {
     nudgeTimer = nil
   }
 
-  // Another source plays, so the page pauses and its posts stop.
   func stop() {
     guard isActive else { return }
 
@@ -216,38 +202,50 @@ final class YouTube: NSObject, WKNavigationDelegate {
     idleTimer?.invalidate()
     idleTimer = Timer.scheduledTimer(withTimeInterval: Self.idleCloseSeconds, repeats: false) { [weak self] _ in
       MainActor.assumeIsolated {
-        guard let self, !self.isActive, !self.keepsPage, self.preparedID == "" else { return }
+        guard let self, !self.isActive, !self.isPageKept, self.preparedID == "" else { return }
 
         self.resetPlayer()
       }
     }
   }
 
+  private func stopIdleTimer() {
+    idleTimer?.invalidate()
+    idleTimer = nil
+  }
+
   func apply(_ command: Command) {
     switch command.type {
     case "playPause":
-      // A song still loading pauses too, so Pause works before its first sound.
       run("(() => { const player = document.getElementById('movie_player'); [\(Self.playingState), \(Self.bufferingState), \(Self.unstartedState)].includes(player.getPlayerState()) ? player.pauseVideo() : player.playVideo() })()")
     case "seek":
       guard let positionSeconds = command.positionSeconds else { return }
-      // A page still loading has no player yet. didFinish starts the song at this place.
       guard isPageLoaded else {
         resumeSeconds = positionSeconds
         return
       }
       run("document.getElementById('movie_player').seekTo(\(positionSeconds), true)")
-      lastState = ""
+      lastState = nil
     case "setVolume":
-      guard let percent = command.volumePercent else { return }
-      volumePercent = min(max(percent, 0), 100)
-      run("document.getElementById('movie_player').setVolume(\(volumePercent))")
-      lastState = ""
+      guard let volumePercent = command.volumePercent?.value else { return }
+
+      self.volumePercent = volumePercent
+      sendVolumeToPage()
+      lastState = nil
     default:
       break
     }
   }
 
-  private func readPlayerView() -> WKWebView {
+  func sendVolumeToPage() {
+    run("document.getElementById('movie_player').setVolume(\(volumePercent))")
+  }
+
+  static func toWatchURL(videoID: String, isPreparing: Bool = false) -> URL {
+    URL(string: "https://music.youtube.com/watch?v=\(videoID)" + (isPreparing ? "#\(prepareHash)" : ""))!
+  }
+
+  private func startPlayerView() -> WKWebView {
     if let playerView { return playerView }
 
     let configuration = WKWebViewConfiguration()
@@ -262,9 +260,8 @@ final class YouTube: NSObject, WKNavigationDelegate {
     view.customUserAgent = WebPlayer.userAgent
     view.navigationDelegate = self
 
-    // WebKit plays a page's media only while it is in a window. The window is on screen for WebKit, but clear,
-    // far off every display and out of Mission Control. WebKit slows a hidden page once its sound pauses. YouTube's
-    // player, which resets itself now and then, then never starts again.
+    // After a pause, WebKit slows a hidden page so much that YouTube's player never starts again.
+    // WebKit plays media only in a window, so this clear one stays open, off every display.
     let window = NSWindow(contentRect: view.frame, styleMask: [.borderless], backing: .buffered, defer: false)
 
     window.contentView = view
@@ -275,10 +272,10 @@ final class YouTube: NSObject, WKNavigationDelegate {
     window.isExcludedFromWindowsMenu = true
     window.setFrameOrigin(NSPoint(x: -20000, y: -20000))
     window.orderBack(nil)
-    // Off every display, the window counts as covered, which WebKit takes as hidden too.
     if view.responds(to: NSSelectorFromString("_setWindowOcclusionDetectionEnabled:")) {
       view.setValue(false, forKey: "windowOcclusionDetectionEnabled")
     }
+
     playerView = view
     playerWindow = window
 
@@ -287,8 +284,7 @@ final class YouTube: NSObject, WKNavigationDelegate {
 
   private func resetPlayer() {
     stop()
-    idleTimer?.invalidate()
-    idleTimer = nil
+    stopIdleTimer()
     closePage(playerView)
     playerWindow?.close()
     playerWindow = nil
@@ -303,7 +299,7 @@ final class YouTube: NSObject, WKNavigationDelegate {
     }
   }
 
-  func quoted(_ text: String) -> String {
+  func toJavaScriptText(_ text: String) -> String {
     guard let data = try? JSONSerialization.data(withJSONObject: [text]), let array = String(data: data, encoding: .utf8) else { return "\"\"" }
 
     return String(array.dropFirst().dropLast())

@@ -8,13 +8,12 @@ import "om:app/playback"
 import "om:apple"
 import "om:helper"
 import "om:lyrics"
-import "om:platform"
 import "om:ui"
 
-MORE_BY_COUNT :: 6
+MAX_MORE_BY_COUNT :: 6
 
-// The song playing: its cover large on its own blurred colours, what to do with it, its plays,
-// skips and dates from Music.app, its credits and its sound, then more by its artist.
+MORE_BY_TILE_POINTS :: 118
+
 build_now_playing_page :: proc() {
 	shown, is_song := playback.find_shown_song()
 	queue_song, is_queue_song := playback.find_queue_song(shown.persistent_id)
@@ -27,39 +26,28 @@ build_now_playing_page :: proc() {
 			return
 		}
 
-		catalog_id, phase := find_catalog_id(
+		catalog_id, phase := watch_catalog_id(
 			shown.name,
-			shown.artist,
+			shown.artist_name,
 			queue_song.id if is_queue_song else "",
 		)
+		has_path := catalog_id != ""
 		path :=
-			fmt.tprintf("/v1/catalog/%s/songs/%s?include=albums,artists", apple.STOREFRONT, catalog_id) if catalog_id != "" else ""
-		watched := apple.watch(path) if path != "" else apple.Watched{phase = phase}
-		data, is_stale := core.find_page_data(
-			path if path != "" else "now playing",
+			fmt.tprintf("/v1/catalog/%s/songs/%s?include=albums,artists", apple.STOREFRONT, catalog_id) if has_path else ""
+		watched := apple.watch(path) if has_path else apple.Watched{phase = phase}
+		data, needs_read := core.find_page_data(
+			path if has_path else "now playing",
 			watched.version,
 			watched.phase,
 		)
-		if is_stale && watched.phase == .Ready do read_song_details(path, data, watched.body)
+		if needs_read do apply_song_details(path, data, watched.body)
 
 		details, has_details := song_details[path]
-
-		if !has_details || watched.phase != .Ready {
-			// Until Apple answers, the page shows what Music.app gave.
-			details = {
-				song = {
-					name = shown.name,
-					artist_name = shown.artist,
-					album_name = shown.album,
-					duration_seconds = shown.duration_seconds,
-				},
-				album = shown.album,
-			}
-			if is_queue_song do details.song = queue_song
-		}
+		is_waiting_for_apple := !has_details || watched.phase != .Ready
+		if is_waiting_for_apple do details = to_music_app_details(shown, queue_song, is_queue_song)
 
 		info, _ := playback.watch_song_info(shown.persistent_id)
-		width := page.size.x - page.style.padding.x - page.style.padding.z
+		width := kit.to_content_width(page)
 		if width <= 0 do return
 
 		stage := ui.box(
@@ -92,20 +80,36 @@ build_now_playing_page :: proc() {
 	}
 }
 
-// The current line of the lyrics, with its romaji, from the lyrics the panel loads.
+@(private = "file")
+to_music_app_details :: proc(
+	shown: helper.Song,
+	queue_song: core.Catalog_Song,
+	is_queue_song: bool,
+) -> Song_Details {
+	details := Song_Details {
+		song = {
+			name = shown.name,
+			artist_name = shown.artist_name,
+			album_name = shown.album_name,
+			duration_seconds = shown.duration_seconds,
+		},
+		album = shown.album_name,
+	}
+	if is_queue_song do details.song = queue_song
+
+	return details
+}
+
 @(private)
 build_current_lyric :: proc(shown: helper.Song) {
-	phase, lines := lyrics.watch(shown.persistent_id, shown.name, shown.artist)
+	phase, lines := lyrics.watch(shown.persistent_id, shown.name, shown.artist_name)
 	if phase != .Ready || len(lines) == 0 do return
 
-	position := helper.to_position_seconds(core.app.now_playing) + f64(lyrics_state.lead_ms) / 1000
-	index := find_current_line(lines, position)
+	position_seconds := to_lyrics_position_seconds(core.app.now_playing, lyrics_state.lead_ms)
+	index := find_current_line(lines, position_seconds)
+	start_lyrics_timer(lines, position_seconds)
 
-	if next := find_next_change(lines, position); next >= 0 {
-		platform.request_frame_after(next - position + WORD_TIMER_SLACK_SECONDS)
-	}
-
-	if index < 0 || index >= len(lines) || lines[index].text == "" do return
+	if index < 0 || lines[index].text == "" do return
 
 	line := lines[index]
 	box := ui.box(
@@ -149,7 +153,6 @@ build_current_lyric :: proc(shown: helper.Song) {
 	}
 }
 
-// The artist's newest release first, marked NEW for NEW_RELEASE_DAYS, then their albums.
 @(private = "file")
 build_more_by :: proc(details: Song_Details) {
 	if details.artist_path == "" do return
@@ -157,24 +160,23 @@ build_more_by :: proc(details: Song_Details) {
 	watched := apple.watch(details.artist_path)
 	if watched.phase != .Ready do return
 
-	data, is_stale := core.find_page_data(
+	data, needs_read := core.find_page_data(
 		fmt.tprintf("more by %s", details.artist_path),
 		watched.version,
 		watched.phase,
 	)
 
-	if is_stale {
+	if needs_read {
 		allocator := core.page_allocator(data)
 		resources := apple.to_resources(watched.body, allocator)
 		if len(resources) == 0 do return
 
-		// The cards stay as long as the page data. The seen IDs last one frame.
 		cards := make([dynamic]apple.Card, allocator)
 		seen := make(map[string]bool, context.temp_allocator)
-		now_day := int(helper.now_ms() / 86_400_000)
+		now_day := int(helper.now_ms() / core.DAY_MS)
 
 		for view in ([]string{"latest-release", "full-albums"}) {
-			for release in apple.list_view(resources[0], view) {
+			for release in apple.read_view(resources[0], view) {
 				if seen[release.id] || release.attributes.name == details.album do continue
 				seen[release.id] = true
 
@@ -188,7 +190,7 @@ build_more_by :: proc(details: Song_Details) {
 			}
 		}
 
-		data.cards = cards[:min(len(cards), MORE_BY_COUNT)]
+		data.cards = cards[:min(len(cards), MAX_MORE_BY_COUNT)]
 	}
 
 	if len(data.cards) == 0 do return
@@ -205,18 +207,7 @@ build_more_by :: proc(details: Song_Details) {
 	)
 
 	if ui.scope(shelf) {
-		ui.box(
-			"",
-			{
-				width = ui.fill(),
-				height = ui.fit_text(),
-				text_color = kit.colors.text,
-				font_size = 17,
-				font_weight = .Bold,
-				flags = {.Truncate_Text},
-			},
-			fmt.tprintf("More by %s", details.song.artist_name),
-		)
+		lists.build_shelf_title(fmt.tprintf("More by %s", details.song.artist_name), false)
 		row := ui.box(
 			"tiles",
 			{width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 12},
@@ -224,7 +215,11 @@ build_more_by :: proc(details: Song_Details) {
 
 		if ui.scope(row) {
 			for card, index in data.cards {
-				if lists.build_card_tile(fmt.tprintf("%d %s", index, card.id), card, 118) {
+				if lists.build_card_tile(
+					fmt.tprintf("%d %s", index, card.id),
+					card,
+					MORE_BY_TILE_POINTS,
+				) {
 					lists.open_card(data.cards, index)
 				}
 			}

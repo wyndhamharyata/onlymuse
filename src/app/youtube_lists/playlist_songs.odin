@@ -1,28 +1,27 @@
 package youtube_lists
 
 import "core:encoding/json"
+import "core:mem"
 import "core:strings"
 import "om:app/core"
 import "om:store"
 
-// A library playlist can hold songs only on YouTube. Apple's cannot, so onlymuse keeps them,
-// each after the Apple song it followed, by that song's catalog ID.
 Playlist_YouTube_Song :: struct {
 	after: string,
 	song:  core.Catalog_Song,
 }
 
-// The value of after for a song before every Apple song. An empty after puts the song at the end.
 PLAYLIST_START :: "start"
 
-// By library playlist ID, under the state key "playlistYouTubeSongs".
+@(private = "file")
+PLAYLIST_YOUTUBE_SONGS_KEY :: "playlistYouTubeSongs"
+
 @(private = "file")
 playlist_youtube_songs: map[string][dynamic]Playlist_YouTube_Song
 
 @(private = "file")
 is_playlist_songs_read: bool
 
-// Counts up with each change, so a playlist page reads its songs again.
 playlist_youtube_version: int
 
 @(private = "file")
@@ -31,7 +30,7 @@ read_playlist_youtube_songs :: proc() {
 
 	is_playlist_songs_read = true
 
-	if text, ok := store.find_state("playlistYouTubeSongs", context.temp_allocator); ok {
+	if text, ok := store.find_state(PLAYLIST_YOUTUBE_SONGS_KEY, context.temp_allocator); ok {
 		_ = json.unmarshal_string(text, &playlist_youtube_songs)
 	}
 }
@@ -41,7 +40,7 @@ save_playlist_youtube_songs :: proc() {
 	playlist_youtube_version += 1
 
 	bytes, error := json.marshal(playlist_youtube_songs, allocator = context.temp_allocator)
-	if error == nil do store.save_state("playlistYouTubeSongs", string(bytes))
+	if error == nil do store.save_state(PLAYLIST_YOUTUBE_SONGS_KEY, string(bytes))
 }
 
 add_playlist_youtube_songs :: proc(playlist_id: string, songs: []Playlist_YouTube_Song) {
@@ -69,11 +68,12 @@ remove_playlist_youtube_song :: proc(playlist_id, song_id: string) {
 	for song, index in list {
 		if song.song.id != song_id do continue
 
+		delete(song.after)
+		core.delete_song(song.song)
 		ordered_remove(list, index)
-		break
+		save_playlist_youtube_songs()
+		return
 	}
-
-	save_playlist_youtube_songs()
 }
 
 is_playlist_youtube_song :: proc(playlist_id, song_id: string) -> bool {
@@ -88,7 +88,6 @@ is_playlist_youtube_song :: proc(playlist_id, song_id: string) -> bool {
 	return false
 }
 
-// The playlist's Apple songs with its YouTube songs back in their places.
 merge_playlist_youtube_songs :: proc(
 	playlist_id: string,
 	songs: []core.Catalog_Song,
@@ -102,14 +101,16 @@ merge_playlist_youtube_songs :: proc(
 	merged := make([dynamic]core.Catalog_Song, allocator)
 	placed := make([]bool, len(extra), context.temp_allocator)
 
-	place_after(&merged, extra, placed, PLAYLIST_START)
+	place_after(&merged, extra[:], placed, PLAYLIST_START, allocator)
 
 	for song in songs {
 		append(&merged, song)
-		place_after(&merged, extra, placed, song.id)
+		place_after(&merged, extra[:], placed, song.id, allocator)
 	}
 
-	for song, index in extra do if !placed[index] do append(&merged, song.song)
+	for song, index in extra {
+		if !placed[index] do append(&merged, core.copy_song(song.song, allocator))
+	}
 
 	return merged[:]
 }
@@ -117,14 +118,15 @@ merge_playlist_youtube_songs :: proc(
 @(private = "file")
 place_after :: proc(
 	merged: ^[dynamic]core.Catalog_Song,
-	extra: [dynamic]Playlist_YouTube_Song,
+	extra: []Playlist_YouTube_Song,
 	placed: []bool,
 	after: string,
+	allocator: mem.Allocator,
 ) {
 	for song, index in extra {
 		if placed[index] || song.after != after do continue
 
-		append(merged, song.song)
+		append(merged, core.copy_song(song.song, allocator))
 		placed[index] = true
 	}
 }

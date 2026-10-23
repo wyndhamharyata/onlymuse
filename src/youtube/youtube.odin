@@ -1,4 +1,3 @@
-// YouTube Music's web API at music.youtube.com, with the sign-in the helper reads from its page.
 package youtube
 
 import "core:crypto/legacy/sha1"
@@ -18,33 +17,29 @@ BASE_URL :: "https://music.youtube.com/youtubei/v1/"
 ORIGIN :: "https://music.youtube.com"
 // The web player's own version. YouTube answers older ones for a long time.
 CLIENT_VERSION :: "1.20261015.01.00"
-// Every saved path starts with it, as "youtube/browse?{...}". The JSON after "?" is the body.
 PATH_PREFIX :: "youtube/"
 
-// Requests wait this long after the app starts for the helper's cookie, then go without a sign-in.
 @(private)
 COOKIE_WAIT :: 8 * time.Second
 
 @(private)
 state: struct {
-	mutex:      sync.Mutex,
-	cookie:     string,
-	has_cookie: bool,
-	started:    time.Tick,
+	mutex:             sync.Mutex,
+	cookie:            string,
+	has_cookie_answer: bool,
+	started:           time.Tick,
 }
 
 start :: proc() {
 	state.started = time.tick_now()
-	apple.add_source(PATH_PREFIX, send_request)
+	apple.set_source(PATH_PREFIX, fetch_answer)
 }
 
-// The helper reads the cookie from its YouTube web page at start and after a sign-in.
-// The cookie is empty without a sign-in.
 set_cookie :: proc(cookie: string) {
 	sync.guard(&state.mutex)
 	delete(state.cookie)
 	state.cookie = strings.clone(cookie)
-	state.has_cookie = true
+	state.has_cookie_answer = true
 }
 
 // A cookie without SAPISID belongs to no account.
@@ -54,18 +49,16 @@ is_signed_in :: proc() -> bool {
 	return find_cookie_value(state.cookie, "SAPISID") != ""
 }
 
-// Until the helper answers, the app cannot tell signed in from signed out.
 has_cookie_answer :: proc() -> bool {
 	sync.guard(&state.mutex)
 
-	return state.has_cookie
+	return state.has_cookie_answer
 }
 
 HOME_ID :: "FEmusic_home"
 LIKED_ID :: "VLLM"
 LIBRARY_PLAYLISTS_ID :: "FEmusic_liked_playlists"
 PODCAST_EPISODES_ID :: "VLSE"
-// The search filters behind YouTube Music's own Songs, Videos and Artists tabs.
 SONGS_FILTER :: "EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D"
 VIDEOS_FILTER :: "EgWKAQIQAWoKEAkQChAFEAMQBA%3D%3D"
 ARTISTS_FILTER :: "EgWKAQIgAWoKEAMQBBAJEAoQBQ%3D%3D"
@@ -81,7 +74,6 @@ to_search_path :: proc(query, filter: string) -> string {
 	)
 }
 
-// The next part of a long list, which a List names by its continuation.
 to_continuation_path :: proc(token: string) -> string {
 	return to_path("browse", fmt.tprintf("{{%s}}", to_json_field("continuation", token)))
 }
@@ -91,8 +83,7 @@ to_section_continuation_path :: proc(token: string) -> string {
 	return to_path("browse", fmt.tprintf("{{%s}}", to_json_field("ctoken", token)))
 }
 
-// An album, a playlist or the liked songs open by browse ID. A mix or a radio has a playlist ID,
-// such as "RDTMAK5uy_…", which only the next endpoint answers.
+// A mix or radio has a playlist ID, such as "RDTMAK5uy_…", that only the next endpoint answers.
 to_list_path :: proc(id: string) -> string {
 	browse_prefixes := []string{"VL", "MPREb_", "FE", "UC"}
 	for prefix in browse_prefixes do if strings.has_prefix(id, prefix) do return to_browse_path(id)
@@ -103,24 +94,20 @@ to_list_path :: proc(id: string) -> string {
 	)
 }
 
-// Likes the video on the signed-in account, or takes the like back. It blocks.
-// It returns 200 when YouTube took the change, or 0 without a sign-in.
-send_like :: proc(video_id: string, is_liked: bool) -> int {
+post_like :: proc(video_id: string, is_liked: bool) -> int {
 	if !is_signed_in() do return 0
 
 	endpoint := "like/like" if is_liked else "like/removelike"
 	body := fmt.tprintf("{{\"target\":{{%s}}}}", to_json_field("videoId", video_id))
 
-	return send_request(to_path(endpoint, body), context.temp_allocator).status
+	return fetch_answer(to_path(endpoint, body), context.temp_allocator).status
 }
 
-// A path for apple.watch, such as to_path("browse", `{"browseId":"FEmusic_home"}`).
 @(private)
 to_path :: proc(endpoint, body_json: string) -> string {
 	return fmt.tprintf("%s%s?%s", PATH_PREFIX, endpoint, body_json)
 }
 
-// Such as `"query":"she's"`, with the value quoted for JSON.
 @(private)
 to_json_field :: proc(name, value: string) -> string {
 	builder := strings.builder_make(context.temp_allocator)
@@ -131,13 +118,13 @@ to_json_field :: proc(name, value: string) -> string {
 }
 
 @(private)
-send_request :: proc(path: string, allocator: mem.Allocator) -> apple.Answer {
+fetch_answer :: proc(path: string, allocator: mem.Allocator) -> apple.Answer {
 	for !has_cookie_answer() && time.tick_since(state.started) < COOKIE_WAIT {
 		time.sleep(100 * time.Millisecond)
 	}
 
 	endpoint, _, body_json := strings.partition(path[len(PATH_PREFIX):], "?")
-	if len(body_json) < 2 do return {}
+	if len(body_json) < len("{}") do return {}
 
 	section_token := ""
 
@@ -157,9 +144,8 @@ send_request :: proc(path: string, allocator: mem.Allocator) -> apple.Answer {
 		CLIENT_VERSION,
 		region,
 	)
-	// body_json is an object, so its "{" gives way to the context's.
 	body :=
-		fmt.tprintf("%s,%s", client, body_json[1:]) if len(body_json) > 2 else fmt.tprintf("%s}", client)
+		fmt.tprintf("%s,%s", client, body_json[1:]) if body_json != "{}" else fmt.tprintf("%s}", client)
 
 	headers := make([dynamic]string, context.temp_allocator)
 	append(&headers, "Content-Type: application/json", "Origin: " + ORIGIN, "X-Origin: " + ORIGIN)

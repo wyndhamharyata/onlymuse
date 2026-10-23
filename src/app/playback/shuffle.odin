@@ -8,33 +8,28 @@ import "core:slice"
 import "core:strings"
 import "om:app/core"
 import "om:app/kit"
-import "om:helper"
 import "om:store"
 import "om:ui"
 
-// A song skipped this often, and more often than played, is often skipped.
 OFTEN_SKIPPED_COUNT :: 3
 
-// A favourite is this many times as likely to come early.
 FAVOURITE_WEIGHT :: 2.5
 
 RECENT_HOUR_CHOICES :: [?]int{0, 2, 6, 24}
 
 Shuffle_Rules :: struct {
-	// Songs played this many hours ago or since go last. 0 keeps them in place.
-	recent_hours:     int `json:"recentHours"`,
-	skipped_go_last:  bool `json:"skippedGoLast"`,
-	albums_apart:     bool `json:"albumsApart"`,
-	favourites_first: bool `json:"favouritesFirst"`,
+	recent_hours:       int `json:"recentHours"`,
+	is_skipped_last:    bool `json:"skippedGoLast"`,
+	is_album_spread:    bool `json:"albumsApart"`,
+	is_favourite_early: bool `json:"favouritesFirst"`,
 }
 
 shuffle_rules := Shuffle_Rules {
 	recent_hours    = 6,
-	skipped_go_last = true,
-	albums_apart    = true,
+	is_skipped_last = true,
+	is_album_spread = true,
 }
 
-// What the last shuffle did, for Up Next. It is empty when the rules changed nothing.
 shuffle_note: string
 
 start_shuffle_rules :: proc() {
@@ -49,13 +44,11 @@ save_shuffle_rules :: proc() {
 	if error == nil do store.save_state("shuffleRules", string(bytes))
 }
 
-// A random order, then the rules: favourites drawn early, recent and often-skipped songs last,
-// and no album twice in a row where another song can go between.
 shuffle_by_rules :: proc(songs: []core.Catalog_Song) -> []core.Catalog_Song {
 	shuffled := make([]core.Catalog_Song, len(songs))
 	copy(shuffled, songs)
 
-	if shuffle_rules.favourites_first {
+	if shuffle_rules.is_favourite_early {
 		// Each song draws u^(1/weight). The largest keys go first, after Efraimidis and Spirakis.
 		Keyed :: struct {
 			key:  f64,
@@ -80,13 +73,13 @@ shuffle_by_rules :: proc(songs: []core.Catalog_Song) -> []core.Catalog_Song {
 	later := make([dynamic]core.Catalog_Song, context.temp_allocator)
 
 	for song in shuffled {
-		key := to_song_key(song)
+		key := to_song_key(song.name, song.artist_name)
 
 		switch {
 		case shuffle_rules.recent_hours > 0 && recent[key]:
 			recent_count += 1
 			append(&later, song)
-		case shuffle_rules.skipped_go_last && skipped[key]:
+		case shuffle_rules.is_skipped_last && skipped[key]:
 			skipped_count += 1
 			append(&later, song)
 		case:
@@ -94,7 +87,6 @@ shuffle_by_rules :: proc(songs: []core.Catalog_Song) -> []core.Catalog_Song {
 		}
 	}
 
-	// When all of them are recent or skipped, the order stays as drawn.
 	if len(kept) > 0 {
 		copy(shuffled, kept[:])
 		copy(shuffled[len(kept):], later[:])
@@ -102,8 +94,7 @@ shuffle_by_rules :: proc(songs: []core.Catalog_Song) -> []core.Catalog_Song {
 
 	apart_count := 0
 
-	// keep_albums_apart works on each part on its own, so a song that plays last never moves ahead.
-	if shuffle_rules.albums_apart {
+	if shuffle_rules.is_album_spread {
 		apart_count =
 			keep_albums_apart(shuffled[:len(kept)]) + keep_albums_apart(shuffled[len(kept):])
 	}
@@ -113,44 +104,39 @@ shuffle_by_rules :: proc(songs: []core.Catalog_Song) -> []core.Catalog_Song {
 	return shuffled
 }
 
-// The key joins name and artist, as a song started in Music.app has no catalog ID.
-// \x1f is the ASCII unit separator, a character that no name holds.
+// A song started in Music.app has no catalog ID. \x1f, the ASCII unit separator, is in no name.
 @(private = "file")
-to_song_key :: proc(song: core.Catalog_Song) -> string {
-	return fmt.tprintf("%s\x1f%s", song.name, song.artist_name)
+to_song_key :: proc(name, artist: string) -> string {
+	return fmt.tprintf("%s\x1f%s", name, artist)
 }
 
-// Songs played within the rule's hours, and songs skipped often, by key.
 @(private = "file")
 list_song_history :: proc() -> (recent, skipped: map[string]bool) {
 	recent = make(map[string]bool, context.temp_allocator)
 	skipped = make(map[string]bool, context.temp_allocator)
-	since_ms := i64(helper.now_ms()) - i64(shuffle_rules.recent_hours) * 3_600_000
-	plays := make(map[string]int, context.temp_allocator)
-	skips := make(map[string]int, context.temp_allocator)
+	since_ms := core.now_ms() - i64(shuffle_rules.recent_hours) * core.HOUR_MS
+	play_counts := make(map[string]int, context.temp_allocator)
+	skip_counts := make(map[string]int, context.temp_allocator)
 
 	for play in play_log {
-		key := fmt.tprintf("%s\x1f%s", play.name, play.artist)
+		key := to_song_key(play.name, play.artist)
 
 		if play.is_skip {
-			skips[key] += 1
+			skip_counts[key] += 1
 		} else {
-			plays[key] += 1
+			play_counts[key] += 1
 			if play.played_at_ms >= since_ms do recent[key] = true
 		}
 	}
 
-	for key, count in skips {
-		if count >= OFTEN_SKIPPED_COUNT && count > plays[key] {
-			skipped[key] = true
-		}
+	for key, count in skip_counts {
+		is_often_skipped := count >= OFTEN_SKIPPED_COUNT && count > play_counts[key]
+		if is_often_skipped do skipped[key] = true
 	}
 
 	return
 }
 
-// Swaps a song that follows a song of its album with the next song from another album.
-// Returns how many songs moved.
 @(private = "file")
 keep_albums_apart :: proc(songs: []core.Catalog_Song) -> int {
 	moved := 0
@@ -172,7 +158,6 @@ keep_albums_apart :: proc(songs: []core.Catalog_Song) -> int {
 
 @(private = "file")
 set_shuffle_note :: proc(recent_count, skipped_count, apart_count: int) {
-	// "4 recent songs and 1 often-skipped song play last."
 	parts := make([dynamic]string, context.temp_allocator)
 
 	if recent_count > 0 {
@@ -242,7 +227,6 @@ build_shuffle_rules :: proc() {
 		},
 	)
 
-	// The click that opens the menu must not also close it.
 	is_closing :=
 		(ui.signal(cover).is_clicked || ui.signal(cover).is_right_clicked) &&
 		core.app.frame_count > rules_menu.opened_frame + 1
@@ -281,31 +265,21 @@ build_shuffle_rules :: proc() {
 				save_shuffle_rules()
 			}
 
-			if kit.menu_item(
-				"skipped",
-				"Play often-skipped songs last",
-				"●" if shuffle_rules.skipped_go_last else "○",
-			) {
-				shuffle_rules.skipped_go_last = !shuffle_rules.skipped_go_last
-				save_shuffle_rules()
+			Toggle :: struct {
+				id, label: string,
+				is_on:     ^bool,
+			}
+			toggles := []Toggle {
+				{"skipped", "Play often-skipped songs last", &shuffle_rules.is_skipped_last},
+				{"albums", "Spread out songs from one album", &shuffle_rules.is_album_spread},
+				{"favourites", "Play favourites earlier", &shuffle_rules.is_favourite_early},
 			}
 
-			if kit.menu_item(
-				"albums",
-				"Spread out songs from one album",
-				"●" if shuffle_rules.albums_apart else "○",
-			) {
-				shuffle_rules.albums_apart = !shuffle_rules.albums_apart
-				save_shuffle_rules()
-			}
-
-			if kit.menu_item(
-				"favourites",
-				"Play favourites earlier",
-				"●" if shuffle_rules.favourites_first else "○",
-			) {
-				shuffle_rules.favourites_first = !shuffle_rules.favourites_first
-				save_shuffle_rules()
+			for toggle in toggles {
+				if kit.menu_item(toggle.id, toggle.label, "●" if toggle.is_on^ else "○") {
+					toggle.is_on^ = !toggle.is_on^
+					save_shuffle_rules()
+				}
 			}
 
 			kit.menu_separator()

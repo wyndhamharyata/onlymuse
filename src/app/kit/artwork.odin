@@ -8,7 +8,6 @@ import "om:render"
 import "om:ui"
 import MTL "vendor:darwin/Metal"
 
-// The app asks for artwork in steps of this many pixels, so a resized window reuses saved files.
 ARTWORK_STEP_PIXELS :: 100
 
 to_artwork_pixels :: proc(size_points: f32) -> int {
@@ -18,15 +17,11 @@ to_artwork_pixels :: proc(size_points: f32) -> int {
 }
 
 Artwork_Paint :: struct {
-	// A URL of Apple's or a file path. The source is empty for the placeholder alone.
 	source:        string,
 	size_pixels:   int,
 	symbol:        string,
-	// The symbol shows until the picture fades in over it.
 	symbol_points: f32,
 	symbol_color:  [4]f32,
-	// A picture of other proportions fills the box, which crops its edges. This is where the
-	// crop starts across the height, from 0 for the top to 1 for the bottom.
 	focus_y:       f32,
 }
 
@@ -43,9 +38,10 @@ draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 		)
 	}
 
-	if image_opacity < 1 && paint.symbol != "" {
-		color := paint.symbol_color
-		color.a *= opacity * (1 - image_opacity)
+	is_symbol_showing := image_opacity < 1 && paint.symbol != ""
+
+	if is_symbol_showing {
+		color := to_faded(paint.symbol_color, opacity * (1 - image_opacity))
 		icon.draw(paint.symbol, ui.to_pixels(paint.symbol_points), rect, clip, color)
 	}
 
@@ -55,7 +51,7 @@ draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 		{
 			rect = rect,
 			uv = to_fill_uv(rect, texture, paint.focus_y),
-			color = {1, 1, 1, opacity * image_opacity},
+			color = to_faded(colors.white, opacity * image_opacity),
 			corner_radius = ui.to_pixels(box.style.corner_radius),
 			clip = clip,
 			kind = .Image,
@@ -64,8 +60,6 @@ draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	)
 }
 
-// The width over the height of the box, rounded down to a quarter, so a resized box reuses a few
-// textures. to_fill_uv crops the rest from a texture a little taller than the box.
 @(private = "file")
 to_crop :: proc(rect: [4]f32, focus_y: f32) -> image.Crop {
 	height := rect.w - rect.y
@@ -75,7 +69,6 @@ to_crop :: proc(rect: [4]f32, focus_y: f32) -> image.Crop {
 	return {math.floor((rect.z - rect.x) / height * 4 + 0.01) / 4, focus_y}
 }
 
-// The part of the texture that fills rect at its own proportions.
 @(private = "file")
 to_fill_uv :: proc(rect: [4]f32, texture: ^MTL.Texture, focus_y: f32) -> [4]f32 {
 	rect_ratio := (rect.z - rect.x) / (rect.w - rect.y)
@@ -95,34 +88,29 @@ to_fill_uv :: proc(rect: [4]f32, texture: ^MTL.Texture, focus_y: f32) -> [4]f32 
 	return {0, top, 1, top + height}
 }
 
-// A placeholder shows while a picture loads. Its gradient takes the picture's own colours, or two
-// colours from the name when Apple sends none. Its symbol shows what the picture is.
 Placeholder :: struct {
 	top, bottom:  [4]f32,
 	symbol:       string,
 	symbol_color: [4]f32,
 }
 
-// Catalog artwork brings its colours, so the gradient previews the cover. Library artwork has
-// none, so the name picks the hues. The same album then gets the same colours everywhere.
 to_placeholder :: proc(
 	artwork: apple.Artwork,
 	seed: string,
 	symbol := "music.note",
 ) -> Placeholder {
-	if background, ok := parse_hex_color(artwork.bg_color); ok {
-		ink, has_ink := parse_hex_color(artwork.text_color1)
-		if !has_ink do ink = colors.text
+	if background, ok := to_color_from_hex_digits(artwork.background_color); ok {
+		text_color := to_color_from_hex_digits(artwork.text_color) or_else colors.text
 
 		return {
-			top = mix_color(background, ink, 0.18),
+			top = mix_color(background, text_color, 0.18),
 			bottom = mix_color(background, {0, 0, 0, 1}, 0.25),
 			symbol = symbol,
-			symbol_color = {ink.r, ink.g, ink.b, 0.5},
+			symbol_color = {text_color.r, text_color.g, text_color.b, 0.5},
 		}
 	}
 
-	// The FNV-1a hash of seed, with its offset basis and prime.
+	// The FNV-1a 32-bit offset basis and prime.
 	hash := u32(2166136261)
 	for character in transmute([]u8)seed do hash = (hash ~ u32(character)) * 16777619
 
@@ -137,7 +125,6 @@ to_placeholder :: proc(
 	}
 }
 
-// A square of artwork over its placeholder. An empty source shows the placeholder only.
 artwork_box :: proc(
 	source: string,
 	size_points: f32,
@@ -167,14 +154,11 @@ artwork_rect_box :: proc(
 
 	if source == "" && placeholder.symbol == "" do return box
 
-	// The paint lasts for this frame only. Render draws the box before the next frame starts.
 	paint := new(Artwork_Paint, context.temp_allocator)
 	paint^ = {
 		source        = source,
-		// In steps, so a tile that resizes smoothly reuses a few decoded sizes.
 		size_pixels   = to_artwork_pixels(max(size_points.x, size_points.y)),
 		symbol        = placeholder.symbol,
-		// The symbol grows in steps of 4, so a tile that resizes with the panel reuses a few sizes.
 		symbol_points = max(8, math.round(min(size_points.x, size_points.y) * 0.3 / 4) * 4),
 		symbol_color  = placeholder.symbol_color,
 		focus_y       = 0.5,

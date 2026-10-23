@@ -3,34 +3,28 @@ package lists
 import "core:fmt"
 import "om:app/core"
 import "om:app/kit"
-import "om:app/matching"
 import "om:app/playback"
 import "om:apple"
 import "om:ui"
 
-// A song's name has no room in a narrower column. Below this width the grid takes one column.
-// Below MIN_DATED_COLUMN_POINTS a row shows no date.
 MIN_GRID_COLUMN_POINTS :: 300
 
 MIN_DATED_COLUMN_POINTS :: 420
 
 GRID_GAP_POINTS :: 20
 
-// Builds two columns that fill row by row, or one column when the page is narrow.
-// A click plays playing from that song. A row shows its date from dates when it has room.
 build_song_grid :: proc(
 	songs: []core.Catalog_Song,
 	dates: []string,
-	playing: []core.Catalog_Song,
+	queue_songs: []core.Catalog_Song,
 ) {
 	grid := ui.box(
 		"grid",
 		{width = ui.fill(), height = ui.fit_children(), axis = .X, gap = GRID_GAP_POINTS},
 	)
-	current, is_playing := playback.find_queue_song(core.app.now_playing.song.persistent_id)
-	// The width of the grid in the last frame, or 0 in the first frame.
 	width := grid.size.x
-	column_count := 1 if width > 0 && (width - GRID_GAP_POINTS) / 2 < MIN_GRID_COLUMN_POINTS else 2
+	is_narrow := width > 0 && (width - GRID_GAP_POINTS) / 2 < MIN_GRID_COLUMN_POINTS
+	column_count := 1 if is_narrow else 2
 	column_width := (width - GRID_GAP_POINTS * f32(column_count - 1)) / f32(column_count)
 	has_dates := width <= 0 || column_width >= MIN_DATED_COLUMN_POINTS
 
@@ -51,10 +45,10 @@ build_song_grid :: proc(
 						fmt.tprintf("%d %s", index, song.id),
 						song,
 						song.album_name,
-						is_playing && matching.is_same_queue_song(current, song),
+						playback.is_current_song(song),
 						date,
 					) {
-						playback.play_songs(playing, index)
+						playback.play_songs(queue_songs, index)
 					}
 				}
 			}
@@ -62,12 +56,8 @@ build_song_grid :: proc(
 	}
 }
 
-// The grid picks the tile size that fits a whole number of tiles, as close to this as it can.
 TARGET_TILE_POINTS :: 160
 
-TILE_GAP_POINTS :: 14
-
-// The height of the title and the artist under a tile.
 TILE_TEXT_POINTS :: 46
 
 build_card_grid_page :: proc(
@@ -94,20 +84,18 @@ build_card_grid_page :: proc(
 	}
 }
 
-// Builds rows of whole tiles that fill the page's width. It builds only the rows on screen.
 build_card_grid :: proc(page: ^ui.Box, cards: []apple.Card, is_round: bool) {
-	width := page.size.x - page.style.padding.x - page.style.padding.z
+	width := kit.to_content_width(page)
 	grid := ui.box("grid", {width = ui.fill(), height = ui.fit_children(), axis = .Y})
 
 	if width <= 0 do return
 
-	tile_points := to_tile_size(width, TARGET_TILE_POINTS, TILE_GAP_POINTS)
-	column_count := max(1, int((width + TILE_GAP_POINTS) / (tile_points + TILE_GAP_POINTS)))
-	row_points := tile_points + TILE_TEXT_POINTS + TILE_GAP_POINTS
+	tile_points := to_tile_size(width, TARGET_TILE_POINTS, CARD_GAP_POINTS)
+	column_count := max(1, int((width + CARD_GAP_POINTS) / (tile_points + CARD_GAP_POINTS)))
+	row_points := tile_points + TILE_TEXT_POINTS + CARD_GAP_POINTS
 	row_count := (len(cards) + column_count - 1) / column_count
-	top := core.offset_in_page(page, grid)
-	first := max(0, int((page.scroll - top) / row_points) - 1)
-	last := min(row_count - 1, int((page.scroll - top + page.size.y) / row_points) + 1)
+	top := core.to_offset_in_page(page, grid)
+	first, last := to_visible_range(page.scroll - top, page.size.y, row_points, row_count, 1)
 
 	if ui.scope(grid) {
 		if first > 0 do ui.box("", {width = ui.fill(), height = ui.points(f32(first) * row_points)})
@@ -119,7 +107,7 @@ build_card_grid :: proc(page: ^ui.Box, cards: []apple.Card, is_round: bool) {
 					width = ui.fill(),
 					height = ui.points(row_points),
 					axis = .X,
-					gap = TILE_GAP_POINTS,
+					gap = CARD_GAP_POINTS,
 				},
 			)
 

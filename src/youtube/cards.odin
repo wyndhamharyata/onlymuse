@@ -5,7 +5,11 @@ import "core:fmt"
 import "core:strings"
 import "om:apple"
 
-// A song, video, album, playlist, mix or artist. A podcast or an episode gives false.
+@(private)
+TILE_RENDERER :: "musicTwoRowItemRenderer"
+@(private)
+FLEX_COLUMN_RENDERER :: "musicResponsiveListItemFlexColumnRenderer"
+
 @(private)
 to_card :: proc(reader: ^Reader, key: string, value: json.Value) -> (apple.Card, bool) {
 	switch key {
@@ -13,25 +17,24 @@ to_card :: proc(reader: ^Reader, key: string, value: json.Value) -> (apple.Card,
 		return to_panel_song(reader, value)
 	case "musicResponsiveListItemRenderer":
 		return to_list_item(reader, value)
-	case "musicTwoRowItemRenderer":
+	case TILE_RENDERER:
 		return to_tile(reader, value)
 	}
 
 	return {}, false
 }
 
-// A row of a playlist, an album, a search or a shelf of songs.
 @(private)
 to_list_item :: proc(reader: ^Reader, value: json.Value) -> (apple.Card, bool) {
-	columns := as_array(child(value, "flexColumns"))
+	columns := to_array(find_child(value, "flexColumns"))
 	if len(columns) == 0 do return {}, false
 
-	name := to_text(child(columns[0], "musicResponsiveListItemFlexColumnRenderer", "text"))
-	video_id := as_string(child(value, "playlistItemData", "videoId"))
+	name := to_text(find_child(columns[0], FLEX_COLUMN_RENDERER, "text"))
+	video_id := to_string(find_child(value, "playlistItemData", "videoId"))
 
 	if video_id == "" {
-		video_id = as_string(
-			child(
+		video_id = to_string(
+			find_child(
 				value,
 				"overlay",
 				"musicItemThumbnailOverlayRenderer",
@@ -44,12 +47,12 @@ to_list_item :: proc(reader: ^Reader, value: json.Value) -> (apple.Card, bool) {
 		)
 	}
 
-	thumbnail := find_thumbnail_url(child(value, "thumbnail"))
+	thumbnail := find_thumbnail_url(find_child(value, "thumbnail"))
 
 	if video_id == "" {
-		browse := child(value, "navigationEndpoint", "browseEndpoint")
+		browse := find_child(value, "navigationEndpoint", "browseEndpoint")
 		subtitle :=
-			to_text(child(columns[1], "musicResponsiveListItemFlexColumnRenderer", "text")) if len(columns) > 1 else ""
+			to_text(find_child(columns[1], FLEX_COLUMN_RENDERER, "text")) if len(columns) > 1 else ""
 
 		return to_browse_card(reader, browse, name, subtitle, thumbnail)
 	}
@@ -57,16 +60,14 @@ to_list_item :: proc(reader: ^Reader, value: json.Value) -> (apple.Card, bool) {
 	byline := make([dynamic]json.Value, context.temp_allocator)
 
 	for column in columns[1:] {
-		for run in as_array(
-			child(column, "musicResponsiveListItemFlexColumnRenderer", "text", "runs"),
-		) {
+		for run in to_array(find_child(column, FLEX_COLUMN_RENDERER, "text", "runs")) {
 			append(&byline, run)
 		}
 	}
 
-	for column in as_array(child(value, "fixedColumns")) {
-		for run in as_array(
-			child(column, "musicResponsiveListItemFixedColumnRenderer", "text", "runs"),
+	for column in to_array(find_child(value, "fixedColumns")) {
+		for run in to_array(
+			find_child(column, "musicResponsiveListItemFixedColumnRenderer", "text", "runs"),
 		) {
 			append(&byline, run)
 		}
@@ -75,59 +76,63 @@ to_list_item :: proc(reader: ^Reader, value: json.Value) -> (apple.Card, bool) {
 	return to_song_card(reader, video_id, name, byline[:], thumbnail), true
 }
 
-// A song of a radio or a mix, from the next endpoint.
 @(private)
 to_panel_song :: proc(reader: ^Reader, value: json.Value) -> (apple.Card, bool) {
-	video_id := as_string(child(value, "videoId"))
+	video_id := to_string(find_child(value, "videoId"))
 	if video_id == "" do return {}, false
 
 	byline := make([dynamic]json.Value, context.temp_allocator)
-	for run in as_array(child(value, "longBylineText", "runs")) do append(&byline, run)
-	for run in as_array(child(value, "lengthText", "runs")) do append(&byline, run)
+	for run in to_array(find_child(value, "longBylineText", "runs")) do append(&byline, run)
+	for run in to_array(find_child(value, "lengthText", "runs")) do append(&byline, run)
 
 	return to_song_card(
 			reader,
 			video_id,
-			to_text(child(value, "title")),
+			to_text(find_child(value, "title")),
 			byline[:],
-			find_thumbnail_url(child(value, "thumbnail")),
+			find_thumbnail_url(find_child(value, "thumbnail")),
 		),
 		true
 }
 
-// A tile on a shelf. A video plays. The rest open their page.
 @(private)
 to_tile :: proc(reader: ^Reader, value: json.Value) -> (apple.Card, bool) {
-	name := to_text(child(value, "title"))
-	thumbnail := find_thumbnail_url(child(value, "thumbnailRenderer"))
-	endpoint := child(value, "navigationEndpoint")
+	name := to_text(find_child(value, "title"))
+	thumbnail := find_thumbnail_url(find_child(value, "thumbnailRenderer"))
+	endpoint := find_child(value, "navigationEndpoint")
 
-	if video_id := as_string(child(endpoint, "watchEndpoint", "videoId")); video_id != "" {
+	if video_id := to_string(find_child(endpoint, "watchEndpoint", "videoId")); video_id != "" {
 		return to_song_card(
 				reader,
 				video_id,
 				name,
-				as_array(child(value, "subtitle", "runs"))[:],
+				to_array(find_child(value, "subtitle", "runs"))[:],
 				thumbnail,
 			),
 			true
 	}
 
-	subtitle := to_text(child(value, "subtitle"))
+	subtitle := to_text(find_child(value, "subtitle"))
 
-	if playlist_id := as_string(child(endpoint, "watchPlaylistEndpoint", "playlistId"));
+	if playlist_id := to_string(find_child(endpoint, "watchPlaylistEndpoint", "playlistId"));
 	   playlist_id != "" {
 		return apple.Card {
-				id = clone(reader, playlist_id),
+				id = make_copy(reader, playlist_id),
 				kind = .YouTube_Playlist,
-				name = clone(reader, name),
-				subtitle = clone(reader, subtitle),
+				name = make_copy(reader, name),
+				subtitle = make_copy(reader, subtitle),
 				artwork = to_artwork(reader, thumbnail, ""),
 			},
 			true
 	}
 
-	return to_browse_card(reader, child(endpoint, "browseEndpoint"), name, subtitle, thumbnail)
+	return to_browse_card(
+		reader,
+		find_child(endpoint, "browseEndpoint"),
+		name,
+		subtitle,
+		thumbnail,
+	)
 }
 
 @(private)
@@ -139,9 +144,9 @@ to_browse_card :: proc(
 	apple.Card,
 	bool,
 ) {
-	browse_id := as_string(child(browse, "browseId"))
-	page_type := as_string(
-		child(
+	browse_id := to_string(find_child(browse, "browseId"))
+	page_type := to_string(
+		find_child(
 			browse,
 			"browseEndpointContextSupportedConfigs",
 			"browseEndpointContextMusicConfig",
@@ -160,16 +165,15 @@ to_browse_card :: proc(
 	}
 
 	return apple.Card {
-			id = clone(reader, browse_id),
+			id = make_copy(reader, browse_id),
 			kind = kind,
-			name = clone(reader, name),
-			subtitle = clone(reader, subtitle),
+			name = make_copy(reader, name),
+			subtitle = make_copy(reader, subtitle),
 			artwork = to_artwork(reader, thumbnail, ""),
 		},
 		true
 }
 
-// The byline names the artists and the album with links to them. It holds the length as "4:23".
 @(private)
 to_song_card :: proc(
 	reader: ^Reader,
@@ -183,16 +187,17 @@ to_song_card :: proc(
 	first_text := ""
 
 	for run in byline {
-		text := as_string(child(run, "text"))
-		browse_id := as_string(child(run, "navigationEndpoint", "browseEndpoint", "browseId"))
+		text := to_string(find_child(run, "text"))
+		browse_id := to_string(find_child(run, "navigationEndpoint", "browseEndpoint", "browseId"))
+		seconds := to_seconds(text)
 
 		switch {
 		case strings.has_prefix(browse_id, "MPREb_"):
 			album = text
 		case strings.has_prefix(browse_id, "UC"):
 			append(&artists, text)
-		case to_seconds(text) > 0:
-			duration_seconds = to_seconds(text)
+		case seconds > 0:
+			duration_seconds = seconds
 		case first_text == "" && !is_label(text):
 			first_text = text
 		}
@@ -207,9 +212,9 @@ to_song_card :: proc(
 			video_id,
 			allocator = reader.allocator,
 		),
-		name             = clone(reader, name),
+		name             = make_copy(reader, name),
 		artist_name      = strings.join(artists[:], ", ", reader.allocator),
-		album_name       = clone(reader, album),
+		album_name       = make_copy(reader, album),
 		duration_seconds = duration_seconds,
 		artwork          = to_artwork(reader, thumbnail, video_id),
 	}
@@ -224,7 +229,6 @@ to_song_card :: proc(
 	}
 }
 
-// The words YouTube puts between a song's details, such as "Song" or "16M plays".
 @(private)
 is_label :: proc(text: string) -> bool {
 	labels := []string{" • ", "Song", "Video", "Single", "EP", "Album", "Episode", "Playlist"}
@@ -233,10 +237,10 @@ is_label :: proc(text: string) -> bool {
 	return strings.has_suffix(text, " plays") || strings.has_suffix(text, " views")
 }
 
-// "4:23" or "1:02:03" in seconds. 0 for any other text.
 @(private)
 to_seconds :: proc(text: string) -> f64 {
-	if len(text) < 4 || len(text) > 8 do return 0
+	if !strings.contains_rune(text, ':') do return 0
+	if len(text) < len("0:00") || len(text) > len("00:00:00") do return 0
 
 	seconds: f64
 
@@ -253,5 +257,5 @@ to_seconds :: proc(text: string) -> f64 {
 		seconds = seconds * 60 + f64(value)
 	}
 
-	return seconds if strings.contains_rune(text, ':') else 0
+	return seconds
 }

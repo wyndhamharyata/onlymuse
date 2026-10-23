@@ -7,11 +7,9 @@ import "core:strings"
 
 Artwork :: struct {
 	// It has {w}, {h} and {f} in place of the size and the format.
-	url:         string,
-	// The colour behind the picture in hex, as "2a2a2f". Only catalog artwork has it.
-	bg_color:    string `json:"bgColor"`,
-	// The colour for text on the picture, which is its strongest other colour.
-	text_color1: string `json:"textColor1"`,
+	url:              string,
+	background_color: string `json:"bgColor"`,
+	text_color:       string `json:"textColor1"`,
 }
 
 Catalog_Song :: struct {
@@ -22,7 +20,6 @@ Catalog_Song :: struct {
 	duration_seconds: f64 `json:"durationSeconds"`,
 	is_lossless:      bool `json:"isLossless"`,
 	artwork:          Artwork,
-	// The YouTube video of a match, so the song can play from YouTube again. Empty for other songs.
 	youtube_id:       string `json:"youtubeId"`,
 }
 
@@ -34,21 +31,17 @@ Card_Kind :: enum {
 	Playlist,
 	Library_Playlist,
 	Song,
-	// A YouTube Music album, playlist or mix. src/youtube reads these.
 	YouTube_Playlist,
 	YouTube_Artist,
 }
 
-// One tile on a shelf or a grid.
 Card :: struct {
 	id:       string,
 	kind:     Card_Kind,
 	name:     string,
 	subtitle: string,
 	artwork:  Artwork,
-	// to_card sets it on a song card, so the shelf can play its songs in order.
 	song:     Catalog_Song,
-	// A library playlist the person made, which takes new songs.
 	can_edit: bool,
 }
 
@@ -56,11 +49,9 @@ Shelf :: struct {
 	title:      string,
 	cards:      []Card,
 	is_youtube: bool,
-	// Its cards are videos, shown in 16:9.
 	is_wide:    bool,
 }
 
-// The parts of Apple's resources the app reads. The answers hold much more.
 Resource :: struct {
 	id:            string,
 	type:          string,
@@ -71,6 +62,15 @@ Resource :: struct {
 
 Related :: struct {
 	data: []Resource,
+}
+
+Search_Answer :: struct {
+	results: struct {
+		songs:           Related,
+		albums:          Related,
+		artists:         Related,
+		library_artists: Related `json:"library-artists"`,
+	},
 }
 
 Attributes :: struct {
@@ -93,11 +93,9 @@ Attributes :: struct {
 		standard: string,
 		short:    string,
 	},
-	track_number:            int `json:"trackNumber"`,
+	number_on_disc:          int `json:"trackNumber"`,
 	disc_number:             int `json:"discNumber"`,
-	// The item's page on music.apple.com.
 	url:                     string,
-	// A song's and its album's details, for the Now Playing page.
 	composer_name:           string `json:"composerName"`,
 	album_artist_name:       string `json:"albumArtistName"`,
 	isrc:                    string,
@@ -108,12 +106,12 @@ Attributes :: struct {
 	is_apple_digital_master: bool `json:"isAppleDigitalMaster"`,
 	record_label:            string `json:"recordLabel"`,
 	copyright:               string,
-	track_count:             int `json:"trackCount"`,
+	song_count:              int `json:"trackCount"`,
 	editorial_notes:         struct {
 		standard: string,
 		short:    string,
 	} `json:"editorialNotes"`,
-	// Apple omits these on some playlists. list_playlists tells a missing value from false.
+	// Apple omits these on some playlists. watch_playlists tells a missing value from false.
 	can_edit:                Maybe(bool) `json:"canEdit"`,
 	can_delete:              Maybe(bool) `json:"canDelete"`,
 }
@@ -138,7 +136,6 @@ to_card_kind :: proc(type: string) -> Card_Kind {
 	return .Other
 }
 
-// The data of an answer, read into allocator, such as a page's arena.
 to_resources :: proc(body: string, allocator := context.allocator) -> []Resource {
 	Answer_Body :: struct {
 		data: []Resource,
@@ -163,8 +160,14 @@ to_catalog_song :: proc(resource: Resource) -> Catalog_Song {
 	}
 }
 
-// A library song plays by its catalog ID.
-// A song uploaded from a Mac has no catalog ID, so it keeps its library ID.
+to_catalog_songs :: proc(resources: []Resource, allocator := context.allocator) -> []Catalog_Song {
+	songs := make([]Catalog_Song, len(resources), allocator)
+	for resource, index in resources do songs[index] = to_catalog_song(resource)
+
+	return songs
+}
+
+// A library song plays by its catalog ID. A song uploaded from a Mac keeps its library ID.
 to_library_song :: proc(resource: Resource) -> Catalog_Song {
 	song := to_catalog_song(resource)
 
@@ -191,8 +194,7 @@ to_card :: proc(resource: Resource) -> Card {
 	return card
 }
 
-// Shelves can hold stations, radio shows and videos. The app has no page for those and skips them.
-list_cards :: proc(resources: []Resource, allocator := context.allocator) -> []Card {
+to_cards :: proc(resources: []Resource, allocator := context.allocator) -> []Card {
 	cards := make([dynamic]Card, allocator)
 
 	for resource in resources {
@@ -203,13 +205,13 @@ list_cards :: proc(resources: []Resource, allocator := context.allocator) -> []C
 	return cards[:]
 }
 
-list_related :: proc(resource: Resource, name: string) -> []Resource {
+read_related :: proc(resource: Resource, name: string) -> []Resource {
 	related, ok := resource.relationships[name]
 
 	return related.data if ok else nil
 }
 
-list_view :: proc(resource: Resource, name: string) -> []Resource {
+read_view :: proc(resource: Resource, name: string) -> []Resource {
 	view, ok := resource.views[name]
 
 	return view.data if ok else nil
@@ -222,7 +224,7 @@ to_home_shelves :: proc(body: string, allocator := context.allocator) -> []Shelf
 	shelves := make([dynamic]Shelf, allocator)
 
 	for resource in to_resources(body, allocator) {
-		cards := list_cards(list_related(resource, "contents"), allocator)
+		cards := to_cards(read_related(resource, "contents"), allocator)
 		if len(cards) == 0 do continue
 
 		append(
@@ -234,18 +236,18 @@ to_home_shelves :: proc(body: string, allocator := context.allocator) -> []Shelf
 	return shelves[:]
 }
 
-// New is Apple's editorial page "music", a list of named shelves.
-// A shelf with no name is a banner, which the app skips.
+// New is Apple's editorial page "music". The app skips a shelf with no name, which is a banner.
 to_new_shelves :: proc(body: string, allocator := context.allocator) -> []Shelf {
-	shelves := make([dynamic]Shelf, allocator)
 	groupings := to_resources(body, allocator)
 	if len(groupings) == 0 do return nil
 
-	tabs := list_related(groupings[0], "tabs")
+	tabs := read_related(groupings[0], "tabs")
 	if len(tabs) == 0 do return nil
 
-	for element in list_related(tabs[0], "children") {
-		cards := list_cards(list_related(element, "contents"), allocator)
+	shelves := make([dynamic]Shelf, allocator)
+
+	for element in read_related(tabs[0], "children") {
+		cards := to_cards(read_related(element, "contents"), allocator)
 		if element.attributes.name == "" || len(cards) == 0 do continue
 
 		append(&shelves, Shelf{title = element.attributes.name, cards = cards})
@@ -254,7 +256,6 @@ to_new_shelves :: proc(body: string, allocator := context.allocator) -> []Shelf 
 	return shelves[:]
 }
 
-// A height of 0 asks for a square.
 to_artwork_url :: proc(
 	artwork: Artwork,
 	width_pixels: int,
@@ -263,7 +264,7 @@ to_artwork_url :: proc(
 ) -> string {
 	if artwork.url == "" do return ""
 
-	height := height_pixels if height_pixels > 0 else width_pixels
+	final_height_pixels := height_pixels if height_pixels > 0 else width_pixels
 	with_width, _ := strings.replace_all(
 		artwork.url,
 		"{w}",
@@ -273,12 +274,12 @@ to_artwork_url :: proc(
 	with_height, _ := strings.replace_all(
 		with_width,
 		"{h}",
-		fmt.tprintf("%d", height),
+		fmt.tprintf("%d", final_height_pixels),
 		context.temp_allocator,
 	)
 
 	// "ac" puts an artist's album cover on a square of its colour. "cc" crops it to fill.
-	size := fmt.tprintf("%dx%d", width_pixels, height)
+	size := fmt.tprintf("%dx%d", width_pixels, final_height_pixels)
 	cropped, _ := strings.replace_all(
 		with_height,
 		fmt.tprintf("%sac.", size),

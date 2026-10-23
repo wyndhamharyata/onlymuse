@@ -4,6 +4,7 @@ import "core:fmt"
 import "core:mem"
 import "core:strconv"
 import "core:strings"
+import "core:unicode"
 
 @(private)
 to_songwriters :: proc(ttml: string, allocator: mem.Allocator) -> []string {
@@ -56,7 +57,6 @@ to_plain_text :: proc(markup: string) -> string {
 	return text
 }
 
-// The value of name="..." in the attributes of a tag.
 @(private)
 find_attribute :: proc(attributes, name: string) -> string {
 	marker := fmt.tprintf("%s=\"", name)
@@ -78,8 +78,7 @@ to_utf16_length :: proc(text: string) -> int {
 	return count
 }
 
-// A word is a span with its own begin time. The space after a word stays with the word,
-// so the words join back into the line.
+// A word keeps the space after it, so the words join back into the line.
 @(private)
 to_words :: proc(
 	markup: string,
@@ -108,7 +107,8 @@ to_words :: proc(
 		rest = content
 
 		// For a span that holds spans, such as background vocals, the loop reads the inner spans.
-		if content_end < 0 || !strings.has_prefix(content[content_end:], "</span>") do continue
+		is_word_span := content_end >= 0 && strings.has_prefix(content[content_end:], "</span>")
+		if !is_word_span do continue
 
 		word_text := to_plain_text(content[:content_end])
 		rest = content[content_end + len("</span>"):]
@@ -121,7 +121,6 @@ to_words :: proc(
 		utf16_index += length
 	}
 
-	// A song timed by line has no spans, so the whole line becomes one word.
 	if len(word_list) == 0 {
 		plain := to_plain_text(to_text_without_tags(markup))
 		append(&word_list, Word{line_begin_seconds, {0, to_utf16_length(plain)}})
@@ -150,28 +149,17 @@ to_text_without_tags :: proc(markup: string) -> string {
 	return strings.to_string(builder)
 }
 
-// Keeps the letters only, so "You are KING!" and its pronunciation "you are king" match.
 @(private)
 to_letters :: proc(text: string) -> string {
 	builder := strings.builder_make(context.temp_allocator)
 
 	for character in strings.to_lower(text, context.temp_allocator) {
-		is_space_or_mark :=
-			character == ' ' ||
-			character == ',' ||
-			character == '.' ||
-			character == '!' ||
-			character == '?' ||
-			character == '\'' ||
-			character == '"' ||
-			character == '-'
-		if !is_space_or_mark do strings.write_rune(&builder, character)
+		if unicode.is_letter(character) do strings.write_rune(&builder, character)
 	}
 
 	return strings.to_string(builder)
 }
 
-// The text of each line in one block of the lyrics' metadata, by the line's key, such as "L1".
 // "transliteration" holds the pronunciation in Latin letters. "translation" holds the English.
 @(private)
 to_line_texts :: proc(ttml: string, block_name: string) -> map[string]string {
@@ -217,7 +205,7 @@ to_lines :: proc(ttml: string, allocator: mem.Allocator) -> []Line {
 		end := strings.index(body, "</p>")
 		if tag_end < 0 || end < 0 do break
 
-		attributes := body[3:tag_end]
+		attributes := body[len("<p "):tag_end]
 		begin_seconds := to_seconds(find_attribute(attributes, "begin"))
 		text, words := to_words(body[tag_end + 1:end], begin_seconds, allocator)
 		line := Line {

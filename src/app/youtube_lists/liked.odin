@@ -4,6 +4,7 @@ import "core:strings"
 import "core:thread"
 import "om:app/core"
 import "om:apple"
+import "om:net"
 import "om:youtube"
 
 // A YouTube song goes into onlymuse's own Favourite Songs, as Apple's holds only Apple songs.
@@ -33,11 +34,16 @@ is_youtube_favourite :: proc(song: core.Catalog_Song) -> bool {
 youtube_liked: struct {
 	songs_address: rawptr,
 	ids:           map[string]bool,
+	// frame_count + 1 of the last check, so 0 means no check yet. Each row's heart asks each frame.
+	checked_frame: int,
 }
 
 @(private = "file")
 list_youtube_liked_ids :: proc() -> map[string]bool {
 	if !youtube.is_signed_in() do return nil
+	if youtube_liked.checked_frame == core.app.frame_count + 1 do return youtube_liked.ids
+
+	youtube_liked.checked_frame = core.app.frame_count + 1
 
 	_, songs, phase := watch_youtube_songs(youtube.to_list_path(youtube.LIKED_ID))
 	// core reads the songs into fresh memory each time, so another address means they changed.
@@ -73,6 +79,7 @@ start_youtube_like :: proc(video_id: string, is_liked: bool) {
 
 	thread.create_and_start_with_data(job, proc(data: rawptr) {
 			job := cast(^Like_Job)data
+			defer net.stop_thread()
 			defer free(job)
 			defer delete(job.video_id)
 			defer free_all(context.temp_allocator)

@@ -209,8 +209,10 @@ build_song_info :: proc() {
 					now_playing.playback == .Playing &&
 					!now_playing.has_started &&
 					now_playing.stall_count > 0
+				// A video on YouTube has no album.
 				subtitle_text :=
-					"Loading in Music.app…" if is_loading else fmt.tprintf("%s · %s", song.artist, song.album)
+					fmt.tprintf("%s · %s", song.artist, song.album) if song.album != "" else song.artist
+				if is_loading do subtitle_text = "Loading in Music.app…"
 				subtitle := kit.scrolling_text(
 					"subtitle",
 					subtitle_text,

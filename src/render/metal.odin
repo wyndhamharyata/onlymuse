@@ -329,6 +329,8 @@ end_frame :: proc(drawable: ^CA.MetalDrawable) {
 	// The swap keeps both lists' memory. begin_frame clears the list that the next frame fills.
 	state.instances, state.shown_instances = state.shown_instances, state.instances
 	state.batches, state.shown_batches = state.shown_batches, state.batches
-	state.shown_size = state.size_pixels
+	// A frame drawn as the window resized has the drawable's old size, and the layer stretches it.
+	texture := drawable->texture()
+	state.shown_size = {f32(texture->width()), f32(texture->height())}
 	state.shown_uploads = upload_count
 }

@@ -88,6 +88,8 @@ start :: proc() {
 	// busy_timeout waits up to 2000 ms for a lock that another connection holds.
 	run("pragma journal_mode = wal; pragma synchronous = normal; pragma busy_timeout = 2000;")
 	run(SCHEMA)
+	// No answer stays fresh for 60 days, and a page shown since then saved it again.
+	run("delete from responses where fetched_at < (unixepoch() - 60 * 24 * 60 * 60) * 1000;")
 }
 
 @(private)

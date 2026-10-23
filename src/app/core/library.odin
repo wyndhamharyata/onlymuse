@@ -67,29 +67,31 @@ list_playlists :: proc(
 	favourite_songs_id: string,
 	phase: apple.Phase,
 ) {
-	path := "/v1/me/library/playlists?limit=100"
-	watched := apple.watch(path)
-	data, is_stale := find_page_data(path, watched.version, watched.phase)
-	if !is_stale || watched.phase != .Ready do return data.cards, data.link_id, watched.phase
+	path := "/v1/me/library/playlists"
+	bodies, signature, watched_phase := watch_all_pages(path)
+	data, is_stale := find_page_data(path, signature, watched_phase)
+	if !is_stale || watched_phase != .Ready do return data.cards, data.link_id, watched_phase
 
 	allocator := page_allocator(data)
 	cards := make([dynamic]apple.Card, allocator)
 
-	for resource in apple.to_resources(watched.body, allocator) {
-		can_edit, has_edit := resource.attributes.can_edit.?
-		can_delete, has_delete := resource.attributes.can_delete.?
+	for body in bodies {
+		for resource in apple.to_resources(body, allocator) {
+			can_edit, has_edit := resource.attributes.can_edit.?
+			can_delete, has_delete := resource.attributes.can_delete.?
 
-		if has_edit && has_delete && !can_edit && !can_delete {
-			data.link_id = resource.id
-			continue
+			if has_edit && has_delete && !can_edit && !can_delete {
+				data.link_id = resource.id
+				continue
+			}
+
+			append(&cards, apple.to_card(resource))
 		}
-
-		append(&cards, apple.to_card(resource))
 	}
 
 	data.cards = cards[:]
 
-	return data.cards, data.link_id, watched.phase
+	return data.cards, data.link_id, watched_phase
 }
 
 // Watches every page of a library list. Of Apple's link to the next page, it keeps the offset.

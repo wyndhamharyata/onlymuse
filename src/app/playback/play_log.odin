@@ -30,7 +30,13 @@ update_play_log :: proc() {
 	now_playing := core.app.now_playing
 	has_song := now_playing.playback == .Playing || now_playing.playback == .Paused
 	persistent_id := now_playing.song.persistent_id if has_song else ""
-	is_new_song := persistent_id != listening.persistent_id
+	position := helper.to_position_seconds(now_playing)
+	// Repeat One plays the same song again. A play that starts over is a new listen.
+	is_restart :=
+		persistent_id == listening.persistent_id &&
+		position < SKIP_MIN_SECONDS &&
+		is_heard_as_play()
+	is_new_song := persistent_id != listening.persistent_id || is_restart
 
 	if is_new_song do finish_listening()
 	if persistent_id == "" do return
@@ -49,8 +55,6 @@ update_play_log :: proc() {
 		}
 	}
 
-	position := helper.to_position_seconds(now_playing)
-
 	listening.furthest_seconds = max(
 		listening.furthest_seconds,
 		min(position, listening.duration_seconds),
@@ -61,11 +65,9 @@ update_play_log :: proc() {
 finish_listening :: proc() {
 	if listening.persistent_id == "" do return
 
-	furthest := listening.furthest_seconds
-	needed := min(listening.duration_seconds * PLAY_SHARE, PLAY_MAX_SECONDS)
-	is_play := listening.duration_seconds > 0 && furthest >= needed
+	is_play := is_heard_as_play()
 
-	if is_play || furthest >= SKIP_MIN_SECONDS {
+	if is_play || listening.furthest_seconds >= SKIP_MIN_SECONDS {
 		play := listening.song
 		play.is_skip = !is_play
 		play.played_at_ms = core.now_ms()
@@ -81,6 +83,13 @@ finish_listening :: proc() {
 
 	delete(listening.persistent_id)
 	listening = {}
+}
+
+@(private = "file")
+is_heard_as_play :: proc() -> bool {
+	needed := min(listening.duration_seconds * PLAY_SHARE, PLAY_MAX_SECONDS)
+
+	return listening.duration_seconds > 0 && listening.furthest_seconds >= needed
 }
 
 // A logged play is the song's when its catalog ID matches, or its name and artist do.

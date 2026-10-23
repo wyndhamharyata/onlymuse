@@ -5,6 +5,7 @@ import "core:crypto/legacy/sha1"
 import "core:encoding/hex"
 import "core:encoding/json"
 import "core:fmt"
+import "core:io"
 import "core:mem"
 import "core:strings"
 import "core:sync"
@@ -124,7 +125,7 @@ to_path :: proc(endpoint, body_json: string) -> string {
 to_json_field :: proc(name, value: string) -> string {
 	builder := strings.builder_make(context.temp_allocator)
 	fmt.sbprintf(&builder, `"%s":`, name)
-	strings.write_quoted_string(&builder, value)
+	io.write_quoted_string(strings.to_writer(&builder), value, for_json = true)
 
 	return strings.to_string(builder)
 }

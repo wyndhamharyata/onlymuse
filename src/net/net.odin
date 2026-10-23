@@ -34,6 +34,14 @@ start :: proc() {
 	mac.curl_global_init(mac.CURL_GLOBAL_DEFAULT)
 }
 
+// Frees the thread's curl handle and the connection it keeps. A thread that ends calls it last.
+stop_thread :: proc() {
+	if thread_handle == nil do return
+
+	mac.curl_easy_cleanup(thread_handle)
+	thread_handle = nil
+}
+
 @(private)
 append_body :: proc "c" (data: [^]u8, size, count: c.size_t, user: rawptr) -> c.size_t {
 	context = runtime.default_context()

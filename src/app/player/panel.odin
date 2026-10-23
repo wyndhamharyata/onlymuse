@@ -129,6 +129,10 @@ build_up_next :: proc() {
 		lists.EXTRA_ROW_COUNT,
 	)
 
+	// A removal waits until the rows are built, as it shortens the list they read.
+	removed_row := -1
+	defer if removed_row >= 0 do playback.remove_from_queue(removed_row)
+
 	if ui.scope(list) {
 		ui.box(
 			"",
@@ -138,7 +142,9 @@ build_up_next :: proc() {
 			},
 		)
 
-		for index in first_row ..= last_row do build_queue_row(index, row_points)
+		for index in first_row ..= last_row {
+			if build_queue_row(index, row_points) do removed_row = index
+		}
 
 		ui.box(
 			"",
@@ -150,7 +156,8 @@ build_up_next :: proc() {
 	}
 }
 
-build_queue_row :: proc(index: int, row_points: f32) {
+// Says if the person clicked the row's remove button.
+build_queue_row :: proc(index: int, row_points: f32) -> bool {
 	song := playback.queue.songs[index]
 	is_current := index == playback.queue.index
 	tint := kit.to_accent_tint(core.app.accent)
@@ -207,11 +214,11 @@ build_queue_row :: proc(index: int, row_points: f32) {
 		}
 	}
 
-	if is_removed {
-		playback.remove_from_queue(index)
-	} else if menus.apply_song_row_signal(ui.signal(row), song) {
+	if !is_removed && menus.apply_song_row_signal(ui.signal(row), song) {
 		playback.play_queue_at(index)
 	}
+
+	return is_removed
 }
 
 // Picks what the side panel shows. The button by the volume shows and hides it.

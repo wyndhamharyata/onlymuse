@@ -282,7 +282,7 @@ read_song_details :: proc(path: string, data: ^core.Page_Data, body: string) {
 		album_id          = albums[0].id if len(albums) > 0 else "",
 		composer          = attributes.composer_name,
 		genre             = strings.join(attributes.genre_names, ", ", allocator),
-		released          = to_date_text(attributes.release_date, allocator),
+		released          = strings.clone(kit.to_date_text(attributes.release_date), allocator),
 		label             = album.record_label,
 		isrc              = attributes.isrc,
 		language          = to_language_name(attributes.audio_locale),
@@ -308,32 +308,6 @@ read_song_details :: proc(path: string, data: ^core.Page_Data, body: string) {
 	} else {
 		song_details[strings.clone(path)] = details
 	}
-}
-
-// "2021-03-03" as "3 March 2021".
-to_date_text :: proc(date: string, allocator := context.allocator) -> string {
-	if len(date) < 10 do return date
-
-	month_names := [?]string {
-		"January",
-		"February",
-		"March",
-		"April",
-		"May",
-		"June",
-		"July",
-		"August",
-		"September",
-		"October",
-		"November",
-		"December",
-	}
-
-	month, is_month_number := strconv.parse_int(date[5:7])
-	day, is_day_number := strconv.parse_int(date[8:10])
-	if !is_month_number || !is_day_number || month < 1 || month > 12 do return date
-
-	return fmt.aprintf("%d %s %s", day, month_names[month - 1], date[:4], allocator = allocator)
 }
 
 // Names the locale codes, as "ja" or "en-US", of this library's languages. Others stay as is.

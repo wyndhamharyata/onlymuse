@@ -125,6 +125,7 @@ Target_dragTimerFired :: proc "c" (self: ^Target, timer: NS.id) {
 Target_windowDidChangeScreen :: proc "c" (self: ^Target, notification: NS.id) {
 	context = state.odin_context
 	refresh_backdrop()
+	request_frame()
 }
 
 // The person may have changed the wallpaper or the Space while the window was in the back.
@@ -132,6 +133,12 @@ Target_windowDidChangeScreen :: proc "c" (self: ^Target, notification: NS.id) {
 Target_windowDidBecomeKey :: proc "c" (self: ^Target, notification: NS.id) {
 	context = state.odin_context
 	refresh_backdrop()
+}
+
+@(objc_type = Target, objc_implement, objc_name = "askForSavedWallpaper", objc_selector = "askForSavedWallpaper:")
+Target_askForSavedWallpaper :: proc "c" (self: ^Target, sender: NS.id) {
+	context = state.odin_context
+	ask_for_saved_wallpaper()
 }
 
 @(objc_type = Target, objc_implement, objc_name = "windowShouldClose", objc_selector = "windowShouldClose:")
@@ -150,24 +157,6 @@ foreign objc_runtime {
 	sel_getName :: proc(selector: NS.SEL) -> cstring ---
 	objc_getProtocol :: proc(name: cstring) -> rawptr ---
 	class_addProtocol :: proc(class: rawptr, protocol: rawptr) -> NS.BOOL ---
-}
-
-@(private)
-update_window_size :: proc() {
-	bounds := state.view->bounds()
-	pixels_per_point := f32(state.ns_window->backingScaleFactor())
-	window := &state.window
-
-	window.size_points = {f32(bounds.size.width), f32(bounds.size.height)}
-	window.pixels_per_point = pixels_per_point
-
-	window.layer->setDrawableSize(
-		{
-			bounds.size.width * NS.Float(pixels_per_point),
-			bounds.size.height * NS.Float(pixels_per_point),
-		},
-	)
-	objc_send(nil, window.layer, "setContentsScale:", NS.Float(pixels_per_point))
 }
 
 // Wakes the display link, or the timer of a background window, to run a frame on the next refresh.
@@ -210,10 +199,10 @@ run_frame :: proc() {
 	pool := NS.AutoreleasePool.alloc()->init()
 	defer pool->drain()
 
-	update_window_size()
+	is_resized := update_window_size()
 
 	state.is_frame_requested = false
-	wants_more := state.on_frame() || state.is_frame_requested
+	wants_more := state.on_frame() || state.is_frame_requested || is_resized
 
 	clear(&state.events)
 	// Two arenas take turns, so the text of this frame's events lasts through the next frame.

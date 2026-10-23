@@ -10,6 +10,7 @@ import "om:app/matching"
 import "om:apple"
 import "om:console"
 import "om:helper"
+import "om:net"
 import "om:platform"
 
 ADD_POLL_SECONDS :: 1.5
@@ -30,6 +31,7 @@ start_adding :: proc(catalog_id: string, play_count: int) {
 	job^ = {strings.clone(catalog_id), play_count}
 	thread.create_and_start_with_data(job, proc(data: rawptr) {
 			job := cast(^Add_Job)data
+			defer net.stop_thread()
 			defer free(job)
 			defer delete(job.catalog_id)
 			defer free_all(context.temp_allocator)

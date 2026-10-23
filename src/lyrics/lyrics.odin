@@ -9,6 +9,7 @@ import "core:strings"
 import "core:sync"
 import "core:thread"
 import "om:apple"
+import "om:net"
 import "om:platform"
 import "om:store"
 
@@ -88,6 +89,7 @@ watch :: proc(persistent_id, name, artist: string) -> (Phase, []Line) {
 fetch_lyrics :: proc(data: rawptr) {
 	request := cast(^Request)data
 
+	defer net.stop_thread()
 	defer {
 		delete(request.persistent_id)
 		delete(request.name)

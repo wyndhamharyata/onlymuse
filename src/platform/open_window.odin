@@ -48,10 +48,7 @@ open_window :: proc(
 	content->addSubview(state.blur_view)
 
 	// The live blur shows when the wallpaper cannot be read as a still image, and during a drag.
-	if backdrop := make_backdrop_view(content_rect); backdrop != nil {
-		content->addSubview(backdrop)
-		objc_send(nil, state.blur_view, "setHidden:", NS.BOOL(true))
-	}
+	add_backdrop()
 
 	device := MTL.CreateSystemDefaultDevice()
 	layer := make_metal_layer(device)
@@ -206,7 +203,37 @@ show_window :: proc(is_background: bool) {
 	} else {
 		state.ns_window->makeKeyAndOrderFront(nil)
 		state.app->activate()
+		// After a moment, so the window shows before the question.
+		objc_send(
+			nil,
+			state.target,
+			"performSelector:withObject:afterDelay:",
+			intrinsics.objc_find_selector("askForSavedWallpaper:"),
+			rawptr(nil),
+			NS.TimeInterval(0.5),
+		)
 	}
 
 	request_frame()
+}
+
+// Says if the size changed. This frame's drawable then still has the old size.
+@(private)
+update_window_size :: proc() -> bool {
+	bounds := state.view->bounds()
+	pixels_per_point := f32(state.ns_window->backingScaleFactor())
+	window := &state.window
+
+	window.size_points = {f32(bounds.size.width), f32(bounds.size.height)}
+	window.pixels_per_point = pixels_per_point
+	size := NS.Size {
+		bounds.size.width * NS.Float(pixels_per_point),
+		bounds.size.height * NS.Float(pixels_per_point),
+	}
+	is_resized := window.layer->drawableSize() != size
+
+	window.layer->setDrawableSize(size)
+	objc_send(nil, window.layer, "setContentsScale:", NS.Float(pixels_per_point))
+
+	return is_resized
 }

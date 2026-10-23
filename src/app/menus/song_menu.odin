@@ -147,17 +147,16 @@ build_song_menu :: proc() {
 
 				kit.menu_separator()
 
-				is_favourite := playback.is_favourite(song)
+				is_playing := is_playing_song(song)
+				persistent_id := core.app.now_playing.song.persistent_id if is_playing else ""
+				is_favourite := playback.is_favourite(song, persistent_id)
 
 				if kit.menu_item(
 					"favourite",
 					"Remove from Favourites" if is_favourite else "Favourite",
-					"⌘L" if is_playing_song(song) else "",
+					"⌘L" if is_playing else "",
 				) {
-					playback.toggle_favourite(
-						song,
-						core.app.now_playing.song.persistent_id if is_playing_song(song) else "",
-					)
+					playback.toggle_favourite(song, persistent_id)
 					is_closing = true
 				}
 
@@ -286,6 +285,14 @@ build_playlist_menu :: proc(
 
 is_playing_song :: proc(song: core.Catalog_Song) -> bool {
 	playing, _, ok := playback.find_playing_song()
+	if !ok do return false
 
-	return ok && playing.name == song.name && playing.artist_name == song.artist_name
+	// A song from the queue has its ID. A song Music.app plays without the queue has only its text.
+	if playing.id != "" do return matching.is_same_queue_song(playing, song)
+
+	return(
+		playing.name == song.name &&
+		playing.artist_name == song.artist_name &&
+		playing.album_name == song.album_name \
+	)
 }

@@ -230,6 +230,11 @@ final class YouTube: NSObject, WKNavigationDelegate {
       run("(() => { const player = document.getElementById('movie_player'); [\(Self.playingState), \(Self.bufferingState), \(Self.unstartedState)].includes(player.getPlayerState()) ? player.pauseVideo() : player.playVideo() })()")
     case "seek":
       guard let positionSeconds = command.positionSeconds else { return }
+      // A page still loading has no player yet. didFinish starts the song at this place.
+      guard isPageLoaded else {
+        resumeSeconds = positionSeconds
+        return
+      }
       run("document.getElementById('movie_player').seekTo(\(positionSeconds), true)")
       lastState = ""
     case "setVolume":

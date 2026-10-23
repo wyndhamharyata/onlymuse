@@ -226,14 +226,14 @@ start_navigation :: proc() {
 			append(&navigation.pages, page)
 			append(&navigation.scrolls, saved.scrolls[index] if index < len(saved.scrolls) else 0)
 		}
-
-		navigation.index = clamp(saved.index, 0, len(navigation.pages) - 1)
 	}
 
 	if len(navigation.pages) == 0 {
 		append(&navigation.pages, Page{kind = .Home})
 		append(&navigation.scrolls, 0)
 	}
+
+	navigation.index = clamp(saved.index, 0, len(navigation.pages) - 1)
 
 	// The first page shown is a visit too, so its saved place comes back.
 	navigation_visit = 1

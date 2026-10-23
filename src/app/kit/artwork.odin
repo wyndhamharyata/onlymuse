@@ -171,7 +171,8 @@ artwork_rect_box :: proc(
 	paint := new(Artwork_Paint, context.temp_allocator)
 	paint^ = {
 		source        = source,
-		size_pixels   = int(ui.to_pixels(max(size_points.x, size_points.y))),
+		// In steps, so a tile that resizes smoothly reuses a few decoded sizes.
+		size_pixels   = to_artwork_pixels(max(size_points.x, size_points.y)),
 		symbol        = placeholder.symbol,
 		// The symbol grows in steps of 4, so a tile that resizes with the panel reuses a few sizes.
 		symbol_points = max(8, math.round(min(size_points.x, size_points.y) * 0.3 / 4) * 4),

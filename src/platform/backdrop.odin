@@ -1,6 +1,11 @@
 package platform
 
 import "base:intrinsics"
+import "core:crypto/hash"
+import "core:encoding/hex"
+import "core:fmt"
+import "core:os"
+import "core:strings"
 import NS "core:sys/darwin/Foundation"
 import "om:mac"
 
@@ -41,6 +46,24 @@ Transaction :: struct {
 	using _: NS.Object,
 }
 
+@(objc_class = "NSAlert")
+Alert :: struct {
+	using _: NS.Object,
+}
+
+// macOS's wallpaper agent keeps a copy of the wallpaper, filled to each screen, named after the
+// SHA-256 of the file's path. The copy stays after the file is deleted.
+// shortcut: a private folder that a macOS update may move. The live blur shows if it does.
+@(private = "file")
+SAVED_WALLPAPERS :: "Library/Containers/com.apple.wallpaper.agent/Data/Library/Caches/com.apple.wallpaper.caches/extension-com.apple.wallpaper.extension.image"
+@(private = "file")
+SAVED_WALLPAPER_KEY :: "isSavedWallpaperAllowed"
+@(private = "file")
+ALERT_FIRST_BUTTON :: 1000
+// NSWindowAbove, for a subview over another.
+@(private = "file")
+ORDER_ABOVE :: 1
+
 foreign import core_image "system:CoreImage.framework"
 
 @(private = "file")
@@ -52,22 +75,24 @@ Affine_Transform :: struct {
 	a, b, c, d, tx, ty: NS.Float,
 }
 
-// A view whose layer holds the backdrop, or nil when the screen has no wallpaper as a still image.
+// Puts the backdrop over the live blur and hides the blur. The live blur stays when the screen
+// has no wallpaper as a still image.
 @(private)
-make_backdrop_view :: proc(content_rect: NS.Rect) -> ^NS.View {
+add_backdrop :: proc() {
 	image := make_backdrop_image(state.ns_window->screen())
-	if image == nil do return nil
+	if image == nil do return
 
 	layer := objc_send(^Layer, Layer, "layer")
 	objc_send(nil, layer, "setContentsGravity:", NS.AT("resize"))
 	objc_send(nil, layer, "setContents:", image)
 	mac.CGImageRelease(mac.Image_Ref(image))
 
+	content := state.ns_window->contentView()
 	view := objc_send(
 		^NS.View,
 		objc_send(^NS.View, NS.View, "alloc"),
 		"initWithFrame:",
-		content_rect,
+		content->bounds(),
 	)
 
 	objc_send(nil, view, "setLayer:", layer)
@@ -75,8 +100,15 @@ make_backdrop_view :: proc(content_rect: NS.Rect) -> ^NS.View {
 	objc_send(nil, view, "setAutoresizingMask:", NS.UInteger(SIZE_WITH_SUPERVIEW))
 	state.backdrop = layer
 	state.backdrop_view = view
-
-	return view
+	objc_send(
+		nil,
+		content,
+		"addSubview:positioned:relativeTo:",
+		view,
+		NS.Integer(ORDER_ABOVE),
+		state.blur_view,
+	)
+	objc_send(nil, state.blur_view, "setHidden:", NS.BOOL(true))
 }
 
 // AppKit says when a drag of the window starts, but not always when it ends. The backdrop moves
@@ -187,6 +219,7 @@ make_backdrop_image :: proc(screen: ^NS.Screen) -> rawptr {
 	if url == nil do return nil
 
 	wallpaper := objc_send(^CI_Image, CI_Image, "imageWithContentsOfURL:", url)
+	if wallpaper == nil do wallpaper = read_saved_wallpaper(url)
 	if wallpaper == nil do return nil
 
 	extent := objc_send(NS.Rect, wallpaper, "extent")
@@ -239,4 +272,66 @@ make_backdrop_image :: proc(screen: ^NS.Screen) -> rawptr {
 		blurred,
 		NS.Rect{{0, 0}, {width, height}},
 	)
+}
+
+// The wallpaper agent's copy of a wallpaper whose file is gone. The folder is another app's data,
+// so macOS asks the person before the first read.
+@(private = "file")
+read_saved_wallpaper :: proc(url: ^NS.URL) -> ^CI_Image {
+	defaults := NS.UserDefaults.standardUserDefaults()
+	if !objc_send(NS.BOOL, defaults, "boolForKey:", NS.AT(SAVED_WALLPAPER_KEY)) do return nil
+
+	path := objc_send(^NS.String, url, "path")->odinString()
+	digest := hash.hash_string(.SHA256, path, context.temp_allocator)
+	name := string(hex.encode(digest, context.temp_allocator))
+	folder := fmt.tprintf("%s/%s", os.get_env("HOME", context.temp_allocator), SAVED_WALLPAPERS)
+	files, _ := os.read_all_directory_by_path(folder, context.temp_allocator)
+
+	// One copy per screen size. The largest keeps the most detail for any screen.
+	largest: os.File_Info
+	for file in files {
+		if strings.has_prefix(file.name, name) && file.size > largest.size do largest = file
+	}
+	if largest.fullpath == "" do return nil
+
+	saved := NS.URL.alloc()->initFileURLWithPath(
+		NS.String.alloc()->initWithOdinString(largest.fullpath),
+	)
+	defer saved->release()
+
+	return objc_send(^CI_Image, CI_Image, "imageWithContentsOfURL:", saved)
+}
+
+// Runs once the window shows, so the live blur is behind the question. onlymuse says why before
+// macOS asks, and asks once.
+@(private)
+ask_for_saved_wallpaper :: proc() {
+	if state.backdrop != nil do return
+
+	defaults := NS.UserDefaults.standardUserDefaults()
+	key := NS.AT(SAVED_WALLPAPER_KEY)
+	if objc_send(^NS.Object, defaults, "objectForKey:", key) != nil do return
+
+	// A moving wallpaper has no file. Only a deleted file has a saved copy to read.
+	workspace := objc_send(^Workspace, Workspace, "sharedWorkspace")
+	url := objc_send(^NS.URL, workspace, "desktopImageURLForScreen:", state.ns_window->screen())
+	if url == nil || os.exists(objc_send(^NS.String, url, "path")->odinString()) do return
+
+	alert := objc_send(^Alert, objc_send(^Alert, Alert, "alloc"), "init")
+	defer alert->release()
+	objc_send(nil, alert, "setMessageText:", NS.AT("Your wallpaper's file is gone"))
+	objc_send(
+		nil,
+		alert,
+		"setInformativeText:",
+		NS.AT(
+			"OnlyMuse uses a pre-blurred copy of your wallpaper, seamlessly swapping between real and static blur to save system resources.\n\nAllowing access to your wallpaper folder enables this feature. Otherwise, full real-time blur will be used.",
+		),
+	)
+	objc_send(nil, alert, "addButtonWithTitle:", NS.AT("Continue"))
+	objc_send(nil, alert, "addButtonWithTitle:", NS.AT("Not Now"))
+	is_allowed := objc_send(NS.Integer, alert, "runModal") == ALERT_FIRST_BUTTON
+
+	defaults->setBoolForKey(NS.BOOL(is_allowed), key)
+	if is_allowed do add_backdrop()
 }

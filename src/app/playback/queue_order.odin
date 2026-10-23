@@ -127,9 +127,14 @@ play_next :: proc(song: core.Catalog_Song) {
 	songs[after] = song
 	copy(songs[after + 1:], queue.songs[after:])
 
+	// Unshuffled, the original order is the queue's order, so the song goes in at the same place.
+	// Shuffled, it goes last, and turning shuffle off plays it after the rest.
+	is_same_order := !queue.is_shuffled && len(queue.original_songs) == len(queue.songs)
+	original_after := after if is_same_order else len(queue.original_songs)
 	original := make([]core.Catalog_Song, len(queue.original_songs) + 1)
-	copy(original, queue.original_songs)
-	original[len(original) - 1] = core.copy_song(song)
+	copy(original[:original_after], queue.original_songs[:original_after])
+	original[original_after] = core.copy_song(song)
+	copy(original[original_after + 1:], queue.original_songs[original_after:])
 
 	// The new lists hold the same songs, so only the old lists retire.
 	append(&retired.lists, queue.songs, queue.original_songs)
@@ -184,6 +189,7 @@ toggle_shuffle :: proc() {
 	for song, index in queue.original_songs {
 		if matching.is_same_queue_song(current, song) {
 			original_index = index
+			break
 		}
 	}
 

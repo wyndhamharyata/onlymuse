@@ -10,6 +10,7 @@ import "om:app/kit"
 import "om:app/matching"
 import "om:app/youtube_lists"
 import "om:apple"
+import "om:net"
 import "om:platform"
 import "om:youtube"
 
@@ -55,6 +56,7 @@ start_write :: proc(job: Write_Job) {
 @(private = "file")
 run_write :: proc(data: rawptr) {
 	job := cast(^Write_Job)data
+	defer net.stop_thread()
 	status := apple.post(job.path, job.body).status
 	is_done := status >= 200 && status < 300
 
@@ -165,7 +167,8 @@ create_playlist_with :: proc(name: string, chosen: core.Catalog_Song) {
 	create_playlist(name, {song}, nil, done_text)
 }
 
-PLAYLISTS_PATH :: "/v1/me/library/playlists?limit=100"
+// The first page of the library's playlists, as list_playlists watches it.
+PLAYLISTS_PATH :: "/v1/me/library/playlists?limit=100&offset=0"
 
 @(private = "file")
 Create_Job :: struct {
@@ -225,6 +228,7 @@ create_playlist :: proc(
 run_create :: proc(data: rawptr) {
 	job := cast(^Create_Job)data
 
+	defer net.stop_thread()
 	defer free_all(context.temp_allocator)
 	defer free(job)
 	defer delete(job.body)

@@ -47,29 +47,24 @@ final class Handoff {
 
     let isAfterYouTube = command.afterPersistentID?.hasPrefix(YouTube.idPrefix) ?? false
     let afterID = isAfterYouTube ? nil : command.afterPersistentID
+    let isHandoffOff = afterID == nil || !music.isRunning
 
-    set(afterID: afterID, nextSong: command.song)
+    self.afterID = afterID
+    nextSong = command.song
+
+    if isHandoffOff {
+      nextID = nil
+    } else if let videoID = command.song?.youTubeVideoID {
+      nextID = YouTube.idPrefix + videoID
+    } else {
+      nextID = command.song.flatMap { music.findSong($0) }
+    }
+
+    arm()
 
     if !isAfterYouTube { youTube.prepare(videoID: afterID == nil ? "" : command.song?.youTubeVideoID ?? "") }
 
     return nextID
-  }
-
-  private func set(afterID: String?, nextSong: SongMatch?) {
-    let isHandoffOff = afterID == nil || !music.isRunning
-
-    self.afterID = afterID
-    self.nextSong = nextSong
-
-    if isHandoffOff {
-      nextID = nil
-    } else if let videoID = nextSong?.youTubeVideoID {
-      nextID = YouTube.idPrefix + videoID
-    } else {
-      nextID = nextSong.flatMap { music.findSong($0) }
-    }
-
-    arm()
   }
 
   func applyPlayerChange() {

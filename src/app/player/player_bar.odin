@@ -240,7 +240,6 @@ build_song_title :: proc(song: helper.Song, queue_song: core.Catalog_Song, is_qu
 		if playback.build_favourite_button(
 			"favourite",
 			playback.is_favourite(playing, persistent_id),
-			13,
 		) {
 			playback.toggle_favourite(playing, persistent_id)
 		}

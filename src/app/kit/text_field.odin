@@ -229,7 +229,7 @@ build_text_field :: proc(
 	height: f32 = 30,
 	font_size: f32 = TEXT_FIELD_FONT_SIZE,
 	background := [4]f32{},
-) -> ^ui.Box {
+) {
 	is_focused := field.is_focused
 	box := ui.box(
 		id,
@@ -272,11 +272,9 @@ build_text_field :: proc(
 			placeholder if is_empty else shown,
 		)
 
-		if !is_focused do return box
+		if !is_focused do return
 		if ui.scope(line) do build_caret(line, text[:cursor], field.marked, font_size)
 	}
-
-	return box
 }
 
 @(private = "file")

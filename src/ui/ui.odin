@@ -12,7 +12,6 @@ Axis :: enum {
 Size_Kind :: enum {
 	Points,
 	Text,
-	Percent,
 	Children,
 	Fill,
 }
@@ -23,8 +22,6 @@ Size :: struct {
 }
 
 points :: proc "contextless" (value: f32) -> Size {return {.Points, value}}
-
-percent :: proc "contextless" (value: f32) -> Size {return {.Percent, value}}
 
 fill :: proc "contextless" (weight: f32 = 1) -> Size {return {.Fill, weight}}
 
@@ -44,7 +41,6 @@ Flag :: enum {
 	Scroll,
 	Clip,
 	Floating,
-	Animate_Position,
 	Wrap_Text,
 	Truncate_Text,
 	Wrap_Children,
@@ -99,8 +95,6 @@ Box :: struct {
 	active_fraction:  f32,
 	scroll:           f32,
 	scroll_target:    f32,
-	shown_rect:       [4]f32,
-	has_shown_rect:   bool,
 }
 
 @(private)
@@ -143,7 +137,6 @@ state: struct {
 	is_right_press:         bool,
 	press_position:         [2]f32,
 	pressed_key:            u64,
-	click_count:            int,
 	is_animating:           bool,
 }
 

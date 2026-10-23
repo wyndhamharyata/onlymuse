@@ -65,25 +65,21 @@ build_youtube_mixes_page :: proc() {
 	lists.build_card_grid_page("Mixes", data.cards, phase, false)
 }
 
+// Google refuses a sign-in inside an app, so onlymuse takes the one Helium has.
 build_youtube_sign_in_page :: proc(title, text: string) {
 	page := kit.page_scroll("youtube sign in")
 
 	if ui.scope(page) {
 		kit.page_heading(title)
-		build_youtube_sign_in_note(text)
-	}
-}
+		kit.note(text)
+		kit.note(
+			"Sign in at music.youtube.com in Helium, then use its sign-in here. macOS asks once to let onlymuse read Helium's key. Choose Always Allow.",
+		)
 
-// Google refuses a sign-in inside an app, so onlymuse takes the one Helium has.
-build_youtube_sign_in_note :: proc(text: string) {
-	kit.note(text)
-	kit.note(
-		"Sign in at music.youtube.com in Helium, then use its sign-in here. macOS asks once to let onlymuse read Helium's key. Choose Always Allow.",
-	)
-
-	if kit.action_button("Use Helium's Sign-In", "person.crop.circle", true) {
-		is_reading_youtube_sign_in = true
-		helper.send_youtube_sign_in()
+		if kit.action_button("Use Helium's Sign-In", "person.crop.circle", true) {
+			is_reading_youtube_sign_in = true
+			helper.send_youtube_sign_in()
+		}
 	}
 }
 

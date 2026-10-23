@@ -24,9 +24,9 @@ draw :: proc(
 	origin_pixels: [2]f32,
 	color: [4]f32,
 	clip_pixels: [4]f32,
-	color_of: Color_Proc = nil,
-	data: rawptr = nil,
-	opacity: f32 = 1,
+	color_of: Color_Proc,
+	data: rawptr,
+	opacity: f32,
 ) {
 	for line in shaped.lines {
 		baseline_y := math.round(origin_pixels.y + line.baseline_y_pixels)

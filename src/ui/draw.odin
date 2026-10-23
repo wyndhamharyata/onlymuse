@@ -18,8 +18,7 @@ draw :: proc(box: ^Box, clip: [4]f32, parent_opacity: f32) {
 
 	if opacity <= 0 do return
 
-	is_gliding := .Animate_Position in style.flags && box.has_shown_rect
-	rect := box.shown_rect if is_gliding else box.rect
+	rect := box.rect
 	pixels_per_point := state.pixels_per_point
 	rect_pixels := rect * pixels_per_point
 	clip_pixels := clip * pixels_per_point

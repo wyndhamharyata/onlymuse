@@ -42,7 +42,7 @@ fetch_image :: proc(task: thread.Task) {
 
 @(private)
 fetch_to_file :: proc(url, path: string) -> bool {
-	response := net.fetch(url, allocator = context.temp_allocator)
+	response := net.fetch(url)
 
 	if response.status != 200 {
 		console.add("Covers", "%s: %s", url, console.to_status_text(response.status))

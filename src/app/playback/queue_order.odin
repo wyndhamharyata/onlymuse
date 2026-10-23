@@ -88,8 +88,6 @@ MATCHED_AHEAD_COUNT :: 25
 
 @(private)
 start_matches :: proc() {
-	if queue.index < 0 do return
-
 	ahead := queue.songs[queue.index:min(len(queue.songs), queue.index + MATCHED_AHEAD_COUNT)]
 	for song in ahead do if youtube.is_song_id(song.id) do _, _ = matching.watch_match(song)
 }
@@ -144,8 +142,6 @@ has_current_song :: proc() -> bool {
 }
 
 remove_from_queue :: proc(index: int) {
-	if index == queue.index do return
-
 	removed := queue.songs[index]
 	retire_song(removed)
 	ordered_remove_slice(&queue.songs, index)

@@ -8,8 +8,6 @@ import "om:mac"
 import "om:render"
 import MTL "vendor:darwin/Metal"
 
-objc_send :: intrinsics.objc_send
-
 @(objc_class = "NSFont")
 NS_Font :: struct {
 	using _: NS.Object,
@@ -87,7 +85,7 @@ system_font :: proc(weight: Weight, size_pixels: f32) -> Font {
 
 	if font, ok := state.system_fonts[key]; ok do return font
 
-	ns_font := objc_send(
+	ns_font := intrinsics.objc_send(
 		^NS_Font,
 		NS_Font,
 		"systemFontOfSize:weight:",

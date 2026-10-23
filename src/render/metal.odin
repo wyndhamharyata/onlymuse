@@ -8,8 +8,6 @@ import NS "core:sys/darwin/Foundation"
 import MTL "vendor:darwin/Metal"
 import CA "vendor:darwin/QuartzCore"
 
-objc_send :: intrinsics.objc_send
-
 Kind :: enum u32 {
 	Solid = 0,
 	Glyph = 1,

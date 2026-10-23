@@ -132,7 +132,7 @@ watch_youtube_home :: proc() -> (shelves: []apple.Shelf, signature: int, phase: 
 }
 
 to_youtube_phase_note :: proc(phase: apple.Phase) -> string {
-	return "YouTube Music could not be reached." if phase == .Failed else "Loading…"
+	return "YouTube Music could not be reached." if phase == .Failed else ""
 }
 
 merge_youtube_shelves :: proc(
@@ -153,8 +153,6 @@ merge_youtube_shelves :: proc(
 }
 
 watch_youtube_artist :: proc(name: string) -> youtube.List {
-	if name == "" do return {}
-
 	search, _ := watch_youtube_list(youtube.to_search_path(name, youtube.ARTISTS_FILTER))
 	key := matching.to_match_key(name)
 

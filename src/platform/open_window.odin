@@ -20,7 +20,7 @@ open_window :: proc(
 	title: string,
 	size_points, min_size_points: [2]f32,
 	on_frame: Frame_Proc,
-	is_background := false,
+	is_background: bool,
 ) -> ^Window {
 	state.odin_context = context
 	state.on_frame = on_frame

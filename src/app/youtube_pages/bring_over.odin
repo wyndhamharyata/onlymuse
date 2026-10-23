@@ -74,6 +74,8 @@ build_bring_over_page :: proc(page: core.Page) {
 			}
 		}
 
+		if phase == .Loading do kit.build_loading(title)
+
 		if phase == .Ready {
 			kit.note(
 				"Each song Apple Music has goes into a new Apple Music playlist. It plays in Apple Music's quality. The others stay in the playlist and play from YouTube.",

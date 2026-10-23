@@ -80,6 +80,7 @@ build_card_grid_page :: proc(
 			)
 		}
 
+		if phase == .Loading do kit.build_loading(title)
 		if phase == .Ready do build_card_grid(page, cards, is_round)
 	}
 }

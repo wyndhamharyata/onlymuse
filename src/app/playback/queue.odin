@@ -85,7 +85,6 @@ queue_state: struct {
 	is_starting_youtube: bool,
 	restart_count:       int,
 	next_poll_ms:        f64,
-	is_polling:          bool,
 	last_resume_save_ms: f64,
 }
 
@@ -104,12 +103,6 @@ start_queue :: proc() {
 }
 
 @(private)
-save_queue :: proc() {
-	bytes, error := json.marshal(queue, allocator = context.temp_allocator)
-	if error == nil do store.save_state("queue", string(bytes))
-}
-
-@(private)
 save_resume_point :: proc() {
 	bytes, error := json.marshal(queue.resume_point, allocator = context.temp_allocator)
 	if error == nil do store.save_state("resumePoint", string(bytes))
@@ -117,7 +110,8 @@ save_resume_point :: proc() {
 
 @(private)
 save_queue_and_handoff :: proc() {
-	save_queue()
+	bytes, error := json.marshal(queue, allocator = context.temp_allocator)
+	if error == nil do store.save_state("queue", string(bytes))
 	send_handoff()
 }
 
@@ -145,7 +139,7 @@ play_queue_at :: proc(index: int) {
 	queue.index = index
 	start_matches()
 
-	queue_state.is_polling = false
+	queue_state.next_poll_ms = 0
 	queue_state.start_deadline_ms = 0
 	queue_state.is_starting_youtube = false
 	queue_state.restart_count = 0
@@ -191,7 +185,6 @@ apply_queue_answer :: proc(request_id: int, answered_id: string) {
 apply_set_next_answer :: proc(request: Request, answered_id: string) {
 	is_wanted :=
 		request.handoff_version == queue_state.handoff_version &&
-		request.after != "" &&
 		request.index >= 0 &&
 		answered_id != ""
 
@@ -242,7 +235,6 @@ apply_poll_answer :: proc(answered_id: string) {
 		if fall_back_to_youtube() do return
 	}
 
-	queue_state.is_polling = false
 	queue.is_adding = false
 	set_playing_persistent_id(answered_id)
 	save_queue_and_handoff()

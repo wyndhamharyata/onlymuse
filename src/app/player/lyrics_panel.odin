@@ -94,7 +94,7 @@ find_current_line :: proc(lines: []lyrics.Line, position_seconds: f64) -> int {
 	return current
 }
 
-find_next_change :: proc(lines: []lyrics.Line, position_seconds: f64) -> f64 {
+start_lyrics_timer :: proc(lines: []lyrics.Line, position_seconds: f64) {
 	next := -1.0
 
 	for line in lines {
@@ -106,11 +106,6 @@ find_next_change :: proc(lines: []lyrics.Line, position_seconds: f64) -> f64 {
 		}
 	}
 
-	return next
-}
-
-start_lyrics_timer :: proc(lines: []lyrics.Line, position_seconds: f64) {
-	next := find_next_change(lines, position_seconds)
 	if next >= 0 do platform.request_frame_after(next - position_seconds + TIMER_SLACK_SECONDS)
 }
 

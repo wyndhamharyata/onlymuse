@@ -47,12 +47,7 @@ menu_box :: proc(id: string, position: [2]f32, width: f32, window_size: [2]f32) 
 	)
 }
 
-menu_item_signal :: proc(
-	id, label: string,
-	hint := "",
-	is_selected := false,
-	color := [4]f32{},
-) -> ui.Signal {
+menu_item_signal :: proc(id, label, hint: string, is_selected: bool, color: [4]f32) -> ui.Signal {
 	item := ui.box(
 		id,
 		{
@@ -102,8 +97,8 @@ menu_item_signal :: proc(
 	return ui.signal(item)
 }
 
-menu_item :: proc(id, label: string, hint := "", is_selected := false, color := [4]f32{}) -> bool {
-	return menu_item_signal(id, label, hint, is_selected, color).is_clicked
+menu_item :: proc(id, label: string, hint := "", color := [4]f32{}) -> bool {
+	return menu_item_signal(id, label, hint, false, color).is_clicked
 }
 
 menu_separator :: proc() {

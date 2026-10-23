@@ -95,8 +95,6 @@ to_list_path :: proc(id: string) -> string {
 }
 
 post_like :: proc(video_id: string, is_liked: bool) -> int {
-	if !is_signed_in() do return 0
-
 	endpoint := "like/like" if is_liked else "like/removelike"
 	body := fmt.tprintf("{{\"target\":{{%s}}}}", to_json_field("videoId", video_id))
 
@@ -124,7 +122,6 @@ fetch_answer :: proc(path: string, allocator: mem.Allocator) -> apple.Answer {
 	}
 
 	endpoint, _, body_json := strings.partition(path[len(PATH_PREFIX):], "?")
-	if len(body_json) < len("{}") do return {}
 
 	section_token := ""
 
@@ -174,7 +171,7 @@ fetch_answer :: proc(path: string, allocator: mem.Allocator) -> apple.Answer {
 		)
 	}
 
-	response := net.fetch(url, headers[:], context.temp_allocator, .Post, body)
+	response := net.fetch(url, headers[:], .Post, body)
 
 	if response.status != 200 {
 		console.add("YouTube", "%s: %s", path, console.to_status_text(response.status))

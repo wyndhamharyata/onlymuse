@@ -34,14 +34,7 @@ enum HeliumCookies {
 
   static func readYouTubeCookies() -> Result<[Cookie], Failure> {
     guard let password = readKeychainPassword() else { return .failure(.noKey) }
-    guard let rows = readRows() else { return .failure(.noDatabase) }
-
-    let key = toKey(password: password)
-    let cookies = rows.cookies.compactMap { row -> Cookie? in
-      guard let value = decrypt(row.encrypted, key: key, hasHostHash: rows.version >= hostHashVersion) else { return nil }
-
-      return Cookie(host: row.host, name: row.name, value: value, path: row.path, isSecure: row.isSecure, isHTTPOnly: row.isHTTPOnly)
-    }
+    guard let cookies = readRows(key: toKey(password: password)) else { return .failure(.noDatabase) }
 
     return .success(cookies)
   }
@@ -60,17 +53,8 @@ enum HeliumCookies {
     return result as? Data
   }
 
-  private struct Row {
-    let host: String
-    let name: String
-    let encrypted: Data
-    let path: String
-    let isSecure: Bool
-    let isHTTPOnly: Bool
-  }
-
   // Helium writes the file while it runs, so the helper reads a copy.
-  private static func readRows() -> (version: Int, cookies: [Row])? {
+  private static func readRows(key: Data) -> [Cookie]? {
     let copyURL = FileManager.default.temporaryDirectory.appending(path: "onlymuse-helium-cookies.sqlite")
 
     try? FileManager.default.removeItem(at: copyURL)
@@ -89,24 +73,26 @@ enum HeliumCookies {
     guard sqlite3_prepare_v2(database, sql, -1, &statement, nil) == SQLITE_OK else { return nil }
     defer { sqlite3_finalize(statement) }
 
-    var rows: [Row] = []
+    var cookies: [Cookie] = []
 
     while sqlite3_step(statement) == SQLITE_ROW {
       let bytes = sqlite3_column_blob(statement, 2)
       let count = Int(sqlite3_column_bytes(statement, 2))
       let encrypted = bytes.map { Data(bytes: $0, count: count) } ?? Data()
 
-      rows.append(Row(
+      guard let value = decrypt(encrypted, key: key, hasHostHash: version >= hostHashVersion) else { continue }
+
+      cookies.append(Cookie(
         host: String(cString: sqlite3_column_text(statement, 0)),
         name: String(cString: sqlite3_column_text(statement, 1)),
-        encrypted: encrypted,
+        value: value,
         path: String(cString: sqlite3_column_text(statement, 3)),
         isSecure: sqlite3_column_int(statement, 4) != 0,
         isHTTPOnly: sqlite3_column_int(statement, 5) != 0
       ))
     }
 
-    return (version, rows)
+    return cookies
   }
 
   private static func readFirstText(_ database: OpaquePointer?, _ sql: String) -> String? {

@@ -91,7 +91,7 @@ is_playlist_youtube_song :: proc(playlist_id, song_id: string) -> bool {
 merge_playlist_youtube_songs :: proc(
 	playlist_id: string,
 	songs: []core.Catalog_Song,
-	allocator := context.allocator,
+	allocator: mem.Allocator,
 ) -> []core.Catalog_Song {
 	read_playlist_youtube_songs()
 

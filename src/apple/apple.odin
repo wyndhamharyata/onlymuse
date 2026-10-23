@@ -51,10 +51,10 @@ has_tokens :: proc() -> bool {
 	return state.developer_token != ""
 }
 
-fetch :: proc(path: string, allocator := context.allocator) -> Answer {
-	if saved, ok := store.find_answer(path, allocator); ok do return {200, saved.body}
+fetch :: proc(path: string) -> Answer {
+	if saved, ok := store.find_answer(path, context.temp_allocator); ok do return {200, saved.body}
 
-	answer := fetch_from_source(path, allocator)
+	answer := fetch_from_source(path, context.temp_allocator)
 	if answer.status == 200 do store.save_answer(path, answer.body)
 
 	return answer
@@ -142,7 +142,7 @@ fetch_from_apple_once :: proc(
 
 	separator := "&" if strings.contains(path, "?") else "?"
 	url := fmt.tprintf("%s%s%sl=%s", BASE_URL, path, separator, LANGUAGE)
-	response := net.fetch(url, headers[:], context.temp_allocator, method, body)
+	response := net.fetch(url, headers[:], method, body)
 	is_refused := response.status < 200 || response.status >= 300
 
 	if is_refused {

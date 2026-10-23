@@ -87,10 +87,8 @@ shuffle_by_rules :: proc(songs: []core.Catalog_Song) -> []core.Catalog_Song {
 		}
 	}
 
-	if len(kept) > 0 {
-		copy(shuffled, kept[:])
-		copy(shuffled[len(kept):], later[:])
-	}
+	copy(shuffled, kept[:])
+	copy(shuffled[len(kept):], later[:])
 
 	apart_count := 0
 

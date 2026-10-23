@@ -166,7 +166,6 @@ fetch_album_ids :: proc(song: core.Catalog_Song) -> ([]string, int) {
 			apple.STOREFRONT,
 			apple.to_query_text(term),
 		),
-		context.temp_allocator,
 	)
 	if answer.status != 200 do return nil, answer.status
 
@@ -196,7 +195,7 @@ fetch_albums :: proc(ids: []string) -> int {
 		apple.STOREFRONT,
 		strings.join(ids, ",", context.temp_allocator),
 	)
-	answer := apple.fetch(path, context.temp_allocator)
+	answer := apple.fetch(path)
 	if answer.status != 200 do return answer.status
 
 	for album in apple.to_resources(answer.body, context.temp_allocator) {
@@ -239,12 +238,18 @@ fetch_song_match :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, bool, i
 	for album in album_terms {
 		wait_to_search()
 
+		term := fmt.tprintf(
+			"%s %s %s",
+			to_plain_text(song.name),
+			to_plain_text(album),
+			to_plain_text(song.artist_name),
+		)
 		path := fmt.tprintf(
 			"/v1/catalog/%s/search?term=%s&types=songs&limit=10",
 			apple.STOREFRONT,
-			apple.to_query_text(to_search_term(song, album)),
+			apple.to_query_text(term),
 		)
-		answer := apple.fetch(path, context.temp_allocator)
+		answer := apple.fetch(path)
 		if answer.status != 200 do return {}, false, answer.status
 
 		if best, is_found := find_best_match(song, answer.body); is_found do return best, true, 200

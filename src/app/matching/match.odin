@@ -71,7 +71,7 @@ watch_match :: proc(song: core.Catalog_Song) -> (core.Catalog_Song, Match_State)
 		return song, .Missing
 	}
 
-	if saved, ok := store.find_match(video_id, context.temp_allocator); ok {
+	if saved, ok := store.find_match(video_id); ok {
 		keep_match(video_id, saved)
 		return find_match_locked(song, video_id)
 	}
@@ -151,8 +151,6 @@ find_match_locked :: proc(
 
 reject_match :: proc(song: core.Catalog_Song) {
 	video_id := youtube.to_video_id(song.id)
-	if video_id == "" do return
-
 	store.save_rejected_match(video_id)
 
 	sync.guard(&matcher.mutex)
@@ -169,9 +167,7 @@ allow_match :: proc(song: core.Catalog_Song) {
 }
 
 is_match_rejected :: proc(song: core.Catalog_Song) -> bool {
-	video_id := youtube.to_video_id(song.id)
-
-	return video_id != "" && store.is_match_rejected(video_id)
+	return store.is_match_rejected(youtube.to_video_id(song.id))
 }
 
 to_youtube_song :: proc(song: core.Catalog_Song) -> core.Catalog_Song {

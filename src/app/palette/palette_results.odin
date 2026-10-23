@@ -1,6 +1,7 @@
 package palette
 
 import "core:fmt"
+import "core:mem"
 import "core:mem/virtual"
 import "core:slice"
 import "core:strings"
@@ -116,8 +117,6 @@ has_term :: proc(name, term: string) -> bool {
 
 @(private = "file")
 to_term_score :: proc(name, term: string) -> int {
-	if term == "" do return 0
-
 	lower := strings.to_lower(name, context.temp_allocator)
 	at := strings.index(lower, term)
 	if at < 0 do return -1
@@ -162,11 +161,7 @@ list_best_indexes :: proc(names, second_names: []string, term: string) -> []int 
 }
 
 @(private = "file")
-append_actions :: proc(
-	results: ^[dynamic]Palette_Result,
-	term: string,
-	allocator := context.allocator,
-) {
+append_actions :: proc(results: ^[dynamic]Palette_Result, term: string, allocator: mem.Allocator) {
 	Action :: struct {
 		title, symbol, shortcut: string,
 		action:                  Palette_Action,
@@ -213,7 +208,7 @@ append_pages :: proc(
 	results: ^[dynamic]Palette_Result,
 	term: string,
 	playlists: []apple.Card,
-	allocator := context.allocator,
+	allocator: mem.Allocator,
 ) {
 	count := 0
 
@@ -265,11 +260,7 @@ append_pages :: proc(
 }
 
 @(private = "file")
-append_catalog :: proc(
-	results: ^[dynamic]Palette_Result,
-	body: string,
-	allocator := context.allocator,
-) {
+append_catalog :: proc(results: ^[dynamic]Palette_Result, body: string, allocator: mem.Allocator) {
 	answer: apple.Search_Answer
 	_ = core.unmarshal_text(body, &answer)
 
@@ -308,7 +299,7 @@ append_card :: proc(
 	results: ^[dynamic]Palette_Result,
 	card: apple.Card,
 	group, subtitle: string,
-	allocator := context.allocator,
+	allocator: mem.Allocator,
 ) {
 	append(
 		results,

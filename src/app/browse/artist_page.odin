@@ -74,9 +74,11 @@ build_artist_page :: proc(page_id: string, name: string) {
 			page := kit.page_scroll("artist")
 
 			if ui.scope(page) {
-				kit.note(
-					kit.to_phase_text(phase) if phase != .Ready else fmt.tprintf("Apple Music has no artist named %s.", name),
-				)
+				if phase != .Ready {
+					kit.build_phase(phase, name)
+				} else {
+					kit.note(fmt.tprintf("Apple Music has no artist named %s.", name))
+				}
 			}
 
 			return
@@ -100,8 +102,8 @@ build_artist_page :: proc(page_id: string, name: string) {
 	kit.run_bench_scroll(page)
 
 	if ui.scope(page) {
-		if watched.phase != .Ready || data.title == "" {
-			kit.note(kit.to_phase_text(watched.phase))
+		if data.title == "" {
+			kit.build_phase(watched.phase, name)
 			return
 		}
 

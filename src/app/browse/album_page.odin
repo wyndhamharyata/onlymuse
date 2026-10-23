@@ -17,7 +17,6 @@ ALBUM_HEADER_GAP_POINTS :: 20
 
 MIN_ALBUM_INFO_POINTS :: 300
 
-// Apple gives a library album an ID that starts with "l.".
 build_album_page :: proc(album_id: string) {
 	catalog_id := album_id
 
@@ -30,9 +29,11 @@ build_album_page :: proc(album_id: string) {
 			page := kit.page_scroll("album")
 
 			if ui.scope(page) {
-				kit.note(
-					kit.to_phase_text(link.phase) if link.phase != .Ready else "This album is only on the Mac, so Apple Music has no page for it.",
-				)
+				if link.phase != .Ready {
+					kit.build_phase(link.phase, "the album")
+				} else {
+					kit.note("This album is only on the Mac, so Apple Music has no page for it.")
+				}
 			}
 
 			return
@@ -54,8 +55,8 @@ build_album_page :: proc(album_id: string) {
 	kit.run_bench_scroll(page)
 
 	if ui.scope(page) {
-		if watched.phase != .Ready || data.title == "" {
-			kit.note(kit.to_phase_text(watched.phase))
+		if data.title == "" {
+			kit.build_phase(watched.phase, "the album")
 			return
 		}
 
@@ -279,7 +280,7 @@ build_numbered_songs :: proc(songs: []core.Catalog_Song) {
 					fmt.tprintf("%d", index + 1),
 				)
 				kit.text_box(song.name, core.app.accent if is_current else kit.colors.text)
-				lists.build_row_heart(row, song, is_current)
+				lists.build_row_heart(song, is_current)
 				ui.box(
 					"",
 					{

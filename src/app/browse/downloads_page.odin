@@ -27,15 +27,6 @@ downloads: struct {
 	scanned_visit: int,
 }
 
-// Music.app keeps each downloaded Apple Music song as a package of its own, two folders down.
-@(private = "file")
-read_download_folder_path :: proc() -> string {
-	return fmt.tprintf(
-		"%s/Music/Music/Media.localized/Apple Music",
-		os.get_env("HOME", context.temp_allocator),
-	)
-}
-
 // The file name holds the catalog ID after CATALOG_ID_MARKER. It ends in "_alac" when lossless.
 @(private = "file")
 CATALOG_ID_MARKER :: "_A"
@@ -72,11 +63,13 @@ read_download :: proc(boot_path: string) -> (Download, bool) {
 
 @(private = "file")
 scan_downloads :: proc() {
-	found := make([dynamic]Download)
-	artists, _ := os.read_all_directory_by_path(
-		read_download_folder_path(),
-		context.temp_allocator,
+	// Music.app keeps each downloaded Apple Music song as a package of its own, two folders down.
+	folder_path := fmt.tprintf(
+		"%s/Music/Music/Media.localized/Apple Music",
+		os.get_env("HOME", context.temp_allocator),
 	)
+	found := make([dynamic]Download)
+	artists, _ := os.read_all_directory_by_path(folder_path, context.temp_allocator)
 
 	for artist in artists {
 		runtime.DEFAULT_TEMP_ALLOCATOR_TEMP_GUARD()

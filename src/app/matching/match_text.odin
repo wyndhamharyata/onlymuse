@@ -1,6 +1,5 @@
 package matching
 
-import "core:fmt"
 import "core:strings"
 import "core:unicode"
 import "om:app/core"
@@ -136,16 +135,6 @@ to_letters :: proc(text: string, is_bracket_skipped: bool) -> string {
 }
 
 // Apple's search finds nothing for a term with an apostrophe, such as "She's".
-@(private)
-to_search_term :: proc(song: core.Catalog_Song, album: string) -> string {
-	return fmt.tprintf(
-		"%s %s %s",
-		to_plain_text(song.name),
-		to_plain_text(album),
-		to_plain_text(song.artist_name),
-	)
-}
-
 @(private)
 to_plain_text :: proc(text: string) -> string {
 	builder := strings.builder_make(context.temp_allocator)

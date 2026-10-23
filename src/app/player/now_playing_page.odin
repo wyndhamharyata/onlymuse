@@ -16,7 +16,7 @@ MORE_BY_TILE_POINTS :: 118
 
 build_now_playing_page :: proc() {
 	shown, is_song := playback.find_shown_song()
-	queue_song, is_queue_song := playback.find_queue_song(shown.persistent_id)
+	playing, _, _ := playback.find_playing_song()
 	page := kit.page_scroll("now playing")
 
 	if ui.scope(page) {
@@ -26,11 +26,7 @@ build_now_playing_page :: proc() {
 			return
 		}
 
-		catalog_id, phase := watch_catalog_id(
-			shown.name,
-			shown.artist_name,
-			queue_song.id if is_queue_song else "",
-		)
+		catalog_id, phase := watch_catalog_id(shown.name, shown.artist_name, playing.id)
 		has_path := catalog_id != ""
 		path :=
 			fmt.tprintf("/v1/catalog/%s/songs/%s?include=albums,artists", apple.STOREFRONT, catalog_id) if has_path else ""
@@ -44,9 +40,15 @@ build_now_playing_page :: proc() {
 
 		details, has_details := song_details[path]
 		is_waiting_for_apple := !has_details || watched.phase != .Ready
-		if is_waiting_for_apple do details = to_music_app_details(shown, queue_song, is_queue_song)
 
-		info, _ := playback.watch_song_info(shown.persistent_id)
+		if is_waiting_for_apple {
+			details = {
+				song  = playing,
+				album = shown.album_name,
+			}
+		}
+
+		info := playback.watch_song_info(shown.persistent_id)
 		width := kit.to_content_width(page)
 		if width <= 0 do return
 
@@ -60,7 +62,7 @@ build_now_playing_page :: proc() {
 			build_hero(details, info, shown, width)
 			if info.is_in_library do build_stats(details.song, info, width)
 			build_detail_cards(details, info, shown.persistent_id, width)
-			if watched.phase != .Ready do kit.note(kit.to_phase_text(watched.phase))
+			if watched.phase != .Ready do kit.build_phase(watched.phase, "the song details")
 			build_more_by(details)
 
 			if details.copyright != "" {
@@ -78,26 +80,6 @@ build_now_playing_page :: proc() {
 			}
 		}
 	}
-}
-
-@(private = "file")
-to_music_app_details :: proc(
-	shown: helper.Song,
-	queue_song: core.Catalog_Song,
-	is_queue_song: bool,
-) -> Song_Details {
-	details := Song_Details {
-		song = {
-			name = shown.name,
-			artist_name = shown.artist_name,
-			album_name = shown.album_name,
-			duration_seconds = shown.duration_seconds,
-		},
-		album = shown.album_name,
-	}
-	if is_queue_song do details.song = queue_song
-
-	return details
 }
 
 @(private)

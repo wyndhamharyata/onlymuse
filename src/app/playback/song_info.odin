@@ -50,8 +50,8 @@ asked_at_ms: map[string]f64
 
 SONG_INFO_REFRESH_MS :: 60_000
 
-watch_song_info :: proc(persistent_id: string) -> (Song_Info, bool) {
-	if persistent_id == "" do return {}, false
+watch_song_info :: proc(persistent_id: string) -> Song_Info {
+	if persistent_id == "" do return {}
 
 	now_ms := helper.now_ms()
 	last_asked_ms, was_asked := asked_at_ms[persistent_id]
@@ -167,7 +167,7 @@ is_favourite :: proc(song: core.Catalog_Song, persistent_id := "") -> bool {
 	return watch_favourite_ids()[song.id]
 }
 
-toggle_favourite :: proc(song: core.Catalog_Song, persistent_id := "") {
+toggle_favourite :: proc(song: core.Catalog_Song, persistent_id: string) {
 	favorited := !is_favourite(song, persistent_id)
 	set_favourite_change(song.id, favorited)
 
@@ -217,11 +217,11 @@ apply_favourite_answer :: proc(message: helper.Message) {
 	)
 }
 
-build_favourite_button :: proc(id: string, is_favourite: bool, size_points: f32 = 14) -> bool {
+build_favourite_button :: proc(id: string, is_favourite: bool) -> bool {
 	return kit.icon_button(
 		id,
 		"heart.circle.fill" if is_favourite else "heart.circle",
-		size_points,
+		13,
 		core.app.accent if is_favourite else kit.colors.faint,
 	)
 }

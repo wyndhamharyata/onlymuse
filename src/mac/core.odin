@@ -9,7 +9,6 @@ Type_Ref :: distinct rawptr
 String_Ref :: Type_Ref
 Dictionary_Ref :: Type_Ref
 Array_Ref :: Type_Ref
-Data_Ref :: Type_Ref
 Url_Ref :: Type_Ref
 Number_Ref :: Type_Ref
 Attributed_String_Ref :: Type_Ref

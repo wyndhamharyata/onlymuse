@@ -256,15 +256,7 @@ to_new_shelves :: proc(body: string, allocator := context.allocator) -> []Shelf 
 	return shelves[:]
 }
 
-to_artwork_url :: proc(
-	artwork: Artwork,
-	width_pixels: int,
-	height_pixels := 0,
-	allocator := context.temp_allocator,
-) -> string {
-	if artwork.url == "" do return ""
-
-	final_height_pixels := height_pixels if height_pixels > 0 else width_pixels
+to_artwork_url :: proc(artwork: Artwork, width_pixels: int) -> string {
 	with_width, _ := strings.replace_all(
 		artwork.url,
 		"{w}",
@@ -274,19 +266,19 @@ to_artwork_url :: proc(
 	with_height, _ := strings.replace_all(
 		with_width,
 		"{h}",
-		fmt.tprintf("%d", final_height_pixels),
+		fmt.tprintf("%d", width_pixels),
 		context.temp_allocator,
 	)
 
 	// "ac" puts an artist's album cover on a square of its colour. "cc" crops it to fill.
-	size := fmt.tprintf("%dx%d", width_pixels, final_height_pixels)
+	size := fmt.tprintf("%dx%d", width_pixels, width_pixels)
 	cropped, _ := strings.replace_all(
 		with_height,
 		fmt.tprintf("%sac.", size),
 		fmt.tprintf("%scc.", size),
 		context.temp_allocator,
 	)
-	url, _ := strings.replace_all(cropped, "{f}", "jpg", allocator)
+	url, _ := strings.replace_all(cropped, "{f}", "jpg", context.temp_allocator)
 
 	return url
 }

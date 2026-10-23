@@ -53,6 +53,8 @@ build_song_list_page :: proc(
 			if phase == .Ready && len(songs) > 0 do build_play_buttons(songs)
 		}
 
+		if phase == .Loading do kit.build_loading(title)
+
 		if phase == .Ready {
 			if len(songs) == 0 do kit.note("Nothing here yet.")
 			build_song_rows(page, songs, dates)
@@ -181,7 +183,7 @@ build_song_row :: proc(
 			)
 		}
 
-		build_row_heart(row, song, is_current)
+		build_row_heart(song, is_current)
 		ui.box(
 			"",
 			{
@@ -198,7 +200,7 @@ build_song_row :: proc(
 	return menus.apply_song_row_signal(ui.signal(row), song)
 }
 
-build_row_heart :: proc(row: ^ui.Box, chosen: core.Catalog_Song, is_current: bool) {
+build_row_heart :: proc(chosen: core.Catalog_Song, is_current: bool) {
 	song, state := matching.watch_match(chosen)
 
 	if state != .Found {
@@ -216,7 +218,7 @@ build_row_heart :: proc(row: ^ui.Box, chosen: core.Catalog_Song, is_current: boo
 	persistent_id := core.app.now_playing.song.persistent_id if is_current else ""
 	is_favourite := playback.is_favourite(song, persistent_id)
 
-	if playback.build_favourite_button("heart", is_favourite, 13) {
+	if playback.build_favourite_button("heart", is_favourite) {
 		playback.toggle_favourite(song, persistent_id)
 	}
 }

@@ -7,9 +7,6 @@ import "om:font"
 DEFAULT_FONT_SIZE_POINTS :: 13
 
 @(private)
-GLIDE_RATE_PER_SECOND :: HOT_RATE_PER_SECOND / 2
-
-@(private)
 read_font :: proc(style: Style) -> font.Font {
 	size := style.font_size if style.font_size > 0 else DEFAULT_FONT_SIZE_POINTS
 
@@ -189,7 +186,6 @@ place :: proc(box: ^Box, origin: [2]f32, clip: [4]f32) {
 
 	if is_wrapping(box) {
 		wrap_lines(box, &child_clip)
-		if .Animate_Position in style.flags do animate_rect(box)
 		return
 	}
 
@@ -208,8 +204,6 @@ place :: proc(box: ^Box, origin: [2]f32, clip: [4]f32) {
 		place(child, child_origin, child_clip)
 		pen[main] += child.size[main] + style.gap
 	}
-
-	if .Animate_Position in style.flags do animate_rect(box)
 }
 
 @(private)
@@ -222,15 +216,14 @@ resolve_children :: proc(box: ^Box, inner: [2]f32) {
 
 	for child := box.first; child != nil; child = child.next {
 		if .Floating in child.style.flags {
-			resolve_free_size(child, inner)
+			if child.style.width.kind == .Fill do child.size.x = inner.x
+			if child.style.height.kind == .Fill do child.size.y = inner.y
 			continue
 		}
 
 		sizes := [2]Size{child.style.width, child.style.height}
 		count += 1
 
-		if sizes[main].kind == .Percent do child.size[main] = inner[main] * sizes[main].value
-		if sizes[cross].kind == .Percent do child.size[cross] = inner[cross] * sizes[cross].value
 		if sizes[cross].kind == .Fill do child.size[cross] = inner[cross]
 
 		if sizes[main].kind == .Fill {
@@ -256,14 +249,6 @@ resolve_children :: proc(box: ^Box, inner: [2]f32) {
 }
 
 @(private)
-resolve_free_size :: proc(child: ^Box, inner: [2]f32) {
-	if child.style.width.kind == .Percent do child.size.x = inner.x * child.style.width.value
-	if child.style.height.kind == .Percent do child.size.y = inner.y * child.style.height.value
-	if child.style.width.kind == .Fill do child.size.x = inner.x
-	if child.style.height.kind == .Fill do child.size.y = inner.y
-}
-
-@(private)
 fit_text_to_width :: proc(box: ^Box) {
 	if box.text == "" do return
 
@@ -280,23 +265,6 @@ fit_text_to_width :: proc(box: ^Box) {
 
 	if box.style.height.kind == .Text {
 		box.size.y = math.ceil(box.shaped.size_pixels.y / state.pixels_per_point) + padding.y
-	}
-}
-
-@(private)
-animate_rect :: proc(box: ^Box) {
-	if !box.has_shown_rect {
-		box.shown_rect = box.rect
-		box.has_shown_rect = true
-		return
-	}
-
-	for index in 0 ..< 4 {
-		box.shown_rect[index] = approach(
-			box.shown_rect[index],
-			box.rect[index],
-			GLIDE_RATE_PER_SECOND,
-		)
 	}
 }
 

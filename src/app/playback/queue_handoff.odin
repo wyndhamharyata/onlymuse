@@ -268,7 +268,6 @@ apply_added_song :: proc(now_ms: f64) {
 		added_play_count != 0 && added_play_count == queue_state.play_count && queue.is_adding
 	if !is_added_for_play do return
 
-	queue_state.is_polling = true
 	queue_state.poll_deadline_ms = now_ms + ADD_TIMEOUT_SECONDS * 1000
 	queue_state.next_poll_ms = now_ms + ADD_POLL_SECONDS * 1000
 	platform.request_frame_after(ADD_POLL_SECONDS)
@@ -276,10 +275,7 @@ apply_added_song :: proc(now_ms: f64) {
 
 @(private = "file")
 send_due_poll :: proc(now_ms: f64) {
-	is_poll_due :=
-		queue_state.is_polling &&
-		queue_state.next_poll_ms > 0 &&
-		now_ms >= queue_state.next_poll_ms
+	is_poll_due := queue_state.next_poll_ms > 0 && now_ms >= queue_state.next_poll_ms
 	if !is_poll_due do return
 
 	queue_state.next_poll_ms = 0

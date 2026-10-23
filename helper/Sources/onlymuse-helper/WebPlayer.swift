@@ -101,10 +101,12 @@ final class WebPlayer: NSObject, WKUIDelegate, NSWindowDelegate {
   }
 
   private func applyTokens() async -> Bool {
-    guard let page = await readPageTokens(), !page.developerToken.isEmpty else { return false }
+    guard let text = try? await webView?.evaluateJavaScript(Self.readTokensScript) as? String else { return false }
+    guard let data = text.data(using: .utf8), let json = try? JSONSerialization.jsonObject(with: data) as? [String: String] else { return false }
+    guard let developerToken = json["developerToken"], !developerToken.isEmpty else { return false }
 
-    if !page.userToken.isEmpty {
-      send(["type": "tokens", "developerToken": page.developerToken, "userToken": page.userToken])
+    if let userToken = json["userToken"], !userToken.isEmpty {
+      send(["type": "tokens", "developerToken": developerToken, "userToken": userToken])
       finish()
       return true
     }
@@ -124,13 +126,6 @@ final class WebPlayer: NSObject, WKUIDelegate, NSWindowDelegate {
     }
 
     return isSignedOut
-  }
-
-  private func readPageTokens() async -> (developerToken: String, userToken: String)? {
-    guard let webView, let text = try? await webView.evaluateJavaScript(Self.readTokensScript) as? String else { return nil }
-    guard let data = text.data(using: .utf8), let json = try? JSONSerialization.jsonObject(with: data) as? [String: String] else { return nil }
-
-    return (json["developerToken"] ?? "", json["userToken"] ?? "")
   }
 
   private func finish() {

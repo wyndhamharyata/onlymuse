@@ -136,7 +136,7 @@ Input_View_doCommandBySelector :: proc "c" (self: ^Input_View, selector: NS.SEL)
 	request_frame()
 }
 
-set_text_input :: proc(is_on: bool, caret_rect: [4]f32 = {}) {
+set_text_input :: proc(is_on: bool, caret_rect: [4]f32) {
 	state.caret_rect = caret_rect
 	if is_on == state.is_text_input do return
 

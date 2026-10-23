@@ -101,7 +101,6 @@ run :: proc(sql: cstring) {
 	}
 }
 
-@(private)
 now_ms :: proc() -> i64 {
 	return time.to_unix_nanoseconds(time.now()) / 1_000_000
 }
@@ -193,7 +192,7 @@ save_state :: proc(key, value: string) {
 	step_write(statement)
 }
 
-find_match :: proc(youtube_id: string, allocator := context.allocator) -> (string, bool) {
+find_match :: proc(youtube_id: string) -> (string, bool) {
 	statement, ok := prepare("select song from matches where youtube_id = ?")
 	if !ok do return "", false
 	defer mac.sqlite3_finalize(statement)
@@ -202,7 +201,7 @@ find_match :: proc(youtube_id: string, allocator := context.allocator) -> (strin
 
 	if mac.sqlite3_step(statement) != mac.SQLITE_ROW do return "", false
 
-	return read_column_text(statement, 0, allocator), true
+	return read_column_text(statement, 0, context.temp_allocator), true
 }
 
 is_match_rejected :: proc(youtube_id: string) -> bool {
@@ -276,7 +275,7 @@ save_play :: proc(play: Play) {
 	step_write(statement)
 }
 
-list_plays :: proc(since_ms: i64, allocator := context.allocator) -> []Play {
+list_plays :: proc(since_ms: i64) -> []Play {
 	statement, ok := prepare(
 		"select catalog_id, name, artist, album, is_skip, played_at from plays where played_at >= ?1 order by played_at",
 	)
@@ -285,16 +284,16 @@ list_plays :: proc(since_ms: i64, allocator := context.allocator) -> []Play {
 
 	mac.sqlite3_bind_int64(statement, 1, since_ms)
 
-	plays := make([dynamic]Play, allocator)
+	plays := make([dynamic]Play, context.allocator)
 
 	for mac.sqlite3_step(statement) == mac.SQLITE_ROW {
 		append(
 			&plays,
 			Play {
-				catalog_id = read_column_text(statement, 0, allocator),
-				name = read_column_text(statement, 1, allocator),
-				artist = read_column_text(statement, 2, allocator),
-				album = read_column_text(statement, 3, allocator),
+				catalog_id = read_column_text(statement, 0, context.allocator),
+				name = read_column_text(statement, 1, context.allocator),
+				artist = read_column_text(statement, 2, context.allocator),
+				album = read_column_text(statement, 3, context.allocator),
 				is_skip = mac.sqlite3_column_int64(statement, 4) != 0,
 				played_at_ms = mac.sqlite3_column_int64(statement, 5),
 			},

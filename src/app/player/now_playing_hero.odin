@@ -257,9 +257,7 @@ build_actions :: proc(details: Song_Details, persistent_id: string) {
 		if details.song.id != "" && kit.action_button("Add to Playlist", "plus", false) {
 			button := ui.find_box("Add to Playlist", row)
 
-			if button != nil {
-				menus.open_song_menu(details.song, {button.rect.x, button.rect.w + 4}, true)
-			}
+			menus.open_song_menu(details.song, {button.rect.x, button.rect.w + 4}, true)
 		}
 
 		if details.url != "" && kit.action_button("Copy Link", "link", false) {

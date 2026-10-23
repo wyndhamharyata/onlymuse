@@ -134,6 +134,7 @@ build_main_menu :: proc(song: core.Catalog_Song, position, window_size: [2]f32) 
 				"Add to Playlist",
 				"›",
 				song_menu.is_playlists_open,
+				{},
 			)
 			if item.is_clicked || item.is_hovered do song_menu.is_playlists_open = true
 		}
@@ -240,7 +241,7 @@ build_playlist_menu :: proc(
 				},
 				"Return makes the playlist. Escape goes back.",
 			)
-		} else if kit.menu_item("new playlist", "New Playlist…", "", false, core.app.accent) {
+		} else if kit.menu_item("new playlist", "New Playlist…", "", core.app.accent) {
 			song_menu.is_naming = true
 			kit.focus_field(&playlist_name_field)
 		}

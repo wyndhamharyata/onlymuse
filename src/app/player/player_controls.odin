@@ -169,7 +169,7 @@ build_player_end :: proc() {
 		panel_color := core.app.accent if core.app.panel != .None else kit.colors.faint
 
 		if kit.icon_button("panel", "sidebar.right", 16, panel_color) {
-			core.toggle_side_panel()
+			core.set_panel(.None if core.app.panel != .None else core.app.last_panel)
 		}
 
 		kit.icon_box("", "speaker.wave.2.fill", 15, kit.colors.dim)

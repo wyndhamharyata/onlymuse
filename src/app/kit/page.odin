@@ -1,7 +1,11 @@
 package kit
 
+import "core:fmt"
+import "core:math"
+import "core:time"
 import "om:app/core"
 import "om:apple"
+import "om:platform"
 import "om:ui"
 
 page_scroll :: proc(id: string) -> ^ui.Box {
@@ -107,5 +111,83 @@ run_bench_scroll :: proc(list: ^ui.Box) {
 }
 
 to_phase_text :: proc(phase: apple.Phase) -> string {
-	return "onlymuse could not reach Apple Music." if phase == .Failed else "Loading…"
+	return "onlymuse could not reach Apple Music." if phase == .Failed else ""
+}
+
+build_phase :: proc(phase: apple.Phase, what: string) {
+	if phase == .Failed {
+		note(to_phase_text(phase))
+		return
+	}
+
+	build_loading(what)
+}
+
+@(private = "file")
+loading: struct {
+	started_at:  time.Tick,
+	asked_frame: int,
+}
+
+build_loading :: proc(what: string) {
+	is_new_load := loading.started_at == {} || loading.asked_frame + 1 < core.app.frame_count
+	if is_new_load do loading.started_at = time.tick_now()
+	loading.asked_frame = core.app.frame_count
+
+	elapsed_seconds := time.duration_seconds(time.tick_since(loading.started_at))
+	shown_seconds := elapsed_seconds - LOADING_DELAY_SECONDS
+
+	if shown_seconds < 0 {
+		platform.request_frame_after(-shown_seconds)
+		return
+	}
+
+	sweep := f32(1 - math.cos(2 * math.PI * shown_seconds / LOADING_SWEEP_SECONDS)) / 2
+	first_ratio := sweep * (1 - LOADING_SEGMENT_RATIO)
+	dot_count := 1 + int(shown_seconds / LOADING_DOT_SECONDS) % 3
+	opacity := min(1, f32(shown_seconds / LOADING_FADE_SECONDS))
+
+	ui.box("", {width = ui.fill(), height = ui.fill()})
+	column := ui.box(
+		"loading",
+		{
+			width = ui.fill(),
+			height = ui.fit_children(),
+			axis = .Y,
+			align = .Center,
+			gap = 10,
+			fade = 1 - opacity,
+		},
+	)
+
+	if ui.scope(column) {
+		track := ui.box(
+			"",
+			{
+				width = ui.points(LOADING_BAR_WIDTH_POINTS),
+				height = ui.points(BAR_TRACK_HEIGHT_POINTS),
+			},
+		)
+		paint := new(Bar_Paint, context.temp_allocator)
+		paint^ = {first_ratio, first_ratio + LOADING_SEGMENT_RATIO}
+		track.draw = draw_bar
+		track.data = paint
+
+		all_dots := "..."
+		dots_width := ui.points(measure_text(all_dots, LOADING_TEXT_POINTS))
+		label := ui.box("", {width = ui.fit_children(), height = ui.fit_children(), axis = .X})
+
+		if ui.scope(label) {
+			text_box(
+				fmt.tprintf("Loading %s", what),
+				colors.dim,
+				LOADING_TEXT_POINTS,
+				width = ui.fit_text(),
+			)
+			text_box(all_dots[:dot_count], colors.dim, LOADING_TEXT_POINTS, width = dots_width)
+		}
+	}
+
+	ui.box("", {width = ui.fill(), height = ui.fill()})
+	platform.request_frame()
 }

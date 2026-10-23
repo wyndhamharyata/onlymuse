@@ -24,7 +24,6 @@ apply_events :: proc() {
 			state.press_position = state.mouse
 			state.active_key = state.hot_key
 			state.pressed_key = state.hot_key
-			state.click_count = event.click_count
 		case platform.Mouse_Release:
 			if state.is_right_press {
 				state.is_right_press = false
@@ -84,24 +83,20 @@ apply_scroll :: proc(event: platform.Scroll) {
 }
 
 Signal :: struct {
-	box:              ^Box,
 	is_hovered:       bool,
 	is_held:          bool,
 	is_clicked:       bool,
 	is_right_clicked: bool,
-	click_count:      int,
 }
 
 signal :: proc(box: ^Box) -> Signal {
 	is_kept := box.key != 0
 
 	return Signal {
-		box = box,
 		is_hovered = is_kept && box.key == state.hot_key,
 		is_held = is_kept && box.key == state.active_key,
 		is_clicked = is_kept && box.key == state.clicked_key,
 		is_right_clicked = is_kept && box.key == state.right_clicked_key,
-		click_count = state.click_count,
 	}
 }
 

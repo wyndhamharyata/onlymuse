@@ -35,10 +35,6 @@ app: struct {
 	frame_starts:      [dynamic]time.Tick,
 }
 
-toggle_side_panel :: proc() {
-	set_panel(.None if app.panel != .None else app.last_panel)
-}
-
 saved_panels := [Panel]string {
 	.None    = "null",
 	.Lyrics  = `"lyrics"`,

@@ -76,10 +76,8 @@ MIN_PROGRESS_SECONDS :: 0.5
 
 @(private)
 state: struct {
-	process:     os.Process,
 	to_helper:   ^os.File,
 	from_helper: ^os.File,
-	reader:      ^thread.Thread,
 	mutex:       sync.Mutex,
 	write_mutex: sync.Mutex,
 	lines:       [dynamic]string,
@@ -107,7 +105,7 @@ start :: proc(is_background: bool) {
 	append(&child_environment, ..environment)
 	if is_background do append(&child_environment, "GPUIX_BACKGROUND=1")
 
-	process, error := os.process_start(
+	_, error := os.process_start(
 		{
 			command = {path},
 			env = child_environment[:],
@@ -124,11 +122,10 @@ start :: proc(is_background: bool) {
 		return
 	}
 
-	state.process = process
 	state.to_helper = to_helper
 	state.from_helper = from_helper
 	state.is_started = true
-	state.reader = thread.create_and_start(read_lines)
+	thread.create_and_start(read_lines)
 }
 
 @(private)
@@ -209,7 +206,7 @@ apply :: proc(now_playing: ^Now_Playing, message: Message) {
 		now_playing.song = clone_song(message.song)
 
 		now_playing.position_seconds = message.position_seconds
-		now_playing.position_read_at_ms = to_read_at_ms(message, now_ms())
+		now_playing.position_read_at_ms = to_read_at_ms(message.position_read_at_ms, now_ms())
 		now_playing.stall_count = 0
 		now_playing.has_started =
 			message.has_started || message.position_seconds >= MIN_PROGRESS_SECONDS
@@ -224,13 +221,13 @@ apply :: proc(now_playing: ^Now_Playing, message: Message) {
 		now_playing.stall_count = 0 if has_moved else now_playing.stall_count + 1
 		if has_moved do now_playing.has_started = true
 		now_playing.position_seconds = message.position_seconds
-		now_playing.position_read_at_ms = to_read_at_ms(message, now_ms())
+		now_playing.position_read_at_ms = to_read_at_ms(message.position_read_at_ms, now_ms())
 	}
 }
 
 @(private)
-to_read_at_ms :: proc(message: Message, now_ms: f64) -> f64 {
-	return min(message.position_read_at_ms, now_ms) if message.position_read_at_ms > 0 else now_ms
+to_read_at_ms :: proc(read_at_ms, now_ms: f64) -> f64 {
+	return min(read_at_ms, now_ms) if read_at_ms > 0 else now_ms
 }
 
 @(private)

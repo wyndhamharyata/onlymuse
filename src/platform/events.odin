@@ -25,22 +25,19 @@ Mouse_Move :: struct {
 }
 
 Mouse_Press :: struct {
-	position:    [2]f32,
-	button:      Mouse_Button,
-	click_count: int,
-	modifiers:   Modifiers,
+	position:  [2]f32,
+	button:    Mouse_Button,
+	modifiers: Modifiers,
 }
 
 Mouse_Release :: struct {
-	position: [2]f32,
-	button:   Mouse_Button,
+	button: Mouse_Button,
 }
 
 Mouse_Exit :: struct {
 }
 
 Scroll :: struct {
-	position:   [2]f32,
 	// The delta is in points for a trackpad and in lines for a mouse wheel.
 	delta:      [2]f32,
 	is_precise: bool,
@@ -51,7 +48,6 @@ Key_Press :: struct {
 	key_code:   u16,
 	characters: string,
 	modifiers:  Modifiers,
-	is_repeat:  bool,
 }
 
 Text_Insert :: struct {
@@ -120,17 +116,9 @@ apply_event :: proc(event: ^NS.Event) -> bool {
 	case .LeftMouseDown, .RightMouseDown, .OtherMouseDown:
 		button := to_button(event)
 
-		append(
-			&state.events,
-			Mouse_Press {
-				read_position(event),
-				button,
-				int(event->clickCount()),
-				to_modifiers(event),
-			},
-		)
+		append(&state.events, Mouse_Press{read_position(event), button, to_modifiers(event)})
 	case .LeftMouseUp, .RightMouseUp, .OtherMouseUp:
-		append(&state.events, Mouse_Release{read_position(event), to_button(event)})
+		append(&state.events, Mouse_Release{to_button(event)})
 	case .ApplicationDefined:
 		request_frame()
 		return true
@@ -144,7 +132,6 @@ apply_event :: proc(event: ^NS.Event) -> bool {
 			&state.events,
 			Scroll {
 				is_start = phase == 1 || phase == 32,
-				position = read_position(event),
 				delta = {f32(event->scrollingDeltaX()), f32(event->scrollingDeltaY())},
 				is_precise = bool(event->hasPreciseScrollingDeltas()),
 			},
@@ -166,7 +153,6 @@ apply_event :: proc(event: ^NS.Event) -> bool {
 				key_code = u16(event->keyCode()),
 				characters = strings.clone(characters, event_allocator()),
 				modifiers = modifiers,
-				is_repeat = bool(event->isARepeat()),
 			},
 		)
 		is_taken = true

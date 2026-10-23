@@ -84,6 +84,20 @@ MIN_WINDOW_WIDTH_POINTS :: 1000
 
 MIN_WINDOW_HEIGHT_POINTS :: 600
 
+LOADING_DELAY_SECONDS :: 0.3
+
+LOADING_FADE_SECONDS :: 0.2
+
+LOADING_DOT_SECONDS :: 0.4
+
+LOADING_SWEEP_SECONDS :: 1.6
+
+LOADING_BAR_WIDTH_POINTS :: 160
+
+LOADING_SEGMENT_RATIO :: 0.3
+
+LOADING_TEXT_POINTS :: 13
+
 to_color_from_hex_digits :: proc(hex: string) -> ([4]f32, bool) {
 	if len(hex) != 6 do return {}, false
 

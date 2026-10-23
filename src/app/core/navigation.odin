@@ -48,7 +48,7 @@ current_page :: proc() -> Page {
 navigation_visit: int
 
 navigate :: proc(chosen: Page) {
-	if has_history() && current_page() == chosen do return
+	if current_page() == chosen do return
 
 	page := Page {
 		kind  = chosen.kind,
@@ -56,7 +56,7 @@ navigate :: proc(chosen: Page) {
 		title = strings.clone(chosen.title),
 	}
 
-	kept := navigation.index + 1 if has_history() else 0
+	kept := navigation.index + 1
 	resize(&navigation.pages, kept)
 	resize(&navigation.scrolls, kept)
 	append(&navigation.pages, page)
@@ -69,11 +69,6 @@ navigate :: proc(chosen: Page) {
 
 	navigation.index = len(navigation.pages) - 1
 	save_visit()
-}
-
-@(private = "file")
-has_history :: proc() -> bool {
-	return len(navigation.pages) > 0
 }
 
 @(private = "file")
@@ -223,7 +218,7 @@ start_navigation :: proc() {
 		}
 	}
 
-	if !has_history() {
+	if len(navigation.pages) == 0 {
 		append(&navigation.pages, Page{kind = .Home})
 		append(&navigation.scrolls, 0)
 	}
@@ -235,8 +230,6 @@ start_navigation :: proc() {
 
 keep_scroll :: proc(page_box: ^ui.Box) {
 	index := navigation.index
-	if index >= len(navigation.scrolls) do return
-
 	saved := navigation.scrolls[index]
 
 	if restore.visit != navigation_visit {

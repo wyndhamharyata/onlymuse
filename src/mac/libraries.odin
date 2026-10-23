@@ -20,7 +20,6 @@ SQLITE_TRANSIENT :: rawptr(~uintptr(0))
 @(default_calling_convention = "c")
 foreign sqlite {
 	sqlite3_open_v2 :: proc(path: cstring, database: ^Sqlite, flags: c.int, vfs: cstring) -> c.int ---
-	sqlite3_close :: proc(database: Sqlite) -> c.int ---
 	sqlite3_prepare_v2 :: proc(database: Sqlite, sql: cstring, byte_count: c.int, statement: ^Sqlite_Statement, tail: ^cstring) -> c.int ---
 	sqlite3_bind_text :: proc(statement: Sqlite_Statement, index: c.int, text: [^]u8, byte_count: c.int, destructor: rawptr) -> c.int ---
 	sqlite3_bind_int64 :: proc(statement: Sqlite_Statement, index: c.int, value: i64) -> c.int ---

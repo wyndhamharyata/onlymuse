@@ -101,7 +101,7 @@ watch :: proc(path: string) -> Watched {
 	sync.guard(&cache.mutex)
 
 	if entry, ok := cache.entries[path]; ok {
-		entry.used_at_ms = now_ms()
+		entry.used_at_ms = store.now_ms()
 		can_retry :=
 			entry.phase == .Failed &&
 			!entry.is_checking &&
@@ -117,7 +117,7 @@ watch :: proc(path: string) -> Watched {
 
 	entry := new(Entry)
 	entry.path = strings.clone(path)
-	entry.used_at_ms = now_ms()
+	entry.used_at_ms = store.now_ms()
 	cache.entries[entry.path] = entry
 
 	saved, is_saved := store.find_answer(path)
@@ -128,7 +128,7 @@ watch :: proc(path: string) -> Watched {
 		cache.last_version += 1
 		entry.version = cache.last_version
 
-		age := time.Duration((now_ms() - saved.fetched_at_ms) * i64(time.Millisecond))
+		age := time.Duration((store.now_ms() - saved.fetched_at_ms) * i64(time.Millisecond))
 		if age < to_fresh_duration(path) do return entry.watched
 	}
 
@@ -136,11 +136,6 @@ watch :: proc(path: string) -> Watched {
 	thread.pool_add_task(&cache.pool, context.allocator, fetch_entry, entry)
 
 	return entry.watched
-}
-
-@(private)
-now_ms :: proc() -> i64 {
-	return time.to_unix_nanoseconds(time.now()) / 1_000_000
 }
 
 @(private)
@@ -167,7 +162,7 @@ fetch_entry :: proc(task: thread.Task) {
 		entry.phase = .Ready
 	case is_failure_with_no_answer:
 		entry.phase = .Failed
-		entry.failed_at_ms = now_ms()
+		entry.failed_at_ms = store.now_ms()
 		delete(answer.body)
 	case:
 		delete(answer.body)
@@ -204,7 +199,7 @@ free_unused_answers :: proc() {
 
 	for _ in thread.pool_pop_done(&cache.pool) {}
 
-	now := now_ms()
+	now := store.now_ms()
 	unused := make([dynamic]string, context.temp_allocator)
 
 	for path, entry in cache.entries {

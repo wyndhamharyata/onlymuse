@@ -66,15 +66,9 @@ final class MusicApp {
     if let path = saveArtwork(persistentID: persistentID) { song["artworkPath"] = path }
 
     return [
-      "type": "nowPlaying", "state": Self.toState(fields[0]), "volumePercent": volumePercent,
+      "type": "nowPlaying", "state": fields[0] == "paused" ? "paused" : "playing", "volumePercent": volumePercent,
       "positionSeconds": Self.readSeconds(fields[2]), "positionReadAtMs": positionReadAtMs, "song": song,
     ]
-  }
-
-  func readPosition() -> [String: Any]? {
-    guard let playback = readPlayback() else { return nil }
-
-    return makePositionMessage(persistentID: playback.persistentID, positionSeconds: playback.positionSeconds)
   }
 
   func apply(_ command: Command) {
@@ -332,9 +326,5 @@ final class MusicApp {
   // AppleScript writes a real number with the system's decimal mark, such as "12,5" in Indonesia.
   private static func readSeconds(_ text: String) -> Double {
     Double(text.replacingOccurrences(of: ",", with: ".")) ?? 0
-  }
-
-  private static func toState(_ playerState: String) -> String {
-    playerState == "paused" ? "paused" : "playing"
   }
 }

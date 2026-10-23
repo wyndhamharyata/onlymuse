@@ -89,7 +89,7 @@ fetch_lyrics :: proc(data: rawptr) {
 	arena: virtual.Arena
 	_ = virtual.arena_init_growing(&arena)
 
-	lines, songwriters, ok := fetch_lines(
+	lines, songwriters := fetch_lines(
 		request.name,
 		request.artist,
 		virtual.arena_allocator(&arena),
@@ -102,7 +102,7 @@ fetch_lyrics :: proc(data: rawptr) {
 		return
 	}
 
-	state.phase = .Ready if ok && len(lines) > 0 else .Missing
+	state.phase = .Ready if len(lines) > 0 else .Missing
 	state.lines = lines
 	state.songwriters = songwriters
 	state.arena = arena
@@ -115,12 +115,12 @@ LYRICS_QUERY ::
 	"?l%5Blyrics%5D=" + apple.LANGUAGE + "&l%5Bscript%5D=en-Latn&extend=ttmlLocalizations"
 
 @(private)
-fetch_lines :: proc(name, artist: string, allocator: mem.Allocator) -> ([]Line, []string, bool) {
+fetch_lines :: proc(name, artist: string, allocator: mem.Allocator) -> ([]Line, []string) {
 	song_id, ok := find_song_id(name, artist)
-	if !ok do return nil, nil, false
+	if !ok do return nil, nil
 
 	// Only a catalog ID is all digits. A YouTube or library ID has no lyrics.
-	for character in song_id do if character < '0' || character > '9' do return nil, nil, false
+	for character in song_id do if character < '0' || character > '9' do return nil, nil
 
 	answer := apple.fetch(
 		fmt.tprintf(
@@ -129,18 +129,16 @@ fetch_lines :: proc(name, artist: string, allocator: mem.Allocator) -> ([]Line, 
 			song_id,
 			LYRICS_QUERY,
 		),
-		context.temp_allocator,
 	)
 	is_syllable := answer.status == 200
 
 	if !is_syllable {
 		answer = apple.fetch(
 			fmt.tprintf("/v1/catalog/%s/songs/%s/lyrics", apple.STOREFRONT, song_id),
-			context.temp_allocator,
 		)
 	}
 
-	if answer.status != 200 do return nil, nil, false
+	if answer.status != 200 do return nil, nil
 
 	Lyrics_Answer :: struct {
 		data: []struct {
@@ -154,15 +152,15 @@ fetch_lines :: proc(name, artist: string, allocator: mem.Allocator) -> ([]Line, 
 	parsed: Lyrics_Answer
 
 	if json.unmarshal_string(answer.body, &parsed, allocator = context.temp_allocator) != nil {
-		return nil, nil, false
+		return nil, nil
 	}
-	if len(parsed.data) == 0 do return nil, nil, false
+	if len(parsed.data) == 0 do return nil, nil
 
 	attributes := parsed.data[0].attributes
 	ttml :=
 		attributes.ttml_localizations if attributes.ttml_localizations != "" else attributes.ttml
 
-	return to_lines(ttml, allocator), to_songwriters(ttml, allocator), true
+	return to_lines(ttml, allocator), to_songwriters(ttml, allocator)
 }
 
 list_songwriters :: proc(persistent_id: string) -> []string {
@@ -174,12 +172,11 @@ list_songwriters :: proc(persistent_id: string) -> []string {
 // A song started outside onlymuse has no catalog ID, so the saved queue or a search finds it.
 @(private)
 find_song_id :: proc(name, artist: string) -> (string, bool) {
-	if id, ok := find_queue_song_id(name, artist, context.temp_allocator); ok do return id, true
+	if id, ok := find_queue_song_id(name, artist); ok do return id, true
 
 	term := apple.to_query_text(fmt.tprintf("%s %s", name, artist))
 	answer := apple.fetch(
 		fmt.tprintf("/v1/catalog/%s/search?term=%s&types=songs&limit=25", apple.STOREFRONT, term),
-		context.temp_allocator,
 	)
 	if answer.status != 200 do return "", false
 
@@ -199,13 +196,7 @@ find_song_id :: proc(name, artist: string) -> (string, bool) {
 }
 
 @(private)
-find_queue_song_id :: proc(
-	name, artist: string,
-	allocator := context.allocator,
-) -> (
-	string,
-	bool,
-) {
+find_queue_song_id :: proc(name, artist: string) -> (string, bool) {
 	Queue :: struct {
 		songs: []struct {
 			id:          string,
@@ -225,7 +216,7 @@ find_queue_song_id :: proc(
 
 	for song in queue.songs {
 		if is_same_song(song.name, song.artist_name, name, artist) {
-			return strings.clone(song.id, allocator), true
+			return song.id, true
 		}
 	}
 

@@ -62,9 +62,7 @@ run_write :: proc(data: rawptr) {
 		sync.guard(&write_results.mutex)
 		append(&write_results.toasts, toast)
 
-		if is_done && job.refresh_path != "" {
-			append(&write_results.refresh, strings.clone(job.refresh_path))
-		}
+		if is_done do append(&write_results.refresh, strings.clone(job.refresh_path))
 	}
 	platform.wake()
 

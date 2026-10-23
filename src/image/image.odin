@@ -190,9 +190,8 @@ find_stand_in :: proc(family, key: u64, crop: Crop) -> (^Entry, bool) {
 	stand_in_key, ok := state.families[family]
 	if !ok || stand_in_key == key do return nil, false
 
-	stand_in := state.entries[stand_in_key] or_else nil
-	is_usable_stand_in := stand_in != nil && stand_in.phase == .Ready && stand_in.crop == crop
-	if !is_usable_stand_in do return nil, false
+	stand_in := state.entries[stand_in_key]
+	if stand_in.crop != crop do return nil, false
 
 	return stand_in, true
 }
@@ -228,11 +227,9 @@ take_finished :: proc() {
 
 	for job in state.finished {
 		state.loading_count -= 1
-		entry := state.entries[job.key] or_else nil
+		entry := state.entries[job.key]
 
-		if entry == nil {
-			if job.texture != nil do job.texture->release()
-		} else if job.texture == nil {
+		if job.texture == nil {
 			entry.phase = .Failed
 			entry.failed_time = time.tick_now()
 		} else {
@@ -308,8 +305,5 @@ find_color :: proc(url: string) -> (Color, bool) {
 	key, ok := state.families[to_family(url)]
 	if !ok do return {}, false
 
-	entry := state.entries[key] or_else nil
-	if entry == nil || entry.phase != .Ready do return {}, false
-
-	return entry.color, true
+	return state.entries[key].color, true
 }

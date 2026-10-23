@@ -121,8 +121,8 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f3
 @(private = "file")
 build_stat_card :: proc(
 	id, label, value, note_text: string,
-	weight: f32 = 1,
-	is_stacked := false,
+	weight: f32,
+	is_stacked: bool,
 ) -> ^ui.Box {
 	card := ui.box(
 		id,

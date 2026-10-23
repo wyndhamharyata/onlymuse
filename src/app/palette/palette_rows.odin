@@ -115,7 +115,7 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 				apple.to_artwork_url(result.artwork, kit.to_artwork_pixels(ROW_ARTWORK_POINTS)),
 				ROW_ARTWORK_POINTS,
 				ROW_ARTWORK_POINTS / 2 if result.is_round else 4,
-				kit.to_placeholder(result.artwork, result.title, "music.note"),
+				kit.to_placeholder(result.artwork, result.title),
 			)
 		} else {
 			kit.icon_box(

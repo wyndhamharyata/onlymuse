@@ -38,25 +38,20 @@ func pauseWhenAppEnds() {
 application.setActivationPolicy(.accessory)
 
 // ⌘V and other editing keys reach a sign-in page only through an Edit menu, even a hidden one.
-func makeEditMenu() -> NSMenu {
-  let bar = NSMenu()
-  let editItem = NSMenuItem()
-  let edit = NSMenu(title: "Edit")
+let bar = NSMenu()
+let editItem = NSMenuItem()
+let edit = NSMenu(title: "Edit")
 
-  edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
-  edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
-  edit.addItem(.separator())
-  edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-  edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-  edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-  edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
-  editItem.submenu = edit
-  bar.addItem(editItem)
-
-  return bar
-}
-
-application.mainMenu = makeEditMenu()
+edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+edit.addItem(.separator())
+edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+editItem.submenu = edit
+bar.addItem(editItem)
+application.mainMenu = bar
 
 DistributedNotificationCenter.default().addObserver(forName: .init("com.apple.Music.playerInfo"), object: nil, queue: .main) { _ in
   MainActor.assumeIsolated {
@@ -94,7 +89,7 @@ Timer.scheduledTimer(withTimeInterval: musicCheckSeconds, repeats: true) { _ in
     guard !youTube.isActive else { return }
 
     music.sendVolumeWhenChanged()
-    if let position = music.readPosition() { send(position) }
+    if let playback = music.readPlayback() { send(makePositionMessage(persistentID: playback.persistentID, positionSeconds: playback.positionSeconds)) }
   }
 }
 

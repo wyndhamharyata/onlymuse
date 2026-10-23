@@ -52,15 +52,9 @@ Method :: enum {
 }
 
 // fetch never retries a POST. A retry after a lost answer could put a song in the library twice.
-fetch :: proc(
-	url: string,
-	headers: []string = nil,
-	allocator := context.allocator,
-	method := Method.Get,
-	body := "",
-) -> Response {
+fetch :: proc(url: string, headers: []string = nil, method := Method.Get, body := "") -> Response {
 	for attempt := 0;; attempt += 1 {
-		response := fetch_once(url, headers, method, allocator, body)
+		response := fetch_once(url, headers, method, body)
 		if method == .Post do return response
 
 		is_retryable := response.status == 0 || response.status == 429 || response.status >= 500
@@ -68,7 +62,7 @@ fetch :: proc(
 
 		if !is_retryable || !has_retries_left do return response
 
-		delete(response.body, allocator)
+		delete(response.body, context.temp_allocator)
 		time.sleep(retry_delays[attempt])
 	}
 }
@@ -78,7 +72,6 @@ fetch_once :: proc(
 	url: string,
 	headers: []string,
 	method: Method,
-	allocator := context.allocator,
 	request_body := "",
 ) -> Response {
 	if thread_handle == nil do thread_handle = mac.curl_easy_init()
@@ -86,7 +79,7 @@ fetch_once :: proc(
 	handle := thread_handle
 	mac.curl_easy_reset(handle)
 
-	body := make([dynamic]u8, allocator)
+	body := make([dynamic]u8, context.temp_allocator)
 	header_list: mac.Curl_List
 	defer mac.curl_slist_free_all(header_list)
 
@@ -109,10 +102,7 @@ fetch_once :: proc(
 	mac.curl_easy_setopt(handle, mac.CURLOPT_TIMEOUT_MS, c.long(TIMEOUT_MS))
 	mac.curl_easy_setopt(handle, mac.CURLOPT_WRITEFUNCTION, mac.Curl_Write_Proc(append_body))
 	mac.curl_easy_setopt(handle, mac.CURLOPT_WRITEDATA, rawptr(&body))
-
-	if header_list != nil {
-		mac.curl_easy_setopt(handle, mac.CURLOPT_HTTPHEADER, rawptr(header_list))
-	}
+	mac.curl_easy_setopt(handle, mac.CURLOPT_HTTPHEADER, rawptr(header_list))
 
 	if method == .Post {
 		mac.curl_easy_setopt(handle, mac.CURLOPT_POST, c.long(1))
@@ -137,7 +127,7 @@ fetch_once :: proc(
 
 	return Response {
 		int(status),
-		strings.clone_from_cstring(content_type, allocator) if content_type != nil else "",
+		strings.clone_from_cstring(content_type, context.temp_allocator) if content_type != nil else "",
 		body[:],
 	}
 }

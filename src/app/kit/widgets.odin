@@ -107,7 +107,6 @@ text_box :: proc(
 	color: [4]f32,
 	font_size: f32 = 13,
 	weight := font.Weight.Regular,
-	flags: ui.Flags = {.Truncate_Text},
 	width := ui.Size{.Fill, 1},
 ) -> ^ui.Box {
 	return ui.box(
@@ -118,14 +117,14 @@ text_box :: proc(
 			text_color = color,
 			font_size = font_size,
 			font_weight = weight,
-			flags = flags,
+			flags = {.Truncate_Text},
 		},
 		text,
 	)
 }
 
 Bar_Paint :: struct {
-	ratio: f32,
+	first_ratio, last_ratio: f32,
 }
 
 BAR_TRACK_HEIGHT_POINTS :: 4
@@ -135,8 +134,10 @@ draw_bar :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	track_height := ui.to_pixels(BAR_TRACK_HEIGHT_POINTS)
 	top := (rect.y + rect.w - track_height) / 2
 	track := [4]f32{rect.x, top, rect.z, top + track_height}
+	track_width := track.z - track.x
 	filled := track
-	filled.z = track.x + (track.z - track.x) * clamp(paint.ratio, 0, 1)
+	filled.x = track.x + track_width * clamp(paint.first_ratio, 0, 1)
+	filled.z = track.x + track_width * clamp(paint.last_ratio, 0, 1)
 	radius := track_height / 2
 
 	render.push(
@@ -169,7 +170,7 @@ bar :: proc(id: string, ratio: f32, width: ui.Size) -> (shown_ratio: f32, is_set
 	}
 
 	paint := new(Bar_Paint, context.temp_allocator)
-	paint.ratio = shown_ratio
+	paint.last_ratio = shown_ratio
 	box.draw = draw_bar
 	box.data = paint
 

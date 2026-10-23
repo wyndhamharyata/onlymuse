@@ -36,16 +36,30 @@ open_window :: proc(
 
 	content_rect := NS.Rect{{0, 0}, {NS.Float(size_points.x), NS.Float(size_points.y)}}
 	state.ns_window = make_ns_window(title, content_rect, min_size_points)
-	blur := make_blur_view(content_rect)
-	state.ns_window->setContentView(blur)
+	// The views, back to front: the live blur, the blurred wallpaper, the frames and the typing.
+	content := objc_send(
+		^NS.View,
+		objc_send(^NS.View, NS.View, "alloc"),
+		"initWithFrame:",
+		content_rect,
+	)
+	state.ns_window->setContentView(content)
+	state.blur_view = make_blur_view(content_rect)
+	content->addSubview(state.blur_view)
+
+	// The live blur shows when the wallpaper cannot be read as a still image, and during a drag.
+	if backdrop := make_backdrop_view(content_rect); backdrop != nil {
+		content->addSubview(backdrop)
+		objc_send(nil, state.blur_view, "setHidden:", NS.BOOL(true))
+	}
 
 	device := MTL.CreateSystemDefaultDevice()
 	layer := make_metal_layer(device)
 	state.view = make_metal_view(layer, content_rect)
-	blur->addSubview(state.view)
+	content->addSubview(state.view)
 
 	state.input_view = make_input_view()
-	blur->addSubview(state.input_view)
+	content->addSubview(state.input_view)
 
 	state.target = objc_send(^Target, objc_send(^Target, Target, "alloc"), "init")
 	state.ns_window->setDelegate(cast(^NS.WindowDelegate)state.target)
@@ -111,6 +125,7 @@ make_blur_view :: proc(content_rect: NS.Rect) -> ^Blur_View {
 
 	objc_send(nil, blur, "setMaterial:", NS.Integer(MATERIAL_SELECTION))
 	objc_send(nil, blur, "setState:", NS.Integer(BLUR_ALWAYS_ACTIVE))
+	objc_send(nil, blur, "setAutoresizingMask:", NS.UInteger(SIZE_WITH_SUPERVIEW))
 
 	return blur
 }

@@ -123,6 +123,7 @@ open_main_window :: proc(is_background: bool) {
 		draw_frame,
 		is_behind,
 	)
+	platform.set_background(kit.colors.window)
 
 	// A zoom saved on a larger screen steps down until its smallest window fits on this one.
 	for core.app.zoom > zoom_steps[0] && !does_zoom_fit(core.app.zoom) {

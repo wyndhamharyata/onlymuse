@@ -3,6 +3,7 @@ package render
 
 import "base:intrinsics"
 import "core:fmt"
+import "core:mem"
 import "core:os"
 import NS "core:sys/darwin/Foundation"
 import MTL "vendor:darwin/Metal"
@@ -69,6 +70,13 @@ state: struct {
 	batches:         [dynamic]Batch,
 	size_pixels:     [2]f32,
 	capture_path:    string,
+	// The last frame on screen. A frame that matches it is not drawn again.
+	shown_instances: [dynamic]Instance,
+	shown_batches:   [dynamic]Batch,
+	shown_size:      [2]f32,
+	shown_uploads:   int,
+	// Image threads also upload, so this count changes atomically.
+	upload_count:    int,
 }
 
 @(private)
@@ -151,6 +159,7 @@ upload_texture :: proc(texture: ^MTL.Texture, rect: [4]int, pixels: rawptr, byte
 	}
 
 	texture->replaceRegion(region, 0, pixels, NS.UInteger(bytes_per_row))
+	intrinsics.atomic_add(&state.upload_count, 1)
 }
 
 begin_frame :: proc(size_pixels: [2]f32) {
@@ -249,8 +258,34 @@ capture :: proc(buffer: ^MTL.Buffer) {
 	state.capture_path = ""
 }
 
+// True when this frame draws the same pixels as the frame on screen: the same instances, textures,
+// size and texture contents. A hover move over plain text and the last frame of an animation are
+// such frames.
+@(private)
+is_same_as_shown :: proc(upload_count: int) -> bool {
+	return(
+		state.size_pixels == state.shown_size &&
+		upload_count == state.shown_uploads &&
+		mem.compare(
+			mem.slice_to_bytes(state.batches[:]),
+			mem.slice_to_bytes(state.shown_batches[:]),
+		) ==
+			0 &&
+		mem.compare(
+			mem.slice_to_bytes(state.instances[:]),
+			mem.slice_to_bytes(state.shown_instances[:]),
+		) ==
+			0 \
+	)
+}
+
 // drawable comes from the display link.
 end_frame :: proc(drawable: ^CA.MetalDrawable) {
+	upload_count := intrinsics.atomic_load(&state.upload_count)
+
+	// The screen keeps the last frame, so a frame that matches it needs no GPU work.
+	if drawable != nil && state.capture_path == "" && is_same_as_shown(upload_count) do return
+
 	slot := state.frame_index % FRAMES_IN_FLIGHT
 	state.frame_index += 1
 
@@ -290,4 +325,10 @@ end_frame :: proc(drawable: ^CA.MetalDrawable) {
 	command_buffer->commit()
 	command_buffer->retain()
 	state.command_buffers[slot] = command_buffer
+
+	// The swap keeps both lists' memory. begin_frame clears the list that the next frame fills.
+	state.instances, state.shown_instances = state.shown_instances, state.instances
+	state.batches, state.shown_batches = state.shown_batches, state.batches
+	state.shown_size = state.size_pixels
+	state.shown_uploads = upload_count
 }

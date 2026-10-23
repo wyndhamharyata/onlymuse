@@ -22,11 +22,11 @@ to_color_from_hex :: proc(hex: string) -> [4]f32 {
 	return parse_hex_color(hex[1:]) or_else DEFAULT_ACCENT
 }
 
-// The colours of the design's mock. The window blurs what is behind it and tints it at 85%.
+// The colours of the design's mock. The window blurs what is behind it and tints it near black at 75%.
 colors := struct {
 	window, sidebar, player, panel, ink, line, card, hover, selected, field, text, dim, faint, track, youtube: [4]f32,
 } {
-	window   = to_color(0x1b1b1ed9),
+	window   = to_color(0x0e0e10bf),
 	sidebar  = to_color(0xffffff08),
 	player   = to_color(0xffffff06),
 	panel    = to_color(0xffffff06),

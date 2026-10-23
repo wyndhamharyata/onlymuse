@@ -38,7 +38,9 @@ draw_frame :: proc() -> bool {
 
 	root := ui.current_parent()
 	root.style.axis = .Y
-	root.style.background = kit.colors.window
+	// The window's layer paints this colour under every frame. A capture saves the frame alone,
+	// so only a capture draws the colour itself.
+	if core.app.capture_path != "" do root.style.background = kit.colors.window
 	is_lyrics_moving := false
 
 	top := ui.box("top", {width = ui.fill(), height = ui.fill(), axis = .X})

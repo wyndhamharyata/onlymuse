@@ -54,6 +54,13 @@ state: struct {
 	marked_length:      int,
 	// The caret of the focused field, in window points from the top left, for the input method.
 	caret_rect:         [4]f32,
+	blur_view:          ^NS.View,
+	// The blurred wallpaper's layer and view, nil when the wallpaper cannot be read.
+	backdrop:           ^Layer,
+	backdrop_view:      ^NS.View,
+	// Runs during a drag of the window, then counts fade_steps down as the backdrop fades in.
+	drag_timer:         ^NS.Timer,
+	fade_steps:         int,
 	odin_context:       runtime.Context,
 }
 
@@ -91,7 +98,40 @@ Target_timerFired :: proc "c" (self: ^Target, timer: NS.id) {
 
 @(objc_type = Target, objc_implement, objc_name = "windowDidResize", objc_selector = "windowDidResize:")
 Target_windowDidResize :: proc "c" (self: ^Target, notification: NS.id) {
+	context = state.odin_context
+	move_backdrop()
 	request_frame()
+}
+
+@(objc_type = Target, objc_implement, objc_name = "windowDidMove", objc_selector = "windowDidMove:")
+Target_windowDidMove :: proc "c" (self: ^Target, notification: NS.id) {
+	context = state.odin_context
+	move_backdrop()
+}
+
+@(objc_type = Target, objc_implement, objc_name = "windowWillMove", objc_selector = "windowWillMove:")
+Target_windowWillMove :: proc "c" (self: ^Target, notification: NS.id) {
+	context = state.odin_context
+	start_window_drag()
+}
+
+@(objc_type = Target, objc_implement, objc_name = "dragTimerFired", objc_selector = "dragTimerFired:")
+Target_dragTimerFired :: proc "c" (self: ^Target, timer: NS.id) {
+	context = state.odin_context
+	step_window_drag()
+}
+
+@(objc_type = Target, objc_implement, objc_name = "windowDidChangeScreen", objc_selector = "windowDidChangeScreen:")
+Target_windowDidChangeScreen :: proc "c" (self: ^Target, notification: NS.id) {
+	context = state.odin_context
+	refresh_backdrop()
+}
+
+// The person may have changed the wallpaper or the Space while the window was in the back.
+@(objc_type = Target, objc_implement, objc_name = "windowDidBecomeKey", objc_selector = "windowDidBecomeKey:")
+Target_windowDidBecomeKey :: proc "c" (self: ^Target, notification: NS.id) {
+	context = state.odin_context
+	refresh_backdrop()
 }
 
 @(objc_type = Target, objc_implement, objc_name = "windowShouldClose", objc_selector = "windowShouldClose:")
@@ -103,13 +143,6 @@ Target_windowShouldClose :: proc "c" (self: ^Target, sender: NS.id) -> NS.BOOL {
 
 // The procedures live in libobjc, which Odin links into every Objective-C program.
 foreign import objc_runtime "system:Foundation.framework"
-
-// Lets the blur view run AppKit's own updateLayer before it removes the tint.
-@(private)
-Objc_Super :: struct {
-	receiver:    ^Blur_View,
-	super_class: NS.Class,
-}
 
 @(default_calling_convention = "c", private)
 foreign objc_runtime {

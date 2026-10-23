@@ -18,6 +18,34 @@ Blur_View :: struct {
 	using _: Visual_Effect_View,
 }
 
+// Tints the blur with color, in sRGB. The window server paints it under each frame, so a scrolled
+// frame does not shade every pixel of the window for it.
+set_background :: proc(color: [4]f32) {
+	ns_color := objc_send(
+		^NS.Color,
+		NS.Color,
+		"colorWithSRGBRed:green:blue:alpha:",
+		NS.Float(color.r),
+		NS.Float(color.g),
+		NS.Float(color.b),
+		NS.Float(color.a),
+	)
+
+	objc_send(
+		nil,
+		state.window.layer,
+		"setBackgroundColor:",
+		objc_send(rawptr, ns_color, "CGColor"),
+	)
+}
+
+// Lets the blur view run AppKit's own updateLayer before it removes the tint.
+@(private)
+Objc_Super :: struct {
+	receiver:    ^Blur_View,
+	super_class: NS.Class,
+}
+
 // AppKit puts back its tint and saturation layers each time it updates the blur.
 @(objc_type = Blur_View, objc_implement, objc_name = "updateLayer")
 Blur_View_updateLayer :: proc "c" (self: ^Blur_View) {
@@ -28,7 +56,8 @@ Blur_View_updateLayer :: proc "c" (self: ^Blur_View) {
 
 @(private)
 remove_layer_background :: proc "c" (layer: ^Layer) {
-	if layer == nil do return
+	// The Metal layer's colour is the window's own tint, from set_background.
+	if layer == nil || rawptr(layer) == rawptr(state.window.layer) do return
 
 	objc_send(nil, layer, "setBackgroundColor:", rawptr(nil))
 

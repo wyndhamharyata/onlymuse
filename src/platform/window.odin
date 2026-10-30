@@ -33,7 +33,7 @@ state: struct {
 	display_link:       ^Display_Link,
 	target:             ^Target,
 	timer:              ^NS.Timer,
-	// Windows cover a background window. macOS stops its display link, so a timer runs its frames.
+	// macOS stops the display link of a covered window, so a timer runs its frames.
 	is_background:      bool,
 	frame_timer:        ^NS.Timer,
 	is_link_running:    bool,
@@ -123,6 +123,12 @@ Target_windowDidBecomeKey :: proc "c" (self: ^Target, notification: NS.id) {
 	apply_screen_change()
 }
 
+@(objc_type = Target, objc_implement, objc_name = "windowDidChangeOcclusionState", objc_selector = "windowDidChangeOcclusionState:")
+Target_windowDidChangeOcclusionState :: proc "c" (self: ^Target, notification: NS.id) {
+	stop_frames()
+	request_frame()
+}
+
 @(objc_type = Target, objc_implement, objc_name = "askForSavedWallpaper", objc_selector = "askForSavedWallpaper:")
 Target_askForSavedWallpaper :: proc "c" (self: ^Target, sender: NS.id) {
 	context = state.odin_context
@@ -146,21 +152,27 @@ foreign objc_runtime {
 	class_addProtocol :: proc(class: rawptr, protocol: rawptr) -> NS.BOOL ---
 }
 
+OCCLUSION_VISIBLE :: 1 << 1
+
 request_frame :: proc "contextless" () {
 	state.is_frame_requested = true
 	if state.is_link_running do return
 
 	state.is_link_running = true
 
-	if !state.is_background {
+	is_visible :=
+		objc_send(NS.UInteger, state.ns_window, "occlusionState") & OCCLUSION_VISIBLE != 0
+
+	if !state.is_background && is_visible {
 		objc_send(nil, state.display_link, "setPaused:", NS.BOOL(false))
 		return
 	}
 
 	FRAME_SECONDS :: 1.0 / 60
+	COVERED_FRAME_SECONDS :: 1.0
 
 	state.frame_timer = start_timer(
-		FRAME_SECONDS,
+		FRAME_SECONDS if state.is_background else COVERED_FRAME_SECONDS,
 		intrinsics.objc_find_selector("frameTimerFired:"),
 		true,
 	)
@@ -205,9 +217,14 @@ run_frame :: proc() {
 
 	if is_frame_wanted || !state.is_link_running do return
 
+	stop_frames()
+}
+
+@(private = "file")
+stop_frames :: proc "contextless" () {
 	state.is_link_running = false
 
-	if state.is_background {
+	if state.frame_timer != nil {
 		objc_send(nil, state.frame_timer, "invalidate")
 		state.frame_timer = nil
 	} else {

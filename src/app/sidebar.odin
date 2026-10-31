@@ -54,7 +54,12 @@ build_sidebar :: proc() {
 
 build_sidebar_group :: proc(title: string, items: []core.Sidebar_Item, symbol_color: [4]f32) {
 	build_group_title(title)
-	for item in items do build_sidebar_item(item.label, item.symbol, symbol_color, item.page)
+
+	for item in items {
+		if !core.app.drives_music_app && item.page.kind == .Downloaded do continue
+
+		build_sidebar_item(item.label, item.symbol, symbol_color, item.page)
+	}
 }
 
 build_group_title :: proc(title: string) {

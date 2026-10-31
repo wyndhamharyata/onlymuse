@@ -40,6 +40,13 @@ build_results :: proc() -> int {
 	)
 	picked := -1
 
+	if palette.should_reset_scroll {
+		palette.should_reset_scroll = false
+		ui.set_scroll(list, 0)
+	} else if palette.field.step != 0 {
+		scroll_to_selected(list)
+	}
+
 	if ui.scope(list) {
 		group := ""
 
@@ -65,6 +72,40 @@ build_results :: proc() -> int {
 	}
 
 	return picked
+}
+
+@(private = "file")
+scroll_to_selected :: proc(list: ^ui.Box) {
+	top := to_row_top_points(palette.selected_index)
+	bottom := top + PALETTE_ROW_HEIGHT_POINTS
+	height := min(PALETTE_LIST_MAX_HEIGHT_POINTS, to_list_height_points(palette.results))
+	view_top := list.scroll_target
+	view_bottom := view_top + height
+
+	if top < view_top {
+		ui.set_scroll(list, top)
+	} else if bottom > view_bottom {
+		ui.set_scroll(list, bottom - height)
+	}
+}
+
+@(private = "file")
+to_row_top_points :: proc(index: int) -> f32 {
+	top: f32
+	group := ""
+
+	for result, result_index in palette.results {
+		if result.group != group {
+			group = result.group
+			top += GROUP_TITLE_HEIGHT_POINTS
+		}
+
+		if result_index == index do return top
+
+		top += PALETTE_ROW_HEIGHT_POINTS
+	}
+
+	return top
 }
 
 @(private = "file")
@@ -132,7 +173,7 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 			{
 				width = ui.fit_text(),
 				height = ui.fit_text(),
-				text_color = kit.colors.text,
+				text_color = kit.colors.faint if result.is_disabled else kit.colors.text,
 				font_size = 13.5,
 				flags = {.Truncate_Text},
 			},
@@ -163,7 +204,7 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 			)
 		}
 
-		if is_selected {
+		if is_selected && !result.is_disabled {
 			ui.box(
 				"",
 				{
@@ -177,5 +218,5 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 		}
 	}
 
-	return signal.is_clicked
+	return signal.is_clicked && !result.is_disabled
 }

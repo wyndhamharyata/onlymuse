@@ -214,6 +214,7 @@ build_row_heart :: proc(chosen: core.Catalog_Song, is_current: bool) {
 	}
 
 	if state == .Checking do return
+	if !playback.can_favourite(song) do return
 
 	persistent_id := core.app.now_playing.song.persistent_id if is_current else ""
 	is_favourite := playback.is_favourite(song, persistent_id)

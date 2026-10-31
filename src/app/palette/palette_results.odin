@@ -167,12 +167,17 @@ append_actions :: proc(results: ^[dynamic]Palette_Result, term: string, allocato
 		action:                  Palette_Action,
 	}
 	playing, _, has_song := playback.find_playing_song()
+	player_action :=
+		"Play in Apple's web player" if core.app.drives_music_app else "Play in Music.app"
+	player_subtitle :=
+		"Favourites, downloads and lossless turn off" if core.app.drives_music_app else "Favourites, downloads, lossless and gapless playback"
 	actions := []Action {
 		{"Go to Now Playing", "music.note", "", .Navigate},
 		{"Play or Pause", "playpause.fill", "", .Play_Pause},
 		{"Next Song", "forward.fill", "", .Next},
 		{"Previous Song", "backward.fill", "", .Previous},
 		{"Shuffle All Songs", "shuffle", "", .Shuffle_All},
+		{player_action, "music.note", "", .Toggle_Player},
 		{"Favourite the Song Playing", "heart.circle", "⌘L", .Favourite},
 		{"Show Lyrics", "quote.bubble", "", .Show_Lyrics},
 		{"Show Up Next", "list.bullet", "", .Show_Up_Next},
@@ -196,7 +201,16 @@ append_actions :: proc(results: ^[dynamic]Palette_Result, term: string, allocato
 		if action.action == .Navigate do result.page = {
 			kind = .Now_Playing,
 		}
-		if action.action == .Favourite do result.subtitle = strings.clone(playing.name, allocator)
+		if action.action == .Favourite {
+			if playback.can_favourite(playing) {
+				result.subtitle = strings.clone(playing.name, allocator)
+			} else {
+				result.is_disabled = true
+				result.subtitle = strings.clone("Needs Music.app", allocator)
+			}
+		}
+
+		if action.action == .Toggle_Player do result.subtitle = strings.clone(player_subtitle, allocator)
 
 		append(results, result)
 		count += 1
@@ -220,16 +234,20 @@ append_pages :: proc(
 		for item in items {
 			if !has_term(item.label, term) || count >= MAX_PAGE_RESULT_COUNT do continue
 
-			append(
-				results,
-				Palette_Result {
-					group = "Pages",
-					title = item.label,
-					symbol = item.symbol,
-					action = .Navigate,
-					page = item.page,
-				},
-			)
+			result := Palette_Result {
+				group  = "Pages",
+				title  = item.label,
+				symbol = item.symbol,
+				action = .Navigate,
+				page   = item.page,
+			}
+
+			if !core.app.drives_music_app && item.page.kind == .Downloaded {
+				result.is_disabled = true
+				result.subtitle = strings.clone("Needs Music.app", allocator)
+			}
+
+			append(results, result)
 			count += 1
 		}
 	}

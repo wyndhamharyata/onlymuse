@@ -245,12 +245,13 @@ build_actions :: proc(details: Song_Details, persistent_id: string) {
 	if ui.scope(row) {
 		is_favourite := playback.is_favourite(details.song, persistent_id)
 
-		if kit.action_button(
-			"Favourite",
-			"heart.circle.fill" if is_favourite else "heart.circle",
-			false,
-			core.app.accent if is_favourite else kit.colors.text,
-		) {
+		if playback.can_favourite(details.song) &&
+		   kit.action_button(
+			   "Favourite",
+			   "heart.circle.fill" if is_favourite else "heart.circle",
+			   false,
+			   core.app.accent if is_favourite else kit.colors.text,
+		   ) {
 			playback.toggle_favourite(details.song, persistent_id)
 		}
 

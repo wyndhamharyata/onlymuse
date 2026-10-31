@@ -137,8 +137,13 @@ build_song_info :: proc() {
 
 		if ui.scope(text) {
 			if is_waiting {
-				waiting_text :=
-					"Adding to library…" if playback.queue.is_adding else "Loading from YouTube…"
+				waiting_text := "Loading…"
+				if playback.queue.is_adding {
+					waiting_text = "Adding to library…"
+				} else if youtube.is_song_id(waiting_song.id) {
+					waiting_text = "Loading from YouTube…"
+				}
+
 				kit.text_box(
 					waiting_song.name,
 					kit.colors.text,
@@ -150,15 +155,18 @@ build_song_info :: proc() {
 				build_song_title(song, queue_song, is_queue_song)
 				build_song_subtitle(song)
 			} else {
-				closed_text :=
-					"Music.app is not open." if now_playing.playback == .Closed else "Music.app has no song."
 				kit.text_box(
 					"Nothing is playing.",
 					kit.colors.text,
 					SONG_NAME_FONT_SIZE,
 					SONG_NAME_WEIGHT,
 				)
-				kit.text_box(closed_text, kit.colors.dim, kit.SMALL_TEXT_POINTS)
+
+				if core.app.drives_music_app {
+					closed_text :=
+						"Music.app is not open." if now_playing.playback == .Closed else "Music.app has no song."
+					kit.text_box(closed_text, kit.colors.dim, kit.SMALL_TEXT_POINTS)
+				}
 			}
 		}
 	}
@@ -183,7 +191,7 @@ build_song_title :: proc(song: helper.Song, queue_song: core.Catalog_Song, is_qu
 
 		if is_from_youtube {
 			badge = "YOUTUBE"
-		} else if is_queue_song && queue_song.is_lossless {
+		} else if is_queue_song && queue_song.is_lossless && core.app.drives_music_app {
 			badge = "LOSSLESS"
 		}
 
@@ -235,12 +243,13 @@ build_song_title :: proc(song: helper.Song, queue_song: core.Catalog_Song, is_qu
 		}
 
 		playing, persistent_id, _ := playback.find_playing_song()
-		if !is_from_youtube do playback.watch_song_info(persistent_id)
+		if !playback.is_web_played(persistent_id) do playback.watch_song_info(persistent_id)
 
-		if playback.build_favourite_button(
-			"favourite",
-			playback.is_favourite(playing, persistent_id),
-		) {
+		if playback.can_favourite(playing) &&
+		   playback.build_favourite_button(
+			   "favourite",
+			   playback.is_favourite(playing, persistent_id),
+		   ) {
 			playback.toggle_favourite(playing, persistent_id)
 		}
 	}

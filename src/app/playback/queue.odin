@@ -121,8 +121,23 @@ to_song_match :: proc(song: core.Catalog_Song) -> helper.Song_Match {
 		artist_name = song.artist_name,
 		album_name = song.album_name,
 		duration_seconds = song.duration_seconds,
+		apple_id = to_apple_id(song.id),
 		youtube_id = youtube.to_video_id(song.id),
 	}
+}
+
+@(private = "file")
+to_apple_id :: proc(song_id: string) -> string {
+	if youtube.is_song_id(song_id) do return ""
+
+	return strings.trim_prefix(song_id, helper.APPLE_WEB_PREFIX)
+}
+
+is_web_played :: proc(persistent_id: string) -> bool {
+	return(
+		youtube.is_song_id(persistent_id) ||
+		strings.has_prefix(persistent_id, helper.APPLE_WEB_PREFIX) \
+	)
 }
 
 @(private)
@@ -204,7 +219,7 @@ apply_set_next_answer :: proc(request: Request, answered_id: string) {
 apply_play_answer :: proc(answered_id: string) {
 	if answered_id != "" {
 		set_playing_persistent_id(answered_id)
-		queue_state.is_starting_youtube = youtube.is_song_id(answered_id)
+		queue_state.is_starting_youtube = is_web_played(answered_id)
 		save_queue_and_handoff()
 		set_start_deadline()
 		return
@@ -283,13 +298,15 @@ resume_last_song :: proc() {
 	queue_state.play_count += 1
 
 	is_queue_song := resume.song.persistent_id == queue.playing_persistent_id
+	song_id := queue.songs[queue.index].id if is_queue_song else resume.song.persistent_id
 	request_id := helper.send_play(
 		{
 			name = resume.song.name,
 			artist_name = resume.song.artist_name,
 			album_name = resume.song.album_name,
 			duration_seconds = resume.song.duration_seconds,
-			youtube_id = youtube.to_video_id(resume.song.persistent_id),
+			apple_id = to_apple_id(song_id),
+			youtube_id = youtube.to_video_id(song_id),
 		},
 	)
 	queue_state.requests[request_id] = {

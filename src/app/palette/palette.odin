@@ -38,6 +38,7 @@ Palette_Action :: enum {
 	Next,
 	Previous,
 	Shuffle_All,
+	Toggle_Player,
 	Favourite,
 	Show_Lyrics,
 	Show_Up_Next,
@@ -45,18 +46,19 @@ Palette_Action :: enum {
 
 @(private)
 Palette_Result :: struct {
-	group:    string,
-	title:    string,
-	subtitle: string,
-	symbol:   string,
-	artwork:  apple.Artwork,
-	is_round: bool,
-	shortcut: string,
-	action:   Palette_Action,
-	page:     core.Page,
-	song:     core.Catalog_Song,
-	card:     apple.Card,
-	index:    int,
+	group:       string,
+	title:       string,
+	subtitle:    string,
+	symbol:      string,
+	artwork:     apple.Artwork,
+	is_round:    bool,
+	shortcut:    string,
+	is_disabled: bool,
+	action:      Palette_Action,
+	page:        core.Page,
+	song:        core.Catalog_Song,
+	card:        apple.Card,
+	index:       int,
 }
 
 @(private)
@@ -71,6 +73,7 @@ palette: struct {
 	typed_at_ms:         f64,
 	opened_frame:        int,
 	last_mouse_position: [2]f32,
+	should_reset_scroll: bool,
 }
 
 start_palette :: proc() {
@@ -89,6 +92,7 @@ toggle_palette :: proc() {
 	palette.selected_index = 0
 	palette.opened_frame = core.app.frame_count
 	palette.built_signature = -1
+	palette.should_reset_scroll = true
 	kit.set_field_text(&palette.field, "")
 	kit.focus_field(&palette.field)
 }
@@ -117,6 +121,7 @@ build_palette :: proc() {
 	if field.is_changed {
 		palette.typed_at_ms = helper.now_ms()
 		palette.selected_index = 0
+		palette.should_reset_scroll = true
 	}
 
 	watch_results()
@@ -128,7 +133,9 @@ build_palette :: proc() {
 			(palette.selected_index + field.step + result_count) % result_count
 	}
 
-	if field.is_submitted && result_count > 0 {
+	if field.is_submitted &&
+	   result_count > 0 &&
+	   !palette.results[palette.selected_index].is_disabled {
 		run_result(palette.results[palette.selected_index])
 		close_palette()
 		return
@@ -208,6 +215,8 @@ build_palette :: proc() {
 
 @(private = "file")
 run_result :: proc(result: Palette_Result) {
+	if result.is_disabled do return
+
 	switch result.action {
 	case .Navigate:
 		core.navigate(result.page)
@@ -227,6 +236,8 @@ run_result :: proc(result: Palette_Result) {
 	case .Shuffle_All:
 		songs, _, _ := core.watch_library_songs()
 		playback.shuffle_songs(songs)
+	case .Toggle_Player:
+		core.set_player_mode(!core.app.drives_music_app)
 	case .Favourite:
 		if song, persistent_id, ok := playback.find_playing_song(); ok {
 			playback.toggle_favourite(song, persistent_id)

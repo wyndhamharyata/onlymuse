@@ -167,7 +167,13 @@ is_favourite :: proc(song: core.Catalog_Song, persistent_id := "") -> bool {
 	return watch_favourite_ids()[song.id]
 }
 
+can_favourite :: proc(song: core.Catalog_Song) -> bool {
+	return core.app.drives_music_app || youtube.is_song_id(song.id)
+}
+
 toggle_favourite :: proc(song: core.Catalog_Song, persistent_id: string) {
+	if !can_favourite(song) do return
+
 	favorited := !is_favourite(song, persistent_id)
 	set_favourite_change(song.id, favorited)
 

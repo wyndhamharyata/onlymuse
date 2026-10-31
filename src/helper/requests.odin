@@ -5,11 +5,14 @@ import "core:fmt"
 import "core:os"
 import "core:sync"
 
+APPLE_WEB_PREFIX :: "am:"
+
 Song_Match :: struct {
 	name:             string,
 	artist_name:      string `json:"artistName"`,
 	album_name:       string `json:"albumName"`,
 	duration_seconds: f64 `json:"durationSeconds"`,
+	apple_id:         string `json:"appleId"`,
 	youtube_id:       string `json:"youtubeId"`,
 }
 
@@ -52,6 +55,15 @@ send_set_next :: proc(
 	send_value(Command{"setNext", last_request_id, after, song, is_youtube_next})
 
 	return last_request_id
+}
+
+send_set_player :: proc(is_driving_music_app: bool) {
+	Command :: struct {
+		type:                 string,
+		is_driving_music_app: bool `json:"drivesMusicApp"`,
+	}
+
+	send_value(Command{"setPlayer", is_driving_music_app})
 }
 
 send_song_info_request :: proc(persistent_id: string) {

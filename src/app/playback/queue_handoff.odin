@@ -29,6 +29,8 @@ Handoff :: struct {
 
 @(private)
 send_handoff :: proc() {
+	if !core.app.drives_music_app do return
+
 	after := queue.playing_persistent_id
 	next_index := find_index_after_end() if after != "" else -1
 	next_id := matching.watch_playable(queue.songs[next_index]).id if next_index >= 0 else ""

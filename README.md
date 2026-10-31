@@ -336,6 +336,18 @@ A song plays from Apple Music whenever Apple has it. YouTube Music adds what App
   while it says it plays. The clock then stays still, and after about 4 s the queue starts the song
   again. Either way, a song is started again at most twice, and the Console notes each time.
 
+### 7c. Music.app or its web player
+
+- onlymuse plays Apple Music from Apple's web player. Choose Play in Music.app in the onlymuse menu
+  to drive Music.app instead, or run Play in Music.app from Cmd K. A checkmark shows the choice,
+  which is saved and starts off.
+- Changing it stops the song that plays; the play button then starts it again from the other player.
+- The web player keeps onlymuse on its own: no Music.app window opens, and a song need not be added
+  to your library to play it. Media keys, Control Center, AirPlay and the seamless next song stay
+  with Music.app.
+- A favourite needs Music.app, and so do the library facts: play counts, bit rate, sample rate and
+  the date a song was added.
+
 ### 8. Console
 
 - Press ⌘K and open Console. It lists every error since onlymuse started, newest first: requests

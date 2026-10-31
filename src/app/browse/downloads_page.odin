@@ -8,9 +8,11 @@ import "core:strings"
 import "core:sync"
 import "core:thread"
 import "om:app/core"
+import "om:app/kit"
 import "om:app/lists"
 import "om:apple"
 import "om:platform"
+import "om:ui"
 
 Download :: struct {
 	catalog_id:  string,
@@ -96,6 +98,17 @@ scan_downloads :: proc() {
 }
 
 build_downloaded_page :: proc() {
+	if !core.app.drives_music_app {
+		page := kit.page_scroll("downloaded")
+
+		if ui.scope(page) {
+			kit.page_heading("Downloaded")
+			kit.note("Downloads need Music.app.")
+		}
+
+		return
+	}
+
 	list: []Download
 	scan_version: int
 

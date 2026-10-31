@@ -185,7 +185,11 @@ apply_keys :: proc() {
 			palette.toggle_palette()
 		case "l":
 			if song, persistent_id, is_song := playback.find_playing_song(); is_song {
-				playback.toggle_favourite(song, persistent_id)
+				if playback.can_favourite(song) {
+					playback.toggle_favourite(song, persistent_id)
+				} else {
+					kit.show_toast("Favourites need Music.app.")
+				}
 			}
 		}
 	}

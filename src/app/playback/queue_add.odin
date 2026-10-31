@@ -55,6 +55,7 @@ start_adding :: proc(catalog_id: string, play_count: int) {
 
 @(private)
 set_start_deadline :: proc() {
+	if !core.app.drives_music_app do return
 	if queue.songs[queue.index].youtube_id == "" do return
 
 	queue_state.start_deadline_ms = helper.now_ms() + START_TIMEOUT_SECONDS * 1000

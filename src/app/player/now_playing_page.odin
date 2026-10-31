@@ -48,7 +48,8 @@ build_now_playing_page :: proc() {
 			}
 		}
 
-		info := playback.watch_song_info(shown.persistent_id)
+		info := playback.Song_Info{}
+		if !playback.is_web_played(shown.persistent_id) do info = playback.watch_song_info(shown.persistent_id)
 		width := kit.to_content_width(page)
 		if width <= 0 do return
 

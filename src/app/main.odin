@@ -45,6 +45,7 @@ main :: proc() {
 		core.app.is_bench ||
 		os.get_env("OM_BACKGROUND", context.temp_allocator) == "1"
 	helper.start(is_background)
+	core.start_player_mode()
 	open_main_window(is_background)
 
 	render.start(core.app.window.device, core.app.window.layer)
@@ -124,6 +125,10 @@ open_main_window :: proc(is_background: bool) {
 		is_behind,
 	)
 	platform.set_background(kit.colors.window)
+	platform.install_player_menu({
+		is_driving = proc() -> bool {return core.app.drives_music_app},
+		toggle = proc() {core.set_player_mode(!core.app.drives_music_app)},
+	})
 
 	for core.app.zoom > zoom_steps[0] && !is_zoom_fitting(core.app.zoom) {
 		core.app.zoom = to_smaller_zoom(core.app.zoom)

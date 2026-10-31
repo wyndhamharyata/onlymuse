@@ -10,6 +10,7 @@ struct Command: Decodable {
   let persistentID: String?
   let favorited: Bool?
   let keepsYouTube: Bool?
+  let drivesMusicApp: Bool?
 }
 
 struct VolumePercent: Decodable {
@@ -25,12 +26,19 @@ struct SongMatch: Decodable {
   let artistName: String
   let albumName: String
   let durationSeconds: Double
+  let appleId: String?
   let youtubeId: String?
 
   var youTubeVideoID: String? {
     guard let youtubeId, !youtubeId.isEmpty else { return nil }
 
     return youtubeId
+  }
+
+  var appleCatalogID: String? {
+    guard let appleId, !appleId.isEmpty else { return nil }
+
+    return appleId
   }
 }
 

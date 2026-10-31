@@ -143,12 +143,14 @@ build_main_menu :: proc(song: core.Catalog_Song, position, window_size: [2]f32) 
 
 		kit.menu_separator()
 
-		if kit.menu_item("favourite", favourite_label, favourite_hint) {
-			playback.toggle_favourite(song, persistent_id)
-			is_done = true
-		}
+		if playback.can_favourite(song) {
+			if kit.menu_item("favourite", favourite_label, favourite_hint) {
+				playback.toggle_favourite(song, persistent_id)
+				is_done = true
+			}
 
-		kit.menu_separator()
+			kit.menu_separator()
+		}
 
 		if kit.menu_item("go to artist", "Go to Artist") {
 			core.navigate({kind = .Artist, title = strings.clone(song.artist_name)})

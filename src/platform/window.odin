@@ -129,6 +129,30 @@ Target_windowDidChangeOcclusionState :: proc "c" (self: ^Target, notification: N
 	request_frame()
 }
 
+@(objc_type = Target, objc_implement, objc_name = "togglePlayerMode", objc_selector = "togglePlayerMode:")
+Target_togglePlayerMode :: proc "c" (self: ^Target, item: NS.id) {
+	context = state.odin_context
+	player_menu.toggle()
+}
+
+@(objc_type = Target, objc_implement, objc_name = "quitApp", objc_selector = "quitApp:")
+Target_quitApp :: proc "c" (self: ^Target, item: NS.id) {
+	context = state.odin_context
+	quit()
+}
+
+// The app menu asks for the state of its checkmark each time it opens.
+@(objc_type = Target, objc_implement, objc_name = "validateMenuItem", objc_selector = "validateMenuItem:")
+Target_validateMenuItem :: proc "c" (self: ^Target, item: ^NS.MenuItem) -> NS.BOOL {
+	context = state.odin_context
+
+	if item == player_menu_item {
+		objc_send(nil, item, "setState:", NS.Integer(1 if player_menu.is_driving() else 0))
+	}
+
+	return true
+}
+
 @(objc_type = Target, objc_implement, objc_name = "askForSavedWallpaper", objc_selector = "askForSavedWallpaper:")
 Target_askForSavedWallpaper :: proc "c" (self: ^Target, sender: NS.id) {
 	context = state.odin_context
@@ -275,54 +299,6 @@ wake :: proc "contextless" () {
 
 	event := NS.Event.otherEventWithType(.ApplicationDefined, {0, 0}, {}, 0, 0, nil, 0, 0, 0)
 	state.app->postEvent(event, true)
-}
-
-read_screen_size_points :: proc() -> [2]f32 {
-	visible := read_visible_frame()
-
-	return {f32(visible.size.width), f32(visible.size.height)}
-}
-
-set_min_size :: proc(min_size_points: [2]f32) {
-	min_size := NS.Size{NS.Float(min_size_points.x), NS.Float(min_size_points.y)}
-
-	objc_send(nil, state.ns_window, "setContentMinSize:", min_size)
-
-	frame := state.ns_window->frame()
-	is_large_enough := frame.size.width >= min_size.width && frame.size.height >= min_size.height
-
-	if is_large_enough do return
-
-	visible := read_visible_frame()
-	size := NS.Size{max(frame.size.width, min_size.width), max(frame.size.height, min_size.height)}
-	top := frame.origin.y + frame.size.height
-	origin := NS.Point{frame.origin.x, top - size.height}
-
-	origin.x = max(
-		visible.origin.x,
-		min(origin.x, visible.origin.x + visible.size.width - size.width),
-	)
-	origin.y = max(
-		visible.origin.y,
-		min(origin.y, visible.origin.y + visible.size.height - size.height),
-	)
-
-	objc_send(
-		nil,
-		state.ns_window,
-		"setFrame:display:animate:",
-		NS.Rect{origin, size},
-		NS.BOOL(true),
-		NS.BOOL(!state.is_background),
-	)
-}
-
-@(private)
-read_visible_frame :: proc() -> NS.Rect {
-	screen := objc_send(^NS.Screen, state.ns_window, "screen")
-	if screen == nil do screen = NS.Screen.mainScreen()
-
-	return screen->visibleFrame()
 }
 
 quit :: proc() {

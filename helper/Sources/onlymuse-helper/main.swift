@@ -13,7 +13,8 @@ let application = NSApplication.shared
 let isPausedWhenAppEnds = ProcessInfo.processInfo.environment["GPUIX_BACKGROUND"] != "1"
 let music = MusicApp()
 let youTube = YouTube(music: music, isQuiet: !isPausedWhenAppEnds)
-let handoff = Handoff(music: music, youTube: youTube)
+let appleWeb = AppleWeb(music: music, isQuiet: !isPausedWhenAppEnds)
+let handoff = Handoff(music: music, youTube: youTube, appleWeb: appleWeb)
 
 signal(SIGPIPE, SIG_IGN)
 
@@ -33,6 +34,7 @@ func pauseWhenAppEnds() {
 
   music.pauseIfRunning()
   youTube.stop()
+  appleWeb.stop()
 }
 
 application.setActivationPolicy(.accessory)
@@ -55,6 +57,8 @@ application.mainMenu = bar
 
 DistributedNotificationCenter.default().addObserver(forName: .init("com.apple.Music.playerInfo"), object: nil, queue: .main) { _ in
   MainActor.assumeIsolated {
+    guard handoff.isDrivingMusicApp else { return }
+
     let hasMusicTakenOver = !youTube.isActive || (!youTube.hasJustPausedMusic && music.readPlayback() != nil)
 
     guard hasMusicTakenOver else { return }
@@ -86,7 +90,7 @@ let musicCheckSeconds = 2.0
 
 Timer.scheduledTimer(withTimeInterval: musicCheckSeconds, repeats: true) { _ in
   MainActor.assumeIsolated {
-    guard !youTube.isActive else { return }
+    guard !youTube.isActive, handoff.isDrivingMusicApp else { return }
 
     music.sendVolumeWhenChanged()
     if let playback = music.readPlayback() { send(makePositionMessage(persistentID: playback.persistentID, positionSeconds: playback.positionSeconds)) }
@@ -100,9 +104,22 @@ startReadingCommands(onCommand: { command in
   case "refreshTokens": webPlayer.refreshTokens()
   case "signIn": webPlayer.signIn()
   case "youtubeSignIn": youTube.sendCookie()
+  case "setPlayer":
+    let wasDrivingMusicApp = handoff.isDrivingMusicApp
+
+    handoff.isDrivingMusicApp = command.drivesMusicApp ?? false
+
+    if handoff.isDrivingMusicApp {
+      appleWeb.stop()
+      send(music.readNowPlaying())
+    } else if wasDrivingMusicApp {
+      music.pauseIfRunning()
+      send(["type": "nowPlaying", "state": "stopped", "volumePercent": music.readVolumePercent() ?? 100])
+    }
   case "playSong", "setNext": handoff.apply(command)
   case "playPause", "seek", "setVolume":
-    guard !youTube.isActive else { return youTube.apply(command) }
+    if youTube.isActive { return youTube.apply(command) }
+    if !handoff.isDrivingMusicApp { return appleWeb.apply(command) }
 
     music.apply(command)
     if command.type == "seek" { handoff.arm() }
@@ -127,7 +144,7 @@ for signalNumber in [SIGINT, SIGTERM, SIGHUP] {
 }
 
 send(readAccentMessage())
-send(music.readNowPlaying())
+if handoff.isDrivingMusicApp { send(music.readNowPlaying()) }
 youTube.sendCookie()
 webPlayer.refreshTokens()
 application.run()

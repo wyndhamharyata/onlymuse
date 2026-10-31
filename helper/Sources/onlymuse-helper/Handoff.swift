@@ -8,15 +8,19 @@ final class Handoff {
 
   private let music: MusicApp
   private let youTube: YouTube
+  private let appleWeb: AppleWeb
   private var afterID: String?
   private var nextSong: SongMatch?
   private var nextID: String?
   private var expectedEnd: Date?
   private var timer: Timer?
 
-  init(music: MusicApp, youTube: YouTube) {
+  var isDrivingMusicApp = false
+
+  init(music: MusicApp, youTube: YouTube, appleWeb: AppleWeb) {
     self.music = music
     self.youTube = youTube
+    self.appleWeb = appleWeb
   }
 
   func apply(_ command: Command) {
@@ -39,11 +43,28 @@ final class Handoff {
 
     youTube.stop()
 
+    if !isDrivingMusicApp {
+      guard let catalogID = song.appleCatalogID else { return nil }
+
+      return appleWeb.play(song, catalogID: catalogID)
+    }
+
     return music.playSong(song)
   }
 
   private func setNext(_ command: Command) -> String? {
     youTube.isPageKept = command.keepsYouTube ?? false
+
+    if !isDrivingMusicApp {
+      afterID = nil
+      nextSong = nil
+      nextID = nil
+      expectedEnd = nil
+      timer?.invalidate()
+      timer = nil
+
+      return nil
+    }
 
     let isAfterYouTube = command.afterPersistentID?.hasPrefix(YouTube.idPrefix) ?? false
     let afterID = isAfterYouTube ? nil : command.afterPersistentID
@@ -68,7 +89,7 @@ final class Handoff {
   }
 
   func applyPlayerChange() {
-    guard let afterID, nextID != nil else { return }
+    guard isDrivingMusicApp, let afterID, nextID != nil else { return }
 
     let playingID = music.readPlayback()?.persistentID
     let isNearEnd = expectedEnd.map { abs($0.timeIntervalSinceNow) < endToleranceSeconds } ?? false

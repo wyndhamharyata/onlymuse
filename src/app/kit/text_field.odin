@@ -218,6 +218,12 @@ find_focused_field :: proc() -> (^Text_Field, bool) {
 	return nil, false
 }
 
+has_focused_field :: proc() -> bool {
+	_, is_focused := find_focused_field()
+
+	return is_focused
+}
+
 finish_text_fields :: proc() {
 	_, is_focused := find_focused_field()
 	platform.set_text_input(is_focused, caret_rect)

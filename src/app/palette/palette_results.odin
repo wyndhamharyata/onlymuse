@@ -173,9 +173,9 @@ append_actions :: proc(results: ^[dynamic]Palette_Result, term: string, allocato
 		"Favourites, downloads and lossless turn off" if core.app.drives_music_app else "Favourites, downloads, lossless and gapless playback"
 	actions := []Action {
 		{"Go to Now Playing", "music.note", "", .Navigate},
-		{"Play or Pause", "playpause.fill", "", .Play_Pause},
-		{"Next Song", "forward.fill", "", .Next},
-		{"Previous Song", "backward.fill", "", .Previous},
+		{"Play or Pause", "playpause.fill", "Space", .Play_Pause},
+		{"Next Song", "forward.fill", "⌘→", .Next},
+		{"Previous Song", "backward.fill", "⌘←", .Previous},
 		{"Shuffle All Songs", "shuffle", "", .Shuffle_All},
 		{player_action, "music.note", "", .Toggle_Player},
 		{"Favourite the Song Playing", "heart.circle", "⌘L", .Favourite},

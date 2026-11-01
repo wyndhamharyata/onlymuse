@@ -36,6 +36,12 @@ and YouTube sign-ins. The icon is the ring of `design/icon.html`, made with `scr
 | --- | --- |
 | `⌘+` / `⌘-` / `⌘0` | Zoom in, out, and back to 100% |
 | `⌘]` / `⌘[` | Lyrics 50 ms earlier or later |
+| `Space` | Play or pause |
+| `0`–`9` | Seek to 0%–90% of the song |
+| `←` / `→` | Seek back or forward 5 s, 30 s with Shift |
+| `⌘←` / `⌘→` | Previous or next song |
+| `⌘↑` / `⌘↓` | Volume up or down 10% |
+| `⌥⌘↓` | Mute or unmute |
 | `⌘Q` | Quit |
 
 ## Try it, milestone by milestone

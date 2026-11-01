@@ -165,31 +165,85 @@ apply_helper_messages :: proc() {
 	}
 }
 
+KEY_SPACE :: 49
+
+KEY_LEFT :: 123
+
+KEY_RIGHT :: 124
+
+KEY_DOWN :: 125
+
+KEY_UP :: 126
+
 apply_keys :: proc() {
 	for event in platform.list_events() {
 		key, is_key := event.(platform.Key_Press)
-		if !is_key || .Command not_in key.modifiers do continue
+		if !is_key do continue
 
-		player.apply_lead_key(key)
+		if .Command in key.modifiers {
+			apply_command_key(key)
+		} else {
+			apply_playback_key(key)
+		}
+	}
+}
 
-		switch key.characters {
-		case "=", "+":
-			set_zoom(zoom_steps[min(to_nearest_zoom_step(core.app.zoom) + 1, len(zoom_steps) - 1)])
-		case "-":
-			set_zoom(to_smaller_zoom(core.app.zoom))
-		case "0":
-			set_zoom(1)
-		case "q":
-			platform.quit()
-		case "k":
-			palette.toggle_palette()
-		case "l":
-			if song, persistent_id, is_song := playback.find_playing_song(); is_song {
-				if playback.can_favourite(song) {
-					playback.toggle_favourite(song, persistent_id)
-				} else {
-					kit.show_toast("Favourites need Music.app.")
-				}
+@(private = "file")
+apply_playback_key :: proc(key: platform.Key_Press) {
+	switch key.key_code {
+	case KEY_SPACE:
+		playback.toggle_playback()
+	case KEY_LEFT, KEY_RIGHT:
+		step :=
+			playback.SEEK_SHIFT_STEP_SECONDS if .Shift in key.modifiers else playback.SEEK_STEP_SECONDS
+		if key.key_code == KEY_LEFT do step = -step
+
+		playback.seek_by_seconds(step)
+	}
+
+	if len(key.characters) == 1 && key.characters[0] >= '0' && key.characters[0] <= '9' {
+		playback.seek_to_fraction(f64(key.characters[0] - '0') / 10)
+	}
+}
+
+@(private = "file")
+apply_command_key :: proc(key: platform.Key_Press) {
+	player.apply_lead_key(key)
+
+	if !kit.has_focused_field() {
+		switch key.key_code {
+		case KEY_LEFT:
+			playback.skip_to_previous(helper.read_position_seconds(core.app.now_playing))
+		case KEY_RIGHT:
+			playback.skip_to_next()
+		case KEY_UP:
+			playback.change_volume(playback.VOLUME_STEP_PERCENT)
+		case KEY_DOWN:
+			if .Option in key.modifiers {
+				playback.toggle_mute()
+			} else {
+				playback.change_volume(-playback.VOLUME_STEP_PERCENT)
+			}
+		}
+	}
+
+	switch key.characters {
+	case "=", "+":
+		set_zoom(zoom_steps[min(to_nearest_zoom_step(core.app.zoom) + 1, len(zoom_steps) - 1)])
+	case "-":
+		set_zoom(to_smaller_zoom(core.app.zoom))
+	case "0":
+		set_zoom(1)
+	case "q":
+		platform.quit()
+	case "k":
+		palette.toggle_palette()
+	case "l":
+		if song, persistent_id, is_song := playback.find_playing_song(); is_song {
+			if playback.can_favourite(song) {
+				playback.toggle_favourite(song, persistent_id)
+			} else {
+				kit.show_toast("Favourites need Music.app.")
 			}
 		}
 	}

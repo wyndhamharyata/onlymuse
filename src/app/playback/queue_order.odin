@@ -220,6 +220,73 @@ is_queue_leading :: proc() -> bool {
 	return queue.is_adding || (playing_id != "" && playing_id == queue.playing_persistent_id)
 }
 
+SEEK_STEP_SECONDS :: 5.0
+
+SEEK_SHIFT_STEP_SECONDS :: 30.0
+
+VOLUME_STEP_PERCENT :: 10
+
+toggle_playback :: proc() {
+	if is_resume_shown() {
+		resume_last_song()
+		return
+	}
+
+	helper.send_play_pause()
+}
+
+seek_to_fraction :: proc(fraction: f64) {
+	shown, is_song := find_shown_song()
+	if !is_song do return
+
+	seek_to(fraction * shown.duration_seconds)
+}
+
+seek_by_seconds :: proc(seconds: f64) {
+	seek_to(helper.read_position_seconds(core.app.now_playing) + seconds)
+}
+
+change_volume :: proc(delta_percent: int) {
+	set_volume(int(core.app.now_playing.volume_percent) + delta_percent)
+}
+
+toggle_mute :: proc() {
+	current := int(core.app.now_playing.volume_percent)
+
+	if current > 0 {
+		last_volume_percent = current
+		set_volume(0)
+		return
+	}
+
+	set_volume(last_volume_percent if last_volume_percent > 0 else 50)
+}
+
+@(private = "file")
+last_volume_percent: int = 50
+
+@(private = "file")
+set_volume :: proc(percent: int) {
+	clamped := clamp(percent, 0, 100)
+
+	helper.send_set_volume(clamped)
+	core.app.now_playing.volume_percent = f64(clamped)
+}
+
+@(private = "file")
+seek_to :: proc(position: f64) {
+	if !helper.has_song(core.app.now_playing) do return
+
+	shown, is_song := find_shown_song()
+	if !is_song do return
+
+	clamped := clamp(position, 0, shown.duration_seconds)
+
+	helper.send_seek(clamped)
+	core.app.now_playing.position_seconds = clamped
+	core.app.now_playing.position_read_at_ms = helper.now_ms()
+}
+
 skip_to_next :: proc() {
 	if !is_queue_leading() {
 		helper.send_next()

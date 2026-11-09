@@ -101,7 +101,7 @@ The app opens on Albums: every album in your library, read from the gpuix app's 
 To measure three passes over the whole library:
 
 ```
-THOR_BENCH=1 THOR_BENCH_FRAMES=8000 ./build/onlymuse
+THOR_BENCH=1 THOR_BENCH_SECONDS=160 ./build/onlymuse
 ```
 
 ### 4. Lyrics
@@ -365,7 +365,7 @@ A song plays from Apple Music whenever Apple has it. YouTube Music adds what App
 
 | Variable | Does |
 | --- | --- |
-| `THOR_BENCH=1` | Scrolls by itself for 1,200 frames, prints frame times and quits. |
+| `THOR_BENCH=1` | A second after the first frame, scrolls the page at 1,500 points a second for 20 seconds, back and forth. Prints each frame's start, the frame times, then `done`, and quits. |
 | `THOR_FRAMES=1` | Shows how long each frame took to build, at the top right. |
 | `OM_FAKE_LOG=<file>` | The fake helpers write the commands they get to this file. |
 | `OM_FAKE_SPEED=<n>` | `tools/fake-music.py` plays songs n times faster, so they end in seconds. |
@@ -382,7 +382,8 @@ A song plays from Apple Music whenever Apple has it. YouTube Music adds what App
 | `OM_PALETTE=<term>` | Opens the command palette with this term at start, as a test cannot type into a window behind the others. |
 | `THOR_BACKGROUND=1` | For the tests. Opens the window behind the others, never focused and with no Dock icon, so AeroSpace leaves it floating. macOS stops a covered window's display link, so a timer runs its frames, which are captured but not shown. The helper leaves Music.app as it is when the app quits. Captures set it. The bench keeps its window in front, as it measures the screen. |
 | `OM_DATA=<folder>` | Keeps `onlymuse.sqlite` in this folder instead. |
-| `THOR_BENCH_FRAMES=<count>` | Frames the bench runs. 1,200 by default. |
+| `THOR_BENCH_SECONDS=<n>` | Seconds the bench scrolls. 20 by default. |
+| `THOR_STARTUP_MARK=1` | Prints `first-frame` once a frame needs no further frame for its layout. |
 | `THOR_CAPTURE=<file>` | Saves a frame to the file as raw BGRA pixels and quits. It prints the size. Convert it with `magick -size <width>x<height> -depth 8 bgra:<file> out.png`. |
 | `THOR_CAPTURE_SECONDS=<seconds>` | Waits this long before the capture, so a test can click first. |
 

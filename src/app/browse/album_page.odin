@@ -9,6 +9,7 @@ import "om:app/look"
 import "om:app/menus"
 import "om:app/playback"
 import "om:apple"
+import "thor:dev"
 import "thor:kit"
 import "thor:ui"
 
@@ -56,7 +57,7 @@ build_album_page :: proc(album_id: string) {
 	if needs_read do read_album(data, watched.body)
 
 	page := look.page_scroll("album")
-	look.run_bench_scroll(page)
+	dev.bench_scroll(page)
 
 	if ui.scope(page) {
 		if data.title == "" {

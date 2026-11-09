@@ -8,6 +8,7 @@ import "om:app/lists"
 import "om:app/look"
 import "om:app/youtube_lists"
 import "om:apple"
+import "thor:dev"
 import "thor:kit"
 import "thor:ui"
 
@@ -103,7 +104,7 @@ build_artist_page :: proc(page_id: string, name: string) {
 	if needs_read do read_artist(data, watched.body, library_albums)
 
 	page := look.page_scroll("artist")
-	look.run_bench_scroll(page)
+	dev.bench_scroll(page)
 
 	if ui.scope(page) {
 		if data.title == "" {

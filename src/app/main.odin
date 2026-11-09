@@ -49,7 +49,6 @@ start_app_state :: proc() {
 	kit.colors.accent = kit.DEFAULT_ACCENT
 	core.app.system_accent = kit.DEFAULT_ACCENT
 	core.app.panel = .Lyrics
-	core.app.bench_direction = 1
 }
 
 start_parts :: proc() {

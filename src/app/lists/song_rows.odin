@@ -7,6 +7,7 @@ import "om:app/matching"
 import "om:app/menus"
 import "om:app/playback"
 import "om:apple"
+import "thor:dev"
 import "thor:kit"
 import "thor:ui"
 
@@ -21,7 +22,7 @@ build_song_list_page :: proc(
 	dates: []string = nil,
 ) {
 	page := look.page_scroll("song list")
-	look.run_bench_scroll(page)
+	dev.bench_scroll(page)
 
 	if ui.scope(page) {
 		header := ui.box(

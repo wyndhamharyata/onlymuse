@@ -5,6 +5,7 @@ import "om:app/core"
 import "om:app/look"
 import "om:app/playback"
 import "om:apple"
+import "thor:dev"
 import "thor:kit"
 import "thor:ui"
 
@@ -68,7 +69,7 @@ build_card_grid_page :: proc(
 	is_round: bool,
 ) {
 	page := look.page_scroll("grid page")
-	look.run_bench_scroll(page)
+	dev.bench_scroll(page)
 
 	if ui.scope(page) {
 		heading := ui.box("heading", {width = ui.fill(), height = ui.fit_children(), axis = .Y})

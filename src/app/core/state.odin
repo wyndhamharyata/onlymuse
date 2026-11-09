@@ -17,7 +17,6 @@ app: struct {
 	is_sign_in_needed: bool,
 	drives_music_app:  bool,
 	is_sign_in_open:   bool,
-	bench_direction:   f32,
 }
 
 saved_panels := [Panel]string {

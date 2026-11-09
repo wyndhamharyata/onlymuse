@@ -6,7 +6,6 @@ import "core:time"
 import "om:app/core"
 import "om:apple"
 import "thor:app"
-import "thor:dev"
 import "thor:kit"
 import "thor:platform"
 import "thor:ui"
@@ -30,21 +29,6 @@ page_scroll :: proc(id: string) -> ^ui.Box {
 
 to_content_width :: proc(page: ^ui.Box) -> f32 {
 	return page.size.x - page.style.padding.x - page.style.padding.z
-}
-
-BENCH_POINTS_PER_FRAME :: 30
-
-run_bench_scroll :: proc(list: ^ui.Box) {
-	if !dev.is_bench do return
-
-	max_scroll := list.content_size.y - list.size.y
-
-	if max_scroll <= 0 do return
-
-	is_at_end := list.scroll >= max_scroll || (list.scroll <= 0 && core.app.bench_direction < 0)
-	if is_at_end do core.app.bench_direction *= -1
-
-	ui.set_scroll(list, list.scroll + BENCH_POINTS_PER_FRAME * core.app.bench_direction)
 }
 
 to_phase_text :: proc(phase: apple.Phase) -> string {

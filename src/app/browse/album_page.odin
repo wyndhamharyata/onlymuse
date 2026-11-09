@@ -4,11 +4,12 @@ import "core:fmt"
 import "core:slice"
 import "core:strings"
 import "om:app/core"
-import "om:app/kit"
 import "om:app/lists"
+import "om:app/look"
 import "om:app/menus"
 import "om:app/playback"
 import "om:apple"
+import "thor:kit"
 import "thor:ui"
 
 ALBUM_COVER_POINTS :: 240
@@ -26,11 +27,11 @@ build_album_page :: proc(album_id: string) {
 			apple.to_resources(link.body, context.temp_allocator) if link.phase == .Ready else nil
 
 		if len(resources) == 0 {
-			page := kit.page_scroll("album")
+			page := look.page_scroll("album")
 
 			if ui.scope(page) {
 				if link.phase != .Ready {
-					kit.build_phase(link.phase, "the album")
+					look.build_phase(link.phase, "the album")
 				} else {
 					kit.note("This album is only on the Mac, so Apple Music has no page for it.")
 				}
@@ -51,16 +52,16 @@ build_album_page :: proc(album_id: string) {
 	data, needs_read := core.find_page_data(path, watched.version, watched.phase)
 	if needs_read do read_album(data, watched.body)
 
-	page := kit.page_scroll("album")
-	kit.run_bench_scroll(page)
+	page := look.page_scroll("album")
+	look.run_bench_scroll(page)
 
 	if ui.scope(page) {
 		if data.title == "" {
-			kit.build_phase(watched.phase, "the album")
+			look.build_phase(watched.phase, "the album")
 			return
 		}
 
-		build_album_header(data, kit.to_content_width(page))
+		build_album_header(data, look.to_content_width(page))
 		build_numbered_songs(data.songs)
 	}
 }
@@ -130,11 +131,11 @@ build_album_header :: proc(data: ^core.Page_Data, width: f32) {
 	)
 
 	if ui.scope(header) {
-		kit.artwork_box(
-			apple.to_artwork_url(data.artwork, kit.to_artwork_pixels(cover_points)),
+		look.artwork_box(
+			apple.to_artwork_url(data.artwork, look.to_artwork_pixels(cover_points)),
 			cover_points,
 			10,
-			kit.to_placeholder(data.artwork, data.title, "square.stack"),
+			look.to_placeholder(data.artwork, data.title, "square.stack"),
 		)
 		build_album_info(data, info_points)
 	}
@@ -182,7 +183,7 @@ build_album_info :: proc(data: ^core.Page_Data, info_points: f32) {
 			{
 				width = ui.fill(),
 				height = ui.fit_text(),
-				text_color = core.app.accent,
+				text_color = kit.colors.accent,
 				font_size = 20,
 				font_weight = .Semibold,
 				flags = artist_flags,
@@ -247,7 +248,7 @@ build_badge :: proc(label: string, color: [4]f32) {
 }
 
 build_numbered_songs :: proc(songs: []core.Catalog_Song) {
-	tint := kit.to_accent_tint(core.app.accent)
+	tint := kit.to_accent_tint(kit.colors.accent)
 	list := ui.box("songs", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 1})
 
 	if ui.scope(list) {
@@ -275,11 +276,11 @@ build_numbered_songs :: proc(songs: []core.Catalog_Song) {
 					{
 						width = ui.points(24),
 						height = ui.fit_text(),
-						text_color = core.app.accent if is_current else kit.colors.faint,
+						text_color = kit.colors.accent if is_current else kit.colors.faint,
 					},
 					fmt.tprintf("%d", index + 1),
 				)
-				kit.text_box(song.name, core.app.accent if is_current else kit.colors.text)
+				kit.text_box(song.name, kit.colors.accent if is_current else kit.colors.text)
 				lists.build_row_heart(song, is_current)
 				ui.box(
 					"",
@@ -290,7 +291,7 @@ build_numbered_songs :: proc(songs: []core.Catalog_Song) {
 						text_color = kit.colors.faint,
 						font_size = 12,
 					},
-					kit.to_clock_text(song.duration_seconds),
+					look.to_clock_text(song.duration_seconds),
 				)
 			}
 

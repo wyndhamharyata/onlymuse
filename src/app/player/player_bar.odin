@@ -2,12 +2,13 @@ package player
 
 import "core:fmt"
 import "om:app/core"
-import "om:app/kit"
+import "om:app/look"
 import "om:app/playback"
 import "om:apple"
 import "om:helper"
 import "om:youtube"
 import "thor:font"
+import "thor:kit"
 import "thor:ui"
 
 PLAYER_ARTWORK_POINTS :: 52
@@ -31,12 +32,12 @@ build_player_bar :: proc() {
 		"player",
 		{
 			width = ui.fill(),
-			height = ui.points(kit.PLAYER_HEIGHT_POINTS),
+			height = ui.points(look.PLAYER_HEIGHT_POINTS),
 			axis = .X,
 			align = .Center,
 			gap = 16,
 			padding = {16, 0, 16, 0},
-			background = kit.colors.player,
+			background = look.colors.player,
 		},
 	)
 
@@ -67,7 +68,7 @@ find_player_artwork_source :: proc() -> string {
 	if is_waiting_for_queue_song() {
 		return apple.to_artwork_url(
 			playback.queue.songs[playback.queue.index].artwork,
-			kit.to_artwork_pixels(PLAYER_ARTWORK_POINTS),
+			look.to_artwork_pixels(PLAYER_ARTWORK_POINTS),
 		)
 	}
 
@@ -77,7 +78,7 @@ find_player_artwork_source :: proc() -> string {
 	if is_queue_song && queue_song.artwork.url != "" {
 		return apple.to_artwork_url(
 			queue_song.artwork,
-			kit.to_artwork_pixels(PLAYER_ARTWORK_POINTS),
+			look.to_artwork_pixels(PLAYER_ARTWORK_POINTS),
 		)
 	}
 
@@ -97,17 +98,17 @@ build_song_info :: proc() {
 
 	if ui.scope(info) {
 		artwork_source := find_player_artwork_source()
-		placeholder := kit.to_placeholder({}, song.album_name)
+		placeholder := look.to_placeholder({}, song.album_name)
 
 		if is_waiting {
-			placeholder = kit.to_placeholder(waiting_song.artwork, waiting_song.album_name)
+			placeholder = look.to_placeholder(waiting_song.artwork, waiting_song.album_name)
 		} else if !is_song {
 			placeholder = {
 				top    = kit.colors.card,
 				bottom = kit.colors.card,
 			}
 		} else if is_queue_song {
-			placeholder = kit.to_placeholder(queue_song.artwork, queue_song.album_name)
+			placeholder = look.to_placeholder(queue_song.artwork, queue_song.album_name)
 		}
 
 		// odinfmt cannot read `{.Clickable} if ...` inside another literal, so a local holds it.
@@ -119,7 +120,7 @@ build_song_info :: proc() {
 		if ui.signal(cover).is_clicked do core.navigate({kind = .Now_Playing})
 
 		if ui.scope(cover) {
-			kit.artwork_box(artwork_source, PLAYER_ARTWORK_POINTS, 6, placeholder)
+			look.artwork_box(artwork_source, PLAYER_ARTWORK_POINTS, 6, placeholder)
 			ui.box(
 				"",
 				{
@@ -195,8 +196,8 @@ build_song_title :: proc(song: helper.Song, queue_song: core.Catalog_Song, is_qu
 			badge = "LOSSLESS"
 		}
 
-		badge_color := kit.colors.youtube if is_from_youtube else kit.colors.dim
-		badge_border_color := kit.colors.youtube if is_from_youtube else kit.colors.faint
+		badge_color := look.colors.youtube if is_from_youtube else kit.colors.dim
+		badge_border_color := look.colors.youtube if is_from_youtube else kit.colors.faint
 		name_width := ui.Size{.Fill, 1}
 
 		if row_width := title.rect.z - title.rect.x; row_width > 0 {

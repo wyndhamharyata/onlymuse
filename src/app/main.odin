@@ -3,7 +3,7 @@ package main
 import "base:runtime"
 import "core:os"
 import "om:app/core"
-import "om:app/kit"
+import "om:app/look"
 import "om:app/matching"
 import "om:app/menus"
 import "om:app/palette"
@@ -16,6 +16,7 @@ import "om:store"
 import "om:youtube"
 import "thor:app"
 import "thor:dev"
+import "thor:kit"
 import "thor:platform"
 import "thor:ui"
 
@@ -44,7 +45,7 @@ main :: proc() {
 }
 
 start_app_state :: proc() {
-	core.app.accent = kit.DEFAULT_ACCENT
+	kit.colors.accent = kit.DEFAULT_ACCENT
 	core.app.system_accent = kit.DEFAULT_ACCENT
 	core.app.panel = .Lyrics
 	core.app.bench_direction = 1
@@ -76,7 +77,7 @@ open_main_window :: proc() {
 		{
 			title = "onlymuse",
 			size = DEFAULT_WINDOW_SIZE_POINTS,
-			min_size = {kit.MIN_WINDOW_WIDTH_POINTS, kit.MIN_WINDOW_HEIGHT_POINTS},
+			min_size = {look.MIN_WINDOW_WIDTH_POINTS, look.MIN_WINDOW_HEIGHT_POINTS},
 			fetch_image = fetch_cover,
 		},
 		draw_frame,

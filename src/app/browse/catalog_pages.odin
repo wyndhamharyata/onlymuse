@@ -2,10 +2,11 @@ package browse
 
 import "core:fmt"
 import "om:app/core"
-import "om:app/kit"
 import "om:app/lists"
+import "om:app/look"
 import "om:app/youtube_lists"
 import "om:apple"
+import "thor:kit"
 import "thor:ui"
 
 build_shelves_page :: proc(title, path: string, is_new: bool) {
@@ -30,18 +31,18 @@ build_shelves_page :: proc(title, path: string, is_new: bool) {
 		)
 	}
 
-	page := kit.page_scroll("shelves")
-	kit.run_bench_scroll(page)
+	page := look.page_scroll("shelves")
+	look.run_bench_scroll(page)
 
 	if ui.scope(page) {
 		kit.page_heading(title)
 
 		if watched.phase != .Ready {
-			kit.build_phase(watched.phase, title)
+			look.build_phase(watched.phase, title)
 			return
 		}
 
-		width := kit.to_content_width(page)
+		width := look.to_content_width(page)
 		if width <= 0 do return
 
 		for shelf, index in data.shelves {

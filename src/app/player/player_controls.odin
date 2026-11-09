@@ -2,9 +2,10 @@ package player
 
 import "core:math"
 import "om:app/core"
-import "om:app/kit"
+import "om:app/look"
 import "om:app/playback"
 import "om:helper"
+import "thor:kit"
 import "thor:platform"
 import "thor:ui"
 
@@ -34,7 +35,7 @@ build_controls :: proc() {
 		)
 
 		if ui.scope(buttons) {
-			shuffle_color := core.app.accent if playback.queue.is_shuffled else kit.colors.faint
+			shuffle_color := kit.colors.accent if playback.queue.is_shuffled else kit.colors.faint
 			shuffle := kit.icon_box(
 				"shuffle",
 				"shuffle",
@@ -93,7 +94,8 @@ build_controls :: proc() {
 			}
 
 			repeat_symbol := "repeat.1" if playback.queue.repeat == "one" else "repeat"
-			repeat_color := core.app.accent if playback.queue.repeat != "off" else kit.colors.faint
+			repeat_color :=
+				kit.colors.accent if playback.queue.repeat != "off" else kit.colors.faint
 
 			if kit.icon_button("repeat", repeat_symbol, 14, repeat_color) {
 				playback.cycle_repeat()
@@ -139,9 +141,9 @@ build_progress :: proc(has_song: bool) {
 			"",
 		)
 		shown_ratio, is_set := kit.bar("seek", ratio, ui.fill())
-		clock.text = kit.to_clock_text(f64(shown_ratio) * duration_seconds)
+		clock.text = look.to_clock_text(f64(shown_ratio) * duration_seconds)
 		kit.text_box(
-			kit.to_clock_text(duration_seconds),
+			look.to_clock_text(duration_seconds),
 			kit.colors.faint,
 			11,
 			width = ui.points(CLOCK_WIDTH_POINTS),
@@ -166,7 +168,7 @@ build_player_end :: proc() {
 
 	if ui.scope(end) {
 		kit.spacer()
-		panel_color := core.app.accent if core.app.panel != .None else kit.colors.faint
+		panel_color := kit.colors.accent if core.app.panel != .None else kit.colors.faint
 
 		if kit.icon_button("panel", "sidebar.right", 16, panel_color) {
 			core.set_panel(.None if core.app.panel != .None else core.app.last_panel)

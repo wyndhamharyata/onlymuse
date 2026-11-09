@@ -7,9 +7,9 @@ import "core:math/rand"
 import "core:slice"
 import "core:strings"
 import "om:app/core"
-import "om:app/kit"
 import "om:store"
 import "thor:app"
+import "thor:kit"
 import "thor:ui"
 
 OFTEN_SKIPPED_COUNT :: 3

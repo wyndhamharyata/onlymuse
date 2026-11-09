@@ -2,9 +2,9 @@ package palette
 
 import "core:fmt"
 import "core:strings"
-import "om:app/core"
-import "om:app/kit"
+import "om:app/look"
 import "om:apple"
+import "thor:kit"
 import "thor:ui"
 
 GROUP_TITLE_HEIGHT_POINTS :: 27
@@ -139,7 +139,7 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 			gap = 10,
 			padding = {8, 0, 10, 0},
 			corner_radius = 8,
-			background = kit.to_accent_tint(core.app.accent) if is_selected else {},
+			background = kit.to_accent_tint(kit.colors.accent) if is_selected else {},
 			flags = {.Clickable},
 		},
 	)
@@ -152,18 +152,18 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 
 	if ui.scope(row) {
 		if result.artwork.url != "" {
-			kit.artwork_box(
-				apple.to_artwork_url(result.artwork, kit.to_artwork_pixels(ROW_ARTWORK_POINTS)),
+			look.artwork_box(
+				apple.to_artwork_url(result.artwork, look.to_artwork_pixels(ROW_ARTWORK_POINTS)),
 				ROW_ARTWORK_POINTS,
 				ROW_ARTWORK_POINTS / 2 if result.is_round else 4,
-				kit.to_placeholder(result.artwork, result.title),
+				look.to_placeholder(result.artwork, result.title),
 			)
 		} else {
 			kit.icon_box(
 				"",
 				result.symbol if result.symbol != "" else "arrow.right",
 				14,
-				core.app.accent if is_selected else kit.colors.dim,
+				kit.colors.accent if is_selected else kit.colors.dim,
 				{width = ui.points(ROW_ARTWORK_POINTS), height = ui.points(ROW_ARTWORK_POINTS)},
 			)
 		}
@@ -210,7 +210,7 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 				{
 					width = ui.fit_text(),
 					height = ui.fit_text(),
-					text_color = core.app.accent,
+					text_color = kit.colors.accent,
 					font_size = 13,
 				},
 				"↵",

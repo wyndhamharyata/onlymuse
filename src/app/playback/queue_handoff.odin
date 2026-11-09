@@ -4,12 +4,12 @@ import "core:fmt"
 import "core:strings"
 import "core:sync"
 import "om:app/core"
-import "om:app/kit"
+import "om:app/look"
 import "om:app/matching"
 import "om:console"
 import "om:helper"
-import "thor:platform"
 import "om:youtube"
+import "thor:platform"
 
 @(private)
 Tracking :: struct {
@@ -239,7 +239,7 @@ restart_stalled_song :: proc(now_playing: helper.Now_Playing) {
 		console.add(
 			"Queue",
 			"Music.app stopped at %s of %s, so the queue starts the song again.",
-			kit.to_clock_text(now_playing.position_seconds),
+			look.to_clock_text(now_playing.position_seconds),
 			song.name,
 		)
 	} else {

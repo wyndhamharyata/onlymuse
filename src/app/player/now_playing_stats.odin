@@ -4,9 +4,10 @@ import "core:fmt"
 import "core:math"
 import "core:strings"
 import "om:app/core"
-import "om:app/kit"
+import "om:app/look"
 import "om:app/playback"
 import "om:helper"
+import "thor:kit"
 import "thor:platform"
 import "thor:ui"
 
@@ -134,9 +135,9 @@ build_stat_card :: proc(
 			gap = 8 if is_stacked else 0,
 			padding = {14, 12, 14, 12},
 			corner_radius = 10,
-			background = kit.colors.detail_card,
+			background = look.colors.detail_card,
 			border_width = 1,
-			border_color = kit.colors.detail_card_border,
+			border_color = look.colors.detail_card_border,
 		},
 	)
 
@@ -277,9 +278,9 @@ build_bars :: proc(weeks: [STAT_WEEKS]int) {
 					height = ui.points(height),
 					corner_radius = 2,
 					background = {
-						core.app.accent.r,
-						core.app.accent.g,
-						core.app.accent.b,
+						kit.colors.accent.r,
+						kit.colors.accent.g,
+						kit.colors.accent.b,
 						0.75 if count > 0 else 0.2,
 					},
 				},

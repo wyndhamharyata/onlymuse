@@ -3,10 +3,11 @@ package player
 import "core:fmt"
 import "core:slice"
 import "om:app/core"
-import "om:app/kit"
+import "om:app/look"
 import "om:app/menus"
 import "om:app/playback"
 import "om:helper"
+import "thor:kit"
 import "thor:platform"
 import "thor:ui"
 
@@ -66,14 +67,14 @@ build_hero :: proc(
 
 			source := to_cover_source(
 				details.song.artwork,
-				kit.to_artwork_pixels(cover_points),
+				look.to_artwork_pixels(cover_points),
 				shown.artwork_path,
 			)
-			kit.artwork_box(
+			look.artwork_box(
 				source,
 				cover_points,
 				12,
-				kit.to_placeholder(details.song.artwork, details.album, "music.note"),
+				look.to_placeholder(details.song.artwork, details.album, "music.note"),
 			)
 		}
 
@@ -100,7 +101,7 @@ build_hero :: proc(
 			has_artist := details.artist_id != ""
 			artist_flags := ui.Flags{.Truncate_Text}
 			if has_artist do artist_flags |= {.Clickable}
-			artist_color := core.app.accent if has_artist else kit.colors.text
+			artist_color := kit.colors.accent if has_artist else kit.colors.text
 			artist := ui.box(
 				"artist",
 				{
@@ -204,7 +205,7 @@ build_pills :: proc(details: Song_Details, info: playback.Song_Info) {
 					background = kit.to_color(0xffffff14),
 					border_width = 1,
 					border_color = kit.colors.popover_border,
-					text_color = core.app.accent if is_quality else kit.colors.text,
+					text_color = kit.colors.accent if is_quality else kit.colors.text,
 					font_size = 12,
 					font_weight = .Semibold,
 				},
@@ -250,7 +251,7 @@ build_actions :: proc(details: Song_Details, persistent_id: string) {
 			   "Favourite",
 			   "heart.circle.fill" if is_favourite else "heart.circle",
 			   false,
-			   core.app.accent if is_favourite else kit.colors.text,
+			   kit.colors.accent if is_favourite else kit.colors.text,
 		   ) {
 			playback.toggle_favourite(details.song, persistent_id)
 		}

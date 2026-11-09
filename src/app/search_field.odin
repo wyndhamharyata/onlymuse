@@ -3,8 +3,8 @@ package main
 import "core:encoding/json"
 import "core:strings"
 import "om:app/core"
-import "om:app/kit"
 import "om:store"
+import "thor:kit"
 import "thor:ui"
 
 search_field: kit.Text_Field

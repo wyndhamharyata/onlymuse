@@ -3,14 +3,15 @@ package youtube_pages
 import "core:fmt"
 import "core:strings"
 import "om:app/core"
-import "om:app/kit"
 import "om:app/lists"
+import "om:app/look"
 import "om:app/matching"
 import "om:app/playback"
 import "om:app/youtube_lists"
 import "om:apple"
 import "om:helper"
 import "om:youtube"
+import "thor:kit"
 import "thor:ui"
 
 SHOWN_YOUTUBE_SONG_COUNT :: 6
@@ -67,7 +68,7 @@ build_youtube_mixes_page :: proc() {
 
 // Google refuses a sign-in inside an app, so onlymuse takes the one Helium has.
 build_youtube_sign_in_page :: proc(title, text: string) {
-	page := kit.page_scroll("youtube sign in")
+	page := look.page_scroll("youtube sign in")
 
 	if ui.scope(page) {
 		kit.page_heading(title)

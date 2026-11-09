@@ -2,9 +2,10 @@ package browse
 
 import "core:math"
 import "om:app/core"
-import "om:app/kit"
 import "om:app/lists"
+import "om:app/look"
 import "om:apple"
+import "thor:kit"
 import "thor:ui"
 
 PHOTO_WIDTH_STEP_PIXELS :: 400
@@ -28,14 +29,14 @@ build_artist_header :: proc(data: ^core.Page_Data, detail: string, width: f32) {
 				PHOTO_WIDTH_STEP_PIXELS
 			// Apple fits the photo inside the asked size. A square gives the whole photo to crop.
 			photo := apple.to_artwork_url(data.artwork, photo_width)
-			box := kit.artwork_rect_box(
+			box := look.artwork_rect_box(
 				photo,
 				{width, ARTIST_HEADER_POINTS},
 				ARTIST_HEADER_RADIUS_POINTS,
 				{top = fallback_color, bottom = fallback_color},
 			)
 			box.style.flags += {.Floating}
-			if box.data != nil do (cast(^kit.Artwork_Paint)box.data).focus_y = 0.25
+			if box.data != nil do (cast(^look.Artwork_Paint)box.data).focus_y = 0.25
 		}
 
 		window_color := kit.colors.window

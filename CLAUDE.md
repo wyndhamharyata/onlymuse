@@ -35,7 +35,7 @@ src/
   app/              The window. main.odin opens it, frame.odin builds each frame. pages.odin picks the page.
                     sidebar, search field, Console page, zoom and the cover cache live here too.
     core/           What every part of the window shares: the app's state, navigation, page data, songs, the library lists.
-    kit/            The look and the widgets: theme, boxes, artwork, text fields, menus, toasts.
+    look/           onlymuse's look on top of thor's kit: its colours and sizes, the cover accent, artwork, pages.
     matching/       Finds the Apple Music song each YouTube song is.
     youtube_lists/  YouTube's lists as the pages read them: home, playlists, Liked Music.
     playback/       The queue, shuffle, the play log, favourites and what Music.app knows of a song.
@@ -279,7 +279,8 @@ it. This is the one label that rule 2.3 allows. A known bug is never a `shortcut
 - A procedure that builds part of one page lives in that page's file. It moves to `widgets.odin`
   only when two pages use it.
 - Decide a value once, above the boxes that read it. A box reads a name. It never decides one.
-- A colour or a size the window uses twice is a named value in `src/app/kit/theme.odin`.
+- A colour or a size the window uses twice is a named value in `src/app/look/theme.odin`, or in
+  thor's `kit` when every app needs it.
 
 ## 9. Tests are user journeys.
 

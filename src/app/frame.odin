@@ -2,7 +2,7 @@ package main
 
 import "core:strings"
 import "om:app/core"
-import "om:app/kit"
+import "om:app/look"
 import "om:app/menus"
 import "om:app/palette"
 import "om:app/playback"
@@ -14,6 +14,7 @@ import "om:console"
 import "om:helper"
 import "thor:app"
 import "thor:dev"
+import "thor:kit"
 import "thor:platform"
 import "thor:ui"
 
@@ -23,7 +24,7 @@ draw_frame :: proc() -> bool {
 	playback.free_retired_songs()
 	youtube_lists.free_unused_youtube_lists()
 	apply_input()
-	kit.set_accent(frame_seconds, player.find_player_artwork_source())
+	look.set_accent(frame_seconds, player.find_player_artwork_source())
 
 	root := ui.current_parent()
 	root.style.axis = .Y
@@ -44,7 +45,7 @@ draw_frame :: proc() -> bool {
 	menus.build_drag_ghost()
 	palette.build_palette()
 	playback.build_shuffle_rules()
-	kit.build_toast()
+	kit.build_toast(look.PLAYER_HEIGHT_POINTS)
 	if core.app.is_sign_in_needed do build_sign_in_card()
 	dev.build_frame_time(kit.colors.faint)
 
@@ -60,7 +61,7 @@ apply_input :: proc() {
 	playback.update_queue()
 	playback.apply_now_playing_to_play_log()
 	menus.apply_write_results()
-	kit.apply_text_events()
+	kit.apply_text_events(platform.list_events())
 	apply_keys()
 }
 

@@ -3,13 +3,14 @@ package menus
 import "core:fmt"
 import "core:strings"
 import "om:app/core"
-import "om:app/kit"
+import "om:app/look"
 import "om:app/matching"
 import "om:app/playback"
 import "om:app/youtube_lists"
 import "om:apple"
 import "om:youtube"
 import "thor:app"
+import "thor:kit"
 import "thor:platform"
 import "thor:ui"
 
@@ -244,7 +245,7 @@ build_playlist_menu :: proc(
 				},
 				"Return makes the playlist. Escape goes back.",
 			)
-		} else if kit.menu_item("new playlist", "New Playlist…", "", core.app.accent) {
+		} else if kit.menu_item("new playlist", "New Playlist…", "", kit.colors.accent) {
 			song_menu.is_naming = true
 			kit.focus_field(&playlist_name_field)
 		}
@@ -291,7 +292,7 @@ build_playlist_menu :: proc(
 					font_size = 12,
 					padding = {8, 4, 8, 4},
 				},
-				kit.to_phase_text(phase) if phase != .Ready else "No playlists of yours yet.",
+				look.to_phase_text(phase) if phase != .Ready else "No playlists of yours yet.",
 			)
 		}
 	}

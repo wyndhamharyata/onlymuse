@@ -1,4 +1,4 @@
-package kit
+package look
 
 import "core:fmt"
 import "core:math"
@@ -7,6 +7,7 @@ import "om:app/core"
 import "om:apple"
 import "thor:app"
 import "thor:dev"
+import "thor:kit"
 import "thor:platform"
 import "thor:ui"
 
@@ -31,72 +32,6 @@ to_content_width :: proc(page: ^ui.Box) -> f32 {
 	return page.size.x - page.style.padding.x - page.style.padding.z
 }
 
-page_heading :: proc(title: string) {
-	ui.box(
-		"",
-		{
-			width = ui.fill(),
-			height = ui.fit_text(),
-			text_color = colors.text,
-			font_size = 28,
-			font_weight = .Bold,
-			flags = {.Truncate_Text},
-		},
-		title,
-	)
-}
-
-note :: proc(text: string) {
-	ui.box(
-		"",
-		{width = ui.fill(), height = ui.fit_text(), text_color = colors.dim, flags = {.Wrap_Text}},
-		text,
-	)
-}
-
-PRIMARY_BUTTON_HOVER_ALPHA :: 0.85
-
-BUTTON_HOVER_ALPHA :: 0.14
-
-action_button :: proc(label, symbol: string, is_primary: bool, symbol_color: [4]f32 = {}) -> bool {
-	background := core.app.accent if is_primary else colors.field
-	hover := background
-	hover.a = PRIMARY_BUTTON_HOVER_ALPHA if is_primary else BUTTON_HOVER_ALPHA
-	color := colors.white if is_primary else colors.text
-
-	button := ui.box(
-		label,
-		{
-			width = ui.fit_children(),
-			height = ui.points(BUTTON_HEIGHT_POINTS),
-			axis = .X,
-			align = .Center,
-			gap = 6,
-			padding = {14, 0, 16, 0},
-			corner_radius = 8,
-			background = background,
-			hover_background = hover,
-			flags = {.Clickable},
-		},
-	)
-
-	if ui.scope(button) {
-		icon_box("", symbol, 12, symbol_color if symbol_color.a > 0 else color)
-		ui.box(
-			"",
-			{
-				width = ui.fit_text(),
-				height = ui.fit_text(),
-				text_color = color,
-				font_weight = .Semibold,
-			},
-			label,
-		)
-	}
-
-	return ui.signal(button).is_clicked
-}
-
 BENCH_POINTS_PER_FRAME :: 30
 
 run_bench_scroll :: proc(list: ^ui.Box) {
@@ -118,7 +53,7 @@ to_phase_text :: proc(phase: apple.Phase) -> string {
 
 build_phase :: proc(phase: apple.Phase, what: string) {
 	if phase == .Failed {
-		note(to_phase_text(phase))
+		kit.note(to_phase_text(phase))
 		return
 	}
 
@@ -167,26 +102,31 @@ build_loading :: proc(what: string) {
 			"",
 			{
 				width = ui.points(LOADING_BAR_WIDTH_POINTS),
-				height = ui.points(BAR_TRACK_HEIGHT_POINTS),
+				height = ui.points(kit.BAR_TRACK_HEIGHT_POINTS),
 			},
 		)
-		paint := new(Bar_Paint, context.temp_allocator)
+		paint := new(kit.Bar_Paint, context.temp_allocator)
 		paint^ = {first_ratio, first_ratio + LOADING_SEGMENT_RATIO}
-		track.draw = draw_bar
+		track.draw = kit.draw_bar
 		track.data = paint
 
 		all_dots := "..."
-		dots_width := ui.points(measure_text(all_dots, LOADING_TEXT_POINTS))
+		dots_width := ui.points(kit.measure_text(all_dots, LOADING_TEXT_POINTS))
 		label := ui.box("", {width = ui.fit_children(), height = ui.fit_children(), axis = .X})
 
 		if ui.scope(label) {
-			text_box(
+			kit.text_box(
 				fmt.tprintf("Loading %s", what),
-				colors.dim,
+				kit.colors.dim,
 				LOADING_TEXT_POINTS,
 				width = ui.fit_text(),
 			)
-			text_box(all_dots[:dot_count], colors.dim, LOADING_TEXT_POINTS, width = dots_width)
+			kit.text_box(
+				all_dots[:dot_count],
+				kit.colors.dim,
+				LOADING_TEXT_POINTS,
+				width = dots_width,
+			)
 		}
 	}
 

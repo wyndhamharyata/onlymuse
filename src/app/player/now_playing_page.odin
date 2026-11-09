@@ -2,12 +2,13 @@ package player
 
 import "core:fmt"
 import "om:app/core"
-import "om:app/kit"
 import "om:app/lists"
+import "om:app/look"
 import "om:app/playback"
 import "om:apple"
 import "om:helper"
 import "om:lyrics"
+import "thor:kit"
 import "thor:ui"
 
 MAX_MORE_BY_COUNT :: 6
@@ -17,7 +18,7 @@ MORE_BY_TILE_POINTS :: 118
 build_now_playing_page :: proc() {
 	shown, is_song := playback.find_shown_song()
 	playing, _, _ := playback.find_playing_song()
-	page := kit.page_scroll("now playing")
+	page := look.page_scroll("now playing")
 
 	if ui.scope(page) {
 		if !is_song {
@@ -50,7 +51,7 @@ build_now_playing_page :: proc() {
 
 		info := playback.Song_Info{}
 		if !playback.is_web_played(shown.persistent_id) do info = playback.watch_song_info(shown.persistent_id)
-		width := kit.to_content_width(page)
+		width := look.to_content_width(page)
 		if width <= 0 do return
 
 		stage := ui.box(
@@ -63,7 +64,7 @@ build_now_playing_page :: proc() {
 			build_hero(details, info, shown, width)
 			if info.is_in_library do build_stats(details.song, info, width)
 			build_detail_cards(details, info, shown.persistent_id, width)
-			if watched.phase != .Ready do kit.build_phase(watched.phase, "the song details")
+			if watched.phase != .Ready do look.build_phase(watched.phase, "the song details")
 			build_more_by(details)
 
 			if details.copyright != "" {

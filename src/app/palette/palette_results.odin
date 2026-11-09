@@ -6,10 +6,10 @@ import "core:mem/virtual"
 import "core:slice"
 import "core:strings"
 import "om:app/core"
-import "om:app/kit"
 import "om:app/playback"
 import "om:apple"
 import "om:helper"
+import "thor:kit"
 import "thor:platform"
 
 MAX_PAGE_RESULT_COUNT :: MAX_GROUP_RESULT_COUNT * 2

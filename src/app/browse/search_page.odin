@@ -3,11 +3,12 @@ package browse
 import "core:encoding/json"
 import "core:fmt"
 import "om:app/core"
-import "om:app/kit"
 import "om:app/lists"
+import "om:app/look"
 import "om:app/playback"
 import "om:app/youtube_pages"
 import "om:apple"
+import "thor:kit"
 import "thor:ui"
 
 SHOWN_SEARCH_SONG_COUNT :: 6
@@ -33,17 +34,17 @@ build_search_page :: proc(term: string) {
 		data.artists = apple.to_cards(answer.results.artists.data, allocator)
 	}
 
-	page := kit.page_scroll("search")
+	page := look.page_scroll("search")
 
 	if ui.scope(page) {
 		kit.page_heading(fmt.tprintf("Results for \"%s\"", term))
 
 		if watched.phase != .Ready {
-			kit.build_phase(watched.phase, "the results")
+			look.build_phase(watched.phase, "the results")
 			return
 		}
 
-		width := kit.to_content_width(page)
+		width := look.to_content_width(page)
 
 		if len(data.songs) + len(data.cards) + len(data.artists) == 0 {
 			kit.note(fmt.tprintf("Apple Music has nothing for \"%s\".", term))
@@ -109,7 +110,7 @@ build_search_top :: proc(data: ^core.Page_Data) {
 					width = ui.fill(),
 					height = ui.fit_text(),
 					text_color = kit.colors.text,
-					font_size = kit.SHELF_TITLE_POINTS,
+					font_size = look.SHELF_TITLE_POINTS,
 					font_weight = .Bold,
 					padding = {0, 0, 0, 10},
 				},

@@ -2,9 +2,10 @@ package lists
 
 import "core:fmt"
 import "om:app/core"
-import "om:app/kit"
+import "om:app/look"
 import "om:app/playback"
 import "om:apple"
+import "thor:kit"
 import "thor:ui"
 
 MIN_GRID_COLUMN_POINTS :: 300
@@ -39,7 +40,7 @@ build_song_grid :: proc(
 				for index := column; index < len(songs); index += column_count {
 					song := songs[index]
 					date :=
-						kit.to_date_text(dates[index]) if has_dates && index < len(dates) else ""
+						look.to_date_text(dates[index]) if has_dates && index < len(dates) else ""
 
 					if build_song_row(
 						fmt.tprintf("%d %s", index, song.id),
@@ -66,8 +67,8 @@ build_card_grid_page :: proc(
 	phase: apple.Phase,
 	is_round: bool,
 ) {
-	page := kit.page_scroll("grid page")
-	kit.run_bench_scroll(page)
+	page := look.page_scroll("grid page")
+	look.run_bench_scroll(page)
 
 	if ui.scope(page) {
 		heading := ui.box("heading", {width = ui.fill(), height = ui.fit_children(), axis = .Y})
@@ -75,18 +76,18 @@ build_card_grid_page :: proc(
 		if ui.scope(heading) {
 			kit.page_heading(title)
 			kit.text_box(
-				fmt.tprintf("%d items", len(cards)) if phase == .Ready else kit.to_phase_text(phase),
+				fmt.tprintf("%d items", len(cards)) if phase == .Ready else look.to_phase_text(phase),
 				kit.colors.dim,
 			)
 		}
 
-		if phase == .Loading do kit.build_loading(title)
+		if phase == .Loading do look.build_loading(title)
 		if phase == .Ready do build_card_grid(page, cards, is_round)
 	}
 }
 
 build_card_grid :: proc(page: ^ui.Box, cards: []apple.Card, is_round: bool) {
-	width := kit.to_content_width(page)
+	width := look.to_content_width(page)
 	grid := ui.box("grid", {width = ui.fill(), height = ui.fit_children(), axis = .Y})
 
 	if width <= 0 do return

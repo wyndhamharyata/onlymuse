@@ -3,12 +3,12 @@ package playback
 import "core:fmt"
 import "core:strings"
 import "om:app/core"
-import "om:app/kit"
 import "om:app/youtube_lists"
 import "om:apple"
 import "om:helper"
 import "om:youtube"
 import "thor:app"
+import "thor:kit"
 
 find_shown_song :: proc() -> (helper.Song, bool) {
 	now_playing := core.app.now_playing
@@ -229,6 +229,6 @@ build_favourite_button :: proc(id: string, is_favourite: bool) -> bool {
 		id,
 		"heart.circle.fill" if is_favourite else "heart.circle",
 		13,
-		core.app.accent if is_favourite else kit.colors.faint,
+		kit.colors.accent if is_favourite else kit.colors.faint,
 	)
 }

@@ -2,12 +2,12 @@ package palette
 
 import "core:mem/virtual"
 import "om:app/core"
-import "om:app/kit"
 import "om:app/lists"
 import "om:app/playback"
 import "om:apple"
 import "om:helper"
 import "thor:app"
+import "thor:kit"
 import "thor:ui"
 
 PALETTE_WIDTH_POINTS :: 560

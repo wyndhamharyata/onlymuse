@@ -8,9 +8,10 @@ import "core:strings"
 import "core:sync"
 import "core:thread"
 import "om:app/core"
-import "om:app/kit"
 import "om:app/lists"
+import "om:app/look"
 import "om:apple"
+import "thor:kit"
 import "thor:platform"
 import "thor:ui"
 
@@ -99,7 +100,7 @@ scan_downloads :: proc() {
 
 build_downloaded_page :: proc() {
 	if !core.app.drives_music_app {
-		page := kit.page_scroll("downloaded")
+		page := look.page_scroll("downloaded")
 
 		if ui.scope(page) {
 			kit.page_heading("Downloaded")

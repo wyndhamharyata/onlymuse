@@ -3,10 +3,11 @@ package main
 import "core:fmt"
 import "om:app/browse"
 import "om:app/core"
-import "om:app/kit"
+import "om:app/look"
 import "om:app/player"
 import "om:app/youtube_pages"
 import "om:apple"
+import "thor:kit"
 import "thor:ui"
 
 build_page_area :: proc() {
@@ -19,11 +20,11 @@ build_page_area :: proc() {
 			"toolbar",
 			{
 				width = ui.fill(),
-				height = ui.points(kit.TOOLBAR_HEIGHT_POINTS),
+				height = ui.points(look.TOOLBAR_HEIGHT_POINTS),
 				axis = .X,
 				align = .Center,
 				gap = 2,
-				padding = {kit.PAGE_PADDING_POINTS - kit.ICON_BUTTON_PADDING_POINTS, 0, 0, 0},
+				padding = {look.PAGE_PADDING_POINTS - kit.ICON_BUTTON_PADDING_POINTS, 0, 0, 0},
 			},
 		)
 

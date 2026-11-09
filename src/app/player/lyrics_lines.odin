@@ -1,10 +1,9 @@
 package player
 
 import "core:fmt"
-import "om:app/core"
-import "om:app/kit"
 import "om:helper"
 import "om:lyrics"
+import "thor:kit"
 import "thor:platform"
 import "thor:ui"
 
@@ -39,7 +38,7 @@ to_lyric_glyph_color :: proc(utf16_index: int, data: rawptr) -> [4]f32 {
 		break
 	}
 
-	return kit.colors.dim + (core.app.accent - kit.colors.dim) * lit
+	return kit.colors.dim + (kit.colors.accent - kit.colors.dim) * lit
 }
 
 @(private = "file")

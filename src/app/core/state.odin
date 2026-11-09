@@ -10,7 +10,6 @@ Panel :: enum {
 }
 
 app: struct {
-	accent:            [4]f32,
 	system_accent:     [4]f32,
 	now_playing:       helper.Now_Playing,
 	panel:             Panel,

@@ -2,13 +2,14 @@ package youtube_pages
 
 import "core:fmt"
 import "om:app/core"
-import "om:app/kit"
 import "om:app/lists"
+import "om:app/look"
 import "om:app/matching"
 import "om:app/menus"
 import "om:app/youtube_lists"
 import "om:apple"
 import "om:youtube"
+import "thor:kit"
 import "thor:ui"
 
 build_bring_over_page :: proc(page: core.Page) {
@@ -45,7 +46,7 @@ build_bring_over_page :: proc(page: core.Page) {
 	first, songs, phase := youtube_lists.watch_youtube_songs(youtube.to_list_path(page.id))
 	title := first.title if first.title != "" else page.title
 	counts := list_match_counts(songs)
-	scroll := kit.page_scroll("bring over")
+	scroll := look.page_scroll("bring over")
 
 	if ui.scope(scroll) {
 		header := ui.box(
@@ -74,7 +75,7 @@ build_bring_over_page :: proc(page: core.Page) {
 			}
 		}
 
-		if phase == .Loading do kit.build_loading(title)
+		if phase == .Loading do look.build_loading(title)
 
 		if phase == .Ready {
 			kit.note(

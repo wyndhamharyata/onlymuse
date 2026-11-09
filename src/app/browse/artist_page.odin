@@ -4,10 +4,11 @@ import "core:fmt"
 import "core:strings"
 import "core:unicode"
 import "om:app/core"
-import "om:app/kit"
 import "om:app/lists"
+import "om:app/look"
 import "om:app/youtube_lists"
 import "om:apple"
+import "thor:kit"
 import "thor:ui"
 
 ARTIST_HEADER_POINTS :: 300
@@ -71,11 +72,11 @@ build_artist_page :: proc(page_id: string, name: string) {
 		found, phase := watch_artist_id(name)
 
 		if found == "" {
-			page := kit.page_scroll("artist")
+			page := look.page_scroll("artist")
 
 			if ui.scope(page) {
 				if phase != .Ready {
-					kit.build_phase(phase, name)
+					look.build_phase(phase, name)
 				} else {
 					kit.note(fmt.tprintf("Apple Music has no artist named %s.", name))
 				}
@@ -98,16 +99,16 @@ build_artist_page :: proc(page_id: string, name: string) {
 	)
 	if needs_read do read_artist(data, watched.body, library_albums)
 
-	page := kit.page_scroll("artist")
-	kit.run_bench_scroll(page)
+	page := look.page_scroll("artist")
+	look.run_bench_scroll(page)
 
 	if ui.scope(page) {
 		if data.title == "" {
-			kit.build_phase(watched.phase, name)
+			look.build_phase(watched.phase, name)
 			return
 		}
 
-		width := kit.to_content_width(page)
+		width := look.to_content_width(page)
 		channel := youtube_lists.watch_youtube_artist(data.title)
 		detail := data.detail
 

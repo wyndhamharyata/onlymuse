@@ -3,7 +3,7 @@ package main
 import "core:fmt"
 import "core:strconv"
 import "om:app/core"
-import "om:app/kit"
+import "om:app/look"
 import "om:store"
 import "thor:app"
 import "thor:platform"
@@ -62,5 +62,5 @@ is_zoom_fitting :: proc(zoom: f32) -> bool {
 }
 
 to_min_window_size :: proc(zoom: f32) -> [2]f32 {
-	return {kit.MIN_WINDOW_WIDTH_POINTS, kit.MIN_WINDOW_HEIGHT_POINTS} * zoom
+	return {look.MIN_WINDOW_WIDTH_POINTS, look.MIN_WINDOW_HEIGHT_POINTS} * zoom
 }

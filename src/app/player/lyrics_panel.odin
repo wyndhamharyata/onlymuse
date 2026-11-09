@@ -3,10 +3,10 @@ package player
 import "core:fmt"
 import "core:strconv"
 import "om:app/core"
-import "om:app/kit"
 import "om:helper"
 import "om:lyrics"
 import "om:store"
+import "thor:kit"
 import "thor:platform"
 import "thor:ui"
 

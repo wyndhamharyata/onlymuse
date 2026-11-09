@@ -3,9 +3,10 @@ package lists
 import "core:fmt"
 import "core:math"
 import "om:app/core"
-import "om:app/kit"
+import "om:app/look"
 import "om:app/playback"
 import "om:apple"
+import "thor:kit"
 import "thor:ui"
 
 SHELF_TILE_POINTS :: 150
@@ -122,14 +123,14 @@ build_shelf_title :: proc(title: string, is_youtube: bool) {
 	)
 
 	if ui.scope(row) {
-		if is_youtube do kit.icon_box("", YOUTUBE_SYMBOL, 15, kit.colors.youtube)
+		if is_youtube do kit.icon_box("", YOUTUBE_SYMBOL, 15, look.colors.youtube)
 		ui.box(
 			"",
 			{
 				width = ui.fill(),
 				height = ui.fit_text(),
 				text_color = kit.colors.text,
-				font_size = kit.SHELF_TITLE_POINTS,
+				font_size = look.SHELF_TITLE_POINTS,
 				font_weight = .Bold,
 				flags = {.Truncate_Text},
 			},
@@ -162,11 +163,11 @@ build_card_tile :: proc(
 	if ui.scope(tile) {
 		radius: f32 = tile_points / 2 if is_round else 8
 		size := [2]f32{tile_points, tile_points * 9 / 16 if is_wide else tile_points}
-		artwork := kit.artwork_rect_box(
-			apple.to_artwork_url(card.artwork, kit.to_artwork_pixels(tile_points)),
+		artwork := look.artwork_rect_box(
+			apple.to_artwork_url(card.artwork, look.to_artwork_pixels(tile_points)),
 			size,
 			radius,
-			kit.to_placeholder(card.artwork, card.name, card_symbols[card.kind]),
+			look.to_placeholder(card.artwork, card.name, card_symbols[card.kind]),
 		)
 
 		if ui.scope(artwork) {

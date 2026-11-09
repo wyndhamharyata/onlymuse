@@ -3,8 +3,9 @@ package main
 import "core:fmt"
 import "core:strings"
 import "core:time"
-import "om:app/kit"
+import "om:app/look"
 import "om:console"
+import "thor:kit"
 import "thor:platform"
 import "thor:ui"
 
@@ -20,7 +21,7 @@ build_console_page :: proc() {
 		len(entries),
 		"error" if len(entries) == 1 else "errors",
 	)
-	page := kit.page_scroll("console")
+	page := look.page_scroll("console")
 
 	if ui.scope(page) {
 		header := ui.box(
@@ -64,7 +65,7 @@ build_console_page :: proc() {
 
 @(private = "file")
 build_console_row :: proc(index: int, entry: console.Entry) {
-	source_color := kit.colors.youtube if entry.source == "YouTube" else kit.colors.dim
+	source_color := look.colors.youtube if entry.source == "YouTube" else kit.colors.dim
 	row := ui.box(
 		fmt.tprintf("entry %d", index),
 		{

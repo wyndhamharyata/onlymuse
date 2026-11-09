@@ -6,11 +6,12 @@ import "core:strconv"
 import "core:strings"
 import "core:time"
 import "om:app/core"
-import "om:app/kit"
+import "om:app/look"
 import "om:app/matching"
 import "om:app/playback"
 import "om:apple"
 import "om:lyrics"
+import "thor:kit"
 import "thor:platform"
 import "thor:ui"
 
@@ -91,7 +92,7 @@ list_sound_details :: proc(details: Song_Details, info: playback.Song_Info) -> [
 	has_bit_rate := info.bit_rate_kbps > 0
 	sample_rate := to_sample_rate_text(info.sample_rate_hz)
 	bit_rate := fmt.tprintf("%d kbps", info.bit_rate_kbps)
-	length := kit.to_clock_text(details.song.duration_seconds)
+	length := look.to_clock_text(details.song.duration_seconds)
 
 	if format := to_format(details, info); format != "" {
 		append(&sound, Detail{"Format", format, false})
@@ -151,9 +152,9 @@ build_detail_card :: proc(id, title: string, rows: []Detail, weight: f32) {
 			gap = 6,
 			padding = {16, 14, 16, 14},
 			corner_radius = 10,
-			background = kit.colors.detail_card,
+			background = look.colors.detail_card,
 			border_width = 1,
-			border_color = kit.colors.detail_card_border,
+			border_color = look.colors.detail_card_border,
 		},
 	)
 
@@ -293,7 +294,7 @@ apply_song_details :: proc(path: string, data: ^core.Page_Data, body: string) {
 		album_id          = albums[0].id if has_album else "",
 		composer          = attributes.composer_name,
 		genre             = strings.join(attributes.genre_names, ", ", allocator),
-		released          = strings.clone(kit.to_date_text(attributes.release_date), allocator),
+		released          = strings.clone(look.to_date_text(attributes.release_date), allocator),
 		label             = album.record_label,
 		isrc              = attributes.isrc,
 		language          = to_language_name(attributes.audio_locale),

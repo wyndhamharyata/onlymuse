@@ -4,9 +4,10 @@ import "core:fmt"
 import "core:slice"
 import "core:strings"
 import "om:app/core"
-import "om:app/kit"
 import "om:app/lists"
+import "om:app/look"
 import "om:apple"
+import "thor:kit"
 import "thor:ui"
 
 RECENT_RELEASE_COUNT :: 10
@@ -141,7 +142,7 @@ build_recent_songs_shelf :: proc(artist_id, artist_name: string) {
 					width = ui.fit_text(),
 					height = ui.fit_text(),
 					text_color = kit.to_faded(kit.colors.text, text_alpha),
-					font_size = kit.SHELF_TITLE_POINTS,
+					font_size = look.SHELF_TITLE_POINTS,
 					font_weight = .Bold,
 				},
 				"Recent Songs",

@@ -5,12 +5,12 @@ import "core:strings"
 import "core:sync"
 import "core:thread"
 import "om:app/core"
-import "om:app/kit"
 import "om:app/matching"
 import "om:apple"
 import "om:console"
 import "om:helper"
 import "om:net"
+import "thor:kit"
 import "thor:platform"
 
 ADD_POLL_SECONDS :: 1.5

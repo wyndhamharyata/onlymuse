@@ -1,9 +1,10 @@
-package kit
+package look
 
 import "core:math"
 import "om:apple"
 import "thor:icon"
 import "thor:image"
+import "thor:kit"
 import "thor:render"
 import "thor:ui"
 import MTL "vendor:darwin/Metal"
@@ -41,7 +42,7 @@ draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	is_symbol_showing := image_opacity < 1 && paint.symbol != ""
 
 	if is_symbol_showing {
-		color := to_faded(paint.symbol_color, opacity * (1 - image_opacity))
+		color := kit.to_faded(paint.symbol_color, opacity * (1 - image_opacity))
 		icon.draw(paint.symbol, ui.to_pixels(paint.symbol_points), rect, clip, color)
 	}
 
@@ -51,7 +52,7 @@ draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 		{
 			rect = rect,
 			uv = to_fill_uv(rect, texture, paint.focus_y),
-			color = to_faded(colors.white, opacity * image_opacity),
+			color = kit.to_faded(kit.colors.white, opacity * image_opacity),
 			corner_radius = ui.to_pixels(box.style.corner_radius),
 			clip = clip,
 			kind = .Image,
@@ -99,12 +100,12 @@ to_placeholder :: proc(
 	seed: string,
 	symbol := "music.note",
 ) -> Placeholder {
-	if background, ok := to_color_from_hex_digits(artwork.background_color); ok {
-		text_color := to_color_from_hex_digits(artwork.text_color) or_else colors.text
+	if background, ok := kit.to_color_from_hex_digits(artwork.background_color); ok {
+		text_color := kit.to_color_from_hex_digits(artwork.text_color) or_else kit.colors.text
 
 		return {
-			top = mix_color(background, text_color, 0.18),
-			bottom = mix_color(background, {0, 0, 0, 1}, 0.25),
+			top = kit.mix_color(background, text_color, 0.18),
+			bottom = kit.mix_color(background, {0, 0, 0, 1}, 0.25),
 			symbol = symbol,
 			symbol_color = {text_color.r, text_color.g, text_color.b, 0.5},
 		}
@@ -118,8 +119,8 @@ to_placeholder :: proc(
 	turn := 30 + f32((hash >> 9) % 70)
 
 	return {
-		top = to_color_from_hsl(hue, 0.34, 0.33),
-		bottom = to_color_from_hsl(hue + turn, 0.3, 0.19),
+		top = kit.to_color_from_hsl(hue, 0.34, 0.33),
+		bottom = kit.to_color_from_hsl(hue + turn, 0.3, 0.19),
 		symbol = symbol,
 		symbol_color = {1, 1, 1, 0.28},
 	}

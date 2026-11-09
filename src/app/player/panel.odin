@@ -2,11 +2,12 @@ package player
 
 import "core:fmt"
 import "om:app/core"
-import "om:app/kit"
 import "om:app/lists"
+import "om:app/look"
 import "om:app/menus"
 import "om:app/playback"
 import "om:apple"
+import "thor:kit"
 import "thor:ui"
 
 PANEL_PADDING_POINTS :: 8
@@ -19,7 +20,7 @@ RULES_MENU_LEFT_POINTS :: 240
 
 build_panel :: proc() -> bool {
 	is_open := core.app.panel != .None
-	width := ui.animate("panel width", kit.PANEL_WIDTH_POINTS if is_open else 0)
+	width := ui.animate("panel width", look.PANEL_WIDTH_POINTS if is_open else 0)
 
 	if width < 1 do return false
 
@@ -36,13 +37,13 @@ build_panel :: proc() -> bool {
 				PANEL_PADDING_POINTS,
 			},
 			gap = 4,
-			background = kit.colors.panel,
-			fade = 1 - width / kit.PANEL_WIDTH_POINTS,
+			background = look.colors.panel,
+			fade = 1 - width / look.PANEL_WIDTH_POINTS,
 			flags = {.Clip},
 		},
 	)
 	is_moving := false
-	inner_width: f32 = kit.PANEL_WIDTH_POINTS - 2 * PANEL_PADDING_POINTS
+	inner_width: f32 = look.PANEL_WIDTH_POINTS - 2 * PANEL_PADDING_POINTS
 
 	if ui.scope(panel) {
 		inner := ui.box(
@@ -89,7 +90,7 @@ build_up_next :: proc() {
 		)
 
 		if ui.scope(note_row) {
-			kit.icon_box("", "shuffle", 11, core.app.accent)
+			kit.icon_box("", "shuffle", 11, kit.colors.accent)
 			ui.box(
 				"",
 				{
@@ -173,10 +174,10 @@ build_up_next :: proc() {
 build_queue_row :: proc(index: int) -> bool {
 	song := playback.queue.songs[index]
 	is_current := index == playback.queue.index
-	tint := kit.to_accent_tint(core.app.accent)
+	tint := kit.to_accent_tint(kit.colors.accent)
 	background: [4]f32 = tint if is_current else {}
 	hover_background := tint if is_current else kit.colors.hover
-	name_color := core.app.accent if is_current else kit.colors.text
+	name_color := kit.colors.accent if is_current else kit.colors.text
 	row := ui.box(
 		fmt.tprintf("queue %d %s", index, song.id),
 		{
@@ -195,11 +196,11 @@ build_queue_row :: proc(index: int) -> bool {
 	is_removed := false
 
 	if ui.scope(row) {
-		kit.artwork_box(
-			apple.to_artwork_url(song.artwork, kit.to_artwork_pixels(QUEUE_COVER_POINTS)),
+		look.artwork_box(
+			apple.to_artwork_url(song.artwork, look.to_artwork_pixels(QUEUE_COVER_POINTS)),
 			QUEUE_COVER_POINTS,
 			4,
-			kit.to_placeholder(song.artwork, song.album_name),
+			look.to_placeholder(song.artwork, song.album_name),
 		)
 
 		text := ui.box("text", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 2})
@@ -252,11 +253,11 @@ build_panel_tabs :: proc(width: f32) {
 @(private = "file")
 build_panel_tab :: proc(label, symbol: string, panel: core.Panel) {
 	is_open := core.app.panel == panel
-	tint := kit.to_accent_tint(core.app.accent)
+	tint := kit.to_accent_tint(kit.colors.accent)
 	background: [4]f32 = tint if is_open else {}
 	hover_background := tint if is_open else kit.colors.hover
-	icon_color := core.app.accent if is_open else kit.colors.dim
-	label_color := core.app.accent if is_open else kit.colors.text
+	icon_color := kit.colors.accent if is_open else kit.colors.dim
+	label_color := kit.colors.accent if is_open else kit.colors.text
 	tab := ui.box(
 		label,
 		{

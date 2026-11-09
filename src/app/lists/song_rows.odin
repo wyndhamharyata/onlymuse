@@ -2,11 +2,12 @@ package lists
 
 import "core:fmt"
 import "om:app/core"
-import "om:app/kit"
+import "om:app/look"
 import "om:app/matching"
 import "om:app/menus"
 import "om:app/playback"
 import "om:apple"
+import "thor:kit"
 import "thor:ui"
 
 SONG_ROW_POINTS :: 54
@@ -21,8 +22,8 @@ build_song_list_page :: proc(
 	phase: apple.Phase,
 	dates: []string = nil,
 ) {
-	page := kit.page_scroll("song list")
-	kit.run_bench_scroll(page)
+	page := look.page_scroll("song list")
+	look.run_bench_scroll(page)
 
 	if ui.scope(page) {
 		header := ui.box(
@@ -45,7 +46,7 @@ build_song_list_page :: proc(
 				}
 
 				kit.text_box(
-					count_text if phase == .Ready else kit.to_phase_text(phase),
+					count_text if phase == .Ready else look.to_phase_text(phase),
 					kit.colors.dim,
 				)
 			}
@@ -53,7 +54,7 @@ build_song_list_page :: proc(
 			if phase == .Ready && len(songs) > 0 do build_play_buttons(songs)
 		}
 
-		if phase == .Loading do kit.build_loading(title)
+		if phase == .Loading do look.build_loading(title)
 
 		if phase == .Ready {
 			if len(songs) == 0 do kit.note("Nothing here yet.")
@@ -99,7 +100,7 @@ build_song_rows :: proc(page: ^ui.Box, songs: []core.Catalog_Song, dates: []stri
 			song := songs[index]
 			is_current := playback.is_current_song(song)
 			subtitle := song.album_name if dates != nil else to_song_subtitle(song)
-			date := kit.to_date_text(dates[index]) if index < len(dates) else ""
+			date := look.to_date_text(dates[index]) if index < len(dates) else ""
 
 			if build_song_row(
 				fmt.tprintf("%d %s", index, song.id),
@@ -137,7 +138,7 @@ build_song_row :: proc(
 	is_current: bool,
 	date := "",
 ) -> bool {
-	tint := kit.to_accent_tint(core.app.accent)
+	tint := kit.to_accent_tint(kit.colors.accent)
 	row := ui.box(
 		id,
 		{
@@ -156,17 +157,17 @@ build_song_row :: proc(
 	)
 
 	if ui.scope(row) {
-		kit.artwork_box(
-			apple.to_artwork_url(song.artwork, kit.to_artwork_pixels(SONG_ARTWORK_POINTS)),
+		look.artwork_box(
+			apple.to_artwork_url(song.artwork, look.to_artwork_pixels(SONG_ARTWORK_POINTS)),
 			SONG_ARTWORK_POINTS,
 			5,
-			kit.to_placeholder(song.artwork, song.album_name),
+			look.to_placeholder(song.artwork, song.album_name),
 		)
 
 		text := ui.box("", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 2})
 
 		if ui.scope(text) {
-			kit.text_box(song.name, core.app.accent if is_current else kit.colors.text)
+			kit.text_box(song.name, kit.colors.accent if is_current else kit.colors.text)
 			kit.text_box(subtitle, kit.colors.dim, 12)
 		}
 
@@ -193,7 +194,7 @@ build_song_row :: proc(
 				text_color = kit.colors.faint,
 				font_size = 12,
 			},
-			kit.to_clock_text(song.duration_seconds),
+			look.to_clock_text(song.duration_seconds),
 		)
 	}
 
@@ -208,7 +209,7 @@ build_row_heart :: proc(chosen: core.Catalog_Song, is_current: bool) {
 			"",
 			YOUTUBE_SYMBOL,
 			13,
-			kit.colors.youtube if state == .Missing else kit.colors.faint,
+			look.colors.youtube if state == .Missing else kit.colors.faint,
 			{padding = {4, 4, 4, 4}},
 		)
 	}

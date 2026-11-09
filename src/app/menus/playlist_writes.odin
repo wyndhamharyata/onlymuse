@@ -6,13 +6,13 @@ import "core:strings"
 import "core:sync"
 import "core:thread"
 import "om:app/core"
-import "om:app/kit"
 import "om:app/matching"
 import "om:app/youtube_lists"
 import "om:apple"
 import "om:net"
-import "thor:platform"
 import "om:youtube"
+import "thor:kit"
+import "thor:platform"
 
 @(private = "file")
 Write_Job :: struct {

@@ -35,7 +35,7 @@ build_shelves_page :: proc(title, path: string, is_new: bool) {
 	look.run_bench_scroll(page)
 
 	if ui.scope(page) {
-		kit.page_heading(title)
+		kit.heading(title)
 
 		if watched.phase != .Ready {
 			look.build_phase(watched.phase, title)

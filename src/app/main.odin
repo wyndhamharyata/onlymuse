@@ -162,7 +162,7 @@ build_sign_in_card :: proc() {
 
 			label := "Open the sign-in window again" if core.app.is_sign_in_open else "Sign In"
 
-			if kit.action_button(label, "person.crop.circle", true) {
+			if kit.button(label, "person.crop.circle", .Primary) {
 				core.app.is_sign_in_open = true
 				helper.send_sign_in()
 			}

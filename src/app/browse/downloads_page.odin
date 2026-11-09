@@ -103,8 +103,8 @@ build_downloaded_page :: proc() {
 		page := look.page_scroll("downloaded")
 
 		if ui.scope(page) {
-			kit.page_heading("Downloaded")
-			kit.note("Downloads need Music.app.")
+			kit.heading("Downloaded")
+			kit.paragraph("Downloads need Music.app.", kit.colors.dim)
 		}
 
 		return

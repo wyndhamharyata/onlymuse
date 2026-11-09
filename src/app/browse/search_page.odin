@@ -37,7 +37,7 @@ build_search_page :: proc(term: string) {
 	page := look.page_scroll("search")
 
 	if ui.scope(page) {
-		kit.page_heading(fmt.tprintf("Results for \"%s\"", term))
+		kit.heading(fmt.tprintf("Results for \"%s\"", term))
 
 		if watched.phase != .Ready {
 			look.build_phase(watched.phase, "the results")
@@ -47,7 +47,7 @@ build_search_page :: proc(term: string) {
 		width := look.to_content_width(page)
 
 		if len(data.songs) + len(data.cards) + len(data.artists) == 0 {
-			kit.note(fmt.tprintf("Apple Music has nothing for \"%s\".", term))
+			kit.paragraph(fmt.tprintf("Apple Music has nothing for \"%s\".", term), kit.colors.dim)
 			youtube_pages.build_youtube_search_results(term, nil, width)
 			return
 		}

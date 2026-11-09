@@ -74,8 +74,8 @@ build_card_grid_page :: proc(
 		heading := ui.box("heading", {width = ui.fill(), height = ui.fit_children(), axis = .Y})
 
 		if ui.scope(heading) {
-			kit.page_heading(title)
-			kit.text_box(
+			kit.heading(title)
+			kit.text(
 				fmt.tprintf("%d items", len(cards)) if phase == .Ready else look.to_phase_text(phase),
 				kit.colors.dim,
 			)

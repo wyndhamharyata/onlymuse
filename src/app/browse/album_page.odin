@@ -33,7 +33,10 @@ build_album_page :: proc(album_id: string) {
 				if link.phase != .Ready {
 					look.build_phase(link.phase, "the album")
 				} else {
-					kit.note("This album is only on the Mac, so Apple Music has no page for it.")
+					kit.paragraph(
+						"This album is only on the Mac, so Apple Music has no page for it.",
+						kit.colors.dim,
+					)
 				}
 			}
 
@@ -195,7 +198,7 @@ build_album_info :: proc(data: ^core.Page_Data, info_points: f32) {
 			core.navigate({kind = .Artist, id = data.artist_id, title = data.subtitle})
 		}
 
-		kit.text_box(data.detail, kit.colors.dim)
+		kit.text(data.detail, kit.colors.dim)
 
 		badges := ui.box(
 			"badges",
@@ -280,7 +283,7 @@ build_numbered_songs :: proc(songs: []core.Catalog_Song) {
 					},
 					fmt.tprintf("%d", index + 1),
 				)
-				kit.text_box(song.name, kit.colors.accent if is_current else kit.colors.text)
+				kit.text(song.name, kit.colors.accent if is_current else kit.colors.text)
 				lists.build_row_heart(song, is_current)
 				ui.box(
 					"",

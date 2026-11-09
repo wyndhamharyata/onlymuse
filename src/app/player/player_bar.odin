@@ -145,18 +145,13 @@ build_song_info :: proc() {
 					waiting_text = "Loading from YouTube…"
 				}
 
-				kit.text_box(
-					waiting_song.name,
-					kit.colors.text,
-					SONG_NAME_FONT_SIZE,
-					SONG_NAME_WEIGHT,
-				)
-				kit.text_box(waiting_text, kit.colors.dim, kit.SMALL_TEXT_POINTS)
+				kit.text(waiting_song.name, kit.colors.text, SONG_NAME_FONT_SIZE, SONG_NAME_WEIGHT)
+				kit.text(waiting_text, kit.colors.dim, kit.SMALL_TEXT_POINTS)
 			} else if is_song {
 				build_song_title(song, queue_song, is_queue_song)
 				build_song_subtitle(song)
 			} else {
-				kit.text_box(
+				kit.text(
 					"Nothing is playing.",
 					kit.colors.text,
 					SONG_NAME_FONT_SIZE,
@@ -166,7 +161,7 @@ build_song_info :: proc() {
 				if core.app.drives_music_app {
 					closed_text :=
 						"Music.app is not open." if now_playing.playback == .Closed else "Music.app has no song."
-					kit.text_box(closed_text, kit.colors.dim, kit.SMALL_TEXT_POINTS)
+					kit.text(closed_text, kit.colors.dim, kit.SMALL_TEXT_POINTS)
 				}
 			}
 		}

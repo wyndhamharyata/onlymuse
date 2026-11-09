@@ -33,6 +33,6 @@ build_search_field :: proc() {
 		if term != "" do core.navigate({kind = .Search, id = strings.clone(term)})
 	}
 
-	kit.build_text_field(&search_field, "search", "Search", "magnifyingglass")
+	kit.text_field(&search_field, "search", "Search", "magnifyingglass")
 	ui.box("", {width = ui.fill(), height = ui.points(6)})
 }

@@ -61,8 +61,8 @@ build_bring_over_page :: proc(page: core.Page) {
 			)
 
 			if ui.scope(heading) {
-				kit.page_heading(title)
-				kit.text_box(
+				kit.heading(title)
+				kit.text(
 					to_match_summary(counts, len(songs)) if phase == .Ready else youtube_lists.to_youtube_phase_note(phase),
 					kit.colors.dim,
 				)
@@ -70,7 +70,7 @@ build_bring_over_page :: proc(page: core.Page) {
 
 			is_ready := phase == .Ready && counts[.Checking] == 0 && len(songs) > 0
 
-			if is_ready && kit.action_button("Bring Over", "square.and.arrow.down", true) {
+			if is_ready && kit.button("Bring Over", "square.and.arrow.down", .Primary) {
 				bring_over(title, songs)
 			}
 		}
@@ -78,8 +78,9 @@ build_bring_over_page :: proc(page: core.Page) {
 		if phase == .Loading do look.build_loading(title)
 
 		if phase == .Ready {
-			kit.note(
+			kit.paragraph(
 				"Each song Apple Music has goes into a new Apple Music playlist. It plays in Apple Music's quality. The others stay in the playlist and play from YouTube.",
+				kit.colors.dim,
 			)
 			lists.build_song_rows(songs)
 		}

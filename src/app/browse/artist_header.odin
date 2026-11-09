@@ -87,7 +87,7 @@ build_artist_header :: proc(data: ^core.Page_Data, detail: string, width: f32) {
 					},
 					data.title,
 				)
-				kit.text_box(detail, kit.to_color(0xcfcfd4ff), 14)
+				kit.text(detail, kit.to_color(0xcfcfd4ff), 14)
 			}
 
 			lists.build_play_buttons(data.songs)

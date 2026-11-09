@@ -26,7 +26,7 @@ PALETTE_FIELD_HEIGHT_POINTS :: 40
 
 PALETTE_FIELD_FONT_SIZE :: 16
 
-// kit.build_text_field draws its own field colour when the alpha is 0. This shows the panel's.
+// kit.text_field draws its own field colour when the alpha is 0. This shows the panel's.
 PALETTE_FIELD_BACKGROUND :: [4]f32{0, 0, 0, 0.001}
 
 @(private)
@@ -190,14 +190,16 @@ build_palette :: proc() {
 		)
 
 		if ui.scope(panel) {
-			kit.build_text_field(
+			kit.text_field(
 				field,
 				"palette field",
 				"Go to a page, an artist, a song, or do something",
 				"magnifyingglass",
-				PALETTE_FIELD_HEIGHT_POINTS,
-				PALETTE_FIELD_FONT_SIZE,
-				PALETTE_FIELD_BACKGROUND,
+				{
+					height = ui.points(PALETTE_FIELD_HEIGHT_POINTS),
+					font_size = PALETTE_FIELD_FONT_SIZE,
+					background = PALETTE_FIELD_BACKGROUND,
+				},
 			)
 			picked = build_results()
 		}

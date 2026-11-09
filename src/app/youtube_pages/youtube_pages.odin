@@ -71,13 +71,14 @@ build_youtube_sign_in_page :: proc(title, text: string) {
 	page := look.page_scroll("youtube sign in")
 
 	if ui.scope(page) {
-		kit.page_heading(title)
-		kit.note(text)
-		kit.note(
+		kit.heading(title)
+		kit.paragraph(text, kit.colors.dim)
+		kit.paragraph(
 			"Sign in at music.youtube.com in Helium, then use its sign-in here. macOS asks once to let onlymuse read Helium's key. Choose Always Allow.",
+			kit.colors.dim,
 		)
 
-		if kit.action_button("Use Helium's Sign-In", "person.crop.circle", true) {
+		if kit.button("Use Helium's Sign-In", "person.crop.circle", .Primary) {
 			is_reading_youtube_sign_in = true
 			helper.send_youtube_sign_in()
 		}

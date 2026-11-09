@@ -120,6 +120,6 @@ build_sidebar_item :: proc(
 			kit.colors.accent if is_selected else symbol_color,
 			{width = ui.points(18), height = ui.points(18)},
 		)
-		kit.text_box(label, kit.colors.text)
+		kit.text(label, kit.colors.text)
 	}
 }

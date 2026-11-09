@@ -36,14 +36,14 @@ build_song_list_page :: proc(
 			)
 
 			if ui.scope(heading) {
-				kit.page_heading(title)
+				kit.heading(title)
 
 				count_text := fmt.tprintf("%d songs", len(songs))
 				if description != "" {
 					count_text = fmt.tprintf("%s · %s", count_text, description)
 				}
 
-				kit.text_box(
+				kit.text(
 					count_text if phase == .Ready else look.to_phase_text(phase),
 					kit.colors.dim,
 				)
@@ -55,15 +55,15 @@ build_song_list_page :: proc(
 		if phase == .Loading do look.build_loading(title)
 
 		if phase == .Ready {
-			if len(songs) == 0 do kit.note("Nothing here yet.")
+			if len(songs) == 0 do kit.paragraph("Nothing here yet.", kit.colors.dim)
 			build_song_rows(songs, dates)
 		}
 	}
 }
 
 build_play_buttons :: proc(songs: []core.Catalog_Song) {
-	if kit.action_button("Play", "play.fill", true) do playback.play_songs(songs, 0)
-	if kit.action_button("Shuffle", "shuffle", false) do playback.shuffle_songs(songs)
+	if kit.button("Play", "play.fill", .Primary) do playback.play_songs(songs, 0)
+	if kit.button("Shuffle", "shuffle") do playback.shuffle_songs(songs)
 }
 
 to_visible_range :: proc(
@@ -146,8 +146,8 @@ build_song_row :: proc(
 		text := ui.box("", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 2})
 
 		if ui.scope(text) {
-			kit.text_box(song.name, kit.colors.accent if is_current else kit.colors.text)
-			kit.text_box(subtitle, kit.colors.dim, 12)
+			kit.text(song.name, kit.colors.accent if is_current else kit.colors.text)
+			kit.text(subtitle, kit.colors.dim, 12)
 		}
 
 		if date != "" {

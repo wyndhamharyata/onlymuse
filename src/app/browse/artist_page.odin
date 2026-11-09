@@ -78,7 +78,10 @@ build_artist_page :: proc(page_id: string, name: string) {
 				if phase != .Ready {
 					look.build_phase(phase, name)
 				} else {
-					kit.note(fmt.tprintf("Apple Music has no artist named %s.", name))
+					kit.paragraph(
+						fmt.tprintf("Apple Music has no artist named %s.", name),
+						kit.colors.dim,
+					)
 				}
 			}
 

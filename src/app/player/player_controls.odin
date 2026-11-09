@@ -142,7 +142,7 @@ build_progress :: proc(has_song: bool) {
 		)
 		shown_ratio, is_set := kit.bar("seek", ratio, ui.fill())
 		clock.text = look.to_clock_text(f64(shown_ratio) * duration_seconds)
-		kit.text_box(
+		kit.text(
 			look.to_clock_text(duration_seconds),
 			kit.colors.faint,
 			11,

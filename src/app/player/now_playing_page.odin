@@ -22,8 +22,8 @@ build_now_playing_page :: proc() {
 
 	if ui.scope(page) {
 		if !is_song {
-			kit.page_heading("Now Playing")
-			kit.note("Nothing is playing. Play a song and it shows here.")
+			kit.heading("Now Playing")
+			kit.paragraph("Nothing is playing. Play a song and it shows here.", kit.colors.dim)
 			return
 		}
 

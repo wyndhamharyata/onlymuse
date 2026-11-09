@@ -36,19 +36,19 @@ build_console_page :: proc() {
 			)
 
 			if ui.scope(heading) {
-				kit.page_heading("Console")
-				kit.text_box(
+				kit.heading("Console")
+				kit.text(
 					count_text if has_entries else "No errors since onlymuse started.",
 					kit.colors.dim,
 				)
 			}
 
-			if has_entries && kit.action_button("Copy All", "doc.on.doc", false) {
+			if has_entries && kit.button("Copy All", "doc.on.doc") {
 				platform.set_clipboard(to_console_text(entries))
 				kit.show_toast(fmt.tprintf("Copied %s", count_text))
 			}
 
-			if has_entries && kit.action_button("Clear", "trash", false) {
+			if has_entries && kit.button("Clear", "trash") {
 				console.clear_entries()
 			}
 		}

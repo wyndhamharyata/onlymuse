@@ -232,7 +232,13 @@ build_playlist_menu :: proc(
 				is_done = true
 			}
 
-			kit.build_text_field(&playlist_name_field, "playlist name", "Playlist name", "", 28)
+			kit.text_field(
+				&playlist_name_field,
+				"playlist name",
+				"Playlist name",
+				"",
+				{height = ui.points(28)},
+			)
 			ui.box(
 				"",
 				{

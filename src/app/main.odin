@@ -1,10 +1,7 @@
-package app
+package main
 
 import "base:runtime"
 import "core:os"
-import "core:strconv"
-import "core:strings"
-import "core:time"
 import "om:app/core"
 import "om:app/kit"
 import "om:app/matching"
@@ -17,16 +14,13 @@ import "om:helper"
 import "om:macos"
 import "om:store"
 import "om:youtube"
-import "thor:font"
-import "thor:icon"
+import "thor:app"
+import "thor:dev"
 import "thor:platform"
-import "thor:render"
 import "thor:ui"
 
 // A long page needs more than the 256 KB that build.sh gives a thread.
 MAIN_TEMP_BYTES :: 4 * 1024 * 1024
-
-DEFAULT_BENCH_FRAME_COUNT :: 1200
 
 DEFAULT_WINDOW_SIZE_POINTS :: [2]f32{1200, 800}
 
@@ -37,50 +31,23 @@ main :: proc() {
 		context.allocator,
 	)
 
+	dev.start()
 	start_app_state()
 	start_parts()
 
-	is_background :=
-		core.app.capture_path != "" ||
-		core.app.is_bench ||
-		os.get_env("OM_BACKGROUND", context.temp_allocator) == "1"
-	helper.start(is_background)
+	helper.start(dev.is_background)
 	core.start_player_mode()
-	open_main_window(is_background)
-
-	render.start(core.app.window.device, core.app.window.layer)
-	font.start()
-	icon.start()
 	start_covers()
+	open_main_window()
 
-	core.app.last_frame = time.tick_now()
 	platform.run()
 }
 
 start_app_state :: proc() {
-	core.app.zoom = 1
 	core.app.accent = kit.DEFAULT_ACCENT
 	core.app.system_accent = kit.DEFAULT_ACCENT
 	core.app.panel = .Lyrics
-
-	core.app.capture_path = os.get_env("OM_CAPTURE", context.allocator)
-	core.app.is_bench = os.get_env("OM_BENCH", context.temp_allocator) == "1"
-	core.app.bench_frame_count =
-		strconv.parse_int(
-			os.get_env("OM_BENCH_FRAMES", context.temp_allocator),
-		) or_else DEFAULT_BENCH_FRAME_COUNT
 	core.app.bench_direction = 1
-	core.app.is_showing_frames = os.get_env("OM_FRAMES", context.temp_allocator) == "1"
-
-	capture_seconds :=
-		strconv.parse_f64(os.get_env("OM_CAPTURE_SECONDS", context.temp_allocator)) or_else 0
-	core.app.capture_time = time.tick_add(
-		time.tick_now(),
-		time.Duration(capture_seconds * f64(time.Second)),
-	)
-
-	core.app.test_typing = os.get_env("OM_TYPE", context.allocator)
-	core.app.started_at = time.tick_now()
 }
 
 start_parts :: proc() {
@@ -104,35 +71,25 @@ start_parts :: proc() {
 	}
 }
 
-open_main_window :: proc(is_background: bool) {
-	window_size := DEFAULT_WINDOW_SIZE_POINTS
-	size_text := os.get_env("OM_WINDOW", context.temp_allocator)
-	width_text, _, height_text := strings.partition(size_text, "x")
-
-	if height_text != "" {
-		window_size = {
-			f32(strconv.parse_f64(width_text) or_else f64(DEFAULT_WINDOW_SIZE_POINTS.x)),
-			f32(strconv.parse_f64(height_text) or_else f64(DEFAULT_WINDOW_SIZE_POINTS.y)),
-		}
-	}
-
-	is_behind := is_background && !core.app.is_bench
-	core.app.window = platform.open_window(
-		"onlymuse",
-		window_size,
-		{kit.MIN_WINDOW_WIDTH_POINTS, kit.MIN_WINDOW_HEIGHT_POINTS},
+open_main_window :: proc() {
+	app.open(
+		{
+			title = "onlymuse",
+			size = DEFAULT_WINDOW_SIZE_POINTS,
+			min_size = {kit.MIN_WINDOW_WIDTH_POINTS, kit.MIN_WINDOW_HEIGHT_POINTS},
+			fetch_image = fetch_cover,
+		},
 		draw_frame,
-		is_behind,
 	)
 	platform.set_background(kit.colors.window)
-	macos.start(core.app.window, is_behind)
+	macos.start(app.window, dev.is_background && !dev.is_bench)
 	macos.install_player_menu({
 		is_driving = proc() -> bool {return core.app.drives_music_app},
 		toggle = proc() {core.set_player_mode(!core.app.drives_music_app)},
 	})
 
-	for core.app.zoom > zoom_steps[0] && !is_zoom_fitting(core.app.zoom) {
-		core.app.zoom = to_smaller_zoom(core.app.zoom)
+	for app.zoom > zoom_steps[0] && !is_zoom_fitting(app.zoom) {
+		app.zoom = to_smaller_zoom(app.zoom)
 	}
 
 	set_min_window_size()

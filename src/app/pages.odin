@@ -1,4 +1,4 @@
-package app
+package main
 
 import "core:fmt"
 import "om:app/browse"

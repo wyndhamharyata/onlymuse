@@ -2,6 +2,7 @@ package menus
 
 import "om:app/core"
 import "om:app/kit"
+import "thor:app"
 import "thor:platform"
 import "thor:ui"
 
@@ -29,7 +30,7 @@ apply_song_row_signal :: proc(signal: ui.Signal, song: core.Catalog_Song) -> boo
 		}
 	}
 
-	return signal.is_clicked && drag.ended_frame != core.app.frame_count
+	return signal.is_clicked && drag.ended_frame != app.frame_count
 }
 
 apply_song_drop :: proc(
@@ -60,7 +61,7 @@ apply_drag_release :: proc() {
 
 	core.delete_song(drag.song)
 	drag = {
-		ended_frame = core.app.frame_count,
+		ended_frame = app.frame_count,
 	}
 }
 

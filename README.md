@@ -61,12 +61,12 @@ The window shows 2,000 song rows, in English and Japanese.
 - Scroll with the trackpad, fast and slow. A flick keeps gliding and slows down as macOS decides.
 - Hover the rows. Each one lights up under the pointer.
 - Press `⌘+` a few times. Text stays sharp at every size, Japanese included.
-- With `OM_FRAMES=1`, the top right corner shows how long the last frame took to build. It stays well under 1 ms.
+- With `THOR_FRAMES=1`, the top right corner shows how long the last frame took to build. It stays well under 1 ms.
 
 To measure the scrolling yourself:
 
 ```
-OM_BENCH=1 ./build/onlymuse
+THOR_BENCH=1 ./build/onlymuse
 ```
 
 The window scrolls by itself for 10 seconds, then prints frame times and quits.
@@ -82,7 +82,7 @@ title, a list of 2,000 songs and an Up Next panel.
 - Scroll the list. Only the rows on screen are built, so 2,000 rows cost as little as 20.
 - Resize the window, or zoom with `⌘+`. Everything lays out again.
 
-`OM_BENCH=1 ./build/onlymuse` prints frame times as before, now through the whole UI.
+`THOR_BENCH=1 ./build/onlymuse` prints frame times as before, now through the whole UI.
 
 ### 3. Albums with covers
 
@@ -101,7 +101,7 @@ The app opens on Albums: every album in your library, read from the gpuix app's 
 To measure three passes over the whole library:
 
 ```
-OM_BENCH=1 OM_BENCH_FRAMES=8000 ./build/onlymuse
+THOR_BENCH=1 THOR_BENCH_FRAMES=8000 ./build/onlymuse
 ```
 
 ### 4. Lyrics
@@ -124,7 +124,7 @@ Quitting the app pauses Music.app, as the gpuix app does.
 To try it without Music.app, with a stand-in that says "soldier game" by ADO plays from 30 s:
 
 ```
-OM_HELPER=$PWD/tools/fake-helper.sh OM_BACKGROUND=1 ./build/onlymuse
+OM_HELPER=$PWD/tools/fake-helper.sh THOR_BACKGROUND=1 ./build/onlymuse
 ```
 
 ### 5a. The whole window, and the player bar
@@ -160,7 +160,7 @@ went with the gpuix app.
 To try the queue without Music.app, with a stand-in that plays at 60 times the speed:
 
 ```
-OM_HELPER=$PWD/tools/fake-music.py OM_FAKE_SPEED=60 OM_BACKGROUND=1 ./build/onlymuse
+OM_HELPER=$PWD/tools/fake-music.py OM_FAKE_SPEED=60 THOR_BACKGROUND=1 ./build/onlymuse
 ```
 
 ### 5c. Home, New, albums and playlists
@@ -365,8 +365,8 @@ A song plays from Apple Music whenever Apple has it. YouTube Music adds what App
 
 | Variable | Does |
 | --- | --- |
-| `OM_BENCH=1` | Scrolls by itself for 1,200 frames, prints frame times and quits. |
-| `OM_FRAMES=1` | Shows how long each frame took to build, at the top right. |
+| `THOR_BENCH=1` | Scrolls by itself for 1,200 frames, prints frame times and quits. |
+| `THOR_FRAMES=1` | Shows how long each frame took to build, at the top right. |
 | `OM_FAKE_LOG=<file>` | The fake helpers write the commands they get to this file. |
 | `OM_FAKE_SPEED=<n>` | `tools/fake-music.py` plays songs n times faster, so they end in seconds. |
 | `OM_FAKE_UNPLAYABLE=<name>` | `tools/fake-music.py` finds this song but never starts it, as Music.app does with a song it has no file for. |
@@ -376,14 +376,14 @@ A song plays from Apple Music whenever Apple has it. YouTube Music adds what App
 | `OM_HELPER=<file>` | Runs this instead of the Swift helper. `tools/fake-helper.sh` says a song plays. |
 | `OM_FAKE_POSITION=<seconds>` | Where the fake helper's song starts. |
 | `OM_FAKE_NAME`, `OM_FAKE_ARTIST`, `OM_FAKE_ALBUM`, `OM_FAKE_DURATION` | The fake helper's song, soldier game by default. |
-| `OM_WINDOW=<width>x<height>` | Opens the window at this size in points. |
+| `THOR_WINDOW=<width>x<height>` | Opens the window at this size in points. |
 | `OM_FAKE_TOKENS=<folder>` | With `tools/fake-music.py`: sends the web player's tokens from `dev` and `mut` in this folder, so a test reads Apple's catalog. `experiments/am.sh` reads the same files. A file `yt-cookie` there is sent as the YouTube page's cookie, so a test reads YouTube Music signed in. |
-| `OM_TYPE=<text>` | Types this into the focused field a second after start, through the view's input context, as the keyboard would. |
+| `THOR_TYPE=<text>` | Types this into the focused field a second after start, through the view's input context, as the keyboard would. |
 | `OM_PALETTE=<term>` | Opens the command palette with this term at start, as a test cannot type into a window behind the others. |
-| `OM_BACKGROUND=1` | For the tests. Opens the window behind the others, never focused and with no Dock icon, so AeroSpace leaves it floating. macOS stops a covered window's display link, so a timer runs its frames, which are captured but not shown. The helper leaves Music.app as it is when the app quits. Captures set it. The bench keeps its window in front, as it measures the screen. |
+| `THOR_BACKGROUND=1` | For the tests. Opens the window behind the others, never focused and with no Dock icon, so AeroSpace leaves it floating. macOS stops a covered window's display link, so a timer runs its frames, which are captured but not shown. The helper leaves Music.app as it is when the app quits. Captures set it. The bench keeps its window in front, as it measures the screen. |
 | `OM_DATA=<folder>` | Keeps `onlymuse.sqlite` in this folder instead. |
-| `OM_BENCH_FRAMES=<count>` | Frames the bench runs. 1,200 by default. |
-| `OM_CAPTURE=<file>` | Saves a frame to the file as raw BGRA pixels and quits. It prints the size. Convert it with `magick -size <width>x<height> -depth 8 bgra:<file> out.png`. |
-| `OM_CAPTURE_SECONDS=<seconds>` | Waits this long before the capture, so a test can click first. |
+| `THOR_BENCH_FRAMES=<count>` | Frames the bench runs. 1,200 by default. |
+| `THOR_CAPTURE=<file>` | Saves a frame to the file as raw BGRA pixels and quits. It prints the size. Convert it with `magick -size <width>x<height> -depth 8 bgra:<file> out.png`. |
+| `THOR_CAPTURE_SECONDS=<seconds>` | Waits this long before the capture, so a test can click first. |
 
 `tools/send-mouse.swift` moves, clicks and scrolls in the app without moving the real pointer.

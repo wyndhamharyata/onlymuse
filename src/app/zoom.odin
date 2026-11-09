@@ -1,11 +1,12 @@
-package app
+package main
 
 import "core:fmt"
 import "core:strconv"
 import "om:app/core"
 import "om:app/kit"
-import "thor:platform"
 import "om:store"
+import "thor:app"
+import "thor:platform"
 
 zoom_steps := [?]f32{0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2}
 
@@ -24,7 +25,7 @@ start_saved_window_state :: proc() {
 	value, is_number := strconv.parse_f32(zoom)
 	if !is_number do return
 
-	for step in zoom_steps do if abs(step - value) < SAVED_ZOOM_TOLERANCE do core.app.zoom = step
+	for step in zoom_steps do if abs(step - value) < SAVED_ZOOM_TOLERANCE do app.zoom = step
 }
 
 to_nearest_zoom_step :: proc(zoom: f32) -> int {
@@ -42,15 +43,15 @@ to_smaller_zoom :: proc(zoom: f32) -> f32 {
 }
 
 set_zoom :: proc(zoom: f32) {
-	if zoom > core.app.zoom && !is_zoom_fitting(zoom) do return
+	if zoom > app.zoom && !is_zoom_fitting(zoom) do return
 
-	core.app.zoom = zoom
+	app.zoom = zoom
 	store.save_state("zoom", fmt.tprintf("%g", zoom))
 	set_min_window_size()
 }
 
 set_min_window_size :: proc() {
-	platform.set_min_size(to_min_window_size(core.app.zoom))
+	platform.set_min_size(to_min_window_size(app.zoom))
 }
 
 is_zoom_fitting :: proc(zoom: f32) -> bool {

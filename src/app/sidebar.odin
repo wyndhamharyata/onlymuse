@@ -1,4 +1,4 @@
-package app
+package main
 
 import "om:app/core"
 import "om:app/kit"

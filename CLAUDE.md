@@ -14,8 +14,9 @@ how to try each part of the app, and lists the development settings.
 ## Stack
 
 - Odin 2026-10 or later (`brew install odin`). No packages beyond Odin's own `core` and `vendor`.
-- `src/platform` opens the window with AppKit. `src/render` draws with Metal. `src/font` shapes
-  text with CoreText. `src/ui` lays out a tree of boxes rebuilt every frame.
+- thor, in `../thor/thor`, holds the framework. `build.sh` names it as the collection `thor`.
+  `thor:platform` opens the window with AppKit. `thor:render` draws with Metal. `thor:font` shapes
+  text with CoreText. `thor:ui` lays out a tree of boxes rebuilt every frame.
 - `helper/` holds the Swift helper, built with SwiftPM for macOS 26 and later, with no packages. It
   controls Music.app through `NSAppleScript`, sends Music.app's `playerInfo` posts, reads the system
   accent colour and reads the tokens from a hidden music.apple.com page. A second hidden page, on
@@ -32,7 +33,7 @@ how to try each part of the app, and lists the development settings.
 ```
 src/
   app/              The window. main.odin opens it, frame.odin builds each frame. pages.odin picks the page.
-                    sidebar, search field, Console page, zoom and bench live here too.
+                    sidebar, search field, Console page, zoom and the cover cache live here too.
     core/           What every part of the window shares: the app's state, navigation, page data, songs, the library lists.
     kit/            The look and the widgets: theme, boxes, artwork, text fields, menus, toasts.
     matching/       Finds the Apple Music song each YouTube song is.
@@ -50,12 +51,8 @@ src/
   helper/           The helper process and its messages. The one package that talks to Music.app.
   lyrics/           Lyrics from Apple, read from TTML, with romaji and translations.
   store/            The SQLite file: Apple's answers, the play log and the saved state of the window.
-  ui/               The boxes, their layout, hover and scroll.
-  font/ icon/ image/  Text, SF Symbols and covers, each in its own atlas or textures.
-  render/           Metal and the shaders.
-  platform/         AppKit: the window, events, keys, text input and the clipboard.
+  macos/            The wallpaper backdrop and the app menu, which onlymuse adds to thor's window.
   net/              HTTP through libcurl.
-  mac/              The C APIs of macOS the app calls.
 helper/             The Swift helper.
 tools/              The test stand-ins: a fake Music.app and helper, and a mouse and key sender.
 scripts/            The signing certificate.
@@ -123,7 +120,7 @@ A procedure that builds one box and returns it may take the name of the box, as 
 | `./build.sh app` | Builds `build/onlymuse.app`, with the helper in `Contents/Helpers` and the icon, both signed. |
 | `scripts/make-app-icon.sh` | Makes `app/AppIcon.icns` from `design/app-icon.svg`. Run it after changing the icon. |
 | `scripts/make-signing-certificate.sh` | Makes the "onlymuse local" certificate, once per Mac. Music.app's Automation permission then holds across builds. |
-| `OM_BENCH=1 ./build/onlymuse` | Scrolls a long list and prints frame times. Its window shows in front. |
+| `THOR_BENCH=1 ./build/onlymuse` | Scrolls a long list and prints frame times. Its window shows in front. |
 
 ## Testing without taking the screen
 
@@ -132,8 +129,8 @@ A test run never touches the real library, Music.app or the person's window:
 - `OM_DATA=<folder>` with a copy of the SQLite file, made with `sqlite3 … "VACUUM INTO '…'"`.
 - `OM_HELPER=$PWD/tools/fake-music.py` instead of the helper. `OM_FAKE_TOKENS` lets it read Apple's
   catalog, which is read only.
-- `OM_CAPTURE=<file>` saves a frame and quits, behind the other windows, where AeroSpace leaves it.
-  `OM_BACKGROUND=1` keeps any other run there too.
+- `THOR_CAPTURE=<file>` saves a frame and quits, behind the other windows, where AeroSpace leaves it.
+  `THOR_BACKGROUND=1` keeps any other run there too.
 - `tools/send-mouse.swift` clicks, drags and types into that window without bringing it in front.
 
 `README.md` lists every setting.
@@ -290,8 +287,8 @@ it. This is the one label that rule 2.3 allows. A known bug is never a `shortcut
    person sees or hears.
 2. Mock nothing, except a service we do not control. Apple's API and Music.app are those services.
    A stand-in for each answers in the tests.
-3. Never write a flag, a branch or a hook in `src/` only for a test. The `OM_` settings are the
-   exception, listed below.
+3. Never write a flag, a branch or a hook in `src/` only for a test. The `OM_` and `THOR_` settings
+   are the exception, listed below.
 4. A test name states the situation and the result: `given a playing song, the player bar shows
    its name and position`.
 5. Before you keep an assertion, break `src/` on purpose and watch the test fail.
@@ -325,8 +322,8 @@ and table values line up in columns, as `odinfmt` lines them.
 
 ## Accepted exceptions
 
-- The `OM_` settings in `README.md`, such as `OM_DATA`, `OM_CAPTURE`, `OM_TYPE` and `OM_WINDOW`,
-  are read in `src/`, against rule 9.3. The window can only be seen and driven from outside the
+- The `OM_` and `THOR_` settings in `README.md`, such as `OM_DATA`, `THOR_CAPTURE`, `THOR_TYPE` and
+  `THOR_WINDOW`, are read in `src/` and in thor, against rule 9.3. The window can only be seen and driven from outside the
   process by a test that takes the screen, and a test must never take it.
 - The helper reads `GPUIX_BACKGROUND=1` to leave Music.app as it is when the app quits. The name is
   older than the Odin app. Changing it means changing the helper and the app together.

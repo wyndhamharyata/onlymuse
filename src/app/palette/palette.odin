@@ -7,6 +7,7 @@ import "om:app/lists"
 import "om:app/playback"
 import "om:apple"
 import "om:helper"
+import "thor:app"
 import "thor:ui"
 
 PALETTE_WIDTH_POINTS :: 560
@@ -90,7 +91,7 @@ toggle_palette :: proc() {
 
 	palette.is_open = true
 	palette.selected_index = 0
-	palette.opened_frame = core.app.frame_count
+	palette.opened_frame = app.frame_count
 	palette.built_signature = -1
 	palette.should_reset_scroll = true
 	kit.set_field_text(&palette.field, "")
@@ -153,7 +154,7 @@ build_palette :: proc() {
 			flags = {.Floating, .Clickable},
 		},
 	)
-	is_closing := ui.signal(cover).is_clicked && core.app.frame_count > palette.opened_frame + 1
+	is_closing := ui.signal(cover).is_clicked && app.frame_count > palette.opened_frame + 1
 	picked := -1
 
 	if ui.scope(cover) {

@@ -1,4 +1,4 @@
-package app
+package main
 
 import "core:fmt"
 import "core:hash"
@@ -7,7 +7,6 @@ import "core:path/filepath"
 import "core:strings"
 import "om:console"
 import "om:net"
-import "thor:image"
 
 covers_folder: string
 
@@ -20,7 +19,6 @@ start_covers :: proc() {
 	os.make_directory_all(covers_folder)
 
 	net.start()
-	image.start(fetch_cover)
 }
 
 fetch_cover :: proc(url: string) -> (path: string, ok: bool) {

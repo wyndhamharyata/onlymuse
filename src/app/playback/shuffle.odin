@@ -9,6 +9,7 @@ import "core:strings"
 import "om:app/core"
 import "om:app/kit"
 import "om:store"
+import "thor:app"
 import "thor:ui"
 
 OFTEN_SKIPPED_COUNT :: 3
@@ -206,7 +207,7 @@ rules_menu: struct {
 }
 
 open_shuffle_rules :: proc(position: [2]f32) {
-	rules_menu = {true, position, core.app.frame_count}
+	rules_menu = {true, position, app.frame_count}
 }
 
 build_shuffle_rules :: proc() {
@@ -227,7 +228,7 @@ build_shuffle_rules :: proc() {
 
 	is_closing :=
 		(ui.signal(cover).is_clicked || ui.signal(cover).is_right_clicked) &&
-		core.app.frame_count > rules_menu.opened_frame + 1
+		app.frame_count > rules_menu.opened_frame + 1
 
 	if ui.scope(cover) {
 		menu := kit.menu_box("rules", rules_menu.position, 300, window_size)

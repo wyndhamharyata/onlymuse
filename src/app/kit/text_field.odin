@@ -4,6 +4,7 @@ import "core:fmt"
 import "core:strings"
 import "core:unicode/utf8"
 import "om:app/core"
+import "thor:app"
 import "thor:platform"
 import "thor:ui"
 
@@ -317,5 +318,5 @@ build_caret :: proc(line: ^ui.Box, before, marked: string, font_size: f32) {
 
 	caret_rect =
 		[4]f32{line.rect.x + before_width, line.rect.y, line.rect.x + caret_x + 2, line.rect.w} *
-		core.app.zoom
+		app.zoom
 }

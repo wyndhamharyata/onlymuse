@@ -1,4 +1,4 @@
-package app
+package main
 
 import "core:encoding/json"
 import "core:strings"

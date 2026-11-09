@@ -8,6 +8,7 @@ import "om:app/youtube_lists"
 import "om:apple"
 import "om:helper"
 import "om:youtube"
+import "thor:app"
 
 find_shown_song :: proc() -> (helper.Song, bool) {
 	now_playing := core.app.now_playing
@@ -133,9 +134,9 @@ favourite_set: struct {
 
 @(private = "file")
 watch_favourite_ids :: proc() -> map[string]bool {
-	if favourite_set.checked_frame == core.app.frame_count + 1 do return favourite_set.ids
+	if favourite_set.checked_frame == app.frame_count + 1 do return favourite_set.ids
 
-	favourite_set.checked_frame = core.app.frame_count + 1
+	favourite_set.checked_frame = app.frame_count + 1
 
 	_, playlist_id, _ := core.watch_playlists()
 	if playlist_id == "" do return favourite_set.ids

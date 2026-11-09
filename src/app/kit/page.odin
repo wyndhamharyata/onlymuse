@@ -5,6 +5,8 @@ import "core:math"
 import "core:time"
 import "om:app/core"
 import "om:apple"
+import "thor:app"
+import "thor:dev"
 import "thor:platform"
 import "thor:ui"
 
@@ -98,7 +100,7 @@ action_button :: proc(label, symbol: string, is_primary: bool, symbol_color: [4]
 BENCH_POINTS_PER_FRAME :: 30
 
 run_bench_scroll :: proc(list: ^ui.Box) {
-	if !core.app.is_bench do return
+	if !dev.is_bench do return
 
 	max_scroll := list.content_size.y - list.size.y
 
@@ -130,9 +132,9 @@ loading: struct {
 }
 
 build_loading :: proc(what: string) {
-	is_new_load := loading.started_at == {} || loading.asked_frame + 1 < core.app.frame_count
+	is_new_load := loading.started_at == {} || loading.asked_frame + 1 < app.frame_count
 	if is_new_load do loading.started_at = time.tick_now()
-	loading.asked_frame = core.app.frame_count
+	loading.asked_frame = app.frame_count
 
 	elapsed_seconds := time.duration_seconds(time.tick_since(loading.started_at))
 	shown_seconds := elapsed_seconds - LOADING_DELAY_SECONDS

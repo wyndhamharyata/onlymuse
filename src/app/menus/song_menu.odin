@@ -9,6 +9,7 @@ import "om:app/playback"
 import "om:app/youtube_lists"
 import "om:apple"
 import "om:youtube"
+import "thor:app"
 import "thor:platform"
 import "thor:ui"
 
@@ -52,7 +53,7 @@ open_song_menu :: proc(song: core.Catalog_Song, position: [2]f32, is_playlists_o
 		position          = position,
 		is_playlists_only = is_playlists_only,
 		is_playlists_open = is_playlists_only,
-		opened_frame      = core.app.frame_count,
+		opened_frame      = app.frame_count,
 	}
 }
 
@@ -81,7 +82,7 @@ build_song_menu :: proc() {
 	)
 	is_closing :=
 		(ui.signal(cover).is_clicked || ui.signal(cover).is_right_clicked) &&
-		core.app.frame_count > song_menu.opened_frame + 1
+		app.frame_count > song_menu.opened_frame + 1
 
 	for event in platform.list_events() {
 		if key, ok := event.(platform.Key_Press); ok && key.key_code == ESCAPE_KEY_CODE {

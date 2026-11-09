@@ -6,6 +6,7 @@ import "om:app/core"
 import "om:apple"
 import "om:net"
 import "om:youtube"
+import "thor:app"
 
 // Apple's Favourite Songs holds only Apple songs, so a YouTube song goes into onlymuse's own.
 set_youtube_favourite :: proc(song: core.Catalog_Song, is_favourite: bool) {
@@ -38,9 +39,9 @@ youtube_liked: struct {
 @(private = "file")
 watch_youtube_liked_ids :: proc() -> map[string]bool {
 	if !youtube.is_signed_in() do return nil
-	if youtube_liked.checked_frame == core.app.frame_count + 1 do return youtube_liked.ids
+	if youtube_liked.checked_frame == app.frame_count + 1 do return youtube_liked.ids
 
-	youtube_liked.checked_frame = core.app.frame_count + 1
+	youtube_liked.checked_frame = app.frame_count + 1
 
 	_, songs, phase := watch_youtube_songs(youtube.to_list_path(youtube.LIKED_ID))
 	if phase != .Ready || raw_data(songs) == youtube_liked.songs_address do return youtube_liked.ids

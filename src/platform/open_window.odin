@@ -2,7 +2,7 @@ package platform
 
 import "base:intrinsics"
 import NS "core:sys/darwin/Foundation"
-import "om:mac"
+import "thor:mac"
 import MTL "vendor:darwin/Metal"
 import CA "vendor:darwin/QuartzCore"
 

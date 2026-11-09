@@ -13,13 +13,13 @@ import "om:app/youtube_lists"
 import "om:app/youtube_pages"
 import "om:apple"
 import "om:console"
-import "om:font"
 import "om:helper"
-import "om:icon"
 import "om:image"
 import "om:platform"
-import "om:render"
 import "om:ui"
+import "thor:font"
+import "thor:icon"
+import "thor:render"
 
 draw_frame :: proc() -> bool {
 	start, frame_seconds := begin_frame()

@@ -4,8 +4,8 @@ import "core:strings"
 import "om:app/core"
 import "om:apple"
 import "om:image"
-import "om:render"
 import "om:ui"
+import "thor:render"
 
 BACKDROP_HEIGHT_POINTS :: 520
 

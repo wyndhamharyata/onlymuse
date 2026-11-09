@@ -36,7 +36,7 @@ fi
 # Finder will not open the app. Each thread's temp allocator keeps its first block for good. At Odin's 4 MB, the
 # 18 threads that live as long as the app held 70 MB. A task that needs more takes another block for its time.
 # The main thread starts its own at 4 MB, as each frame uses it.
-flags="-collection:om=src -vet-unused -vet-shadowing -strict-style -minimum-os-version:26.0 -define:DEFAULT_TEMP_ALLOCATOR_BACKING_SIZE=262144"
+flags="-collection:om=src -collection:thor=../thor/thor -vet-unused -vet-shadowing -strict-style -minimum-os-version:26.0 -define:DEFAULT_TEMP_ALLOCATOR_BACKING_SIZE=262144"
 
 if [ "$mode" = release ]; then
 	# A single-module build drops the input view's Objective-C methods, so no key ever reaches a text field.

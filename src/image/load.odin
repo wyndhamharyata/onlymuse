@@ -8,10 +8,10 @@ import "core:strings"
 import "core:sync"
 import "core:thread"
 import "om:console"
-import "om:mac"
 import "om:net"
 import "om:platform"
-import "om:render"
+import "thor:mac"
+import "thor:render"
 import MTL "vendor:darwin/Metal"
 
 @(private)

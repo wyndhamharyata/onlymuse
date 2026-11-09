@@ -2,7 +2,7 @@ package ui
 
 import "core:hash"
 import "core:math"
-import "om:font"
+import "thor:font"
 
 Axis :: enum {
 	X,

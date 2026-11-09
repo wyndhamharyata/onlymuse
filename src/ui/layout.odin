@@ -1,7 +1,7 @@
 package ui
 
 import "core:math"
-import "om:font"
+import "thor:font"
 
 @(private)
 DEFAULT_FONT_SIZE_POINTS :: 13

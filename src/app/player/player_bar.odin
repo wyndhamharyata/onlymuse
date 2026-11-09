@@ -5,10 +5,10 @@ import "om:app/core"
 import "om:app/kit"
 import "om:app/playback"
 import "om:apple"
-import "om:font"
 import "om:helper"
 import "om:ui"
 import "om:youtube"
+import "thor:font"
 
 PLAYER_ARTWORK_POINTS :: 52
 

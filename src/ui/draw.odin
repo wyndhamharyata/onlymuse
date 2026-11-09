@@ -1,8 +1,8 @@
 package ui
 
 import "core:math"
-import "om:font"
-import "om:render"
+import "thor:font"
+import "thor:render"
 
 @(private)
 mix :: proc(a, b: [4]f32, fraction: f32) -> [4]f32 {

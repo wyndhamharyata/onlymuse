@@ -7,7 +7,7 @@ import "core:fmt"
 import "core:os"
 import "core:strings"
 import NS "core:sys/darwin/Foundation"
-import "om:mac"
+import "thor:mac"
 
 // After Mission Control, the window server redoes the live blur each frame, so scrolling stutters.
 

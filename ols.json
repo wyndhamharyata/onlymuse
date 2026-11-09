@@ -1,4 +1,13 @@
 {
   "$schema": "https://raw.githubusercontent.com/DanielGavin/ols/master/misc/ols.schema.json",
-  "collections": [{ "name": "om", "path": "src" }]
+  "collections": [
+    {
+      "name": "om",
+      "path": "src"
+    },
+    {
+      "name": "thor",
+      "path": "../thor/thor"
+    }
+  ]
 }

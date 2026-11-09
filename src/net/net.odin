@@ -4,7 +4,6 @@ import "base:runtime"
 import "core:c"
 import "core:strings"
 import "core:time"
-import "om:mac"
 
 Response :: struct {
 	status:       int,
@@ -24,16 +23,16 @@ retry_delays := [?]time.Duration {
 }
 
 @(private, thread_local)
-thread_handle: mac.Curl
+thread_handle: Curl
 
 start :: proc() {
-	mac.curl_global_init(mac.CURL_GLOBAL_DEFAULT)
+	curl_global_init(CURL_GLOBAL_DEFAULT)
 }
 
 stop_thread :: proc() {
 	if thread_handle == nil do return
 
-	mac.curl_easy_cleanup(thread_handle)
+	curl_easy_cleanup(thread_handle)
 	thread_handle = nil
 }
 
@@ -74,47 +73,43 @@ fetch_once :: proc(
 	method: Method,
 	request_body := "",
 ) -> Response {
-	if thread_handle == nil do thread_handle = mac.curl_easy_init()
+	if thread_handle == nil do thread_handle = curl_easy_init()
 
 	handle := thread_handle
-	mac.curl_easy_reset(handle)
+	curl_easy_reset(handle)
 
 	body := make([dynamic]u8, context.temp_allocator)
-	header_list: mac.Curl_List
-	defer mac.curl_slist_free_all(header_list)
+	header_list: Curl_List
+	defer curl_slist_free_all(header_list)
 
 	for header in headers {
-		header_list = mac.curl_slist_append(
+		header_list = curl_slist_append(
 			header_list,
 			strings.clone_to_cstring(header, context.temp_allocator),
 		)
 	}
 
-	mac.curl_easy_setopt(
-		handle,
-		mac.CURLOPT_URL,
-		strings.clone_to_cstring(url, context.temp_allocator),
-	)
-	mac.curl_easy_setopt(handle, mac.CURLOPT_USERAGENT, cstring(USER_AGENT))
-	mac.curl_easy_setopt(handle, mac.CURLOPT_FOLLOWLOCATION, c.long(1))
+	curl_easy_setopt(handle, CURLOPT_URL, strings.clone_to_cstring(url, context.temp_allocator))
+	curl_easy_setopt(handle, CURLOPT_USERAGENT, cstring(USER_AGENT))
+	curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, c.long(1))
 	// libcurl's docs ask a program with threads to turn off curl's signals.
-	mac.curl_easy_setopt(handle, mac.CURLOPT_NOSIGNAL, c.long(1))
-	mac.curl_easy_setopt(handle, mac.CURLOPT_TIMEOUT_MS, c.long(TIMEOUT_MS))
-	mac.curl_easy_setopt(handle, mac.CURLOPT_WRITEFUNCTION, mac.Curl_Write_Proc(append_body))
-	mac.curl_easy_setopt(handle, mac.CURLOPT_WRITEDATA, rawptr(&body))
-	mac.curl_easy_setopt(handle, mac.CURLOPT_HTTPHEADER, rawptr(header_list))
+	curl_easy_setopt(handle, CURLOPT_NOSIGNAL, c.long(1))
+	curl_easy_setopt(handle, CURLOPT_TIMEOUT_MS, c.long(TIMEOUT_MS))
+	curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, Curl_Write_Proc(append_body))
+	curl_easy_setopt(handle, CURLOPT_WRITEDATA, rawptr(&body))
+	curl_easy_setopt(handle, CURLOPT_HTTPHEADER, rawptr(header_list))
 
 	if method == .Post {
-		mac.curl_easy_setopt(handle, mac.CURLOPT_POST, c.long(1))
-		mac.curl_easy_setopt(handle, mac.CURLOPT_POSTFIELDSIZE, c.long(len(request_body)))
+		curl_easy_setopt(handle, CURLOPT_POST, c.long(1))
+		curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, c.long(len(request_body)))
 
 		// POSTFIELDS keeps a pointer, not a copy. request_body lasts past curl_easy_perform.
 		if request_body != "" {
-			mac.curl_easy_setopt(handle, mac.CURLOPT_POSTFIELDS, raw_data(request_body))
+			curl_easy_setopt(handle, CURLOPT_POSTFIELDS, raw_data(request_body))
 		}
 	}
 
-	if mac.curl_easy_perform(handle) != 0 {
+	if curl_easy_perform(handle) != 0 {
 		delete(body)
 		return {}
 	}
@@ -122,8 +117,8 @@ fetch_once :: proc(
 	status: c.long
 	content_type: cstring
 
-	mac.curl_easy_getinfo(handle, mac.CURLINFO_RESPONSE_CODE, &status)
-	mac.curl_easy_getinfo(handle, mac.CURLINFO_CONTENT_TYPE, &content_type)
+	curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &status)
+	curl_easy_getinfo(handle, CURLINFO_CONTENT_TYPE, &content_type)
 
 	return Response {
 		int(status),

@@ -5,11 +5,11 @@ import "core:strconv"
 import "core:strings"
 import "core:time"
 import "om:app/core"
-import "om:font"
-import "om:icon"
 import "om:platform"
-import "om:render"
 import "om:ui"
+import "thor:font"
+import "thor:icon"
+import "thor:render"
 
 to_date_text :: proc(date: string) -> string {
 	MONTHS :: [12]string {

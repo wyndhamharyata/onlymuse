@@ -81,7 +81,7 @@ build_bring_over_page :: proc(page: core.Page) {
 			kit.note(
 				"Each song Apple Music has goes into a new Apple Music playlist. It plays in Apple Music's quality. The others stay in the playlist and play from YouTube.",
 			)
-			lists.build_song_rows(scroll, songs)
+			lists.build_song_rows(songs)
 		}
 	}
 }

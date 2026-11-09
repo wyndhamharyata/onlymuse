@@ -14,8 +14,6 @@ SONG_ROW_POINTS :: 54
 
 SONG_ARTWORK_POINTS :: 40
 
-EXTRA_ROW_COUNT :: 2
-
 build_song_list_page :: proc(
 	title, description: string,
 	songs: []core.Catalog_Song,
@@ -58,7 +56,7 @@ build_song_list_page :: proc(
 
 		if phase == .Ready {
 			if len(songs) == 0 do kit.note("Nothing here yet.")
-			build_song_rows(page, songs, dates)
+			build_song_rows(songs, dates)
 		}
 	}
 }
@@ -80,23 +78,14 @@ to_visible_range :: proc(
 	return
 }
 
-build_song_rows :: proc(page: ^ui.Box, songs: []core.Catalog_Song, dates: []string = nil) {
-	rows := ui.box("rows", {width = ui.fill(), height = ui.fit_children(), axis = .Y})
-	top := core.to_offset_in_page(page, rows)
-	first, last := to_visible_range(
-		page.scroll - top,
-		page.size.y,
-		SONG_ROW_POINTS,
-		len(songs),
-		EXTRA_ROW_COUNT,
-	)
+build_song_rows :: proc(songs: []core.Catalog_Song, dates: []string = nil) {
+	style := ui.Style {
+		width  = ui.fill(),
+		height = ui.fit_children(),
+	}
 
-	if ui.scope(rows) {
-		if first > 0 {
-			ui.box("", {width = ui.fill(), height = ui.points(f32(first) * SONG_ROW_POINTS)})
-		}
-
-		for index in first ..= last {
+	if first, last, ok := kit.list("rows", len(songs), SONG_ROW_POINTS, style); ok {
+		for index in first ..< last {
 			song := songs[index]
 			is_current := playback.is_current_song(song)
 			subtitle := song.album_name if dates != nil else to_song_subtitle(song)
@@ -111,16 +100,6 @@ build_song_rows :: proc(page: ^ui.Box, songs: []core.Catalog_Song, dates: []stri
 			) {
 				playback.play_songs(songs, index)
 			}
-		}
-
-		if last < len(songs) - 1 {
-			ui.box(
-				"",
-				{
-					width = ui.fill(),
-					height = ui.points(f32(len(songs) - 1 - last) * SONG_ROW_POINTS),
-				},
-			)
 		}
 	}
 }

@@ -4,11 +4,6 @@ import "core:encoding/json"
 import "core:fmt"
 import "core:strings"
 import "om:apple"
-import "thor:ui"
-
-to_offset_in_page :: proc(page, box: ^ui.Box) -> f32 {
-	return box.rect.y - page.rect.y - page.style.padding.y + page.scroll
-}
 
 watch_library_songs :: proc() -> (songs: []Catalog_Song, signature: int, phase: apple.Phase) {
 	path := "/v1/me/library/songs?sort=name"

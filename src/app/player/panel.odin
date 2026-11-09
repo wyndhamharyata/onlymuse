@@ -2,7 +2,6 @@ package player
 
 import "core:fmt"
 import "om:app/core"
-import "om:app/lists"
 import "om:app/look"
 import "om:app/menus"
 import "om:app/playback"
@@ -128,46 +127,24 @@ build_up_next :: proc() {
 		}
 	}
 
-	list := ui.box(
-		"up next",
-		{width = ui.fill(), height = ui.fill(), axis = .Y, gap = 2, flags = {.Scroll, .Clip}},
-	)
-	shown_count := len(playback.queue.songs) - playback.queue.index
-	first, last := lists.to_visible_range(
-		list.scroll,
-		list.size.y,
-		QUEUE_ROW_POINTS,
-		shown_count,
-		lists.EXTRA_ROW_COUNT,
-	)
-	first_row := playback.queue.index + first
-	last_row := playback.queue.index + last
-
 	removed_row := -1
 	defer if removed_row >= 0 do playback.remove_from_queue(removed_row)
 
-	if ui.scope(list) {
-		ui.box(
-			"",
-			{
-				width = ui.fill(),
-				height = ui.points(f32(first_row - playback.queue.index) * QUEUE_ROW_POINTS),
-			},
-		)
+	shown_count := len(playback.queue.songs) - playback.queue.index
+	style := ui.Style {
+		width   = ui.fill(),
+		height  = ui.fill(),
+		gap     = 2,
+		// The old empty spacer above the rows took a gap, so the rows sat 2 points down.
+		padding = {0, 2, 0, 0},
+		flags   = {.Scroll, .Clip},
+	}
 
-		for index in first_row ..= last_row {
+	if first, last, ok := kit.list("up next", shown_count, QUEUE_ROW_POINTS - 2, style); ok {
+		for offset in first ..< last {
+			index := playback.queue.index + offset
 			if build_queue_row(index) do removed_row = index
 		}
-
-		ui.box(
-			"",
-			{
-				width = ui.fill(),
-				height = ui.points(
-					f32(len(playback.queue.songs) - 1 - last_row) * QUEUE_ROW_POINTS,
-				),
-			},
-		)
 	}
 }
 

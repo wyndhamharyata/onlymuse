@@ -88,21 +88,19 @@ build_card_grid_page :: proc(
 
 build_card_grid :: proc(page: ^ui.Box, cards: []apple.Card, is_round: bool) {
 	width := look.to_content_width(page)
-	grid := ui.box("grid", {width = ui.fill(), height = ui.fit_children(), axis = .Y})
-
 	if width <= 0 do return
 
 	tile_points := to_tile_size(width, TARGET_TILE_POINTS, CARD_GAP_POINTS)
 	column_count := max(1, int((width + CARD_GAP_POINTS) / (tile_points + CARD_GAP_POINTS)))
 	row_points := tile_points + TILE_TEXT_POINTS + CARD_GAP_POINTS
 	row_count := (len(cards) + column_count - 1) / column_count
-	top := core.to_offset_in_page(page, grid)
-	first, last := to_visible_range(page.scroll - top, page.size.y, row_points, row_count, 1)
+	style := ui.Style {
+		width  = ui.fill(),
+		height = ui.fit_children(),
+	}
 
-	if ui.scope(grid) {
-		if first > 0 do ui.box("", {width = ui.fill(), height = ui.points(f32(first) * row_points)})
-
-		for row in first ..= last {
+	if first, last, ok := kit.list("grid", row_count, row_points, style); ok {
+		for row in first ..< last {
 			row_box := ui.box(
 				fmt.tprintf("row %d", row),
 				{
@@ -128,13 +126,6 @@ build_card_grid :: proc(page: ^ui.Box, cards: []apple.Card, is_round: bool) {
 					}
 				}
 			}
-		}
-
-		if last < row_count - 1 {
-			ui.box(
-				"",
-				{width = ui.fill(), height = ui.points(f32(row_count - 1 - last) * row_points)},
-			)
 		}
 	}
 }

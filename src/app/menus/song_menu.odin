@@ -8,9 +8,9 @@ import "om:app/matching"
 import "om:app/playback"
 import "om:app/youtube_lists"
 import "om:apple"
-import "thor:platform"
-import "om:ui"
 import "om:youtube"
+import "thor:platform"
+import "thor:ui"
 
 SONG_MENU_POINTS :: 220
 

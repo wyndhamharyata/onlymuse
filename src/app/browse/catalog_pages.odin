@@ -6,7 +6,7 @@ import "om:app/kit"
 import "om:app/lists"
 import "om:app/youtube_lists"
 import "om:apple"
-import "om:ui"
+import "thor:ui"
 
 build_shelves_page :: proc(title, path: string, is_new: bool) {
 	watched := apple.watch(path)

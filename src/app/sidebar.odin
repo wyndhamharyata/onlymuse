@@ -3,7 +3,7 @@ package app
 import "om:app/core"
 import "om:app/kit"
 import "om:app/menus"
-import "om:ui"
+import "thor:ui"
 
 build_sidebar :: proc() {
 	sidebar := ui.box(

@@ -6,7 +6,7 @@ import "core:time"
 import "om:app/core"
 import "om:apple"
 import "thor:platform"
-import "om:ui"
+import "thor:ui"
 
 page_scroll :: proc(id: string) -> ^ui.Box {
 	box := ui.box(

@@ -2,10 +2,10 @@ package kit
 
 import "core:math"
 import "om:apple"
-import "thor:image"
-import "om:ui"
 import "thor:icon"
+import "thor:image"
 import "thor:render"
+import "thor:ui"
 import MTL "vendor:darwin/Metal"
 
 ARTWORK_STEP_PIXELS :: 100

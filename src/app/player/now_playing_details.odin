@@ -12,7 +12,7 @@ import "om:app/playback"
 import "om:apple"
 import "om:lyrics"
 import "thor:platform"
-import "om:ui"
+import "thor:ui"
 
 NEW_RELEASE_DAYS :: 30
 

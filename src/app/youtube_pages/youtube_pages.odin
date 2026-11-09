@@ -10,8 +10,8 @@ import "om:app/playback"
 import "om:app/youtube_lists"
 import "om:apple"
 import "om:helper"
-import "om:ui"
 import "om:youtube"
+import "thor:ui"
 
 SHOWN_YOUTUBE_SONG_COUNT :: 6
 

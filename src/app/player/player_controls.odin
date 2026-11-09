@@ -6,7 +6,7 @@ import "om:app/kit"
 import "om:app/playback"
 import "om:helper"
 import "thor:platform"
-import "om:ui"
+import "thor:ui"
 
 CLOCK_WIDTH_POINTS :: 34
 

@@ -7,7 +7,7 @@ import "om:app/core"
 import "om:app/kit"
 import "om:app/lists"
 import "om:apple"
-import "om:ui"
+import "thor:ui"
 
 RECENT_RELEASE_COUNT :: 10
 

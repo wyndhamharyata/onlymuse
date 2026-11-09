@@ -8,7 +8,7 @@ import "om:app/core"
 import "om:app/kit"
 import "thor:image"
 import "thor:platform"
-import "om:ui"
+import "thor:ui"
 
 BENCH_SKIPPED_FRAME_COUNT :: 10
 

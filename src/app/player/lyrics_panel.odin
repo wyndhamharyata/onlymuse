@@ -6,9 +6,9 @@ import "om:app/core"
 import "om:app/kit"
 import "om:helper"
 import "om:lyrics"
-import "thor:platform"
 import "om:store"
-import "om:ui"
+import "thor:platform"
+import "thor:ui"
 
 LINES_BEFORE_CURRENT :: 3
 

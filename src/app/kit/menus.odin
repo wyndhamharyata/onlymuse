@@ -2,7 +2,7 @@ package kit
 
 import "core:fmt"
 import "om:app/core"
-import "om:ui"
+import "thor:ui"
 
 MENU_ITEM_HEIGHT_POINTS :: 26
 

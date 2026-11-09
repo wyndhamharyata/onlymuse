@@ -5,7 +5,7 @@ import "core:strings"
 import "om:app/core"
 import "om:app/kit"
 import "om:store"
-import "om:ui"
+import "thor:ui"
 
 search_field: kit.Text_Field
 

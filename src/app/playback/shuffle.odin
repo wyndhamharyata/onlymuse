@@ -9,7 +9,7 @@ import "core:strings"
 import "om:app/core"
 import "om:app/kit"
 import "om:store"
-import "om:ui"
+import "thor:ui"
 
 OFTEN_SKIPPED_COUNT :: 3
 

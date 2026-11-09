@@ -7,7 +7,7 @@ import "om:app/kit"
 import "om:app/player"
 import "om:app/youtube_pages"
 import "om:apple"
-import "om:ui"
+import "thor:ui"
 
 build_page_area :: proc() {
 	area := ui.box("page area", {width = ui.fill(), height = ui.fill(), axis = .Y})

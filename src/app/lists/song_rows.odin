@@ -7,7 +7,7 @@ import "om:app/matching"
 import "om:app/menus"
 import "om:app/playback"
 import "om:apple"
-import "om:ui"
+import "thor:ui"
 
 SONG_ROW_POINTS :: 54
 

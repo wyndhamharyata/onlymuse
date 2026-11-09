@@ -8,7 +8,7 @@ import "om:app/lists"
 import "om:app/playback"
 import "om:app/youtube_pages"
 import "om:apple"
-import "om:ui"
+import "thor:ui"
 
 SHOWN_SEARCH_SONG_COUNT :: 6
 

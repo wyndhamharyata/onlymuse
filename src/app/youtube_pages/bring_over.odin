@@ -8,8 +8,8 @@ import "om:app/matching"
 import "om:app/menus"
 import "om:app/youtube_lists"
 import "om:apple"
-import "om:ui"
 import "om:youtube"
+import "thor:ui"
 
 build_bring_over_page :: proc(page: core.Page) {
 	if !youtube.is_signed_in() {

@@ -5,7 +5,7 @@ import "om:app/core"
 import "om:app/kit"
 import "om:app/lists"
 import "om:apple"
-import "om:ui"
+import "thor:ui"
 
 PHOTO_WIDTH_STEP_PIXELS :: 400
 

@@ -3,7 +3,7 @@ package kit
 import "core:strings"
 import "core:time"
 import "thor:platform"
-import "om:ui"
+import "thor:ui"
 
 TOAST_SECONDS :: 2.5
 

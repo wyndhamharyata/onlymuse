@@ -5,7 +5,7 @@ import "core:strings"
 import "om:app/core"
 import "om:app/kit"
 import "om:apple"
-import "om:ui"
+import "thor:ui"
 
 GROUP_TITLE_HEIGHT_POINTS :: 27
 

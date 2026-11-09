@@ -9,7 +9,7 @@ import "om:app/lists"
 import "om:app/menus"
 import "om:app/playback"
 import "om:apple"
-import "om:ui"
+import "thor:ui"
 
 ALBUM_COVER_POINTS :: 240
 

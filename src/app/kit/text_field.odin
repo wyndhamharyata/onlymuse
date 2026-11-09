@@ -5,7 +5,7 @@ import "core:strings"
 import "core:unicode/utf8"
 import "om:app/core"
 import "thor:platform"
-import "om:ui"
+import "thor:ui"
 
 TEXT_FIELD_FONT_SIZE :: 13
 

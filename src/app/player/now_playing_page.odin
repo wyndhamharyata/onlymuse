@@ -8,7 +8,7 @@ import "om:app/playback"
 import "om:apple"
 import "om:helper"
 import "om:lyrics"
-import "om:ui"
+import "thor:ui"
 
 MAX_MORE_BY_COUNT :: 6
 

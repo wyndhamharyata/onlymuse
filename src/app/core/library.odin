@@ -4,7 +4,7 @@ import "core:encoding/json"
 import "core:fmt"
 import "core:strings"
 import "om:apple"
-import "om:ui"
+import "thor:ui"
 
 to_offset_in_page :: proc(page, box: ^ui.Box) -> f32 {
 	return box.rect.y - page.rect.y - page.style.padding.y + page.scroll

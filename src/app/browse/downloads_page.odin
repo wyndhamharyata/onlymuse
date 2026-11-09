@@ -12,7 +12,7 @@ import "om:app/kit"
 import "om:app/lists"
 import "om:apple"
 import "thor:platform"
-import "om:ui"
+import "thor:ui"
 
 Download :: struct {
 	catalog_id:  string,

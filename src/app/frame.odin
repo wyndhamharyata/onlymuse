@@ -14,12 +14,12 @@ import "om:app/youtube_pages"
 import "om:apple"
 import "om:console"
 import "om:helper"
-import "thor:image"
-import "thor:platform"
-import "om:ui"
 import "thor:font"
 import "thor:icon"
+import "thor:image"
+import "thor:platform"
 import "thor:render"
+import "thor:ui"
 
 draw_frame :: proc() -> bool {
 	start, frame_seconds := begin_frame()
@@ -30,7 +30,13 @@ draw_frame :: proc() -> bool {
 	font.begin_frame()
 	image.begin_frame()
 	icon.begin_frame()
-	ui.begin_frame(window.size_points, window.pixels_per_point, core.app.zoom, frame_seconds)
+	ui.begin_frame(
+		window.size_points,
+		window.pixels_per_point,
+		core.app.zoom,
+		frame_seconds,
+		platform.list_events(),
+	)
 	kit.set_accent(frame_seconds, player.find_player_artwork_source())
 
 	root := ui.current_parent()

@@ -8,7 +8,7 @@ import "om:app/kit"
 import "om:app/lists"
 import "om:app/youtube_lists"
 import "om:apple"
-import "om:ui"
+import "thor:ui"
 
 ARTIST_HEADER_POINTS :: 300
 

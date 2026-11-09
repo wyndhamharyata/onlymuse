@@ -16,12 +16,12 @@ import "om:apple"
 import "om:helper"
 import "om:macos"
 import "om:store"
-import "om:ui"
 import "om:youtube"
 import "thor:font"
 import "thor:icon"
 import "thor:platform"
 import "thor:render"
+import "thor:ui"
 
 // A long page needs more than the 256 KB that build.sh gives a thread.
 MAIN_TEMP_BYTES :: 4 * 1024 * 1024

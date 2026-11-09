@@ -3,7 +3,7 @@ package core
 import "core:encoding/json"
 import "core:strings"
 import "om:store"
-import "om:ui"
+import "thor:ui"
 
 Page_Kind :: enum {
 	Home,

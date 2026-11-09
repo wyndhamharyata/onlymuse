@@ -6,7 +6,7 @@ import "om:app/kit"
 import "om:helper"
 import "om:lyrics"
 import "thor:platform"
-import "om:ui"
+import "thor:ui"
 
 to_fade :: proc(begin_seconds, position_seconds: f64) -> f32 {
 	return f32(clamp((position_seconds - begin_seconds) / WORD_FADE_SECONDS, 0, 1))

@@ -8,7 +8,7 @@ import "om:app/menus"
 import "om:app/playback"
 import "om:helper"
 import "thor:platform"
-import "om:ui"
+import "thor:ui"
 
 STAGE_COVER_POINTS :: 280
 

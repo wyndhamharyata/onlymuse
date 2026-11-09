@@ -6,7 +6,7 @@ import "om:app/core"
 import "om:app/kit"
 import "om:app/playback"
 import "om:apple"
-import "om:ui"
+import "thor:ui"
 
 SHELF_TILE_POINTS :: 150
 

@@ -7,7 +7,7 @@ import "om:app/lists"
 import "om:app/playback"
 import "om:apple"
 import "om:helper"
-import "om:ui"
+import "thor:ui"
 
 PALETTE_WIDTH_POINTS :: 560
 

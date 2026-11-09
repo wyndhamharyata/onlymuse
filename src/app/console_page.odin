@@ -6,7 +6,7 @@ import "core:time"
 import "om:app/kit"
 import "om:console"
 import "thor:platform"
-import "om:ui"
+import "thor:ui"
 
 CONSOLE_TIME_POINTS :: 62
 

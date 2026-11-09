@@ -43,7 +43,6 @@ playlist_name_field: kit.Text_Field
 
 start_song_menu :: proc() {
 	playlist_name_field.is_keeping_focus = true
-	kit.register_text_field(&playlist_name_field)
 }
 
 open_song_menu :: proc(song: core.Catalog_Song, position: [2]f32, is_playlists_only := false) {

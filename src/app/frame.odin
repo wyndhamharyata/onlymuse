@@ -50,7 +50,6 @@ draw_frame :: proc() -> bool {
 	dev.build_frame_time(kit.colors.faint)
 
 	is_frame_wanted := app.end_frame()
-	kit.finish_text_fields()
 	save_scroll_at_rest()
 
 	return is_frame_wanted || is_lyrics_moving
@@ -61,7 +60,6 @@ apply_input :: proc() {
 	playback.update_queue()
 	playback.apply_now_playing_to_play_log()
 	menus.apply_write_results()
-	kit.apply_text_events(platform.list_events())
 	apply_keys()
 }
 

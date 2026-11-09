@@ -10,8 +10,6 @@ import "thor:ui"
 search_field: kit.Text_Field
 
 start_search_field :: proc() {
-	kit.register_text_field(&search_field)
-
 	saved, has_term := store.find_state("searchTerm", context.temp_allocator)
 	if !has_term do return
 

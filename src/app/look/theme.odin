@@ -18,6 +18,9 @@ colors := struct {
 	detail_card_border = kit.to_color(0xffffff10),
 }
 
+// Translucent, so the blur behind the window shows.
+WINDOW_COLOR :: 0x0e0e10bf
+
 SIDEBAR_WIDTH_POINTS :: 228
 
 PLAYER_HEIGHT_POINTS :: 70

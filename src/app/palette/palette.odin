@@ -80,7 +80,6 @@ palette: struct {
 start_palette :: proc() {
 	palette.field.is_keeping_focus = true
 	palette.field.is_taking_up_down = true
-	kit.register_text_field(&palette.field)
 }
 
 toggle_palette :: proc() {

@@ -45,6 +45,7 @@ main :: proc() {
 }
 
 start_app_state :: proc() {
+	kit.colors.window = kit.to_color(look.WINDOW_COLOR)
 	kit.colors.accent = kit.DEFAULT_ACCENT
 	core.app.system_accent = kit.DEFAULT_ACCENT
 	core.app.panel = .Lyrics
@@ -78,12 +79,12 @@ open_main_window :: proc() {
 			title = "onlymuse",
 			size = DEFAULT_WINDOW_SIZE_POINTS,
 			min_size = {look.MIN_WINDOW_WIDTH_POINTS, look.MIN_WINDOW_HEIGHT_POINTS},
+			is_blurred = true,
 			fetch_image = fetch_cover,
 			to_image_family = to_cover_family,
 		},
 		draw_frame,
 	)
-	platform.set_background(kit.colors.window)
 	macos.start(app.window, dev.is_background && !dev.is_bench)
 	macos.install_player_menu({
 		is_driving = proc() -> bool {return core.app.drives_music_app},

@@ -79,6 +79,7 @@ open_main_window :: proc() {
 			size = DEFAULT_WINDOW_SIZE_POINTS,
 			min_size = {look.MIN_WINDOW_WIDTH_POINTS, look.MIN_WINDOW_HEIGHT_POINTS},
 			fetch_image = fetch_cover,
+			to_image_family = to_cover_family,
 		},
 		draw_frame,
 	)

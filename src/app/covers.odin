@@ -39,3 +39,14 @@ fetch_cover :: proc(url: string) -> (path: string, ok: bool) {
 
 	return path, true
 }
+
+// Apple puts the size after the last slash. googleusercontent.com puts it after "=".
+to_cover_family :: proc(url: string) -> string {
+	slash := strings.last_index_byte(url, '/')
+	equals := strings.last_index_byte(url, '=')
+
+	if equals > slash do return url[:equals]
+	if slash > 0 do return url[:slash]
+
+	return url
+}

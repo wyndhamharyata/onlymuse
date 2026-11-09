@@ -5,7 +5,7 @@ import "core:strings"
 import "core:sync"
 import "core:thread"
 import "core:time"
-import "om:platform"
+import "thor:platform"
 import "om:store"
 
 Phase :: enum {

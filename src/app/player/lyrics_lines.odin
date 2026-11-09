@@ -5,7 +5,7 @@ import "om:app/core"
 import "om:app/kit"
 import "om:helper"
 import "om:lyrics"
-import "om:platform"
+import "thor:platform"
 import "om:ui"
 
 to_fade :: proc(begin_seconds, position_seconds: f64) -> f32 {

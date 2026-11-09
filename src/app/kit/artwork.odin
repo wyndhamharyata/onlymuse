@@ -2,7 +2,7 @@ package kit
 
 import "core:math"
 import "om:apple"
-import "om:image"
+import "thor:image"
 import "om:ui"
 import "thor:icon"
 import "thor:render"

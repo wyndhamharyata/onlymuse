@@ -10,7 +10,7 @@ import "om:app/kit"
 import "om:app/playback"
 import "om:apple"
 import "om:helper"
-import "om:platform"
+import "thor:platform"
 
 MAX_PAGE_RESULT_COUNT :: MAX_GROUP_RESULT_COUNT * 2
 

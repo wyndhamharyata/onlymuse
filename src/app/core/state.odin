@@ -2,7 +2,7 @@ package core
 
 import "core:time"
 import "om:helper"
-import "om:platform"
+import "thor:platform"
 import "om:store"
 
 Panel :: enum {

@@ -9,7 +9,7 @@ import "core:sys/posix"
 import "core:thread"
 import "core:time"
 import "om:console"
-import "om:platform"
+import "thor:platform"
 
 Song :: struct {
 	name:             string,

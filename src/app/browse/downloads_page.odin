@@ -11,7 +11,7 @@ import "om:app/core"
 import "om:app/kit"
 import "om:app/lists"
 import "om:apple"
-import "om:platform"
+import "thor:platform"
 import "om:ui"
 
 Download :: struct {

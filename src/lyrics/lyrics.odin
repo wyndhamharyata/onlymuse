@@ -9,7 +9,7 @@ import "core:sync"
 import "core:thread"
 import "om:apple"
 import "om:net"
-import "om:platform"
+import "thor:platform"
 import "om:store"
 
 Word :: struct {

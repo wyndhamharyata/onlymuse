@@ -9,7 +9,7 @@ import "core:thread"
 import "core:time"
 import "om:app/core"
 import "om:apple"
-import "om:platform"
+import "thor:platform"
 
 // Apple answers 429 for a while when an account searches too fast. One search runs at a time.
 MATCH_GAP :: 300 * time.Millisecond

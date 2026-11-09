@@ -7,7 +7,7 @@ import "om:app/core"
 import "om:app/kit"
 import "om:app/playback"
 import "om:helper"
-import "om:platform"
+import "thor:platform"
 import "om:ui"
 
 MIN_FOUR_COLUMNS_POINTS :: 720

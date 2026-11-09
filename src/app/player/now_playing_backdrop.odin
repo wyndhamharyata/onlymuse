@@ -3,7 +3,7 @@ package player
 import "core:strings"
 import "om:app/core"
 import "om:apple"
-import "om:image"
+import "thor:image"
 import "om:ui"
 import "thor:render"
 

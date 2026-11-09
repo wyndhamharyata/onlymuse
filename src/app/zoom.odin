@@ -4,7 +4,7 @@ import "core:fmt"
 import "core:strconv"
 import "om:app/core"
 import "om:app/kit"
-import "om:platform"
+import "thor:platform"
 import "om:store"
 
 zoom_steps := [?]f32{0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2}

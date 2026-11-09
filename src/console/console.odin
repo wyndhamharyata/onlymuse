@@ -4,7 +4,7 @@ import "core:fmt"
 import "core:strings"
 import "core:sync"
 import "core:time"
-import "om:platform"
+import "thor:platform"
 
 Entry :: struct {
 	at:     time.Time,

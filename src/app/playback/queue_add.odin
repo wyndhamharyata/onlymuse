@@ -11,7 +11,7 @@ import "om:apple"
 import "om:console"
 import "om:helper"
 import "om:net"
-import "om:platform"
+import "thor:platform"
 
 ADD_POLL_SECONDS :: 1.5
 

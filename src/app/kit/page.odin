@@ -5,7 +5,7 @@ import "core:math"
 import "core:time"
 import "om:app/core"
 import "om:apple"
-import "om:platform"
+import "thor:platform"
 import "om:ui"
 
 page_scroll :: proc(id: string) -> ^ui.Box {

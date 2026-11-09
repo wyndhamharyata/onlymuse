@@ -11,7 +11,7 @@ import "om:app/matching"
 import "om:app/youtube_lists"
 import "om:apple"
 import "om:net"
-import "om:platform"
+import "thor:platform"
 import "om:youtube"
 
 @(private = "file")

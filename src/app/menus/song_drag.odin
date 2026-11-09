@@ -2,7 +2,7 @@ package menus
 
 import "om:app/core"
 import "om:app/kit"
-import "om:platform"
+import "thor:platform"
 import "om:ui"
 
 DRAG_START_POINTS :: 6

@@ -1,4 +1,4 @@
-package platform
+package macos
 
 import "base:intrinsics"
 import "core:crypto/hash"
@@ -8,6 +8,7 @@ import "core:os"
 import "core:strings"
 import NS "core:sys/darwin/Foundation"
 import "thor:mac"
+import "thor:platform"
 
 // After Mission Control, the window server redoes the live blur each frame, so scrolling stutters.
 
@@ -68,18 +69,17 @@ Affine_Transform :: struct {
 	a, b, c, d, tx, ty: NS.Float,
 }
 
-@(private)
 add_backdrop :: proc() {
-	image := read_backdrop_image(state.ns_window->screen())
+	image := read_backdrop_image(state.window.ns_window->screen())
 
 	if image == nil do return
 
-	layer := objc_send(^Layer, Layer, "layer")
+	layer := objc_send(^platform.Layer, platform.Layer, "layer")
 	objc_send(nil, layer, "setContentsGravity:", NS.AT("resize"))
 	objc_send(nil, layer, "setContents:", image)
 	mac.CGImageRelease(image)
 
-	content := state.ns_window->contentView()
+	content := state.window.ns_window->contentView()
 	view := objc_send(
 		^NS.View,
 		objc_send(^NS.View, NS.View, "alloc"),
@@ -89,7 +89,7 @@ add_backdrop :: proc() {
 
 	objc_send(nil, view, "setLayer:", layer)
 	view->setWantsLayer(true)
-	objc_send(nil, view, "setAutoresizingMask:", NS.UInteger(SIZE_WITH_SUPERVIEW))
+	objc_send(nil, view, "setAutoresizingMask:", NS.UInteger(platform.SIZE_WITH_SUPERVIEW))
 
 	state.backdrop = layer
 	state.backdrop_view = view
@@ -99,9 +99,9 @@ add_backdrop :: proc() {
 		"addSubview:positioned:relativeTo:",
 		view,
 		NS.Integer(ORDER_ABOVE),
-		state.blur_view,
+		state.window.blur_view,
 	)
-	objc_send(nil, state.blur_view, "setHidden:", NS.BOOL(true))
+	objc_send(nil, state.window.blur_view, "setHidden:", NS.BOOL(true))
 }
 
 // AppKit says when a window drag starts, but not always when it ends.
@@ -109,7 +109,7 @@ add_backdrop :: proc() {
 start_window_drag :: proc() {
 	if state.backdrop_view == nil do return
 
-	objc_send(nil, state.blur_view, "setHidden:", NS.BOOL(false))
+	objc_send(nil, state.window.blur_view, "setHidden:", NS.BOOL(false))
 	set_backdrop_opacity(0)
 	state.fade_steps = 0
 
@@ -128,7 +128,7 @@ step_window_drag :: proc() {
 		state.fade_steps -= 1
 		if state.fade_steps > 0 do return
 
-		objc_send(nil, state.blur_view, "setHidden:", NS.BOOL(true))
+		objc_send(nil, state.window.blur_view, "setHidden:", NS.BOOL(true))
 		objc_send(nil, state.drag_timer, "invalidate")
 		state.drag_timer = nil
 		return
@@ -155,7 +155,7 @@ set_backdrop_opacity :: proc(opacity: f32) {
 apply_screen_change :: proc() {
 	if state.backdrop == nil do return
 
-	if image := read_backdrop_image(state.ns_window->screen()); image != nil {
+	if image := read_backdrop_image(state.window.ns_window->screen()); image != nil {
 		objc_send(nil, state.backdrop, "setContents:", image)
 		mac.CGImageRelease(image)
 	}
@@ -165,12 +165,12 @@ apply_screen_change :: proc() {
 
 @(private)
 set_backdrop_part :: proc() {
-	screen := state.ns_window->screen()
+	screen := state.window.ns_window->screen()
 	can_set_part := state.backdrop != nil && screen != nil
 
 	if !can_set_part do return
 
-	window := state.ns_window->frame()
+	window := state.window.ns_window->frame()
 	screen_rect := screen->frame()
 	part := NS.Rect {
 		{
@@ -292,7 +292,12 @@ ask_for_saved_wallpaper :: proc() {
 	if objc_send(^NS.Object, defaults, "objectForKey:", key) != nil do return
 
 	workspace := objc_send(^Workspace, Workspace, "sharedWorkspace")
-	url := objc_send(^NS.URL, workspace, "desktopImageURLForScreen:", state.ns_window->screen())
+	url := objc_send(
+		^NS.URL,
+		workspace,
+		"desktopImageURLForScreen:",
+		state.window.ns_window->screen(),
+	)
 
 	if url == nil do return
 

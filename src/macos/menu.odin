@@ -1,4 +1,4 @@
-package platform
+package macos
 
 import "base:intrinsics"
 import NS "core:sys/darwin/Foundation"
@@ -8,14 +8,8 @@ Player_Menu :: struct {
 	toggle:     proc(),
 }
 
-@(private)
-player_menu: Player_Menu
-
-@(private)
-player_menu_item: ^NS.MenuItem
-
 install_player_menu :: proc(player: Player_Menu) {
-	player_menu = player
+	state.player_menu = player
 
 	empty_key := NS.String.alloc()->initWithOdinString("")
 	app_item := NS.MenuItem.alloc()->initWithTitle(
@@ -24,14 +18,14 @@ install_player_menu :: proc(player: Player_Menu) {
 		empty_key,
 	)
 	app_menu := NS.Menu.alloc()->initWithTitle(NS.String.alloc()->initWithOdinString("onlymuse"))
-	player_menu_item =
+	state.player_menu_item =
 	NS.MenuItem.alloc()->initWithTitle(
 		NS.String.alloc()->initWithOdinString("Play in Music.app"),
 		intrinsics.objc_find_selector("togglePlayerMode:"),
 		empty_key,
 	)
-	NS.MenuItem_setTarget(player_menu_item, state.target)
-	NS.Menu_addItem(app_menu, player_menu_item)
+	NS.MenuItem_setTarget(state.player_menu_item, state.target)
+	NS.Menu_addItem(app_menu, state.player_menu_item)
 	NS.Menu_addItem(app_menu, NS.MenuItem_separatorItem())
 
 	quit_item := NS.MenuItem.alloc()->initWithTitle(
@@ -45,5 +39,5 @@ install_player_menu :: proc(player: Player_Menu) {
 	main_menu := NS.Menu.alloc()->initWithTitle(NS.String.alloc()->initWithOdinString("onlymuse"))
 	NS.Menu_addItem(main_menu, app_item)
 	NS.Menu_setSubmenu(main_menu, app_menu, app_item)
-	state.app->setMainMenu(main_menu)
+	NS.Application.sharedApplication()->setMainMenu(main_menu)
 }

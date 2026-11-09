@@ -3,8 +3,8 @@ package kit
 import "core:math"
 import "core:strconv"
 import "om:app/core"
-import "om:image"
-import "om:platform"
+import "thor:image"
+import "thor:platform"
 
 to_color :: proc "contextless" (hex: u32) -> [4]f32 {
 	return {

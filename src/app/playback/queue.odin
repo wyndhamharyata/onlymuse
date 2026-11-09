@@ -7,7 +7,7 @@ import "om:app/core"
 import "om:app/matching"
 import "om:console"
 import "om:helper"
-import "om:platform"
+import "thor:platform"
 import "om:store"
 import "om:youtube"
 

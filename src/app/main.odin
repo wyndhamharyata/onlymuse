@@ -14,13 +14,13 @@ import "om:app/playback"
 import "om:app/player"
 import "om:apple"
 import "om:helper"
-import "om:image"
-import "om:platform"
+import "om:macos"
 import "om:store"
 import "om:ui"
 import "om:youtube"
 import "thor:font"
 import "thor:icon"
+import "thor:platform"
 import "thor:render"
 
 // A long page needs more than the 256 KB that build.sh gives a thread.
@@ -51,7 +51,7 @@ main :: proc() {
 	render.start(core.app.window.device, core.app.window.layer)
 	font.start()
 	icon.start()
-	image.start()
+	start_covers()
 
 	core.app.last_frame = time.tick_now()
 	platform.run()
@@ -125,7 +125,8 @@ open_main_window :: proc(is_background: bool) {
 		is_behind,
 	)
 	platform.set_background(kit.colors.window)
-	platform.install_player_menu({
+	macos.start(core.app.window, is_behind)
+	macos.install_player_menu({
 		is_driving = proc() -> bool {return core.app.drives_music_app},
 		toggle = proc() {core.set_player_mode(!core.app.drives_music_app)},
 	})

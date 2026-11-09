@@ -1,6 +1,6 @@
 package ui
 
-import "om:platform"
+import "thor:platform"
 
 SWIPE_DECIDE_POINTS :: 4
 

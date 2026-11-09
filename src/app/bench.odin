@@ -6,8 +6,8 @@ import "core:slice"
 import "core:time"
 import "om:app/core"
 import "om:app/kit"
-import "om:image"
-import "om:platform"
+import "thor:image"
+import "thor:platform"
 import "om:ui"
 
 BENCH_SKIPPED_FRAME_COUNT :: 10

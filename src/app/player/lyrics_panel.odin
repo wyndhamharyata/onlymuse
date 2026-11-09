@@ -6,7 +6,7 @@ import "om:app/core"
 import "om:app/kit"
 import "om:helper"
 import "om:lyrics"
-import "om:platform"
+import "thor:platform"
 import "om:store"
 import "om:ui"
 

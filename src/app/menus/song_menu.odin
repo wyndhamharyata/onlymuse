@@ -8,7 +8,7 @@ import "om:app/matching"
 import "om:app/playback"
 import "om:app/youtube_lists"
 import "om:apple"
-import "om:platform"
+import "thor:platform"
 import "om:ui"
 import "om:youtube"
 

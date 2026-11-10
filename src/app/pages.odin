@@ -29,7 +29,7 @@ build_page_area :: proc() {
 		)
 
 		if ui.scope(toolbar) {
-			if kit.icon_button("back", "chevron.left", 16, kit.colors.text, !core.can_go_back()).is_clicked {
+			if kit.icon_button("back", "chevron.left", 16, is_disabled = !core.can_go_back()).is_clicked {
 				core.go_back()
 			}
 
@@ -37,8 +37,7 @@ build_page_area :: proc() {
 				"forward",
 				"chevron.right",
 				16,
-				kit.colors.text,
-				!core.can_go_forward(),
+				is_disabled = !core.can_go_forward(),
 			).is_clicked {
 				core.go_forward()
 			}

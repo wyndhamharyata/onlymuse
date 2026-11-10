@@ -36,7 +36,7 @@ build_album_page :: proc(album_id: string) {
 				} else {
 					kit.paragraph(
 						"This album is only on the Mac, so Apple Music has no page for it.",
-						kit.colors.dim,
+						kit.to_faded(kit.colors.base_content, 0.7),
 					)
 				}
 			}
@@ -164,7 +164,7 @@ build_album_info :: proc(data: ^core.Page_Data, info_points: f32) {
 	artist_flags := ui.Flags{.Truncate_Text}
 	if data.artist_id != "" do artist_flags |= {.Clickable}
 	library_label := "In Library" if data.is_in_library else "Not in Library"
-	library_color := kit.to_color(0x7ee2a8ff) if data.is_in_library else kit.colors.faint
+	library_color := kit.to_color(0x7ee2a8ff) if data.is_in_library else kit.to_faded(kit.colors.base_content, 0.5)
 
 	info := ui.box("info", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 6})
 
@@ -174,7 +174,7 @@ build_album_info :: proc(data: ^core.Page_Data, info_points: f32) {
 			{
 				width = ui.fill(),
 				height = ui.fit_text(),
-				text_color = kit.colors.text,
+				text_color = kit.colors.base_content,
 				font_size = title_size,
 				font_weight = .Bold,
 				flags = {.Wrap_Text},
@@ -187,7 +187,7 @@ build_album_info :: proc(data: ^core.Page_Data, info_points: f32) {
 			{
 				width = ui.fill(),
 				height = ui.fit_text(),
-				text_color = kit.colors.accent,
+				text_color = kit.colors.primary,
 				font_size = 20,
 				font_weight = .Semibold,
 				flags = artist_flags,
@@ -199,7 +199,7 @@ build_album_info :: proc(data: ^core.Page_Data, info_points: f32) {
 			core.navigate({kind = .Artist, id = data.artist_id, title = data.subtitle})
 		}
 
-		kit.text(data.detail, kit.colors.dim)
+		kit.text(data.detail, kit.to_faded(kit.colors.base_content, 0.7))
 
 		badges := ui.box(
 			"badges",
@@ -214,7 +214,7 @@ build_album_info :: proc(data: ^core.Page_Data, info_points: f32) {
 		)
 
 		if ui.scope(badges) {
-			for label in data.badges do build_badge(label, kit.colors.dim)
+			for label in data.badges do build_badge(label, kit.to_faded(kit.colors.base_content, 0.7))
 			build_badge(library_label, library_color)
 		}
 
@@ -252,7 +252,7 @@ build_badge :: proc(label: string, color: [4]f32) {
 }
 
 build_numbered_songs :: proc(songs: []core.Catalog_Song) {
-	tint := kit.to_accent_tint(kit.colors.accent)
+	tint := kit.to_faded(kit.colors.primary, kit.SOFT_OPACITY)
 	list := ui.box("songs", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 1})
 
 	if ui.scope(list) {
@@ -269,7 +269,7 @@ build_numbered_songs :: proc(songs: []core.Catalog_Song) {
 					padding = {10, 0, 10, 0},
 					corner_radius = 7,
 					background = tint if is_current else {},
-					hover_background = tint if is_current else kit.colors.hover,
+					hover_background = tint if is_current else kit.to_faded(kit.colors.base_content, kit.HOVER_OPACITY),
 					flags = {.Clickable},
 				},
 			)
@@ -280,11 +280,11 @@ build_numbered_songs :: proc(songs: []core.Catalog_Song) {
 					{
 						width = ui.points(24),
 						height = ui.fit_text(),
-						text_color = kit.colors.accent if is_current else kit.colors.faint,
+						text_color = kit.colors.primary if is_current else kit.to_faded(kit.colors.base_content, 0.5),
 					},
 					fmt.tprintf("%d", index + 1),
 				)
-				kit.text(song.name, kit.colors.accent if is_current else kit.colors.text)
+				kit.text(song.name, kit.colors.primary if is_current else kit.colors.base_content)
 				lists.build_row_heart(song, is_current)
 				ui.box(
 					"",
@@ -292,7 +292,7 @@ build_numbered_songs :: proc(songs: []core.Catalog_Song) {
 						width = ui.points(44),
 						height = ui.fit_text(),
 						text_align = .End,
-						text_color = kit.colors.faint,
+						text_color = kit.to_faded(kit.colors.base_content, 0.5),
 						font_size = 12,
 					},
 					look.to_clock_text(song.duration_seconds),

@@ -141,13 +141,13 @@ build_recent_songs_shelf :: proc(artist_id, artist_name: string) {
 				{
 					width = ui.fit_text(),
 					height = ui.fit_text(),
-					text_color = kit.to_faded(kit.colors.text, text_alpha),
+					text_color = kit.to_faded(kit.colors.base_content, text_alpha),
 					font_size = look.SHELF_TITLE_POINTS,
 					font_weight = .Bold,
 				},
 				"Recent Songs",
 			)
-			kit.icon_box("", "chevron.right", 13, kit.to_faded(kit.colors.faint, text_alpha))
+			kit.icon_box("", "chevron.right", 13, kit.to_faded(kit.to_faded(kit.colors.base_content, 0.5), text_alpha))
 		}
 
 		if ui.signal(title).is_clicked {

@@ -23,7 +23,7 @@ build_now_playing_page :: proc() {
 	if ui.scope(page) {
 		if !is_song {
 			kit.heading("Now Playing")
-			kit.paragraph("Nothing is playing. Play a song and it shows here.", kit.colors.dim)
+			kit.paragraph("Nothing is playing. Play a song and it shows here.", kit.to_faded(kit.colors.base_content, 0.7))
 			return
 		}
 
@@ -73,7 +73,7 @@ build_now_playing_page :: proc() {
 					{
 						width = ui.fill(),
 						height = ui.fit_text(),
-						text_color = kit.colors.faint,
+						text_color = kit.to_faded(kit.colors.base_content, 0.5),
 						font_size = 11.5,
 						flags = {.Wrap_Text},
 					},
@@ -113,7 +113,7 @@ build_current_lyric :: proc(shown: helper.Song) {
 			{
 				width = ui.fill(),
 				height = ui.fit_text(),
-				text_color = kit.colors.text,
+				text_color = kit.colors.base_content,
 				font_size = 17,
 				font_weight = .Semibold,
 				flags = {.Wrap_Text},

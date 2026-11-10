@@ -19,7 +19,7 @@ build_results :: proc() -> int {
 			{
 				width = ui.fill(),
 				height = ui.fit_text(),
-				text_color = kit.colors.faint,
+				text_color = kit.to_faded(kit.colors.base_content, 0.5),
 				padding = {10, 6, 10, 8},
 			},
 			"Nothing matches. The palette searches Apple Music when you stop typing.",
@@ -58,7 +58,7 @@ build_results :: proc() -> int {
 					{
 						width = ui.fill(),
 						height = ui.fit_text(),
-						text_color = kit.colors.faint,
+						text_color = kit.to_faded(kit.colors.base_content, 0.5),
 						font_size = 11,
 						font_weight = .Bold,
 						padding = {10, 8, 10, 4},
@@ -139,7 +139,7 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 			gap = 10,
 			padding = {8, 0, 10, 0},
 			corner_radius = 8,
-			background = kit.to_accent_tint(kit.colors.accent) if is_selected else {},
+			background = kit.to_faded(kit.colors.primary, kit.SOFT_OPACITY) if is_selected else {},
 			flags = {.Clickable},
 		},
 	)
@@ -163,7 +163,7 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 				"",
 				result.symbol if result.symbol != "" else "arrow.right",
 				14,
-				kit.colors.accent if is_selected else kit.colors.dim,
+				kit.colors.primary if is_selected else kit.to_faded(kit.colors.base_content, 0.7),
 				{width = ui.points(ROW_ARTWORK_POINTS), height = ui.points(ROW_ARTWORK_POINTS)},
 			)
 		}
@@ -173,7 +173,7 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 			{
 				width = ui.fit_text(),
 				height = ui.fit_text(),
-				text_color = kit.colors.faint if result.is_disabled else kit.colors.text,
+				text_color = kit.to_faded(kit.colors.base_content, 0.5) if result.is_disabled else kit.colors.base_content,
 				font_size = 13.5,
 				flags = {.Truncate_Text},
 			},
@@ -184,7 +184,7 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 			{
 				width = ui.fill(),
 				height = ui.fit_text(),
-				text_color = kit.colors.faint,
+				text_color = kit.to_faded(kit.colors.base_content, 0.5),
 				font_size = 12,
 				flags = {.Truncate_Text},
 			},
@@ -197,7 +197,7 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 				{
 					width = ui.fit_text(),
 					height = ui.fit_text(),
-					text_color = kit.colors.faint,
+					text_color = kit.to_faded(kit.colors.base_content, 0.5),
 					font_size = 12,
 				},
 				result.shortcut,
@@ -210,7 +210,7 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 				{
 					width = ui.fit_text(),
 					height = ui.fit_text(),
-					text_color = kit.colors.accent,
+					text_color = kit.colors.primary,
 					font_size = 13,
 				},
 				"↵",

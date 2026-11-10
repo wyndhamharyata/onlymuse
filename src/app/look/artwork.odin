@@ -52,7 +52,7 @@ draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 		{
 			rect = rect,
 			uv = to_fill_uv(rect, texture, paint.focus_y),
-			color = kit.to_faded(kit.colors.white, opacity * image_opacity),
+			color = {1, 1, 1, opacity * image_opacity},
 			corner_radius = ui.to_pixels(box.style.corner_radius),
 			clip = clip,
 			kind = .Image,
@@ -101,7 +101,7 @@ to_placeholder :: proc(
 	symbol := "music.note",
 ) -> Placeholder {
 	if background, ok := kit.to_color_from_hex_digits(artwork.background_color); ok {
-		text_color := kit.to_color_from_hex_digits(artwork.text_color) or_else kit.colors.text
+		text_color := kit.to_color_from_hex_digits(artwork.text_color) or_else kit.colors.base_content
 
 		return {
 			top = kit.mix_color(background, text_color, 0.18),

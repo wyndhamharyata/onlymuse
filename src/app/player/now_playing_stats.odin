@@ -153,7 +153,7 @@ build_stat_card :: proc(
 				{
 					width = ui.fill(),
 					height = ui.fit_text(),
-					text_color = kit.colors.faint,
+					text_color = kit.to_faded(kit.colors.base_content, 0.5),
 					font_size = 11,
 					font_weight = .Semibold,
 				},
@@ -164,7 +164,7 @@ build_stat_card :: proc(
 				{
 					width = ui.fill(),
 					height = ui.fit_text(),
-					text_color = kit.colors.text,
+					text_color = kit.colors.base_content,
 					font_size = 24,
 					font_weight = .Bold,
 					flags = {.Truncate_Text},
@@ -176,7 +176,7 @@ build_stat_card :: proc(
 				{
 					width = ui.fill(),
 					height = ui.fit_text(),
-					text_color = kit.colors.dim,
+					text_color = kit.to_faded(kit.colors.base_content, 0.7),
 					font_size = 12,
 					flags = {.Truncate_Text},
 				},
@@ -278,9 +278,9 @@ build_bars :: proc(weeks: [STAT_WEEKS]int) {
 					height = ui.points(height),
 					corner_radius = 2,
 					background = {
-						kit.colors.accent.r,
-						kit.colors.accent.g,
-						kit.colors.accent.b,
+						kit.colors.primary.r,
+						kit.colors.primary.g,
+						kit.colors.primary.b,
 						0.75 if count > 0 else 0.2,
 					},
 				},

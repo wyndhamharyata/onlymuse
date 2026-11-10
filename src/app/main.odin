@@ -47,9 +47,9 @@ main :: proc() {
 start_app_state :: proc() {
 	// onlymuse stays dark, and its accent follows the playing song's cover.
 	kit.appearance = .Dark
-	kit.dark_colors.window = kit.to_color(look.WINDOW_COLOR)
-	kit.dark_colors.accent = kit.DEFAULT_ACCENT
-	core.app.system_accent = kit.DEFAULT_ACCENT
+	kit.dark_colors.base_100 = kit.to_color(look.WINDOW_COLOR)
+	kit.dark_colors.primary = kit.DEFAULT_PRIMARY
+	core.app.system_accent = kit.DEFAULT_PRIMARY
 	core.app.panel = .Lyrics
 }
 
@@ -120,9 +120,9 @@ build_sign_in_card :: proc() {
 				gap = 12,
 				padding = {24, 24, 24, 24},
 				corner_radius = 14,
-				background = kit.colors.card,
+				background = kit.colors.base_300,
 				border_width = 1,
-				border_color = kit.colors.line,
+				border_color = kit.to_faded(kit.colors.base_content, kit.LINE_OPACITY),
 				position = {
 					(window_size.x - SIGN_IN_CARD_WIDTH_POINTS) / 2,
 					window_size.y / 2 - SIGN_IN_CARD_HALF_HEIGHT_POINTS,
@@ -137,7 +137,7 @@ build_sign_in_card :: proc() {
 				{
 					width = ui.fill(),
 					height = ui.fit_text(),
-					text_color = kit.colors.text,
+					text_color = kit.colors.base_content,
 					font_size = 18,
 					font_weight = .Bold,
 				},
@@ -148,7 +148,7 @@ build_sign_in_card :: proc() {
 				{
 					width = ui.fill(),
 					height = ui.fit_text(),
-					text_color = kit.colors.dim,
+					text_color = kit.to_faded(kit.colors.base_content, 0.7),
 					flags = {.Wrap_Text},
 				},
 				"onlymuse reads Apple Music with the sign-in of music.apple.com. Apple's own sign-in page opens in a window of its own.",

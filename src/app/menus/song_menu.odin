@@ -234,21 +234,20 @@ build_playlist_menu :: proc(
 				&playlist_name_field,
 				"playlist name",
 				"Playlist name",
-				"",
-				{height = ui.points(28)},
+				style = {height = ui.points(28)},
 			)
 			ui.box(
 				"",
 				{
 					width = ui.fill(),
 					height = ui.fit_text(),
-					text_color = kit.colors.faint,
+					text_color = kit.to_faded(kit.colors.base_content, 0.5),
 					font_size = 11,
 					padding = {4, 4, 4, 2},
 				},
 				"Return makes the playlist. Escape goes back.",
 			)
-		} else if kit.menu_item("new playlist", "New Playlist…", "", kit.colors.accent).is_clicked {
+		} else if kit.menu_item("new playlist", "New Playlist…", tone = .Primary).is_clicked {
 			song_menu.is_naming = true
 			kit.focus_field(&playlist_name_field)
 		}
@@ -291,7 +290,7 @@ build_playlist_menu :: proc(
 				{
 					width = ui.fill(),
 					height = ui.fit_text(),
-					text_color = kit.colors.faint,
+					text_color = kit.to_faded(kit.colors.base_content, 0.5),
 					font_size = 12,
 					padding = {8, 4, 8, 4},
 				},

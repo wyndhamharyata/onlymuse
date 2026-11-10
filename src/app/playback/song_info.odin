@@ -212,7 +212,7 @@ apply_favourite_answer :: proc(message: helper.Message) {
 
 	if message.persistent_id == "" {
 		set_favourite_change(request.catalog_id, !request.favorited)
-		kit.show_toast("Music.app has no such song in your library. Add it to the library first.")
+		kit.show_toast("Music.app has no such song in your library. Add it to the library first.", .Warning)
 		return
 	}
 
@@ -229,6 +229,6 @@ build_favourite_button :: proc(id: string, is_favourite: bool) -> bool {
 		id,
 		"heart.circle.fill" if is_favourite else "heart.circle",
 		13,
-		kit.colors.accent if is_favourite else kit.colors.faint,
+		color = kit.colors.primary if is_favourite else kit.to_faded(kit.colors.base_content, 0.5),
 	).is_clicked
 }

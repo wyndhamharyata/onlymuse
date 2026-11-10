@@ -46,7 +46,7 @@ build_song_list_page :: proc(
 
 				kit.text(
 					count_text if phase == .Ready else look.to_phase_text(phase),
-					kit.colors.dim,
+					kit.to_faded(kit.colors.base_content, 0.7),
 				)
 			}
 
@@ -56,7 +56,7 @@ build_song_list_page :: proc(
 		if phase == .Loading do look.build_loading(title)
 
 		if phase == .Ready {
-			if len(songs) == 0 do kit.paragraph("Nothing here yet.", kit.colors.dim)
+			if len(songs) == 0 do kit.paragraph("Nothing here yet.", kit.to_faded(kit.colors.base_content, 0.7))
 			build_song_rows(songs, dates)
 		}
 	}
@@ -118,7 +118,7 @@ build_song_row :: proc(
 	is_current: bool,
 	date := "",
 ) -> bool {
-	tint := kit.to_accent_tint(kit.colors.accent)
+	tint := kit.to_faded(kit.colors.primary, kit.SOFT_OPACITY)
 	row := ui.box(
 		id,
 		{
@@ -130,8 +130,8 @@ build_song_row :: proc(
 			padding = {6, 0, 6, 0},
 			corner_radius = 7,
 			background = tint if is_current else {},
-			hover_background = tint if is_current else kit.colors.hover,
-			press_background = kit.colors.selected,
+			hover_background = tint if is_current else kit.to_faded(kit.colors.base_content, kit.HOVER_OPACITY),
+			press_background = kit.to_faded(kit.colors.base_content, kit.SELECTED_OPACITY),
 			flags = {.Clickable},
 		},
 	)
@@ -147,8 +147,8 @@ build_song_row :: proc(
 		text := ui.box("", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 2})
 
 		if ui.scope(text) {
-			kit.text(song.name, kit.colors.accent if is_current else kit.colors.text)
-			kit.text(subtitle, kit.colors.dim, 12)
+			kit.text(song.name, kit.colors.primary if is_current else kit.colors.base_content)
+			kit.text(subtitle, kit.to_faded(kit.colors.base_content, 0.7), 12)
 		}
 
 		if date != "" {
@@ -157,7 +157,7 @@ build_song_row :: proc(
 				{
 					width = ui.fit_text(),
 					height = ui.fit_text(),
-					text_color = kit.colors.faint,
+					text_color = kit.to_faded(kit.colors.base_content, 0.5),
 					font_size = 12,
 				},
 				date,
@@ -171,7 +171,7 @@ build_song_row :: proc(
 				width = ui.points(44),
 				height = ui.fit_text(),
 				text_align = .End,
-				text_color = kit.colors.faint,
+				text_color = kit.to_faded(kit.colors.base_content, 0.5),
 				font_size = 12,
 			},
 			look.to_clock_text(song.duration_seconds),
@@ -189,7 +189,7 @@ build_row_heart :: proc(chosen: core.Catalog_Song, is_current: bool) {
 			"",
 			YOUTUBE_SYMBOL,
 			13,
-			look.colors.youtube if state == .Missing else kit.colors.faint,
+			look.colors.youtube if state == .Missing else kit.to_faded(kit.colors.base_content, 0.5),
 			{padding = {4, 4, 4, 4}},
 		)
 	}

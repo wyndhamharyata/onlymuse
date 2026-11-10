@@ -35,7 +35,7 @@ build_controls :: proc() {
 		)
 
 		if ui.scope(buttons) {
-			shuffle_color := kit.colors.accent if playback.queue.is_shuffled else kit.colors.faint
+			shuffle_color := kit.colors.primary if playback.queue.is_shuffled else kit.to_faded(kit.colors.base_content, 0.5)
 			shuffle := kit.icon_box(
 				"shuffle",
 				"shuffle",
@@ -44,8 +44,8 @@ build_controls :: proc() {
 				{
 					padding = {4, 4, 4, 4},
 					corner_radius = 6,
-					hover_background = kit.colors.hover,
-					press_background = kit.colors.selected,
+					hover_background = kit.to_faded(kit.colors.base_content, kit.HOVER_OPACITY),
+					press_background = kit.to_faded(kit.colors.base_content, kit.SELECTED_OPACITY),
 					flags = {.Clickable},
 				},
 			)
@@ -59,7 +59,7 @@ build_controls :: proc() {
 			resume_seconds :=
 				playback.queue.resume_point.position_seconds if playback.is_resume_shown() else helper.read_position_seconds(now_playing)
 
-			if kit.icon_button("previous", "backward.fill", 17, kit.colors.text).is_clicked {
+			if kit.icon_button("previous", "backward.fill", 17).is_clicked {
 				playback.skip_to_previous(resume_seconds)
 			}
 
@@ -69,15 +69,15 @@ build_controls :: proc() {
 					width = ui.points(34),
 					height = ui.points(34),
 					corner_radius = 17,
-					background = kit.colors.text,
-					hover_background = kit.colors.white,
+					background = kit.colors.base_content,
+					hover_background = {1, 1, 1, 1},
 					flags = {.Clickable},
 				},
 			)
 
 			play_symbol := "pause.fill" if is_playing else "play.fill"
 			paint := new(kit.Icon_Paint, context.temp_allocator)
-			paint^ = {play_symbol, 15, kit.colors.ink}
+			paint^ = {play_symbol, 15, kit.colors.base_200}
 			play.draw = kit.draw_icon
 			play.data = paint
 
@@ -89,15 +89,15 @@ build_controls :: proc() {
 				helper.send_play_pause()
 			}
 
-			if kit.icon_button("next", "forward.fill", 17, kit.colors.text).is_clicked {
+			if kit.icon_button("next", "forward.fill", 17).is_clicked {
 				playback.skip_to_next()
 			}
 
 			repeat_symbol := "repeat.1" if playback.queue.repeat == "one" else "repeat"
 			repeat_color :=
-				kit.colors.accent if playback.queue.repeat != "off" else kit.colors.faint
+				kit.colors.primary if playback.queue.repeat != "off" else kit.to_faded(kit.colors.base_content, 0.5)
 
-			if kit.icon_button("repeat", repeat_symbol, 14, repeat_color).is_clicked {
+			if kit.icon_button("repeat", repeat_symbol, 14, color = repeat_color).is_clicked {
 				playback.cycle_repeat()
 			}
 		}
@@ -135,7 +135,7 @@ build_progress :: proc(has_song: bool) {
 				width = ui.points(CLOCK_WIDTH_POINTS),
 				height = ui.fit_text(),
 				text_align = .End,
-				text_color = kit.colors.faint,
+				text_color = kit.to_faded(kit.colors.base_content, 0.5),
 				font_size = 11,
 			},
 			"",
@@ -144,7 +144,7 @@ build_progress :: proc(has_song: bool) {
 		clock.text = look.to_clock_text(f64(shown_ratio) * duration_seconds)
 		kit.text(
 			look.to_clock_text(duration_seconds),
-			kit.colors.faint,
+			kit.to_faded(kit.colors.base_content, 0.5),
 			11,
 			width = ui.points(CLOCK_WIDTH_POINTS),
 		)
@@ -168,13 +168,13 @@ build_player_end :: proc() {
 
 	if ui.scope(end) {
 		kit.spacer()
-		panel_color := kit.colors.accent if core.app.panel != .None else kit.colors.faint
+		panel_color := kit.colors.primary if core.app.panel != .None else kit.to_faded(kit.colors.base_content, 0.5)
 
-		if kit.icon_button("panel", "sidebar.right", 16, panel_color).is_clicked {
+		if kit.icon_button("panel", "sidebar.right", 16, color = panel_color).is_clicked {
 			core.set_panel(.None if core.app.panel != .None else core.app.last_panel)
 		}
 
-		kit.icon_box("", "speaker.wave.2.fill", 15, kit.colors.dim)
+		kit.icon_box("", "speaker.wave.2.fill", 15, kit.to_faded(kit.colors.base_content, 0.7))
 
 		volume_percent := core.app.now_playing.volume_percent
 		shown_ratio, is_set := kit.bar("volume", f32(volume_percent / 100), ui.points(80))

@@ -81,12 +81,12 @@ set_accent :: proc(frame_seconds: f32, artwork_source: string) {
 	if is_cover_vivid do target = to_cover_accent(color.rgb)
 
 	amount := 1 - math.exp(-ACCENT_RATE_PER_SECOND * min(frame_seconds, MAX_ACCENT_FRAME_SECONDS))
-	kit.colors.accent += (target - kit.colors.accent) * amount
-	difference := target.rgb - kit.colors.accent.rgb
+	kit.colors.primary += (target - kit.colors.primary) * amount
+	difference := target.rgb - kit.colors.primary.rgb
 	distance := abs(difference.r) + abs(difference.g) + abs(difference.b)
 
 	if distance <= ACCENT_SETTLED_DISTANCE {
-		kit.colors.accent = target
+		kit.colors.primary = target
 		return
 	}
 

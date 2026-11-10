@@ -238,7 +238,7 @@ build_shuffle_rules :: proc() {
 				{
 					width = ui.fill(),
 					height = ui.fit_text(),
-					text_color = kit.colors.text,
+					text_color = kit.colors.base_content,
 					font_size = 13,
 					font_weight = .Bold,
 					padding = {9, 4, 9, 6},
@@ -286,7 +286,7 @@ build_shuffle_rules :: proc() {
 				{
 					width = ui.fill(),
 					height = ui.fit_text(),
-					text_color = kit.colors.faint,
+					text_color = kit.to_faded(kit.colors.base_content, 0.5),
 					font_size = 11.5,
 					padding = {9, 4, 9, 4},
 					flags = {.Wrap_Text},

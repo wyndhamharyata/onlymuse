@@ -19,7 +19,7 @@ ARTIST_SHADE_ALPHA :: 0xf2 / 255.0
 @(private)
 build_artist_header :: proc(data: ^core.Page_Data, detail: string, width: f32) {
 	fallback_color :=
-		kit.to_color_from_hex_digits(data.artwork.background_color) or_else kit.colors.card
+		kit.to_color_from_hex_digits(data.artwork.background_color) or_else kit.colors.base_300
 	header := ui.box("header", {width = ui.fill(), height = ui.points(ARTIST_HEADER_POINTS)})
 
 	if ui.scope(header) {
@@ -39,7 +39,7 @@ build_artist_header :: proc(data: ^core.Page_Data, detail: string, width: f32) {
 			if box.data != nil do (cast(^look.Artwork_Paint)box.data).focus_y = 0.25
 		}
 
-		window_color := kit.colors.window
+		window_color := kit.colors.base_100
 		ui.box(
 			"",
 			{
@@ -80,7 +80,7 @@ build_artist_header :: proc(data: ^core.Page_Data, detail: string, width: f32) {
 					{
 						width = ui.fill(),
 						height = ui.fit_text(),
-						text_color = kit.colors.text,
+						text_color = kit.colors.base_content,
 						font_size = 40,
 						font_weight = .Bold,
 						flags = {.Truncate_Text},

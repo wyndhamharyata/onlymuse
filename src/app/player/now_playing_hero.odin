@@ -89,7 +89,7 @@ build_hero :: proc(
 				{
 					width = ui.fill(),
 					height = ui.fit_text(),
-					text_color = kit.colors.text,
+					text_color = kit.colors.base_content,
 					font_size = to_title_size(info_width),
 					font_weight = .Bold,
 					padding = {0, 2, 0, 2},
@@ -101,7 +101,7 @@ build_hero :: proc(
 			has_artist := details.artist_id != ""
 			artist_flags := ui.Flags{.Truncate_Text}
 			if has_artist do artist_flags |= {.Clickable}
-			artist_color := kit.colors.accent if has_artist else kit.colors.text
+			artist_color := kit.colors.primary if has_artist else kit.colors.base_content
 			artist := ui.box(
 				"artist",
 				{
@@ -204,8 +204,8 @@ build_pills :: proc(details: Song_Details, info: playback.Song_Info) {
 					corner_radius = 13,
 					background = kit.to_color(0xffffff14),
 					border_width = 1,
-					border_color = kit.colors.popover_border,
-					text_color = kit.colors.accent if is_quality else kit.colors.text,
+					border_color = kit.to_faded(kit.colors.base_content, kit.LINE_OPACITY),
+					text_color = kit.colors.primary if is_quality else kit.colors.base_content,
 					font_size = 12,
 					font_weight = .Semibold,
 				},
@@ -250,7 +250,7 @@ build_actions :: proc(details: Song_Details, persistent_id: string) {
 		   kit.button(
 			   "Favourite",
 			   "heart.circle.fill" if is_favourite else "heart.circle",
-			   icon_color = kit.colors.accent if is_favourite else kit.colors.text,
+			   icon_color = kit.colors.primary if is_favourite else kit.colors.base_content,
 		   ).is_clicked {
 			playback.toggle_favourite(details.song, persistent_id)
 		}

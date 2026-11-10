@@ -37,7 +37,7 @@ to_phase_text :: proc(phase: apple.Phase) -> string {
 
 build_phase :: proc(phase: apple.Phase, what: string) {
 	if phase == .Failed {
-		kit.paragraph(to_phase_text(phase), kit.colors.dim)
+		kit.paragraph(to_phase_text(phase), kit.to_faded(kit.colors.base_content, 0.7))
 		return
 	}
 
@@ -101,11 +101,11 @@ build_loading :: proc(what: string) {
 		if ui.scope(label) {
 			kit.text(
 				fmt.tprintf("Loading %s", what),
-				kit.colors.dim,
+				kit.to_faded(kit.colors.base_content, 0.7),
 				LOADING_TEXT_POINTS,
 				width = ui.fit_text(),
 			)
-			kit.text(all_dots[:dot_count], kit.colors.dim, LOADING_TEXT_POINTS, width = dots_width)
+			kit.text(all_dots[:dot_count], kit.to_faded(kit.colors.base_content, 0.7), LOADING_TEXT_POINTS, width = dots_width)
 		}
 	}
 

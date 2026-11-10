@@ -38,7 +38,7 @@ to_lyric_glyph_color :: proc(utf16_index: int, data: rawptr) -> [4]f32 {
 		break
 	}
 
-	return kit.colors.dim + (kit.colors.accent - kit.colors.dim) * lit
+	return kit.to_faded(kit.colors.base_content, 0.7) + (kit.colors.primary - kit.to_faded(kit.colors.base_content, 0.7)) * lit
 }
 
 @(private = "file")
@@ -55,7 +55,7 @@ build_timed_text :: proc(text: string, words: []lyrics.Word, index: int, font_si
 			height = ui.fit_text(),
 			font_size = font_size,
 			font_weight = .Bold,
-			text_color = kit.colors.dim,
+			text_color = kit.to_faded(kit.colors.base_content, 0.7),
 			flags = {.Wrap_Text},
 		},
 		text,
@@ -95,7 +95,7 @@ build_lyric_line :: proc(line: ^lyrics.Line, index: int) {
 					width = ui.fill(),
 					height = ui.fit_text(),
 					font_size = TRANSLATION_FONT_SIZE,
-					text_color = kit.colors.dim,
+					text_color = kit.to_faded(kit.colors.base_content, 0.7),
 					flags = {.Wrap_Text},
 				},
 				line.translation,
@@ -123,8 +123,8 @@ build_lead_note :: proc() {
 			height = ui.fit_text(),
 			padding = {8, 8, 8, 8},
 			corner_radius = 8,
-			background = kit.colors.card,
-			text_color = kit.colors.text,
+			background = kit.colors.base_300,
+			text_color = kit.colors.base_content,
 			font_size = 12,
 			flags = {.Floating, .Wrap_Text},
 		},

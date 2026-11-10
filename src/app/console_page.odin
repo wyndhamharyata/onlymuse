@@ -39,7 +39,7 @@ build_console_page :: proc() {
 				kit.heading("Console")
 				kit.text(
 					count_text if has_entries else "No errors since onlymuse started.",
-					kit.colors.dim,
+					kit.to_faded(kit.colors.base_content, 0.7),
 				)
 			}
 
@@ -65,7 +65,7 @@ build_console_page :: proc() {
 
 @(private = "file")
 build_console_row :: proc(index: int, entry: console.Entry) {
-	source_color := look.colors.youtube if entry.source == "YouTube" else kit.colors.dim
+	source_color := look.colors.youtube if entry.source == "YouTube" else kit.to_faded(kit.colors.base_content, 0.7)
 	row := ui.box(
 		fmt.tprintf("entry %d", index),
 		{
@@ -75,7 +75,7 @@ build_console_row :: proc(index: int, entry: console.Entry) {
 			gap = 12,
 			padding = {8, 6, 8, 6},
 			corner_radius = 6,
-			background = kit.colors.field if index % 2 == 0 else {},
+			background = kit.to_faded(kit.colors.base_content, kit.HOVER_OPACITY) if index % 2 == 0 else {},
 		},
 	)
 
@@ -85,7 +85,7 @@ build_console_row :: proc(index: int, entry: console.Entry) {
 			{
 				width = ui.points(CONSOLE_TIME_POINTS),
 				height = ui.fit_text(),
-				text_color = kit.colors.faint,
+				text_color = kit.to_faded(kit.colors.base_content, 0.5),
 				font_size = 12,
 			},
 			to_console_time(entry.at),
@@ -106,7 +106,7 @@ build_console_row :: proc(index: int, entry: console.Entry) {
 			{
 				width = ui.fill(),
 				height = ui.fit_text(),
-				text_color = kit.colors.text,
+				text_color = kit.colors.base_content,
 				font_size = kit.SMALL_TEXT_POINTS,
 				flags = {.Wrap_Text},
 			},

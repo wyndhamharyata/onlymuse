@@ -72,10 +72,10 @@ build_youtube_sign_in_page :: proc(title, text: string) {
 
 	if ui.scope(page) {
 		kit.heading(title)
-		kit.paragraph(text, kit.colors.dim)
+		kit.paragraph(text, kit.to_faded(kit.colors.base_content, 0.7))
 		kit.paragraph(
 			"Sign in at music.youtube.com in Helium, then use its sign-in here. macOS asks once to let onlymuse read Helium's key. Choose Always Allow.",
-			kit.colors.dim,
+			kit.to_faded(kit.colors.base_content, 0.7),
 		)
 
 		if kit.button("Use Helium's Sign-In", "person.crop.circle", .Primary).is_clicked {
@@ -101,13 +101,13 @@ apply_youtube_cookie :: proc(message: helper.Message) {
 
 	switch {
 	case is_signed_in:
-		kit.show_toast("Signed in to YouTube Music with Helium's sign-in")
+		kit.show_toast("Signed in to YouTube Music with Helium's sign-in", .Success)
 	case message.problem == "keychain":
-		kit.show_toast("macOS did not let onlymuse read Helium's key")
+		kit.show_toast("macOS did not let onlymuse read Helium's key", .Error)
 	case message.problem == "helium":
-		kit.show_toast("Could not read Helium's cookies. Check that Helium is installed.")
+		kit.show_toast("Could not read Helium's cookies. Check that Helium is installed.", .Error)
 	case:
-		kit.show_toast("Helium is not signed in to YouTube. Sign in at music.youtube.com first.")
+		kit.show_toast("Helium is not signed in to YouTube. Sign in at music.youtube.com first.", .Warning)
 	}
 }
 

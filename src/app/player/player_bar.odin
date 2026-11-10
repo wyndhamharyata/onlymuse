@@ -47,7 +47,7 @@ build_player_bar :: proc() {
 			{
 				width = ui.fill(),
 				height = ui.points(1),
-				background = kit.colors.line,
+				background = kit.to_faded(kit.colors.base_content, kit.LINE_OPACITY),
 				position = {0, 0},
 				flags = {.Floating},
 			},
@@ -104,8 +104,8 @@ build_song_info :: proc() {
 			placeholder = look.to_placeholder(waiting_song.artwork, waiting_song.album_name)
 		} else if !is_song {
 			placeholder = {
-				top    = kit.colors.card,
-				bottom = kit.colors.card,
+				top    = kit.colors.base_300,
+				bottom = kit.colors.base_300,
 			}
 		} else if is_queue_song {
 			placeholder = look.to_placeholder(queue_song.artwork, queue_song.album_name)
@@ -145,15 +145,15 @@ build_song_info :: proc() {
 					waiting_text = "Loading from YouTube…"
 				}
 
-				kit.text(waiting_song.name, kit.colors.text, SONG_NAME_FONT_SIZE, SONG_NAME_WEIGHT)
-				kit.text(waiting_text, kit.colors.dim, kit.SMALL_TEXT_POINTS)
+				kit.text(waiting_song.name, kit.colors.base_content, SONG_NAME_FONT_SIZE, SONG_NAME_WEIGHT)
+				kit.text(waiting_text, kit.to_faded(kit.colors.base_content, 0.7), kit.SMALL_TEXT_POINTS)
 			} else if is_song {
 				build_song_title(song, queue_song, is_queue_song)
 				build_song_subtitle(song)
 			} else {
 				kit.text(
 					"Nothing is playing.",
-					kit.colors.text,
+					kit.colors.base_content,
 					SONG_NAME_FONT_SIZE,
 					SONG_NAME_WEIGHT,
 				)
@@ -161,7 +161,7 @@ build_song_info :: proc() {
 				if core.app.drives_music_app {
 					closed_text :=
 						"Music.app is not open." if now_playing.playback == .Closed else "Music.app has no song."
-					kit.text(closed_text, kit.colors.dim, kit.SMALL_TEXT_POINTS)
+					kit.text(closed_text, kit.to_faded(kit.colors.base_content, 0.7), kit.SMALL_TEXT_POINTS)
 				}
 			}
 		}
@@ -191,8 +191,8 @@ build_song_title :: proc(song: helper.Song, queue_song: core.Catalog_Song, is_qu
 			badge = "LOSSLESS"
 		}
 
-		badge_color := look.colors.youtube if is_from_youtube else kit.colors.dim
-		badge_border_color := look.colors.youtube if is_from_youtube else kit.colors.faint
+		badge_color := look.colors.youtube if is_from_youtube else kit.to_faded(kit.colors.base_content, 0.7)
+		badge_border_color := look.colors.youtube if is_from_youtube else kit.to_faded(kit.colors.base_content, 0.5)
 		name_width := ui.Size{.Fill, 1}
 
 		if row_width := title.rect.z - title.rect.x; row_width > 0 {
@@ -214,7 +214,7 @@ build_song_title :: proc(song: helper.Song, queue_song: core.Catalog_Song, is_qu
 		kit.scrolling_text(
 			"name",
 			song.name,
-			kit.colors.text,
+			kit.colors.base_content,
 			SONG_NAME_FONT_SIZE,
 			SONG_NAME_WEIGHT,
 			width = name_width,
@@ -263,7 +263,7 @@ build_song_subtitle :: proc(song: helper.Song) {
 	subtitle := kit.scrolling_text(
 		"subtitle",
 		subtitle_text,
-		kit.colors.dim,
+		kit.to_faded(kit.colors.base_content, 0.7),
 		kit.SMALL_TEXT_POINTS,
 		is_clickable = true,
 	)

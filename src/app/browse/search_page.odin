@@ -47,7 +47,7 @@ build_search_page :: proc(term: string) {
 		width := look.to_content_width(page)
 
 		if len(data.songs) + len(data.cards) + len(data.artists) == 0 {
-			kit.paragraph(fmt.tprintf("Apple Music has nothing for \"%s\".", term), kit.colors.dim)
+			kit.paragraph(fmt.tprintf("Apple Music has nothing for \"%s\".", term), kit.to_faded(kit.colors.base_content, 0.7))
 			youtube_pages.build_youtube_search_results(term, nil, width)
 			return
 		}
@@ -109,7 +109,7 @@ build_search_top :: proc(data: ^core.Page_Data) {
 				{
 					width = ui.fill(),
 					height = ui.fit_text(),
-					text_color = kit.colors.text,
+					text_color = kit.colors.base_content,
 					font_size = look.SHELF_TITLE_POINTS,
 					font_weight = .Bold,
 					padding = {0, 0, 0, 10},

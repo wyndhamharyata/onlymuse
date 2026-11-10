@@ -76,6 +76,7 @@ fall_back_to_youtube :: proc() -> bool {
 
 	kit.show_toast(
 		fmt.tprintf("Apple Music could not play %s, so it plays from YouTube", youtube_song.name),
+		.Info,
 	)
 	console.add(
 		"Queue",

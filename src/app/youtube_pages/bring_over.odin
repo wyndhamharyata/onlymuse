@@ -64,7 +64,7 @@ build_bring_over_page :: proc(page: core.Page) {
 				kit.heading(title)
 				kit.text(
 					to_match_summary(counts, len(songs)) if phase == .Ready else youtube_lists.to_youtube_phase_note(phase),
-					kit.colors.dim,
+					kit.to_faded(kit.colors.base_content, 0.7),
 				)
 			}
 
@@ -80,7 +80,7 @@ build_bring_over_page :: proc(page: core.Page) {
 		if phase == .Ready {
 			kit.paragraph(
 				"Each song Apple Music has goes into a new Apple Music playlist. It plays in Apple Music's quality. The others stay in the playlist and play from YouTube.",
-				kit.colors.dim,
+				kit.to_faded(kit.colors.base_content, 0.7),
 			)
 			lists.build_song_rows(songs)
 		}

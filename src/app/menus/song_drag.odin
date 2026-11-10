@@ -82,20 +82,20 @@ build_drag_ghost :: proc() {
 			corner_radius = 8,
 			background = look.colors.drag_ghost,
 			border_width = 1,
-			border_color = {kit.colors.accent.r, kit.colors.accent.g, kit.colors.accent.b, 0.6},
+			border_color = {kit.colors.primary.r, kit.colors.primary.g, kit.colors.primary.b, 0.6},
 			position = mouse + {12, 8},
 			flags = {.Floating},
 		},
 	)
 
 	if ui.scope(ghost) {
-		kit.icon_box("", "music.note", 12, kit.colors.accent)
+		kit.icon_box("", "music.note", 12, kit.colors.primary)
 		ui.box(
 			"",
 			{
 				width = ui.fit_text(),
 				height = ui.fit_text(),
-				text_color = kit.colors.text,
+				text_color = kit.colors.base_content,
 				font_size = kit.SMALL_TEXT_POINTS,
 			},
 			drag.song.name,

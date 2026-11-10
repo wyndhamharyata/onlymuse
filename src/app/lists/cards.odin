@@ -129,7 +129,7 @@ build_shelf_title :: proc(title: string, is_youtube: bool) {
 			{
 				width = ui.fill(),
 				height = ui.fit_text(),
-				text_color = kit.colors.text,
+				text_color = kit.colors.base_content,
 				font_size = look.SHELF_TITLE_POINTS,
 				font_weight = .Bold,
 				flags = {.Truncate_Text},
@@ -191,7 +191,7 @@ build_card_tile :: proc(
 			{
 				width = ui.fill(),
 				height = ui.fit_text(),
-				text_color = kit.colors.text,
+				text_color = kit.colors.base_content,
 				font_size = kit.SMALL_TEXT_POINTS,
 				text_align = text_align,
 				flags = {.Truncate_Text},
@@ -205,7 +205,7 @@ build_card_tile :: proc(
 				{
 					width = ui.fill(),
 					height = ui.fit_text(),
-					text_color = kit.colors.dim,
+					text_color = kit.to_faded(kit.colors.base_content, 0.7),
 					font_size = 12,
 					flags = {.Truncate_Text},
 				},

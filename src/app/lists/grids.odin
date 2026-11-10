@@ -78,7 +78,7 @@ build_card_grid_page :: proc(
 			kit.heading(title)
 			kit.text(
 				fmt.tprintf("%d items", len(cards)) if phase == .Ready else look.to_phase_text(phase),
-				kit.colors.dim,
+				kit.to_faded(kit.colors.base_content, 0.7),
 			)
 		}
 

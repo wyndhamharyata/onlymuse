@@ -194,7 +194,7 @@ build_palette :: proc() {
 				"palette field",
 				"Go to a page, an artist, a song, or do something",
 				"magnifyingglass",
-				{
+				style = {
 					height = ui.points(PALETTE_FIELD_HEIGHT_POINTS),
 					font_size = PALETTE_FIELD_FONT_SIZE,
 					background = PALETTE_FIELD_BACKGROUND,

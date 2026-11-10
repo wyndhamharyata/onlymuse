@@ -89,13 +89,13 @@ build_up_next :: proc() {
 		)
 
 		if ui.scope(note_row) {
-			kit.icon_box("", "shuffle", 11, kit.colors.accent)
+			kit.icon_box("", "shuffle", 11, kit.colors.primary)
 			ui.box(
 				"",
 				{
 					width = ui.fill(),
 					height = ui.fit_text(),
-					text_color = kit.colors.dim,
+					text_color = kit.to_faded(kit.colors.base_content, 0.7),
 					font_size = 11.5,
 					flags = {.Wrap_Text},
 				},
@@ -109,9 +109,9 @@ build_up_next :: proc() {
 					height = ui.points(22),
 					padding = {8, 0, 8, 0},
 					corner_radius = 6,
-					background = kit.colors.field,
-					hover_background = kit.colors.hover,
-					text_color = kit.colors.text,
+					background = kit.to_faded(kit.colors.base_content, kit.HOVER_OPACITY),
+					hover_background = kit.to_faded(kit.colors.base_content, kit.HOVER_OPACITY),
+					text_color = kit.colors.base_content,
 					font_size = 11.5,
 					font_weight = .Semibold,
 					flags = {.Clickable},
@@ -151,10 +151,10 @@ build_up_next :: proc() {
 build_queue_row :: proc(index: int) -> bool {
 	song := playback.queue.songs[index]
 	is_current := index == playback.queue.index
-	tint := kit.to_accent_tint(kit.colors.accent)
+	tint := kit.to_faded(kit.colors.primary, kit.SOFT_OPACITY)
 	background: [4]f32 = tint if is_current else {}
-	hover_background := tint if is_current else kit.colors.hover
-	name_color := kit.colors.accent if is_current else kit.colors.text
+	hover_background := tint if is_current else kit.to_faded(kit.colors.base_content, kit.HOVER_OPACITY)
+	name_color := kit.colors.primary if is_current else kit.colors.base_content
 	row := ui.box(
 		fmt.tprintf("queue %d %s", index, song.id),
 		{
@@ -189,14 +189,14 @@ build_queue_row :: proc(index: int) -> bool {
 			kit.scrolling_text(
 				"artist",
 				song.artist_name,
-				kit.colors.dim,
+				kit.to_faded(kit.colors.base_content, 0.7),
 				12,
 				is_hovered = is_hovered,
 			)
 		}
 
 		if !is_current && kit.is_mouse_in(row) {
-			is_removed = kit.icon_button("remove", "xmark", 11, kit.colors.dim).is_clicked
+			is_removed = kit.icon_button("remove", "xmark", 11, color = kit.to_faded(kit.colors.base_content, 0.7)).is_clicked
 		}
 	}
 
@@ -217,7 +217,7 @@ build_panel_tabs :: proc(width: f32) {
 			gap = 2,
 			padding = {2, 2, 2, 2},
 			corner_radius = 9,
-			background = kit.colors.field,
+			background = kit.to_faded(kit.colors.base_content, kit.HOVER_OPACITY),
 		},
 	)
 
@@ -230,11 +230,11 @@ build_panel_tabs :: proc(width: f32) {
 @(private = "file")
 build_panel_tab :: proc(label, symbol: string, panel: core.Panel) {
 	is_open := core.app.panel == panel
-	tint := kit.to_accent_tint(kit.colors.accent)
+	tint := kit.to_faded(kit.colors.primary, kit.SOFT_OPACITY)
 	background: [4]f32 = tint if is_open else {}
-	hover_background := tint if is_open else kit.colors.hover
-	icon_color := kit.colors.accent if is_open else kit.colors.dim
-	label_color := kit.colors.accent if is_open else kit.colors.text
+	hover_background := tint if is_open else kit.to_faded(kit.colors.base_content, kit.HOVER_OPACITY)
+	icon_color := kit.colors.primary if is_open else kit.to_faded(kit.colors.base_content, 0.7)
+	label_color := kit.colors.primary if is_open else kit.colors.base_content
 	tab := ui.box(
 		label,
 		{
@@ -247,7 +247,7 @@ build_panel_tab :: proc(label, symbol: string, panel: core.Panel) {
 			corner_radius = 7,
 			background = background,
 			hover_background = hover_background,
-			press_background = kit.colors.selected,
+			press_background = kit.to_faded(kit.colors.base_content, kit.SELECTED_OPACITY),
 			flags = {.Clickable},
 		},
 	)

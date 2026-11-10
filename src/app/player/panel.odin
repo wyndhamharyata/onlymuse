@@ -208,66 +208,13 @@ build_queue_row :: proc(index: int) -> bool {
 }
 
 build_panel_tabs :: proc(width: f32) {
-	tabs := ui.box(
-		"panel tabs",
-		{
-			width = ui.points(width),
-			height = ui.points(30),
-			axis = .X,
-			gap = 2,
-			padding = {2, 2, 2, 2},
-			corner_radius = 9,
-			background = kit.to_faded(kit.colors.base_content, kit.HOVER_OPACITY),
-		},
-	)
-
-	if ui.scope(tabs) {
-		build_panel_tab("Up Next", "list.bullet", .Up_Next)
-		build_panel_tab("Lyrics", "quote.bubble", .Lyrics)
+	selected: string
+	#partial switch core.app.panel {
+	case .Up_Next:
+		selected = "Up Next"
+	case .Lyrics:
+		selected = "Lyrics"
 	}
-}
-
-@(private = "file")
-build_panel_tab :: proc(label, symbol: string, panel: core.Panel) {
-	is_open := core.app.panel == panel
-	tint := kit.to_faded(kit.colors.primary, kit.SOFT_OPACITY)
-	background: [4]f32 = tint if is_open else {}
-	hover_background := tint if is_open else kit.to_faded(kit.colors.base_content, kit.HOVER_OPACITY)
-	icon_color := kit.colors.primary if is_open else kit.to_faded(kit.colors.base_content, 0.7)
-	label_color := kit.colors.primary if is_open else kit.colors.base_content
-	tab := ui.box(
-		label,
-		{
-			width = ui.fill(),
-			height = ui.fill(),
-			axis = .X,
-			align = .Center,
-			gap = 6,
-			padding = {10, 0, 10, 0},
-			corner_radius = 7,
-			background = background,
-			hover_background = hover_background,
-			press_background = kit.to_faded(kit.colors.base_content, kit.SELECTED_OPACITY),
-			flags = {.Clickable},
-		},
-	)
-
-	if ui.signal(tab).is_clicked do core.set_panel(panel)
-
-	if ui.scope(tab) {
-		kit.spacer()
-		kit.icon_box("", symbol, 13, icon_color)
-		ui.box(
-			"",
-			{
-				width = ui.fit_text(),
-				height = ui.fit_text(),
-				text_color = label_color,
-				font_size = kit.SMALL_TEXT_POINTS,
-				font_weight = .Semibold,
-			},
-			label,
-		)
-		kit.spacer()
-	}
+	tabs := kit.segmented("panel tabs", &selected, {"Up Next", "Lyrics"}, icons = {"list.bullet", "quote.bubble"}, width = ui.points(width))
+	if tabs.is_clicked do core.set_panel(.Lyrics if selected == "Lyrics" else .Up_Next)
 }

@@ -58,7 +58,8 @@ build_song_grid :: proc(
 	}
 }
 
-TARGET_TILE_POINTS :: 160
+// About 160 points wide at the usual window widths.
+MIN_TILE_POINTS :: 140
 
 TILE_TEXT_POINTS :: 46
 
@@ -83,49 +84,15 @@ build_card_grid_page :: proc(
 		}
 
 		if phase == .Loading do look.build_loading(title)
-		if phase == .Ready do build_card_grid(page, cards, is_round)
+		if phase == .Ready do build_card_grid(cards, is_round)
 	}
 }
 
-build_card_grid :: proc(page: ^ui.Box, cards: []apple.Card, is_round: bool) {
-	width := look.to_content_width(page)
-	if width <= 0 do return
-
-	tile_points := to_tile_size(width, TARGET_TILE_POINTS, CARD_GAP_POINTS)
-	column_count := max(1, int((width + CARD_GAP_POINTS) / (tile_points + CARD_GAP_POINTS)))
-	row_points := tile_points + TILE_TEXT_POINTS + CARD_GAP_POINTS
-	row_count := (len(cards) + column_count - 1) / column_count
-	style := ui.Style {
-		width  = ui.fill(),
-		height = ui.fit_children(),
-	}
-
-	if first, last, ok := kit.list("grid", row_count, row_points, style); ok {
-		for row in first ..< last {
-			row_box := ui.box(
-				fmt.tprintf("row %d", row),
-				{
-					width = ui.fill(),
-					height = ui.points(row_points),
-					axis = .X,
-					gap = CARD_GAP_POINTS,
-				},
-			)
-
-			if ui.scope(row_box) {
-				for column in 0 ..< column_count {
-					index := row * column_count + column
-					if index >= len(cards) do break
-
-					if build_card_tile(
-						fmt.tprintf("%d %s", index, cards[index].id),
-						cards[index],
-						tile_points,
-						is_round,
-					) {
-						open_card(cards, index)
-					}
-				}
+build_card_grid :: proc(cards: []apple.Card, is_round: bool) {
+	if first, last, tile, ok := kit.grid("grid", len(cards), MIN_TILE_POINTS, TILE_TEXT_POINTS, CARD_GAP_POINTS, 1); ok {
+		for index in first ..< last {
+			if build_card_tile(fmt.tprintf("%d %s", index, cards[index].id), cards[index], tile.x, is_round) {
+				open_card(cards, index)
 			}
 		}
 	}

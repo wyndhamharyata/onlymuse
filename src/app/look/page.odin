@@ -90,7 +90,7 @@ build_loading :: proc(what: string) {
 			},
 		)
 		paint := new(kit.Bar_Paint, context.temp_allocator)
-		paint^ = {first_ratio, first_ratio + LOADING_SEGMENT_RATIO}
+		paint^ = {first_ratio = first_ratio, last_ratio = first_ratio + LOADING_SEGMENT_RATIO}
 		track.draw = kit.draw_bar
 		track.data = paint
 

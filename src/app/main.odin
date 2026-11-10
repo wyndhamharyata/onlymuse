@@ -45,8 +45,10 @@ main :: proc() {
 }
 
 start_app_state :: proc() {
-	kit.colors.window = kit.to_color(look.WINDOW_COLOR)
-	kit.colors.accent = kit.DEFAULT_ACCENT
+	// onlymuse stays dark, and its accent follows the playing song's cover.
+	kit.appearance = .Dark
+	kit.dark_colors.window = kit.to_color(look.WINDOW_COLOR)
+	kit.dark_colors.accent = kit.DEFAULT_ACCENT
 	core.app.system_accent = kit.DEFAULT_ACCENT
 	core.app.panel = .Lyrics
 }

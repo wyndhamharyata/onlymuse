@@ -69,8 +69,7 @@ close_song_menu :: proc() {
 build_song_menu :: proc() {
 	if !song_menu.is_open do return
 
-	root := ui.current_parent()
-	window_size := [2]f32{root.style.width.value, root.style.height.value}
+	window_size := ui.window_size()
 	cover := ui.box(
 		"menu cover",
 		{

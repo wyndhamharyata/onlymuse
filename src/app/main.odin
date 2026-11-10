@@ -89,12 +89,6 @@ open_main_window :: proc() {
 		is_driving = proc() -> bool {return core.app.drives_music_app},
 		toggle = proc() {core.set_player_mode(!core.app.drives_music_app)},
 	})
-
-	for app.zoom > zoom_steps[0] && !is_zoom_fitting(app.zoom) {
-		app.zoom = to_smaller_zoom(app.zoom)
-	}
-
-	set_min_window_size()
 }
 
 SIGN_IN_CARD_WIDTH_POINTS :: 380
@@ -102,8 +96,7 @@ SIGN_IN_CARD_WIDTH_POINTS :: 380
 SIGN_IN_CARD_HALF_HEIGHT_POINTS :: 110
 
 build_sign_in_card :: proc() {
-	root := ui.current_parent()
-	window_size := [2]f32{root.style.width.value, root.style.height.value}
+	window_size := ui.window_size()
 	cover := ui.box(
 		"sign in cover",
 		{

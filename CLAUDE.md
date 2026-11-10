@@ -33,7 +33,7 @@ how to try each part of the app, and lists the development settings.
 ```
 src/
   app/              The window. main.odin opens it, frame.odin builds each frame. pages.odin picks the page.
-                    sidebar, search field, Console page, zoom and the cover cache live here too.
+                    sidebar, search field, Console page and the cover cache live here too.
     core/           What every part of the window shares: the app's state, navigation, page data, songs, the library lists.
     look/           onlymuse's look on top of thor's kit: its colours and sizes, the cover accent, artwork, pages.
     matching/       Finds the Apple Music song each YouTube song is.

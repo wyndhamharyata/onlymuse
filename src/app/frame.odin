@@ -165,12 +165,6 @@ apply_command_key :: proc(key: platform.Key_Press) {
 	}
 
 	switch key.characters {
-	case "=", "+":
-		set_zoom(zoom_steps[min(to_nearest_zoom_step(app.zoom) + 1, len(zoom_steps) - 1)])
-	case "-":
-		set_zoom(to_smaller_zoom(app.zoom))
-	case "0":
-		set_zoom(1)
 	case "q":
 		platform.quit()
 	case "k":

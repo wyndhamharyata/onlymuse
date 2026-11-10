@@ -213,8 +213,7 @@ open_shuffle_rules :: proc(position: [2]f32) {
 build_shuffle_rules :: proc() {
 	if !rules_menu.is_open do return
 
-	root := ui.current_parent()
-	window_size := [2]f32{root.style.width.value, root.style.height.value}
+	window_size := ui.window_size()
 
 	cover := ui.box(
 		"rules cover",

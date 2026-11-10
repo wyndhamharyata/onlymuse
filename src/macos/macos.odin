@@ -69,12 +69,6 @@ Macos_Target_togglePlayerMode :: proc "c" (self: ^Macos_Target, item: NS.id) {
 	state.player_menu.toggle()
 }
 
-@(objc_type = Macos_Target, objc_implement, objc_name = "quitApp", objc_selector = "quitApp:")
-Macos_Target_quitApp :: proc "c" (self: ^Macos_Target, item: NS.id) {
-	context = state.odin_context
-	platform.quit()
-}
-
 // The app menu asks for the state of its checkmark each time it opens.
 @(objc_type = Macos_Target, objc_implement, objc_name = "validateMenuItem", objc_selector = "validateMenuItem:")
 Macos_Target_validateMenuItem :: proc "c" (self: ^Macos_Target, item: ^NS.MenuItem) -> NS.BOOL {

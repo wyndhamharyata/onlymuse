@@ -8,36 +8,19 @@ Player_Menu :: struct {
 	toggle:     proc(),
 }
 
+// Puts "Play in Music.app" at the top of the app menu thor made.
 install_player_menu :: proc(player: Player_Menu) {
 	state.player_menu = player
 
-	empty_key := NS.String.alloc()->initWithOdinString("")
-	app_item := NS.MenuItem.alloc()->initWithTitle(
-		NS.String.alloc()->initWithOdinString("onlymuse"),
-		nil,
-		empty_key,
-	)
-	app_menu := NS.Menu.alloc()->initWithTitle(NS.String.alloc()->initWithOdinString("onlymuse"))
-	state.player_menu_item =
-	NS.MenuItem.alloc()->initWithTitle(
+	state.player_menu_item = NS.MenuItem.alloc()->initWithTitle(
 		NS.String.alloc()->initWithOdinString("Play in Music.app"),
 		intrinsics.objc_find_selector("togglePlayerMode:"),
-		empty_key,
+		NS.String.alloc()->initWithOdinString(""),
 	)
 	NS.MenuItem_setTarget(state.player_menu_item, state.target)
-	NS.Menu_addItem(app_menu, state.player_menu_item)
-	NS.Menu_addItem(app_menu, NS.MenuItem_separatorItem())
 
-	quit_item := NS.MenuItem.alloc()->initWithTitle(
-		NS.String.alloc()->initWithOdinString("Quit onlymuse"),
-		intrinsics.objc_find_selector("quitApp:"),
-		NS.String.alloc()->initWithOdinString("q"),
-	)
-	NS.MenuItem_setTarget(quit_item, state.target)
-	NS.Menu_addItem(app_menu, quit_item)
-
-	main_menu := NS.Menu.alloc()->initWithTitle(NS.String.alloc()->initWithOdinString("onlymuse"))
-	NS.Menu_addItem(main_menu, app_item)
-	NS.Menu_setSubmenu(main_menu, app_menu, app_item)
-	NS.Application.sharedApplication()->setMainMenu(main_menu)
+	bar := objc_send(^NS.Menu, NS.Application.sharedApplication(), "mainMenu")
+	app_menu := objc_send(^NS.Menu, NS.Menu_itemAtIndex(bar, 0), "submenu")
+	NS.Menu_insertItem(app_menu, state.player_menu_item, 0)
+	NS.Menu_insertItem(app_menu, NS.MenuItem_separatorItem(), 1)
 }

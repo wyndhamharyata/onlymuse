@@ -165,8 +165,6 @@ apply_command_key :: proc(key: platform.Key_Press) {
 	}
 
 	switch key.characters {
-	case "q":
-		platform.quit()
 	case "k":
 		palette.toggle_palette()
 	case "l":

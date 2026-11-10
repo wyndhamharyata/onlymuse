@@ -24,9 +24,6 @@ PLAYLIST_ITEM_GAP_POINTS :: 1
 
 SUBMENU_GAP_POINTS :: 4
 
-// macOS gives the Escape key the virtual key code 53.
-ESCAPE_KEY_CODE :: 53
-
 @(private = "file")
 song_menu: struct {
 	is_open:           bool,
@@ -84,7 +81,7 @@ build_song_menu :: proc() {
 		app.frame_count > song_menu.opened_frame + 1
 
 	for event in platform.list_events() {
-		if key, ok := event.(platform.Key_Press); ok && key.key_code == ESCAPE_KEY_CODE {
+		if key, ok := event.(platform.Key_Press); ok && key.key == .Escape {
 			is_closing = true
 		}
 	}

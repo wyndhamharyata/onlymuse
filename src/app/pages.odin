@@ -29,7 +29,7 @@ build_page_area :: proc() {
 		)
 
 		if ui.scope(toolbar) {
-			if kit.icon_button("back", "chevron.left", 16, kit.colors.text, core.can_go_back()) {
+			if kit.icon_button("back", "chevron.left", 16, kit.colors.text, !core.can_go_back()) {
 				core.go_back()
 			}
 
@@ -38,7 +38,7 @@ build_page_area :: proc() {
 				"chevron.right",
 				16,
 				kit.colors.text,
-				core.can_go_forward(),
+				!core.can_go_forward(),
 			) {
 				core.go_forward()
 			}

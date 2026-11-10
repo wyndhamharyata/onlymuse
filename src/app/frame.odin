@@ -115,7 +115,8 @@ KEY_UP :: 126
 apply_keys :: proc() {
 	for event in platform.list_events() {
 		key, is_key := event.(platform.Key_Press)
-		if !is_key do continue
+		// Tab, the arrows, Return and Space move and use keyboard focus once it is somewhere.
+		if !is_key || ui.is_key_taken(key.key_code) do continue
 
 		if .Command in key.modifiers {
 			apply_command_key(key)

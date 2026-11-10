@@ -196,7 +196,7 @@ build_queue_row :: proc(index: int) -> bool {
 		}
 
 		if !is_current && kit.is_mouse_in(row) {
-			is_removed = kit.icon_button("remove", "xmark", 11, kit.colors.dim)
+			is_removed = kit.icon_button("remove", "xmark", 11, kit.colors.dim).is_clicked
 		}
 	}
 

@@ -230,5 +230,5 @@ build_favourite_button :: proc(id: string, is_favourite: bool) -> bool {
 		"heart.circle.fill" if is_favourite else "heart.circle",
 		13,
 		kit.colors.accent if is_favourite else kit.colors.faint,
-	)
+	).is_clicked
 }

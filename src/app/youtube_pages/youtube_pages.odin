@@ -78,7 +78,7 @@ build_youtube_sign_in_page :: proc(title, text: string) {
 			kit.colors.dim,
 		)
 
-		if kit.button("Use Helium's Sign-In", "person.crop.circle", .Primary) {
+		if kit.button("Use Helium's Sign-In", "person.crop.circle", .Primary).is_clicked {
 			is_reading_youtube_sign_in = true
 			helper.send_youtube_sign_in()
 		}

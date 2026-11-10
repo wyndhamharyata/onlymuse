@@ -43,12 +43,12 @@ build_console_page :: proc() {
 				)
 			}
 
-			if has_entries && kit.button("Copy All", "doc.on.doc") {
+			if has_entries && kit.button("Copy All", "doc.on.doc").is_clicked {
 				platform.set_clipboard(to_console_text(entries))
 				kit.show_toast(fmt.tprintf("Copied %s", count_text))
 			}
 
-			if has_entries && kit.button("Clear", "trash") {
+			if has_entries && kit.button("Clear", "trash").is_clicked {
 				console.clear_entries()
 			}
 		}

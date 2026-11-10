@@ -59,7 +59,7 @@ build_controls :: proc() {
 			resume_seconds :=
 				playback.queue.resume_point.position_seconds if playback.is_resume_shown() else helper.read_position_seconds(now_playing)
 
-			if kit.icon_button("previous", "backward.fill", 17, kit.colors.text) {
+			if kit.icon_button("previous", "backward.fill", 17, kit.colors.text).is_clicked {
 				playback.skip_to_previous(resume_seconds)
 			}
 
@@ -89,7 +89,7 @@ build_controls :: proc() {
 				helper.send_play_pause()
 			}
 
-			if kit.icon_button("next", "forward.fill", 17, kit.colors.text) {
+			if kit.icon_button("next", "forward.fill", 17, kit.colors.text).is_clicked {
 				playback.skip_to_next()
 			}
 
@@ -97,7 +97,7 @@ build_controls :: proc() {
 			repeat_color :=
 				kit.colors.accent if playback.queue.repeat != "off" else kit.colors.faint
 
-			if kit.icon_button("repeat", repeat_symbol, 14, repeat_color) {
+			if kit.icon_button("repeat", repeat_symbol, 14, repeat_color).is_clicked {
 				playback.cycle_repeat()
 			}
 		}
@@ -170,7 +170,7 @@ build_player_end :: proc() {
 		kit.spacer()
 		panel_color := kit.colors.accent if core.app.panel != .None else kit.colors.faint
 
-		if kit.icon_button("panel", "sidebar.right", 16, panel_color) {
+		if kit.icon_button("panel", "sidebar.right", 16, panel_color).is_clicked {
 			core.set_panel(.None if core.app.panel != .None else core.app.last_panel)
 		}
 

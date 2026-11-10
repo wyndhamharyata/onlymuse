@@ -70,7 +70,7 @@ build_bring_over_page :: proc(page: core.Page) {
 
 			is_ready := phase == .Ready && counts[.Checking] == 0 && len(songs) > 0
 
-			if is_ready && kit.button("Bring Over", "square.and.arrow.down", .Primary) {
+			if is_ready && kit.button("Bring Over", "square.and.arrow.down", .Primary).is_clicked {
 				bring_over(title, songs)
 			}
 		}

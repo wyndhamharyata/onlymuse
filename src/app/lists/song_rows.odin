@@ -63,8 +63,8 @@ build_song_list_page :: proc(
 }
 
 build_play_buttons :: proc(songs: []core.Catalog_Song) {
-	if kit.button("Play", "play.fill", .Primary) do playback.play_songs(songs, 0)
-	if kit.button("Shuffle", "shuffle") do playback.shuffle_songs(songs)
+	if kit.button("Play", "play.fill", .Primary).is_clicked do playback.play_songs(songs, 0)
+	if kit.button("Shuffle", "shuffle").is_clicked do playback.shuffle_songs(songs)
 }
 
 to_visible_range :: proc(

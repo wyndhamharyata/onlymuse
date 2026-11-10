@@ -249,7 +249,7 @@ build_shuffle_rules :: proc() {
 			hours := shuffle_rules.recent_hours
 			hours_text := "Off" if hours == 0 else fmt.tprintf("Past %d h", hours)
 
-			if kit.menu_item("recent", "Play recent songs last", hours_text) {
+			if kit.menu_item("recent", "Play recent songs last", hours_text).is_clicked {
 				choices := RECENT_HOUR_CHOICES
 				next := 0
 
@@ -274,7 +274,7 @@ build_shuffle_rules :: proc() {
 			}
 
 			for toggle in toggles {
-				if kit.menu_item(toggle.id, toggle.label, "●" if toggle.is_on^ else "○") {
+				if kit.menu_item(toggle.id, toggle.label, "●" if toggle.is_on^ else "○").is_clicked {
 					toggle.is_on^ = !toggle.is_on^
 					save_shuffle_rules()
 				}

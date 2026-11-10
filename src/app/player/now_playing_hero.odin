@@ -251,17 +251,17 @@ build_actions :: proc(details: Song_Details, persistent_id: string) {
 			   "Favourite",
 			   "heart.circle.fill" if is_favourite else "heart.circle",
 			   icon_color = kit.colors.accent if is_favourite else kit.colors.text,
-		   ) {
+		   ).is_clicked {
 			playback.toggle_favourite(details.song, persistent_id)
 		}
 
-		if details.song.id != "" && kit.button("Add to Playlist", "plus") {
+		if details.song.id != "" && kit.button("Add to Playlist", "plus").is_clicked {
 			button := ui.find_box("Add to Playlist", row)
 
 			menus.open_song_menu(details.song, {button.rect.x, button.rect.w + 4}, true)
 		}
 
-		if details.url != "" && kit.button("Copy Link", "link") {
+		if details.url != "" && kit.button("Copy Link", "link").is_clicked {
 			platform.set_clipboard(details.url)
 			kit.show_toast("Copied the link to the song")
 		}

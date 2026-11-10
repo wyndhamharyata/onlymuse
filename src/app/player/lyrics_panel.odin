@@ -266,12 +266,12 @@ build_lyric_toggles :: proc(lines: []lyrics.Line) {
 	)
 
 	if ui.scope(toggles) {
-		if has_romaji && kit.toggle_chip("Romaji", lyrics_state.is_showing_romaji) {
+		if has_romaji && kit.toggle_chip("Romaji", lyrics_state.is_showing_romaji).is_clicked {
 			lyrics_state.is_showing_romaji = !lyrics_state.is_showing_romaji
 			store.save_state("lyricsRomaji", "true" if lyrics_state.is_showing_romaji else "false")
 		}
 
-		if has_translation && kit.toggle_chip("Translation", lyrics_state.is_showing_translation) {
+		if has_translation && kit.toggle_chip("Translation", lyrics_state.is_showing_translation).is_clicked {
 			lyrics_state.is_showing_translation = !lyrics_state.is_showing_translation
 			store.save_state(
 				"lyricsTranslation",

@@ -119,7 +119,7 @@ has_term :: proc(name, term: string) -> bool {
 // when it isn't: kit's match score, without its looser letters-in-order match.
 @(private = "file")
 to_term_score :: proc(name, term: string) -> int {
-	// No term matches everything, as a start does.
+	// An empty term matches every name, with the score of a start match.
 	if term == "" do return 0
 
 	score := kit.to_match_score(name, term)

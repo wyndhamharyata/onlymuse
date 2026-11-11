@@ -18,7 +18,7 @@ Match_State :: enum {
 	Missing,
 }
 
-// Raise this whenever is_same_recording changes, so every saved match is made again.
+// Raise this whenever is_same_recording changes, so the app makes every saved match again.
 MATCH_RULE_VERSION :: "3"
 
 @(private)

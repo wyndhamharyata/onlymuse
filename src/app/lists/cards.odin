@@ -160,7 +160,7 @@ build_card_tile :: proc(
 		},
 	)
 
-	// The tile's parent is its shelf, so the same card on two shelves fades on its own.
+	// The tile's parent is its shelf, so a card on two shelves fades separately on each.
 	hover_id := fmt.tprintf("%s %s hover", tile.parent.id, id)
 	hover := ui.animate(hover_id, 1 if can_open && ui.signal(tile).is_hovered else 0)
 

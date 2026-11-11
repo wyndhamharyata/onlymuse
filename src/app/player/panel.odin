@@ -135,7 +135,7 @@ build_up_next :: proc() {
 		width   = ui.fill(),
 		height  = ui.fill(),
 		gap     = 2,
-		// The old empty spacer above the rows took a gap, so the rows sat 2 points down.
+		// The old empty spacer above the rows added a 2 point gap. This padding keeps that gap.
 		padding = {0, 2, 0, 0},
 		flags   = {.Scroll, .Clip},
 	}

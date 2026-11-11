@@ -307,13 +307,13 @@ ask_for_saved_wallpaper :: proc() {
 
 	alert := objc_send(^Alert, objc_send(^Alert, Alert, "alloc"), "init")
 	defer alert->release()
-	objc_send(nil, alert, "setMessageText:", NS.AT("Your wallpaper's file is gone"))
+	objc_send(nil, alert, "setMessageText:", NS.AT("onlymuse cannot read your wallpaper file"))
 	objc_send(
 		nil,
 		alert,
 		"setInformativeText:",
 		NS.AT(
-			"OnlyMuse uses a pre-blurred copy of your wallpaper, seamlessly swapping between real and static blur to save system resources.\n\nAllowing access to your wallpaper folder enables this feature. Otherwise, full real-time blur will be used.",
+			"onlymuse uses a blurred copy of your wallpaper to use fewer system resources. It switches between this static blur and real-time blur.\n\nAllow access to your wallpaper folder to turn this on. If you do not allow it, onlymuse uses real-time blur all the time.",
 		),
 	)
 	objc_send(nil, alert, "addButtonWithTitle:", NS.AT("Continue"))

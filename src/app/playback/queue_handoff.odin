@@ -150,7 +150,7 @@ apply_playing_song :: proc(now_playing: helper.Now_Playing, now_ms: f64) {
 		save_queue_and_handoff()
 	}
 
-	// Autoplay in Music.app can switch songs with no Stopped post, so a switch at the end ends it.
+	// Autoplay can switch songs with no Stopped post, so a switch at the end ends the queue song.
 	if has_queue_song_ended do play_next_after_end()
 }
 

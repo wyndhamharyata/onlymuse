@@ -104,7 +104,7 @@ shuffle_by_rules :: proc(songs: []core.Catalog_Song) -> []core.Catalog_Song {
 	return shuffled
 }
 
-// A song started in Music.app has no catalog ID. \x1f, the ASCII unit separator, is in no name.
+// A song started in Music.app has no catalog ID. No name holds \x1f, the ASCII unit separator.
 @(private = "file")
 to_song_key :: proc(name, artist: string) -> string {
 	return fmt.tprintf("%s\x1f%s", name, artist)

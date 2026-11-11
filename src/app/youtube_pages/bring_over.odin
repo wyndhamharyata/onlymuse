@@ -27,7 +27,7 @@ build_bring_over_page :: proc(page: core.Page) {
 		)
 		playlists := make([dynamic]apple.Card, context.temp_allocator)
 
-		// Episodes for Later holds podcasts, which Apple Music has no place for.
+		// Episodes for Later holds podcasts, and Apple Music has no podcasts.
 		for card in list.cards {
 			if card.id == youtube.PODCAST_EPISODES_ID do continue
 

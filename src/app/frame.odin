@@ -105,7 +105,7 @@ apply_helper_messages :: proc() {
 apply_keys :: proc() {
 	for event in platform.list_events() {
 		key, is_key := event.(platform.Key_Press)
-		// Tab, the arrows, Return and Space move and use keyboard focus once it is somewhere.
+		// Once a control has keyboard focus, Tab, the arrows, Return and Space move or use it.
 		if !is_key || ui.is_key_taken(key.key) do continue
 
 		if .Command in key.modifiers {

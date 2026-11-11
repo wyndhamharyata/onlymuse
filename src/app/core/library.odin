@@ -51,7 +51,7 @@ watch_library_artists :: proc() -> (cards: []apple.Card, signature: int, phase: 
 	return data.cards, signature, phase
 }
 
-// Apple lets no one edit or delete Favourite Songs. The sidebar hides it, so its ID comes apart.
+// Apple lets no one edit or delete Favourite Songs. The sidebar hides it, so only its ID returns.
 watch_playlists :: proc(
 ) -> (
 	playlists: []apple.Card,

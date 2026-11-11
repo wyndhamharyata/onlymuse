@@ -116,7 +116,7 @@ build_loading :: proc(what: string) {
 
 LOADING_BAR_HEIGHT_POINTS :: 4
 
-// A track with the part between two ratios of it filled, which data points to.
+// box.data points to two ratios. The bar fills the track between them.
 draw_loading_bar :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	ratios := (cast(^[2]f32)box.data)^
 	radius := (rect.w - rect.y) / 2

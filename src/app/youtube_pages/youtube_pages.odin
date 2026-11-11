@@ -66,7 +66,7 @@ build_youtube_mixes_page :: proc() {
 	lists.build_card_grid_page("Mixes", data.cards, phase, false)
 }
 
-// Google refuses a sign-in inside an app, so onlymuse takes the one Helium has.
+// Google refuses a sign-in inside an app, so onlymuse uses Helium's sign-in.
 build_youtube_sign_in_page :: proc(title, text: string) {
 	page := look.page_scroll("youtube_sign_in")
 
@@ -106,9 +106,9 @@ apply_youtube_cookie :: proc(message: helper.Message) {
 	case message.problem == "keychain":
 		kit.show_toast("macOS did not let onlymuse read Helium's key", .Error)
 	case message.problem == "helium":
-		kit.show_toast("Could not read Helium's cookies. Check that Helium is installed.", .Error)
+		kit.show_toast("Could not read Helium's cookies. Check that you installed Helium.", .Error)
 	case:
-		kit.show_toast("Helium is not signed in to YouTube. Sign in at music.youtube.com first.", .Warning)
+		kit.show_toast("Helium has no YouTube sign-in. Sign in at music.youtube.com first.", .Warning)
 	}
 }
 

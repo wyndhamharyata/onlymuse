@@ -4,8 +4,7 @@ import "core:fmt"
 import "thor:kit"
 import "thor:ui"
 
-// A menu's panel at position, width points wide, kept inside the window: a song's menu, whose
-// playlists open beside it as a submenu, which kit.popover can't nest.
+// A song's menu opens its playlists beside it as a submenu, and kit.popover cannot nest.
 menu_box :: proc(id: string, position: [2]f32, width: f32, window_size: [2]f32) -> ^ui.Box {
 	existing := ui.find_box(id, ui.current_parent())
 	height: f32 = existing.size.y if existing != nil else 200

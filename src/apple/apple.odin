@@ -126,7 +126,7 @@ fetch_from_apple_once :: proc(
 		if state.developer_token == "" {
 			console.add(
 				"Apple",
-				"No token from the web player. onlymuse did not ask Apple for %s.",
+				"onlymuse has no token from the web player, so it did not ask Apple for %s.",
 				path,
 			)
 			return {}

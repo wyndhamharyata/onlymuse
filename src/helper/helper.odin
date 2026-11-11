@@ -94,7 +94,7 @@ start :: proc(is_background: bool) {
 			bundled if os.exists(bundled) else fmt.tprintf("%s/../helper/.build/release/onlymuse-helper", executable_folder)
 	}
 
-	// With SIGPIPE ignored, a write to a helper that ended fails and onlymuse keeps running.
+	// Without this, a write to a helper that ended quits onlymuse. With it, the write fails.
 	posix.signal(.SIGPIPE, auto_cast posix.SIG_IGN)
 
 	child_stdin, to_helper, _ := os.pipe()

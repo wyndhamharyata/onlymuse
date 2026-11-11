@@ -14,7 +14,7 @@ Response :: struct {
 // A Safari User-Agent. Apple's servers reset more connections without one.
 USER_AGENT :: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15"
 TIMEOUT_MS :: 15_000
-// Apple's image server resets a connection now and then. It answers 429 or 5xx when it is busy.
+// Apple's image server sometimes resets a connection. It answers 429 or 5xx when it is busy.
 @(private)
 retry_delays := [?]time.Duration {
 	250 * time.Millisecond,

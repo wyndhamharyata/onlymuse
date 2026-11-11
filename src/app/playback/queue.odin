@@ -56,10 +56,10 @@ START_TIMEOUT_SECONDS :: 8.0
 
 POSITION_POST_SECONDS :: 2
 
-// Music.app can stop for good on a song new to the library. A second play starts it.
+// Music.app can stop on a song new to the library and stay stopped. A second play starts it.
 STALLED_POSITION_COUNT :: 2
 
-// Music.app can take several seconds to load a song at 0:00, so it gets more still positions.
+// Music.app can load a song at 0:00 for several seconds, so the queue allows more still positions.
 UNSTARTED_POSITION_COUNT :: 8
 
 MAX_RESTART_COUNT :: 2
@@ -244,7 +244,7 @@ apply_poll_answer :: proc(answered_id: string) {
 	if answered_id == "" {
 		console.add(
 			"Queue",
-			"%s did not reach the library of Music.app.",
+			"%s did not appear in the library of Music.app.",
 			queue.songs[queue.index].name,
 		)
 		if fall_back_to_youtube() do return

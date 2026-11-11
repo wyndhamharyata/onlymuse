@@ -8,7 +8,6 @@ Player_Menu :: struct {
 	toggle:     proc(),
 }
 
-// Puts "Play in Music.app" at the top of the app menu thor made.
 install_player_menu :: proc(player: Player_Menu) {
 	state.player_menu = player
 

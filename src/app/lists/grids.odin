@@ -58,7 +58,7 @@ build_song_grid :: proc(
 	}
 }
 
-// About 160 points wide at the usual window widths.
+// At the usual window widths, a tile is about 160 points wide.
 MIN_TILE_POINTS :: 140
 
 TILE_TEXT_POINTS :: 46

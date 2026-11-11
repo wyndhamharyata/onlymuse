@@ -98,7 +98,7 @@ start :: proc(window: ^platform.Native_Window, is_background: bool) {
 
 	add_backdrop()
 
-	// thor's window is the delegate, so these come as notifications.
+	// thor's window is the delegate, so onlymuse gets these events as notifications.
 	center := NS.NotificationCenter.defaultCenter()
 	observe(
 		center,

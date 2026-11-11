@@ -7,7 +7,7 @@ import "om:app/core"
 import "om:app/matching"
 import "om:console"
 import "om:helper"
-import "thor:platform"
+import "thor:ui"
 import "om:store"
 import "om:youtube"
 
@@ -237,7 +237,7 @@ apply_poll_answer :: proc(answered_id: string) {
 
 	if !is_poll_over {
 		queue_state.next_poll_ms = helper.now_ms() + ADD_POLL_SECONDS * 1000
-		platform.request_frame_after(ADD_POLL_SECONDS)
+		ui.request_frame_after(ADD_POLL_SECONDS)
 		return
 	}
 

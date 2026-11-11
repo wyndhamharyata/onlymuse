@@ -90,7 +90,7 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f3
 
 	for start := 0; start < len(stats); start += columns {
 		row := ui.box(
-			fmt.tprintf("stats %d", start),
+			fmt.tprintf("stats_%d", start),
 			{width = ui.fill(), height = ui.fit_children(), axis = .X, gap = STAT_GAP_POINTS},
 		)
 		in_row := stats[start:min(start + columns, len(stats))]
@@ -272,7 +272,7 @@ build_bars :: proc(weeks: [STAT_WEEKS]int) {
 			height := max(3, BARS_HEIGHT_POINTS * f32(count) / f32(max_count))
 
 			ui.box(
-				fmt.tprintf("week %d", index),
+				fmt.tprintf("week_%d", index),
 				{
 					width = ui.fill(),
 					height = ui.points(height),

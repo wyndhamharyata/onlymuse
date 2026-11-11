@@ -202,7 +202,7 @@ build_detail_card :: proc(id, title: string, rows: []Detail, weight: f32) {
 					row.value,
 				)
 
-				if row.is_copyable && kit.icon_button("copy", "doc.on.doc", 11, color = kit.to_faded(kit.colors.base_content, 0.7)).is_clicked {
+				if row.is_copyable && kit.button("copy", icon = "doc.on.doc", icon_size = 11, icon_color = kit.to_faded(kit.colors.base_content, 0.7)).is_activated {
 					platform.set_clipboard(row.value)
 					kit.show_toast(fmt.tprintf("Copied the %s", row.label))
 				}

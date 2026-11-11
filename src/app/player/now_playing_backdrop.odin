@@ -3,7 +3,7 @@ package player
 import "core:strings"
 import "om:app/core"
 import "om:apple"
-import "thor:image"
+import "thor:images"
 import "thor:render"
 import "thor:ui"
 
@@ -24,7 +24,7 @@ Backdrop_Paint :: struct {
 @(private = "file")
 draw_backdrop :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	paint := cast(^Backdrop_Paint)box.data
-	texture, image_opacity := image.watch(paint.source, BACKDROP_PIXELS)
+	texture, image_opacity := images.watch(paint.source, BACKDROP_PIXELS)
 	if texture == nil do return
 
 	aspect := (rect.w - rect.y) / max(1, rect.z - rect.x)

@@ -10,7 +10,7 @@ import "om:app/playback"
 import "om:apple"
 import "om:helper"
 import "thor:kit"
-import "thor:platform"
+import "thor:ui"
 
 MAX_PAGE_RESULT_COUNT :: MAX_GROUP_RESULT_COUNT * 2
 
@@ -21,7 +21,7 @@ CATALOG_CARD_COUNT :: 2
 @(private)
 watch_results :: proc() {
 	term := strings.to_lower(
-		strings.trim_space(kit.to_field_text(&palette.field)),
+		strings.trim_space(kit.to_input_text(&palette.field)),
 		context.temp_allocator,
 	)
 	songs, song_signature, _ := core.watch_library_songs()
@@ -32,7 +32,7 @@ watch_results :: proc() {
 	catalog: apple.Watched
 	is_settled := helper.now_ms() - palette.typed_at_ms >= PALETTE_SETTLE_MS
 	is_search_due := term != "" && is_settled
-	if term != "" && !is_settled do platform.request_frame_after(PALETTE_SETTLE_MS / 1000.0)
+	if term != "" && !is_settled do ui.request_frame_after(PALETTE_SETTLE_MS / 1000.0)
 
 	if is_search_due {
 		catalog = apple.watch(

@@ -243,8 +243,8 @@ keep_scroll :: proc(page_box: ^ui.Box) {
 		max_scroll := max(0, page_box.content_size.y - page_box.size.y)
 		is_scrolled_away :=
 			page_box.size.y > 0 &&
-			page_box.scroll_target != saved &&
-			page_box.scroll_target != max_scroll
+			page_box.scroll != saved &&
+			page_box.scroll != max_scroll
 
 		if !is_scrolled_away {
 			restore.frames_left -= 1

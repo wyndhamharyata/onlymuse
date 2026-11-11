@@ -9,7 +9,7 @@ import "om:app/matching"
 import "om:console"
 import "om:helper"
 import "om:youtube"
-import "thor:platform"
+import "thor:ui"
 
 @(private)
 Tracking :: struct {
@@ -272,7 +272,7 @@ apply_added_song :: proc(now_ms: f64) {
 
 	queue_state.poll_deadline_ms = now_ms + ADD_TIMEOUT_SECONDS * 1000
 	queue_state.next_poll_ms = now_ms + ADD_POLL_SECONDS * 1000
-	platform.request_frame_after(ADD_POLL_SECONDS)
+	ui.request_frame_after(ADD_POLL_SECONDS)
 }
 
 @(private = "file")

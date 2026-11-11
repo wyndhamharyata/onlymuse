@@ -2,7 +2,7 @@ package look
 
 import "core:math"
 import "om:app/core"
-import "thor:image"
+import "thor:images"
 import "thor:kit"
 import "thor:platform"
 
@@ -73,10 +73,10 @@ ACCENT_SETTLED_DISTANCE :: 0.003
 
 set_accent :: proc(frame_seconds: f32, artwork_source: string) {
 	target := core.app.system_accent
-	color: image.Color
+	color: images.Color
 	has_color := false
 
-	if artwork_source != "" do color, has_color = image.find_color(artwork_source)
+	if artwork_source != "" do color, has_color = images.find_color(artwork_source)
 	is_cover_vivid := has_color && color.vividness >= MIN_COVER_VIVIDNESS
 	if is_cover_vivid do target = to_cover_accent(color.rgb)
 
@@ -145,5 +145,13 @@ to_hsl :: proc(rgb: [3]f32) -> (hue, saturation, lightness: f32) {
 
 @(private = "file")
 to_rgb_from_hsl :: proc(hue, saturation, lightness: f32) -> [3]f32 {
-	return kit.to_color_from_hsl(hue * 360, saturation, lightness).rgb
+	return to_color_from_hsl(hue * 360, saturation, lightness).rgb
+}
+
+// A colour from hue in degrees, and saturation and lightness from 0 to 1, through kit's HSV.
+to_color_from_hsl :: proc(hue, saturation, lightness: f32) -> [4]f32 {
+	value := lightness + saturation * min(lightness, 1 - lightness)
+	value_saturation := 2 * (1 - lightness / value) if value > 0 else 0
+
+	return kit.to_color_from_hsv(hue, value_saturation, value)
 }

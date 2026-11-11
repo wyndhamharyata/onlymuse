@@ -49,7 +49,7 @@ build_shelves_page :: proc(title, path: string, is_new: bool) {
 		for shelf, index in data.shelves {
 			target_points: f32 =
 				lists.FIRST_SHELF_TILE_POINTS if index == 0 else lists.SHELF_TILE_POINTS
-			lists.build_shelf(fmt.tprintf("shelf %d", index), shelf, width, target_points)
+			lists.build_shelf(fmt.tprintf("shelf_%d", index), shelf, width, target_points)
 		}
 	}
 }

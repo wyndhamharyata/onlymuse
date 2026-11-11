@@ -21,7 +21,7 @@ build_song_list_page :: proc(
 	phase: apple.Phase,
 	dates: []string = nil,
 ) {
-	page := look.page_scroll("song list")
+	page := look.page_scroll("song_list")
 	dev.bench_scroll(page)
 
 	if ui.scope(page) {
@@ -56,15 +56,15 @@ build_song_list_page :: proc(
 		if phase == .Loading do look.build_loading(title)
 
 		if phase == .Ready {
-			if len(songs) == 0 do kit.paragraph("Nothing here yet.", kit.to_faded(kit.colors.base_content, 0.7))
+			if len(songs) == 0 do kit.text("Nothing here yet.", kit.to_faded(kit.colors.base_content, 0.7), is_wrapped = true)
 			build_song_rows(songs, dates)
 		}
 	}
 }
 
 build_play_buttons :: proc(songs: []core.Catalog_Song) {
-	if kit.button("Play", "play.fill", .Primary).is_clicked do playback.play_songs(songs, 0)
-	if kit.button("Shuffle", "shuffle").is_clicked do playback.shuffle_songs(songs)
+	if kit.button("play", "Play", "play.fill", .Primary).is_activated do playback.play_songs(songs, 0)
+	if kit.button("shuffle", "Shuffle", "shuffle").is_activated do playback.shuffle_songs(songs)
 }
 
 to_visible_range :: proc(
@@ -186,7 +186,6 @@ build_row_heart :: proc(chosen: core.Catalog_Song, is_current: bool) {
 
 	if state != .Found {
 		kit.icon_box(
-			"",
 			YOUTUBE_SYMBOL,
 			13,
 			look.colors.youtube if state == .Missing else kit.to_faded(kit.colors.base_content, 0.5),

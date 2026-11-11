@@ -8,6 +8,7 @@ import "om:apple"
 import "thor:app"
 import "thor:kit"
 import "thor:platform"
+import "thor:render"
 import "thor:ui"
 
 page_scroll :: proc(id: string) -> ^ui.Box {
@@ -37,7 +38,7 @@ to_phase_text :: proc(phase: apple.Phase) -> string {
 
 build_phase :: proc(phase: apple.Phase, what: string) {
 	if phase == .Failed {
-		kit.paragraph(to_phase_text(phase), kit.to_faded(kit.colors.base_content, 0.7))
+		kit.text(to_phase_text(phase), kit.to_faded(kit.colors.base_content, 0.7), is_wrapped = true)
 		return
 	}
 
@@ -59,7 +60,7 @@ build_loading :: proc(what: string) {
 	shown_seconds := elapsed_seconds - LOADING_DELAY_SECONDS
 
 	if shown_seconds < 0 {
-		platform.request_frame_after(-shown_seconds)
+		ui.request_frame_after(-shown_seconds)
 		return
 	}
 
@@ -86,12 +87,12 @@ build_loading :: proc(what: string) {
 			"",
 			{
 				width = ui.points(LOADING_BAR_WIDTH_POINTS),
-				height = ui.points(kit.BAR_TRACK_HEIGHT_POINTS),
+				height = ui.points(LOADING_BAR_HEIGHT_POINTS),
 			},
 		)
-		paint := new(kit.Bar_Paint, context.temp_allocator)
-		paint^ = {first_ratio = first_ratio, last_ratio = first_ratio + LOADING_SEGMENT_RATIO}
-		track.draw = kit.draw_bar
+		paint := new([2]f32, context.temp_allocator)
+		paint^ = {first_ratio, first_ratio + LOADING_SEGMENT_RATIO}
+		track.draw = draw_loading_bar
 		track.data = paint
 
 		all_dots := "..."
@@ -111,4 +112,18 @@ build_loading :: proc(what: string) {
 
 	ui.box("", {width = ui.fill(), height = ui.fill()})
 	platform.request_frame()
+}
+
+LOADING_BAR_HEIGHT_POINTS :: 4
+
+// A track with the part between two ratios of it filled, which data points to.
+draw_loading_bar :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
+	ratios := (cast(^[2]f32)box.data)^
+	radius := (rect.w - rect.y) / 2
+	filled := rect
+	filled.x = rect.x + (rect.z - rect.x) * ratios[0]
+	filled.z = rect.x + (rect.z - rect.x) * ratios[1]
+	track_color := kit.to_faded(kit.colors.base_content, kit.TRACK_OPACITY * opacity)
+	render.push({rect = rect, color = track_color, corner_radius = radius, clip = clip})
+	render.push({rect = filled, color = kit.to_faded(kit.colors.base_content, opacity), corner_radius = radius, clip = clip})
 }

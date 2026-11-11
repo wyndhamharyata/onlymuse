@@ -11,7 +11,7 @@ import "thor:kit"
 import "thor:ui"
 
 build_page_area :: proc() {
-	area := ui.box("page area", {width = ui.fill(), height = ui.fill(), axis = .Y})
+	area := ui.box("page_area", {width = ui.fill(), height = ui.fill(), axis = .Y})
 
 	if ui.scope(area) {
 		player.build_page_backdrop()
@@ -29,23 +29,20 @@ build_page_area :: proc() {
 		)
 
 		if ui.scope(toolbar) {
-			if kit.icon_button("back", "chevron.left", 16, is_disabled = !core.can_go_back()).is_clicked {
+			if kit.button("back", icon = "chevron.left", icon_size = 16, is_disabled = !core.can_go_back()).is_activated {
 				core.go_back()
 			}
 
-			if kit.icon_button(
-				"forward",
-				"chevron.right",
-				16,
+			if kit.button("forward", icon = "chevron.right", icon_size = 16,
 				is_disabled = !core.can_go_forward(),
-			).is_clicked {
+			).is_activated {
 				core.go_forward()
 			}
 		}
 
 		page := core.current_page()
 		page_box := ui.box(
-			fmt.tprintf("page %d %v %s", core.navigation.index, page.kind, page.id),
+			fmt.tprintf("page_%d_%v_%s", core.navigation.index, page.kind, page.id),
 			{width = ui.fill(), height = ui.fill(), axis = .Y},
 		)
 

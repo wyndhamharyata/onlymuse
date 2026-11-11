@@ -77,7 +77,7 @@ build_up_next :: proc() {
 	if playback.queue.is_shuffled {
 		note_text := playback.shuffle_note if playback.shuffle_note != "" else "Shuffled."
 		note_row := ui.box(
-			"shuffle note",
+			"shuffle_note",
 			{
 				width = ui.fill(),
 				height = ui.fit_children(),
@@ -89,7 +89,7 @@ build_up_next :: proc() {
 		)
 
 		if ui.scope(note_row) {
-			kit.icon_box("", "shuffle", 11, kit.colors.primary)
+			kit.icon_box("shuffle", 11, kit.colors.primary)
 			ui.box(
 				"",
 				{
@@ -119,7 +119,7 @@ build_up_next :: proc() {
 				"Rules",
 			)
 
-			if ui.signal(rules).is_clicked {
+			if ui.signal(rules).is_activated {
 				playback.open_shuffle_rules(
 					{rules.rect.x - RULES_MENU_LEFT_POINTS, rules.rect.w + 4},
 				)
@@ -140,7 +140,7 @@ build_up_next :: proc() {
 		flags   = {.Scroll, .Clip},
 	}
 
-	if first, last, ok := kit.list("up next", shown_count, QUEUE_ROW_POINTS - 2, style); ok {
+	if first, last, ok := kit.list("up_next", shown_count, QUEUE_ROW_POINTS - 2, style); ok {
 		for offset in first ..< last {
 			index := playback.queue.index + offset
 			if build_queue_row(index) do removed_row = index
@@ -156,7 +156,7 @@ build_queue_row :: proc(index: int) -> bool {
 	hover_background := tint if is_current else kit.to_faded(kit.colors.base_content, kit.HOVER_OPACITY)
 	name_color := kit.colors.primary if is_current else kit.colors.base_content
 	row := ui.box(
-		fmt.tprintf("queue %d %s", index, song.id),
+		fmt.tprintf("queue_%d_%s", index, song.id),
 		{
 			width = ui.fill(),
 			height = ui.points(QUEUE_ROW_POINTS - 2),
@@ -195,8 +195,8 @@ build_queue_row :: proc(index: int) -> bool {
 			)
 		}
 
-		if !is_current && kit.is_mouse_in(row) {
-			is_removed = kit.icon_button("remove", "xmark", 11, color = kit.to_faded(kit.colors.base_content, 0.7)).is_clicked
+		if !is_current && ui.signal(row).is_hovered {
+			is_removed = kit.button("remove", icon = "xmark", icon_size = 11, icon_color = kit.to_faded(kit.colors.base_content, 0.7)).is_activated
 		}
 	}
 
@@ -207,14 +207,16 @@ build_queue_row :: proc(index: int) -> bool {
 	return is_removed
 }
 
+PANEL_TABS := []kit.Option{{id = "up_next", label = "Up Next", icon = "list.bullet"}, {id = "lyrics", label = "Lyrics", icon = "quote.bubble"}}
+
 build_panel_tabs :: proc(width: f32) {
 	selected: string
 	#partial switch core.app.panel {
 	case .Up_Next:
-		selected = "Up Next"
+		selected = "up_next"
 	case .Lyrics:
-		selected = "Lyrics"
+		selected = "lyrics"
 	}
-	tabs := kit.segmented("panel tabs", &selected, {"Up Next", "Lyrics"}, icons = {"list.bullet", "quote.bubble"}, width = ui.points(width))
-	if tabs.is_clicked do core.set_panel(.Lyrics if selected == "Lyrics" else .Up_Next)
+	tabs := kit.choice("panel_tabs", &selected, PANEL_TABS, .Segments, width = ui.points(width))
+	if tabs.is_changed do core.set_panel(.Lyrics if selected == "lyrics" else .Up_Next)
 }

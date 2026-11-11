@@ -7,6 +7,7 @@ import "core:math/rand"
 import "core:slice"
 import "core:strings"
 import "om:app/core"
+import "om:app/look"
 import "om:store"
 import "thor:app"
 import "thor:kit"
@@ -216,7 +217,7 @@ build_shuffle_rules :: proc() {
 	window_size := ui.window_size()
 
 	cover := ui.box(
-		"rules cover",
+		"rules_cover",
 		{
 			width = ui.fill(),
 			height = ui.fill(),
@@ -226,11 +227,11 @@ build_shuffle_rules :: proc() {
 	)
 
 	is_closing :=
-		(ui.signal(cover).is_clicked || ui.signal(cover).is_right_clicked) &&
+		(ui.signal(cover).is_activated || ui.signal(cover).is_secondary) &&
 		app.frame_count > rules_menu.opened_frame + 1
 
 	if ui.scope(cover) {
-		menu := kit.menu_box("rules", rules_menu.position, 300, window_size)
+		menu := look.menu_box("rules", rules_menu.position, 300, window_size)
 
 		if ui.scope(menu) {
 			ui.box(
@@ -249,7 +250,7 @@ build_shuffle_rules :: proc() {
 			hours := shuffle_rules.recent_hours
 			hours_text := "Off" if hours == 0 else fmt.tprintf("Past %d h", hours)
 
-			if kit.menu_item("recent", "Play recent songs last", hours_text).is_clicked {
+			if kit.menu_item("recent", "Play recent songs last", hours_text).is_activated {
 				choices := RECENT_HOUR_CHOICES
 				next := 0
 
@@ -274,7 +275,7 @@ build_shuffle_rules :: proc() {
 			}
 
 			for toggle in toggles {
-				if kit.menu_item(toggle.id, toggle.label, "●" if toggle.is_on^ else "○").is_clicked {
+				if kit.menu_item(toggle.id, toggle.label, "●" if toggle.is_on^ else "○").is_activated {
 					toggle.is_on^ = !toggle.is_on^
 					save_shuffle_rules()
 				}

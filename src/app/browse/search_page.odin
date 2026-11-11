@@ -47,7 +47,7 @@ build_search_page :: proc(term: string) {
 		width := look.to_content_width(page)
 
 		if len(data.songs) + len(data.cards) + len(data.artists) == 0 {
-			kit.paragraph(fmt.tprintf("Apple Music has nothing for \"%s\".", term), kit.to_faded(kit.colors.base_content, 0.7))
+			kit.text(fmt.tprintf("Apple Music has nothing for \"%s\".", term), kit.to_faded(kit.colors.base_content, 0.7), is_wrapped = true)
 			youtube_pages.build_youtube_search_results(term, nil, width)
 			return
 		}
@@ -79,7 +79,7 @@ build_search_top :: proc(data: ^core.Page_Data) {
 	if ui.scope(top) {
 		if len(data.artists) > 0 {
 			result := ui.box(
-				"top result",
+				"top_result",
 				{
 					width = ui.points(TOP_RESULT_POINTS),
 					height = ui.fit_children(),

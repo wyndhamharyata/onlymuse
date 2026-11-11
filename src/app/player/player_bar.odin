@@ -117,7 +117,7 @@ build_song_info :: proc() {
 			"cover",
 			{width = ui.fit_children(), height = ui.fit_children(), flags = cover_flags},
 		)
-		if ui.signal(cover).is_clicked do core.navigate({kind = .Now_Playing})
+		if ui.signal(cover).is_activated do core.navigate({kind = .Now_Playing})
 
 		if ui.scope(cover) {
 			look.artwork_box(artwork_source, PLAYER_ARTWORK_POINTS, 6, placeholder)
@@ -127,7 +127,7 @@ build_song_info :: proc() {
 					width = ui.points(PLAYER_ARTWORK_POINTS),
 					height = ui.points(PLAYER_ARTWORK_POINTS),
 					corner_radius = 6,
-					background = {1, 1, 1, 0.12 * cover.hot_fraction},
+					background = {1, 1, 1, 0.12 * ui.animate("player_cover_hover", 1 if is_song && ui.signal(cover).is_hovered else 0)},
 					position = {0, 0},
 					flags = {.Floating},
 				},
@@ -268,7 +268,7 @@ build_song_subtitle :: proc(song: helper.Song) {
 		is_clickable = true,
 	)
 
-	if ui.signal(subtitle).is_clicked {
+	if subtitle.is_activated {
 		core.navigate({kind = .Artist, title = fmt.aprint(song.artist_name)})
 	}
 }

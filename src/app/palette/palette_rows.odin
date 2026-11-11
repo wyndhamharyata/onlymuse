@@ -28,7 +28,7 @@ build_results :: proc() -> int {
 	}
 
 	list := ui.box(
-		"palette list",
+		"palette_list",
 		{
 			width = ui.fill(),
 			height = ui.points(
@@ -79,7 +79,7 @@ scroll_to_selected :: proc(list: ^ui.Box) {
 	top := to_row_top_points(palette.selected_index)
 	bottom := top + PALETTE_ROW_HEIGHT_POINTS
 	height := min(PALETTE_LIST_MAX_HEIGHT_POINTS, to_list_height_points(palette.results))
-	view_top := list.scroll_target
+	view_top := list.scroll
 	view_bottom := view_top + height
 
 	if top < view_top {
@@ -130,7 +130,7 @@ to_list_height_points :: proc(results: []Palette_Result) -> f32 {
 build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 	is_selected := index == palette.selected_index
 	row := ui.box(
-		fmt.tprintf("result %d", index),
+		fmt.tprintf("result_%d", index),
 		{
 			width = ui.fill(),
 			height = ui.points(PALETTE_ROW_HEIGHT_POINTS),
@@ -160,7 +160,6 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 			)
 		} else {
 			kit.icon_box(
-				"",
 				result.symbol if result.symbol != "" else "arrow.right",
 				14,
 				kit.colors.primary if is_selected else kit.to_faded(kit.colors.base_content, 0.7),
@@ -218,5 +217,5 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 		}
 	}
 
-	return signal.is_clicked && !result.is_disabled
+	return signal.is_activated && !result.is_disabled
 }

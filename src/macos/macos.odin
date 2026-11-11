@@ -11,7 +11,7 @@ QUESTION_DELAY_SECONDS :: 0.5
 
 @(private)
 state: struct {
-	window:           ^platform.Window,
+	window:           ^platform.Native_Window,
 	target:           ^Macos_Target,
 	backdrop:         ^platform.Layer,
 	backdrop_view:    ^NS.View,
@@ -87,7 +87,7 @@ Macos_Target_askForSavedWallpaper :: proc "c" (self: ^Macos_Target, sender: NS.i
 	ask_for_saved_wallpaper()
 }
 
-start :: proc(window: ^platform.Window, is_background: bool) {
+start :: proc(window: ^platform.Native_Window, is_background: bool) {
 	state.window = window
 	state.odin_context = context
 	state.target = objc_send(

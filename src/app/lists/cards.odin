@@ -123,7 +123,7 @@ build_shelf_title :: proc(title: string, is_youtube: bool) {
 	)
 
 	if ui.scope(row) {
-		if is_youtube do kit.icon_box("", YOUTUBE_SYMBOL, 15, look.colors.youtube)
+		if is_youtube do kit.icon_box(YOUTUBE_SYMBOL, 15, look.colors.youtube)
 		ui.box(
 			"",
 			{
@@ -160,6 +160,10 @@ build_card_tile :: proc(
 		},
 	)
 
+	// The tile's parent is its shelf, so the same card on two shelves fades on its own.
+	hover_id := fmt.tprintf("%s %s hover", tile.parent.id, id)
+	hover := ui.animate(hover_id, 1 if can_open && ui.signal(tile).is_hovered else 0)
+
 	if ui.scope(tile) {
 		radius: f32 = tile_points / 2 if is_round else 8
 		size := [2]f32{tile_points, tile_points * 9 / 16 if is_wide else tile_points}
@@ -177,7 +181,7 @@ build_card_tile :: proc(
 					width = ui.points(size.x),
 					height = ui.points(size.y),
 					corner_radius = radius,
-					background = {1, 1, 1, 0.08 * tile.hot_fraction},
+					background = {1, 1, 1, 0.08 * hover},
 					flags = {.Floating},
 				},
 			)
@@ -214,7 +218,7 @@ build_card_tile :: proc(
 		}
 	}
 
-	return ui.signal(tile).is_clicked
+	return ui.signal(tile).is_activated
 }
 
 open_card :: proc(cards: []apple.Card, index: int) {

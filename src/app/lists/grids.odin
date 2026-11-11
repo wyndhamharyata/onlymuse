@@ -33,7 +33,7 @@ build_song_grid :: proc(
 	if ui.scope(grid) {
 		for column in 0 ..< column_count {
 			column_box := ui.box(
-				fmt.tprintf("column %d", column),
+				fmt.tprintf("column_%d", column),
 				{width = ui.fill(), height = ui.fit_children(), axis = .Y},
 			)
 
@@ -69,7 +69,7 @@ build_card_grid_page :: proc(
 	phase: apple.Phase,
 	is_round: bool,
 ) {
-	page := look.page_scroll("grid page")
+	page := look.page_scroll("grid_page")
 	dev.bench_scroll(page)
 
 	if ui.scope(page) {

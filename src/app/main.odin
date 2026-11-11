@@ -75,18 +75,18 @@ start_parts :: proc() {
 }
 
 open_main_window :: proc() {
-	app.open(
+	app.open_main_window(
 		{
 			title = "onlymuse",
 			size = DEFAULT_WINDOW_SIZE_POINTS,
 			min_size = {look.MIN_WINDOW_WIDTH_POINTS, look.MIN_WINDOW_HEIGHT_POINTS},
 			is_blurred = true,
-			fetch_image = fetch_cover,
-			to_image_family = to_cover_family,
 		},
 		draw_frame,
+		fetch_cover,
+		to_cover_family,
 	)
-	macos.start(app.window, dev.is_background && !dev.is_bench)
+	macos.start(app.native_window, dev.is_background && !dev.is_bench)
 	macos.install_player_menu({
 		is_driving = proc() -> bool {return core.app.drives_music_app},
 		toggle = proc() {core.set_player_mode(!core.app.drives_music_app)},
@@ -100,7 +100,7 @@ SIGN_IN_CARD_HALF_HEIGHT_POINTS :: 110
 build_sign_in_card :: proc() {
 	window_size := ui.window_size()
 	cover := ui.box(
-		"sign in cover",
+		"sign_in_cover",
 		{
 			width = ui.fill(),
 			height = ui.fill(),
@@ -156,7 +156,7 @@ build_sign_in_card :: proc() {
 
 			label := "Open the sign-in window again" if core.app.is_sign_in_open else "Sign In"
 
-			if kit.button(label, "person.crop.circle", .Primary).is_clicked {
+			if kit.button("sign_in", label, "person.crop.circle", .Primary).is_activated {
 				core.app.is_sign_in_open = true
 				helper.send_sign_in()
 			}

@@ -36,7 +36,7 @@ song_menu: struct {
 }
 
 @(private = "file")
-playlist_name_field: kit.Text_Field
+playlist_name_field: kit.Text_Input
 
 start_song_menu :: proc() {
 	playlist_name_field.is_keeping_focus = true
@@ -60,7 +60,7 @@ close_song_menu :: proc() {
 	core.delete_song(song_menu.song)
 	song_menu = {}
 	playlist_name_field.is_focused = false
-	kit.set_field_text(&playlist_name_field, "")
+	kit.set_input_text(&playlist_name_field, "")
 }
 
 build_song_menu :: proc() {
@@ -68,7 +68,7 @@ build_song_menu :: proc() {
 
 	window_size := ui.window_size()
 	cover := ui.box(
-		"menu cover",
+		"menu_cover",
 		{
 			width = ui.fill(),
 			height = ui.fill(),
@@ -77,7 +77,7 @@ build_song_menu :: proc() {
 		},
 	)
 	is_closing :=
-		(ui.signal(cover).is_clicked || ui.signal(cover).is_right_clicked) &&
+		(ui.signal(cover).is_activated || ui.signal(cover).is_secondary) &&
 		app.frame_count > song_menu.opened_frame + 1
 
 	for event in platform.list_events() {
@@ -116,10 +116,10 @@ build_main_menu :: proc(song: core.Catalog_Song, position, window_size: [2]f32) 
 	favourite_hint := "⌘L" if is_playing else ""
 	is_done := false
 
-	menu := kit.menu_box("song menu", position, SONG_MENU_POINTS, window_size)
+	menu := look.menu_box("song_menu", position, SONG_MENU_POINTS, window_size)
 
 	if ui.scope(menu) {
-		if kit.menu_item("play next", "Play Next").is_clicked {
+		if kit.menu_item("play_next", "Play Next").is_activated {
 			playback.play_next(core.copy_song(song))
 			kit.show_toast(fmt.tprintf("%s plays next", song.name))
 			is_done = true
@@ -127,12 +127,12 @@ build_main_menu :: proc(song: core.Catalog_Song, position, window_size: [2]f32) 
 
 		if has_id {
 			item := kit.menu_item(
-				"add to playlist",
+				"add_to_playlist",
 				"Add to Playlist",
 				"›",
 				is_selected = song_menu.is_playlists_open,
 			)
-			if item.is_clicked || item.is_hovered do song_menu.is_playlists_open = true
+			if item.is_activated || item.is_hovered do song_menu.is_playlists_open = true
 		}
 
 		if build_youtube_song_items(song) do is_done = true
@@ -140,7 +140,7 @@ build_main_menu :: proc(song: core.Catalog_Song, position, window_size: [2]f32) 
 		kit.menu_separator()
 
 		if playback.can_favourite(song) {
-			if kit.menu_item("favourite", favourite_label, favourite_hint).is_clicked {
+			if kit.menu_item("favourite", favourite_label, favourite_hint).is_activated {
 				playback.toggle_favourite(song, persistent_id)
 				is_done = true
 			}
@@ -148,12 +148,12 @@ build_main_menu :: proc(song: core.Catalog_Song, position, window_size: [2]f32) 
 			kit.menu_separator()
 		}
 
-		if kit.menu_item("go to artist", "Go to Artist").is_clicked {
+		if kit.menu_item("go_to_artist", "Go to Artist").is_activated {
 			core.navigate({kind = .Artist, title = strings.clone(song.artist_name)})
 			is_done = true
 		}
 
-		if has_id && kit.menu_item("copy link", "Copy Link").is_clicked {
+		if has_id && kit.menu_item("copy_link", "Copy Link").is_activated {
 			link: string
 
 			if is_from_youtube {
@@ -186,19 +186,19 @@ build_youtube_song_items :: proc(song: core.Catalog_Song) -> bool {
 	can_try_again := is_from_youtube && matching.is_match_rejected(song)
 	is_done := false
 
-	if can_remove && kit.menu_item("remove from playlist", "Remove from Playlist").is_clicked {
+	if can_remove && kit.menu_item("remove_from_playlist", "Remove from Playlist").is_activated {
 		youtube_lists.remove_playlist_youtube_song(page.id, song.id)
 		kit.show_toast(fmt.tprintf("Removed %s from %s", song.name, page.title))
 		is_done = true
 	}
 
-	if is_matched && kit.menu_item("not on apple music", "Not on Apple Music").is_clicked {
+	if is_matched && kit.menu_item("not_on_apple_music", "Not on Apple Music").is_activated {
 		matching.reject_match(matching.to_youtube_song(song))
 		kit.show_toast(fmt.tprintf("%s plays from YouTube from now on", song.name))
 		is_done = true
 	}
 
-	if can_try_again && kit.menu_item("try apple music", "Try Apple Music Again").is_clicked {
+	if can_try_again && kit.menu_item("try_apple_music", "Try Apple Music Again").is_activated {
 		matching.allow_match(song)
 		kit.show_toast(fmt.tprintf("Looking for %s on Apple Music again", song.name))
 		is_done = true
@@ -213,14 +213,14 @@ build_playlist_menu :: proc(
 	position: [2]f32,
 	window_size: [2]f32,
 ) -> bool {
-	menu := kit.menu_box("playlist menu", position, PLAYLIST_MENU_POINTS, window_size)
+	menu := look.menu_box("playlist_menu", position, PLAYLIST_MENU_POINTS, window_size)
 	is_done := false
 
 	if ui.scope(menu) {
 		if song_menu.is_naming {
 			if playlist_name_field.is_cancelled do song_menu.is_naming = false
 
-			name := strings.trim_space(kit.to_field_text(&playlist_name_field))
+			name := strings.trim_space(kit.to_input_text(&playlist_name_field))
 
 			if playlist_name_field.is_submitted && name != "" {
 				create_playlist_with(name, song)
@@ -228,8 +228,8 @@ build_playlist_menu :: proc(
 			}
 
 			kit.text_field(
+				"playlist_name",
 				&playlist_name_field,
-				"playlist name",
 				"Playlist name",
 				style = {height = ui.points(28)},
 			)
@@ -244,9 +244,9 @@ build_playlist_menu :: proc(
 				},
 				"Return makes the playlist. Escape goes back.",
 			)
-		} else if kit.menu_item("new playlist", "New Playlist…", tone = .Primary).is_clicked {
+		} else if kit.menu_item("new_playlist", "New Playlist…", tone = .Primary).is_activated {
 			song_menu.is_naming = true
-			kit.focus_field(&playlist_name_field)
+			kit.focus_input(&playlist_name_field)
 		}
 
 		kit.menu_separator()
@@ -274,7 +274,7 @@ build_playlist_menu :: proc(
 			for playlist in playlists {
 				if !playlist.can_edit do continue
 
-				if kit.menu_item(fmt.tprintf("playlist %s", playlist.id), playlist.name).is_clicked {
+				if kit.menu_item(fmt.tprintf("playlist_%s", playlist.id), playlist.name).is_activated {
 					add_to_playlist(playlist.id, playlist.name, song)
 					is_done = true
 				}

@@ -115,7 +115,7 @@ build_hero :: proc(
 				details.song.artist_name,
 			)
 
-			if ui.signal(artist).is_clicked {
+			if ui.signal(artist).is_activated {
 				core.navigate(
 					{kind = .Artist, id = details.artist_id, title = details.song.artist_name},
 				)
@@ -136,7 +136,7 @@ build_hero :: proc(
 				},
 				album_line,
 			)
-			if ui.signal(album).is_clicked do core.navigate({kind = .Album, id = details.album_id})
+			if ui.signal(album).is_activated do core.navigate({kind = .Album, id = details.album_id})
 
 			build_pills(details, info)
 			build_actions(details, shown.persistent_id)
@@ -248,20 +248,20 @@ build_actions :: proc(details: Song_Details, persistent_id: string) {
 
 		if playback.can_favourite(details.song) &&
 		   kit.button(
+			   "favourite",
 			   "Favourite",
 			   "heart.circle.fill" if is_favourite else "heart.circle",
 			   icon_color = kit.colors.primary if is_favourite else kit.colors.base_content,
-		   ).is_clicked {
+		   ).is_activated {
 			playback.toggle_favourite(details.song, persistent_id)
 		}
 
-		if details.song.id != "" && kit.button("Add to Playlist", "plus").is_clicked {
-			button := ui.find_box("Add to Playlist", row)
-
-			menus.open_song_menu(details.song, {button.rect.x, button.rect.w + 4}, true)
+		add := kit.button("add_to_playlist", "Add to Playlist", "plus") if details.song.id != "" else {}
+		if add.is_activated {
+			menus.open_song_menu(details.song, {add.box.rect.x, add.box.rect.w + 4}, true)
 		}
 
-		if details.url != "" && kit.button("Copy Link", "link").is_clicked {
+		if details.url != "" && kit.button("copy_link", "Copy Link", "link").is_activated {
 			platform.set_clipboard(details.url)
 			kit.show_toast("Copied the link to the song")
 		}

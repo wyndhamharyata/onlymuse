@@ -79,9 +79,10 @@ build_artist_page :: proc(page_id: string, name: string) {
 				if phase != .Ready {
 					look.build_phase(phase, name)
 				} else {
-					kit.paragraph(
+					kit.text(
 						fmt.tprintf("Apple Music has no artist named %s.", name),
 						kit.to_faded(kit.colors.base_content, 0.7),
+is_wrapped = true,
 					)
 				}
 			}
@@ -132,7 +133,7 @@ build_artist_page :: proc(page_id: string, name: string) {
 		for shelf, index in channel.shelves {
 			if !is_youtube_only_shelf(shelf) do continue
 
-			lists.build_shelf(fmt.tprintf("youtube %d", index), shelf, width, ARTIST_ALBUM_POINTS)
+			lists.build_shelf(fmt.tprintf("youtube_%d", index), shelf, width, ARTIST_ALBUM_POINTS)
 		}
 
 		build_recent_songs_shelf(artist_id, data.title)

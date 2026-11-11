@@ -18,12 +18,12 @@ MORE_BY_TILE_POINTS :: 118
 build_now_playing_page :: proc() {
 	shown, is_song := playback.find_shown_song()
 	playing, _, _ := playback.find_playing_song()
-	page := look.page_scroll("now playing")
+	page := look.page_scroll("now_playing")
 
 	if ui.scope(page) {
 		if !is_song {
 			kit.heading("Now Playing")
-			kit.paragraph("Nothing is playing. Play a song and it shows here.", kit.to_faded(kit.colors.base_content, 0.7))
+			kit.text("Nothing is playing. Play a song and it shows here.", kit.to_faded(kit.colors.base_content, 0.7), is_wrapped = true)
 			return
 		}
 
@@ -97,7 +97,7 @@ build_current_lyric :: proc(shown: helper.Song) {
 
 	line := lines[index]
 	box := ui.box(
-		"lyric line",
+		"lyric_line",
 		{
 			width = ui.fill(),
 			height = ui.fit_children(),
@@ -180,7 +180,7 @@ build_more_by :: proc(details: Song_Details) {
 	if len(data.cards) == 0 do return
 
 	shelf := ui.box(
-		"more by",
+		"more_by",
 		{
 			width = ui.fill(),
 			height = ui.fit_children(),

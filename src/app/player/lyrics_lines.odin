@@ -4,7 +4,6 @@ import "core:fmt"
 import "om:helper"
 import "om:lyrics"
 import "thor:kit"
-import "thor:platform"
 import "thor:ui"
 
 to_fade :: proc(begin_seconds, position_seconds: f64) -> f32 {
@@ -72,7 +71,7 @@ build_lyric_line :: proc(line: ^lyrics.Line, index: int) {
 		LINE_FADE_RATE_PER_SECOND,
 	)
 	line_box := ui.box(
-		fmt.tprintf("line %d", index),
+		fmt.tprintf("line_%d", index),
 		{width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 2, fade = 1 - opacity},
 	)
 
@@ -110,7 +109,7 @@ build_lead_note :: proc() {
 	shown_seconds := (helper.now_ms() - lyrics_state.lead_changed_ms) / 1000
 	if shown_seconds > LEAD_NOTE_SECONDS do return
 
-	platform.request_frame_after(LEAD_NOTE_SECONDS - shown_seconds + TIMER_SLACK_SECONDS)
+	ui.request_frame_after(LEAD_NOTE_SECONDS - shown_seconds + TIMER_SLACK_SECONDS)
 
 	text := fmt.tprintf(
 		"The lyrics run %.2f s ahead of Music.app. Cmd [ and Cmd ] change it.",

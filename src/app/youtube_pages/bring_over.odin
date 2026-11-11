@@ -46,7 +46,7 @@ build_bring_over_page :: proc(page: core.Page) {
 	first, songs, phase := youtube_lists.watch_youtube_songs(youtube.to_list_path(page.id))
 	title := first.title if first.title != "" else page.title
 	counts := list_match_counts(songs)
-	scroll := look.page_scroll("bring over")
+	scroll := look.page_scroll("bring_over")
 
 	if ui.scope(scroll) {
 		header := ui.box(
@@ -70,7 +70,7 @@ build_bring_over_page :: proc(page: core.Page) {
 
 			is_ready := phase == .Ready && counts[.Checking] == 0 && len(songs) > 0
 
-			if is_ready && kit.button("Bring Over", "square.and.arrow.down", .Primary).is_clicked {
+			if is_ready && kit.button("bring_over", "Bring Over", "square.and.arrow.down", .Primary).is_activated {
 				bring_over(title, songs)
 			}
 		}
@@ -78,9 +78,10 @@ build_bring_over_page :: proc(page: core.Page) {
 		if phase == .Loading do look.build_loading(title)
 
 		if phase == .Ready {
-			kit.paragraph(
+			kit.text(
 				"Each song Apple Music has goes into a new Apple Music playlist. It plays in Apple Music's quality. The others stay in the playlist and play from YouTube.",
 				kit.to_faded(kit.colors.base_content, 0.7),
+is_wrapped = true,
 			)
 			lists.build_song_rows(songs)
 		}

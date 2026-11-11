@@ -6,7 +6,6 @@ import "om:app/look"
 import "om:app/playback"
 import "om:helper"
 import "thor:kit"
-import "thor:platform"
 import "thor:ui"
 
 CLOCK_WIDTH_POINTS :: 34
@@ -36,30 +35,16 @@ build_controls :: proc() {
 
 		if ui.scope(buttons) {
 			shuffle_color := kit.colors.primary if playback.queue.is_shuffled else kit.to_faded(kit.colors.base_content, 0.5)
-			shuffle := kit.icon_box(
-				"shuffle",
-				"shuffle",
-				14,
-				shuffle_color,
-				{
-					padding = {4, 4, 4, 4},
-					corner_radius = 6,
-					hover_background = kit.to_faded(kit.colors.base_content, kit.HOVER_OPACITY),
-					press_background = kit.to_faded(kit.colors.base_content, kit.SELECTED_OPACITY),
-					flags = {.Clickable},
-				},
-			)
-
-			shuffle_signal := ui.signal(shuffle)
-			if shuffle_signal.is_clicked do playback.toggle_shuffle()
-			if shuffle_signal.is_right_clicked {
-				playback.open_shuffle_rules(shuffle.rect.xy + SHUFFLE_RULES_OFFSET_POINTS)
+			shuffle := kit.button("shuffle", icon = "shuffle", icon_size = 14, icon_color = shuffle_color)
+			if shuffle.is_activated do playback.toggle_shuffle()
+			if shuffle.is_secondary {
+				playback.open_shuffle_rules(shuffle.box.rect.xy + SHUFFLE_RULES_OFFSET_POINTS)
 			}
 
 			resume_seconds :=
 				playback.queue.resume_point.position_seconds if playback.is_resume_shown() else helper.read_position_seconds(now_playing)
 
-			if kit.icon_button("previous", "backward.fill", 17).is_clicked {
+			if kit.button("previous", icon = "backward.fill", icon_size = 17).is_activated {
 				playback.skip_to_previous(resume_seconds)
 			}
 
@@ -69,6 +54,8 @@ build_controls :: proc() {
 					width = ui.points(34),
 					height = ui.points(34),
 					corner_radius = 17,
+					align = .Center,
+					justify = .Center,
 					background = kit.colors.base_content,
 					hover_background = {1, 1, 1, 1},
 					flags = {.Clickable},
@@ -76,12 +63,9 @@ build_controls :: proc() {
 			)
 
 			play_symbol := "pause.fill" if is_playing else "play.fill"
-			paint := new(kit.Icon_Paint, context.temp_allocator)
-			paint^ = {play_symbol, 15, kit.colors.base_200}
-			play.draw = kit.draw_icon
-			play.data = paint
+			if ui.scope(play) do kit.icon_box(play_symbol, 15, kit.colors.base_200)
 
-			is_play_clicked := ui.signal(play).is_clicked
+			is_play_clicked := ui.signal(play).is_activated
 
 			if is_play_clicked && playback.is_resume_shown() {
 				playback.resume_last_song()
@@ -89,7 +73,7 @@ build_controls :: proc() {
 				helper.send_play_pause()
 			}
 
-			if kit.icon_button("next", "forward.fill", 17).is_clicked {
+			if kit.button("next", icon = "forward.fill", icon_size = 17).is_activated {
 				playback.skip_to_next()
 			}
 
@@ -97,7 +81,7 @@ build_controls :: proc() {
 			repeat_color :=
 				kit.colors.primary if playback.queue.repeat != "off" else kit.to_faded(kit.colors.base_content, 0.5)
 
-			if kit.icon_button("repeat", repeat_symbol, 14, color = repeat_color).is_clicked {
+			if kit.button("repeat", icon = repeat_symbol, icon_size = 14, icon_color = repeat_color).is_activated {
 				playback.cycle_repeat()
 			}
 		}
@@ -140,7 +124,8 @@ build_progress :: proc(has_song: bool) {
 			},
 			"",
 		)
-		shown_ratio, is_set := kit.bar("seek", ratio, ui.fill())
+		shown_ratio := ratio
+		seek := kit.slider("seek", &shown_ratio, is_set_on_release = true, tone = .Base, width = ui.fill())
 		clock.text = look.to_clock_text(f64(shown_ratio) * duration_seconds)
 		kit.text(
 			look.to_clock_text(duration_seconds),
@@ -149,14 +134,14 @@ build_progress :: proc(has_song: bool) {
 			width = ui.points(CLOCK_WIDTH_POINTS),
 		)
 
-		can_seek := is_set && has_song && !is_waiting
+		can_seek := seek.is_changed && has_song && !is_waiting
 		if can_seek do helper.send_seek(f64(shown_ratio) * duration_seconds)
 	}
 
 	// Nothing else draws a frame when the clock text changes, so this timer asks for one.
 	if now_playing.playback == .Playing && !is_waiting {
 		next_second := 1 - (position_seconds - math.floor(position_seconds))
-		platform.request_frame_after(next_second + TIMER_SLACK_SECONDS)
+		ui.request_frame_after(next_second + TIMER_SLACK_SECONDS)
 	}
 }
 
@@ -167,19 +152,19 @@ build_player_end :: proc() {
 	)
 
 	if ui.scope(end) {
-		kit.spacer()
+		ui.box("", {width = ui.fill(), height = ui.points(1)})
 		panel_color := kit.colors.primary if core.app.panel != .None else kit.to_faded(kit.colors.base_content, 0.5)
 
-		if kit.icon_button("panel", "sidebar.right", 16, color = panel_color).is_clicked {
+		if kit.button("panel", icon = "sidebar.right", icon_size = 16, icon_color = panel_color).is_activated {
 			core.set_panel(.None if core.app.panel != .None else core.app.last_panel)
 		}
 
-		kit.icon_box("", "speaker.wave.2.fill", 15, kit.to_faded(kit.colors.base_content, 0.7))
+		kit.icon_box("speaker.wave.2.fill", 15, kit.to_faded(kit.colors.base_content, 0.7))
 
-		volume_percent := core.app.now_playing.volume_percent
-		shown_ratio, is_set := kit.bar("volume", f32(volume_percent / 100), ui.points(80))
+		shown_ratio := f32(core.app.now_playing.volume_percent / 100)
+		volume := kit.slider("volume", &shown_ratio, is_set_on_release = true, tone = .Base, width = ui.points(80))
 
-		if is_set {
+		if volume.is_changed {
 			percent := int(math.round(shown_ratio * 100))
 			helper.send_set_volume(percent)
 			core.app.now_playing.volume_percent = f64(percent)

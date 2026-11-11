@@ -34,9 +34,10 @@ build_album_page :: proc(album_id: string) {
 				if link.phase != .Ready {
 					look.build_phase(link.phase, "the album")
 				} else {
-					kit.paragraph(
+					kit.text(
 						"This album is only on the Mac, so Apple Music has no page for it.",
 						kit.to_faded(kit.colors.base_content, 0.7),
+is_wrapped = true,
 					)
 				}
 			}
@@ -195,7 +196,7 @@ build_album_info :: proc(data: ^core.Page_Data, info_points: f32) {
 			data.subtitle,
 		)
 
-		if ui.signal(artist).is_clicked {
+		if ui.signal(artist).is_activated {
 			core.navigate({kind = .Artist, id = data.artist_id, title = data.subtitle})
 		}
 

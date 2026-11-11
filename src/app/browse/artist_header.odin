@@ -19,7 +19,7 @@ ARTIST_SHADE_ALPHA :: 0xf2 / 255.0
 @(private)
 build_artist_header :: proc(data: ^core.Page_Data, detail: string, width: f32) {
 	fallback_color :=
-		kit.to_color_from_hex_digits(data.artwork.background_color) or_else kit.colors.base_300
+		kit.to_color_from_hex(data.artwork.background_color) or_else kit.colors.base_300
 	header := ui.box("header", {width = ui.fill(), height = ui.points(ARTIST_HEADER_POINTS)})
 
 	if ui.scope(header) {
@@ -124,7 +124,7 @@ build_artist_middle :: proc(data: ^core.Page_Data) {
 		}
 
 		top := ui.box(
-			"top songs",
+			"top_songs",
 			{width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 10},
 		)
 

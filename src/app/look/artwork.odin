@@ -3,7 +3,7 @@ package look
 import "core:math"
 import "om:apple"
 import "thor:icon"
-import "thor:image"
+import "thor:images"
 import "thor:kit"
 import "thor:render"
 import "thor:ui"
@@ -32,7 +32,7 @@ draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	image_opacity: f32
 
 	if paint.source != "" {
-		texture, image_opacity = image.watch(
+		texture, image_opacity = images.watch(
 			paint.source,
 			paint.size_pixels,
 			to_crop(rect, paint.focus_y),
@@ -62,7 +62,7 @@ draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 }
 
 @(private = "file")
-to_crop :: proc(rect: [4]f32, focus_y: f32) -> image.Crop {
+to_crop :: proc(rect: [4]f32, focus_y: f32) -> images.Crop {
 	height := rect.w - rect.y
 	if height <= 0 do return {}
 
@@ -100,8 +100,8 @@ to_placeholder :: proc(
 	seed: string,
 	symbol := "music.note",
 ) -> Placeholder {
-	if background, ok := kit.to_color_from_hex_digits(artwork.background_color); ok {
-		text_color := kit.to_color_from_hex_digits(artwork.text_color) or_else kit.colors.base_content
+	if background, ok := kit.to_color_from_hex(artwork.background_color); ok {
+		text_color := kit.to_color_from_hex(artwork.text_color) or_else kit.colors.base_content
 
 		return {
 			top = kit.mix_color(background, text_color, 0.18),
@@ -119,8 +119,8 @@ to_placeholder :: proc(
 	turn := 30 + f32((hash >> 9) % 70)
 
 	return {
-		top = kit.to_color_from_hsl(hue, 0.34, 0.33),
-		bottom = kit.to_color_from_hsl(hue + turn, 0.3, 0.19),
+		top = to_color_from_hsl(hue, 0.34, 0.33),
+		bottom = to_color_from_hsl(hue + turn, 0.3, 0.19),
 		symbol = symbol,
 		symbol_color = {1, 1, 1, 0.28},
 	}

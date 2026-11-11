@@ -106,7 +106,7 @@ start_lyrics_timer :: proc(lines: []lyrics.Line, position_seconds: f64) {
 		}
 	}
 
-	if next >= 0 do platform.request_frame_after(next - position_seconds + TIMER_SLACK_SECONDS)
+	if next >= 0 do ui.request_frame_after(next - position_seconds + TIMER_SLACK_SECONDS)
 }
 
 is_word_fading :: proc(lines: []lyrics.Line, position_seconds: f64) -> bool {
@@ -195,7 +195,7 @@ build_lyrics :: proc() -> bool {
 	target_offset: f32
 	column := ui.find_box("column", view)
 	first_line :=
-		ui.find_box(fmt.tprintf("line %d", first_shown), column) if column != nil else nil
+		ui.find_box(fmt.tprintf("line_%d", first_shown), column) if column != nil else nil
 
 	if first_line != nil do target_offset = first_line.rect.y - column.rect.y
 
@@ -266,13 +266,11 @@ build_lyric_toggles :: proc(lines: []lyrics.Line) {
 	)
 
 	if ui.scope(toggles) {
-		if has_romaji && kit.toggle_chip("Romaji", lyrics_state.is_showing_romaji).is_clicked {
-			lyrics_state.is_showing_romaji = !lyrics_state.is_showing_romaji
+		if has_romaji && kit.toggle("romaji", &lyrics_state.is_showing_romaji, "Romaji", .Chip).is_changed {
 			store.save_state("lyricsRomaji", "true" if lyrics_state.is_showing_romaji else "false")
 		}
 
-		if has_translation && kit.toggle_chip("Translation", lyrics_state.is_showing_translation).is_clicked {
-			lyrics_state.is_showing_translation = !lyrics_state.is_showing_translation
+		if has_translation && kit.toggle("translation", &lyrics_state.is_showing_translation, "Translation", .Chip).is_changed {
 			store.save_state(
 				"lyricsTranslation",
 				"true" if lyrics_state.is_showing_translation else "false",

@@ -12,6 +12,7 @@ import "om:helper"
 import "om:net"
 import "thor:kit"
 import "thor:platform"
+import "thor:ui"
 
 ADD_POLL_SECONDS :: 1.5
 
@@ -59,7 +60,7 @@ set_start_deadline :: proc() {
 	if queue.songs[queue.index].youtube_id == "" do return
 
 	queue_state.start_deadline_ms = helper.now_ms() + START_TIMEOUT_SECONDS * 1000
-	platform.request_frame_after(START_TIMEOUT_SECONDS)
+	ui.request_frame_after(START_TIMEOUT_SECONDS)
 }
 
 @(private)

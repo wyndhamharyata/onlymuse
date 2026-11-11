@@ -117,7 +117,7 @@ build_recent_songs_shelf :: proc(artist_id, artist_name: string) {
 	if phase != .Ready || len(songs) == 0 do return
 
 	shelf := ui.box(
-		"recent songs",
+		"recent_songs",
 		{width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 10},
 	)
 
@@ -133,7 +133,7 @@ build_recent_songs_shelf :: proc(artist_id, artist_name: string) {
 				flags = {.Clickable},
 			},
 		)
-		text_alpha := 1 - HOVER_FADE * title.hot_fraction
+		text_alpha := 1 - HOVER_FADE * ui.animate("recent_songs_title_hover", 1 if ui.signal(title).is_hovered else 0)
 
 		if ui.scope(title) {
 			ui.box(
@@ -147,10 +147,10 @@ build_recent_songs_shelf :: proc(artist_id, artist_name: string) {
 				},
 				"Recent Songs",
 			)
-			kit.icon_box("", "chevron.right", 13, kit.to_faded(kit.to_faded(kit.colors.base_content, 0.5), text_alpha))
+			kit.icon_box("chevron.right", 13, kit.to_faded(kit.to_faded(kit.colors.base_content, 0.5), text_alpha))
 		}
 
-		if ui.signal(title).is_clicked {
+		if ui.signal(title).is_activated {
 			core.navigate({kind = .Artist_Recent_Songs, id = artist_id, title = artist_name})
 		}
 

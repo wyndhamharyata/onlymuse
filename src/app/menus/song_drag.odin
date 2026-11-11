@@ -17,12 +17,11 @@ drag: struct {
 }
 
 apply_song_row_signal :: proc(signal: ui.Signal, song: core.Catalog_Song) -> bool {
-	if signal.is_right_clicked do open_song_menu(song, ui.mouse_position())
+	if signal.is_secondary do open_song_menu(song, ui.mouse_position())
 
-	press, is_down := ui.press_position()
-	moved := ui.mouse_position() - press
+	moved := signal.drag
 	has_moved := moved.x * moved.x + moved.y * moved.y > DRAG_START_POINTS * DRAG_START_POINTS
-	can_start_drag := signal.is_held && is_down && !drag.is_dragging && song.id != ""
+	can_start_drag := signal.is_held && !drag.is_dragging && song.id != ""
 
 	if can_start_drag && has_moved {
 		drag = {
@@ -31,7 +30,7 @@ apply_song_row_signal :: proc(signal: ui.Signal, song: core.Catalog_Song) -> boo
 		}
 	}
 
-	return signal.is_clicked && drag.ended_frame != app.frame_count
+	return signal.is_activated && drag.ended_frame != app.frame_count
 }
 
 apply_song_drop :: proc(
@@ -71,7 +70,7 @@ build_drag_ghost :: proc() {
 
 	mouse := ui.mouse_position()
 	ghost := ui.box(
-		"drag ghost",
+		"drag_ghost",
 		{
 			width = ui.fit_children(),
 			height = ui.points(30),
@@ -89,7 +88,7 @@ build_drag_ghost :: proc() {
 	)
 
 	if ui.scope(ghost) {
-		kit.icon_box("", "music.note", 12, kit.colors.primary)
+		kit.icon_box("music.note", 12, kit.colors.primary)
 		ui.box(
 			"",
 			{

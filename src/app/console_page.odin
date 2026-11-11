@@ -43,12 +43,12 @@ build_console_page :: proc() {
 				)
 			}
 
-			if has_entries && kit.button("Copy All", "doc.on.doc").is_clicked {
+			if has_entries && kit.button("copy_all", "Copy All", "doc.on.doc").is_activated {
 				platform.set_clipboard(to_console_text(entries))
 				kit.show_toast(fmt.tprintf("Copied %s", count_text))
 			}
 
-			if has_entries && kit.button("Clear", "trash").is_clicked {
+			if has_entries && kit.button("clear", "Clear", "trash").is_activated {
 				console.clear_entries()
 			}
 		}
@@ -67,7 +67,7 @@ build_console_page :: proc() {
 build_console_row :: proc(index: int, entry: console.Entry) {
 	source_color := look.colors.youtube if entry.source == "YouTube" else kit.to_faded(kit.colors.base_content, 0.7)
 	row := ui.box(
-		fmt.tprintf("entry %d", index),
+		fmt.tprintf("entry_%d", index),
 		{
 			width = ui.fill(),
 			height = ui.fit_children(),

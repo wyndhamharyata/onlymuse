@@ -65,7 +65,7 @@ Palette_Result :: struct {
 @(private)
 palette: struct {
 	is_open:             bool,
-	field:               kit.Text_Field,
+	field:               kit.Text_Input,
 	selected_index:      int,
 	arena:               virtual.Arena,
 	results:             []Palette_Result,
@@ -93,13 +93,13 @@ toggle_palette :: proc() {
 	palette.opened_frame = app.frame_count
 	palette.built_signature = -1
 	palette.should_reset_scroll = true
-	kit.set_field_text(&palette.field, "")
-	kit.focus_field(&palette.field)
+	kit.set_input_text(&palette.field, "")
+	kit.focus_input(&palette.field)
 }
 
 open_palette_for_test :: proc(term: string) {
 	toggle_palette()
-	kit.set_field_text(&palette.field, term)
+	kit.set_input_text(&palette.field, term)
 }
 
 @(private = "file")
@@ -143,7 +143,7 @@ build_palette :: proc() {
 
 	window_size := ui.window_size()
 	cover := ui.box(
-		"palette cover",
+		"palette_cover",
 		{
 			width = ui.fill(),
 			height = ui.fill(),
@@ -152,7 +152,7 @@ build_palette :: proc() {
 			flags = {.Floating, .Clickable},
 		},
 	)
-	is_closing := ui.signal(cover).is_clicked && app.frame_count > palette.opened_frame + 1
+	is_closing := ui.signal(cover).is_activated && app.frame_count > palette.opened_frame + 1
 	picked := -1
 
 	if ui.scope(cover) {
@@ -160,7 +160,7 @@ build_palette :: proc() {
 		position := [2]f32{(window_size.x - width) / 2, PALETTE_TOP_POINTS}
 
 		ui.box(
-			"palette shadow",
+			"palette_shadow",
 			{
 				width = ui.points(width),
 				height = ui.points(300),
@@ -190,8 +190,8 @@ build_palette :: proc() {
 
 		if ui.scope(panel) {
 			kit.text_field(
+				"palette_field",
 				field,
-				"palette field",
 				"Go to a page, an artist, a song, or do something",
 				"magnifyingglass",
 				style = {

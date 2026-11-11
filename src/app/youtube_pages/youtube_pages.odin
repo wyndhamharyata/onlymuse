@@ -68,17 +68,18 @@ build_youtube_mixes_page :: proc() {
 
 // Google refuses a sign-in inside an app, so onlymuse takes the one Helium has.
 build_youtube_sign_in_page :: proc(title, text: string) {
-	page := look.page_scroll("youtube sign in")
+	page := look.page_scroll("youtube_sign_in")
 
 	if ui.scope(page) {
 		kit.heading(title)
-		kit.paragraph(text, kit.to_faded(kit.colors.base_content, 0.7))
-		kit.paragraph(
+		kit.text(text, kit.to_faded(kit.colors.base_content, 0.7), is_wrapped = true)
+		kit.text(
 			"Sign in at music.youtube.com in Helium, then use its sign-in here. macOS asks once to let onlymuse read Helium's key. Choose Always Allow.",
 			kit.to_faded(kit.colors.base_content, 0.7),
+is_wrapped = true,
 		)
 
-		if kit.button("Use Helium's Sign-In", "person.crop.circle", .Primary).is_clicked {
+		if kit.button("use_helium_sign_in", "Use Helium's Sign-In", "person.crop.circle", .Primary).is_activated {
 			is_reading_youtube_sign_in = true
 			helper.send_youtube_sign_in()
 		}
@@ -140,7 +141,7 @@ build_youtube_search_results :: proc(term: string, apple_songs: []core.Catalog_S
 
 	if len(shown) > 0 {
 		section := ui.box(
-			"youtube songs",
+			"youtube_songs",
 			{width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 0},
 		)
 

@@ -104,7 +104,7 @@ build_sidebar_item :: proc(
 	)
 
 	signal := ui.signal(row)
-	if signal.is_clicked do core.navigate(page)
+	if signal.is_activated do core.navigate(page)
 
 	if menus.apply_song_drop(signal.is_hovered, page.id, page.title, can_take_songs) {
 		row.style.background = kit.to_faded(kit.colors.primary, kit.SOFT_OPACITY)
@@ -114,7 +114,6 @@ build_sidebar_item :: proc(
 
 	if ui.scope(row) {
 		kit.icon_box(
-			"",
 			symbol,
 			15,
 			kit.colors.primary if is_selected else symbol_color,

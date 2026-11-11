@@ -7,7 +7,7 @@ import "om:store"
 import "thor:kit"
 import "thor:ui"
 
-search_field: kit.Text_Field
+search_field: kit.Text_Input
 
 start_search_field :: proc() {
 	saved, has_term := store.find_state("searchTerm", context.temp_allocator)
@@ -16,23 +16,23 @@ start_search_field :: proc() {
 	term: string
 	if json.unmarshal_string(saved, &term, allocator = context.temp_allocator) != nil do return
 
-	kit.set_field_text(&search_field, term)
+	kit.set_input_text(&search_field, term)
 }
 
 build_search_field :: proc() {
 	if search_field.is_changed {
 		bytes, _ := json.marshal(
-			kit.to_field_text(&search_field),
+			kit.to_input_text(&search_field),
 			allocator = context.temp_allocator,
 		)
 		store.save_state("searchTerm", string(bytes))
 	}
 
 	if search_field.is_submitted {
-		term := strings.trim_space(kit.to_field_text(&search_field))
+		term := strings.trim_space(kit.to_input_text(&search_field))
 		if term != "" do core.navigate({kind = .Search, id = strings.clone(term)})
 	}
 
-	kit.text_field(&search_field, "search", "Search", "magnifyingglass")
+	kit.text_field("search", &search_field, "Search", "magnifyingglass")
 	ui.box("", {width = ui.fill(), height = ui.points(6)})
 }

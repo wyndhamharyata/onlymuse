@@ -77,7 +77,7 @@ apply_helper_messages :: proc() {
 
 		switch message.type {
 		case "accent":
-			core.app.system_accent = kit.to_color_from_hex(message.color)
+			core.app.system_accent = kit.to_color_from_hex(message.color) or_else kit.DEFAULT_PRIMARY
 		case "tokens":
 			apple.set_tokens(message.developer_token, message.user_token)
 			core.app.is_sign_in_needed = false
@@ -138,7 +138,7 @@ apply_playback_key :: proc(key: platform.Key_Press) {
 apply_command_key :: proc(key: platform.Key_Press) {
 	player.apply_lead_key(key)
 
-	if !kit.has_focused_field() {
+	if !kit.has_focused_input() {
 		#partial switch key.key {
 		case .Left:
 			playback.skip_to_previous(helper.read_position_seconds(core.app.now_playing))

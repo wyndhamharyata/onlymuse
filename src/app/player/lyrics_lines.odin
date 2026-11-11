@@ -68,7 +68,7 @@ build_lyric_line :: proc(line: ^lyrics.Line, index: int) {
 	opacity := ui.animate(
 		fmt.tprintf("lyric opacity %d", index),
 		1 if is_current else OTHER_LINE_OPACITY,
-		LINE_FADE_RATE_PER_SECOND,
+		kit.motion.normal,
 	)
 	line_box := ui.box(
 		fmt.tprintf("line_%d", index),

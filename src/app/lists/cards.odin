@@ -162,7 +162,7 @@ build_card_tile :: proc(
 
 	// The tile's parent is its shelf, so a card on two shelves fades separately on each.
 	hover_id := fmt.tprintf("%s %s hover", tile.parent.id, id)
-	hover := ui.animate(hover_id, 1 if can_open && ui.signal(tile).is_hovered else 0)
+	hover := ui.animate(hover_id, 1 if can_open && ui.signal(tile).is_hovered else 0, kit.motion.fast)
 
 	if ui.scope(tile) {
 		radius: f32 = tile_points / 2 if is_round else 8

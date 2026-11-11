@@ -26,9 +26,6 @@ OTHER_LINE_OPACITY :: 0.7
 
 WORD_FADE_SECONDS :: 0.15
 
-SLIDE_RATE_PER_SECOND :: 9
-
-LINE_FADE_RATE_PER_SECOND :: 10
 
 // Music.app's posts run about half a second behind what it plays.
 DEFAULT_LEAD_MS :: 500
@@ -199,7 +196,7 @@ build_lyrics :: proc() -> bool {
 
 	if first_line != nil do target_offset = first_line.rect.y - column.rect.y
 
-	offset := ui.animate("lyrics offset", target_offset, SLIDE_RATE_PER_SECOND)
+	offset := ui.animate("lyrics offset", target_offset, kit.motion.slow)
 
 	if ui.scope(view) {
 		column = ui.box(

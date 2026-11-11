@@ -19,7 +19,7 @@ RULES_MENU_LEFT_POINTS :: 240
 
 build_panel :: proc() -> bool {
 	is_open := core.app.panel != .None
-	width := ui.animate("panel width", look.PANEL_WIDTH_POINTS if is_open else 0)
+	width := ui.animate("panel width", look.PANEL_WIDTH_POINTS if is_open else 0, kit.motion.normal)
 
 	if width < 1 do return false
 

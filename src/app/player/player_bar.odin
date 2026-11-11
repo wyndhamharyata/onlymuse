@@ -127,7 +127,7 @@ build_song_info :: proc() {
 					width = ui.points(PLAYER_ARTWORK_POINTS),
 					height = ui.points(PLAYER_ARTWORK_POINTS),
 					corner_radius = 6,
-					background = {1, 1, 1, 0.12 * ui.animate("player_cover_hover", 1 if is_song && ui.signal(cover).is_hovered else 0)},
+					background = {1, 1, 1, 0.12 * ui.animate("player_cover_hover", 1 if is_song && ui.signal(cover).is_hovered else 0, kit.motion.fast)},
 					position = {0, 0},
 					flags = {.Floating},
 				},

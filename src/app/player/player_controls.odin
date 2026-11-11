@@ -54,8 +54,6 @@ build_controls :: proc() {
 					width = ui.points(34),
 					height = ui.points(34),
 					corner_radius = 17,
-					align = .Center,
-					justify = .Center,
 					background = kit.colors.base_content,
 					hover_background = {1, 1, 1, 1},
 					flags = {.Clickable},
@@ -63,7 +61,8 @@ build_controls :: proc() {
 			)
 
 			play_symbol := "pause.fill" if is_playing else "play.fill"
-			if ui.scope(play) do kit.icon_box(play_symbol, 15, kit.colors.base_200)
+			// The symbol's box fills the circle, so the symbol sits in its middle.
+			if ui.scope(play) do kit.icon_box(play_symbol, 15, kit.colors.base_200, {width = ui.fill(), height = ui.fill()})
 
 			is_play_clicked := ui.signal(play).is_activated
 

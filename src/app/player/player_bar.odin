@@ -47,7 +47,7 @@ build_player_bar :: proc() {
 			{
 				width = ui.fill(),
 				height = ui.points(1),
-				background = kit.to_faded(kit.colors.base_content, kit.LINE_OPACITY),
+				background = kit.colors.line,
 				position = {0, 0},
 				flags = {.Floating},
 			},

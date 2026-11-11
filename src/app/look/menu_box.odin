@@ -37,7 +37,7 @@ menu_box :: proc(id: string, position: [2]f32, width: f32, window_size: [2]f32) 
 			corner_radius = kit.shape.radius_box,
 			background = kit.colors.popover,
 			border_width = kit.shape.border,
-			border_color = kit.to_faded(kit.colors.base_content, kit.LINE_OPACITY),
+			border_color = kit.colors.line,
 			position = {x, y},
 			flags = {.Floating, .Clickable},
 		},

@@ -204,7 +204,7 @@ build_pills :: proc(details: Song_Details, info: playback.Song_Info) {
 					corner_radius = 13,
 					background = kit.to_color(0xffffff14),
 					border_width = 1,
-					border_color = kit.to_faded(kit.colors.base_content, kit.LINE_OPACITY),
+					border_color = kit.colors.line,
 					text_color = kit.colors.primary if is_quality else kit.colors.base_content,
 					font_size = 12,
 					font_weight = .Semibold,

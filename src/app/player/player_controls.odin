@@ -34,7 +34,7 @@ build_controls :: proc() {
 		)
 
 		if ui.scope(buttons) {
-			shuffle_color := kit.colors.primary if playback.queue.is_shuffled else kit.to_faded(kit.colors.base_content, 0.5)
+			shuffle_color := kit.colors.primary if playback.queue.is_shuffled else kit.with_opacity(kit.colors.base_content, 0.5)
 			shuffle := kit.button("shuffle", icon = "shuffle", icon_size = 14, icon_color = shuffle_color)
 			if shuffle.is_activated do playback.toggle_shuffle()
 			if shuffle.is_secondary {
@@ -78,7 +78,7 @@ build_controls :: proc() {
 
 			repeat_symbol := "repeat.1" if playback.queue.repeat == "one" else "repeat"
 			repeat_color :=
-				kit.colors.primary if playback.queue.repeat != "off" else kit.to_faded(kit.colors.base_content, 0.5)
+				kit.colors.primary if playback.queue.repeat != "off" else kit.with_opacity(kit.colors.base_content, 0.5)
 
 			if kit.button("repeat", icon = repeat_symbol, icon_size = 14, icon_color = repeat_color).is_activated {
 				playback.cycle_repeat()
@@ -118,7 +118,7 @@ build_progress :: proc(has_song: bool) {
 				width = ui.points(CLOCK_WIDTH_POINTS),
 				height = ui.fit_text(),
 				text_align = .End,
-				text_color = kit.to_faded(kit.colors.base_content, 0.5),
+				text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 				font_size = 11,
 			},
 			"",
@@ -128,7 +128,7 @@ build_progress :: proc(has_song: bool) {
 		clock.text = look.to_clock_text(f64(shown_ratio) * duration_seconds)
 		kit.text(
 			look.to_clock_text(duration_seconds),
-			kit.to_faded(kit.colors.base_content, 0.5),
+			kit.with_opacity(kit.colors.base_content, 0.5),
 			11,
 			width = ui.points(CLOCK_WIDTH_POINTS),
 		)
@@ -152,13 +152,13 @@ build_player_end :: proc() {
 
 	if ui.scope(end) {
 		ui.box("", {width = ui.fill(), height = ui.points(1)})
-		panel_color := kit.colors.primary if core.app.panel != .None else kit.to_faded(kit.colors.base_content, 0.5)
+		panel_color := kit.colors.primary if core.app.panel != .None else kit.with_opacity(kit.colors.base_content, 0.5)
 
 		if kit.button("panel", icon = "sidebar.right", icon_size = 16, icon_color = panel_color).is_activated {
 			core.set_panel(.None if core.app.panel != .None else core.app.last_panel)
 		}
 
-		kit.icon_box("speaker.wave.2.fill", 15, kit.to_faded(kit.colors.base_content, 0.7))
+		kit.icon_box("speaker.wave.2.fill", 15, kit.with_opacity(kit.colors.base_content, 0.7))
 
 		shown_ratio := f32(core.app.now_playing.volume_percent / 100)
 		volume := kit.slider("volume", &shown_ratio, is_set_on_release = true, tone = .Base, width = ui.points(80))

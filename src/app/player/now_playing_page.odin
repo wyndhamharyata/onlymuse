@@ -23,7 +23,7 @@ build_now_playing_page :: proc() {
 	if ui.scope(page) {
 		if !is_song {
 			kit.heading("Now Playing")
-			kit.text("Nothing is playing. Play a song and it shows here.", kit.to_faded(kit.colors.base_content, 0.7), is_wrapped = true)
+			kit.text("Nothing is playing. Play a song and it shows here.", kit.with_opacity(kit.colors.base_content, 0.7), is_wrapped = true)
 			return
 		}
 
@@ -73,7 +73,7 @@ build_now_playing_page :: proc() {
 					{
 						width = ui.fill(),
 						height = ui.fit_text(),
-						text_color = kit.to_faded(kit.colors.base_content, 0.5),
+						text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 						font_size = 11.5,
 						flags = {.Wrap_Text},
 					},

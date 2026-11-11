@@ -164,7 +164,7 @@ build_detail_card :: proc(id, title: string, rows: []Detail, weight: f32) {
 			{
 				width = ui.fill(),
 				height = ui.fit_text(),
-				text_color = kit.to_faded(kit.colors.base_content, 0.5),
+				text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 				font_size = 11,
 				font_weight = .Semibold,
 				padding = {0, 0, 0, 4},
@@ -184,7 +184,7 @@ build_detail_card :: proc(id, title: string, rows: []Detail, weight: f32) {
 					{
 						width = ui.fit_text(),
 						height = ui.fit_text(),
-						text_color = kit.to_faded(kit.colors.base_content, 0.7),
+						text_color = kit.with_opacity(kit.colors.base_content, 0.7),
 						font_size = 13,
 					},
 					row.label,
@@ -202,7 +202,7 @@ build_detail_card :: proc(id, title: string, rows: []Detail, weight: f32) {
 					row.value,
 				)
 
-				if row.is_copyable && kit.button("copy", icon = "doc.on.doc", icon_size = 11, icon_color = kit.to_faded(kit.colors.base_content, 0.7)).is_activated {
+				if row.is_copyable && kit.button("copy", icon = "doc.on.doc", icon_size = 11, icon_color = kit.with_opacity(kit.colors.base_content, 0.7)).is_activated {
 					platform.set_clipboard(row.value)
 					kit.show_toast(fmt.tprintf("Copied the %s", row.label))
 				}

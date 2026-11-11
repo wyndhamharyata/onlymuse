@@ -148,7 +148,7 @@ build_sign_in_card :: proc() {
 				{
 					width = ui.fill(),
 					height = ui.fit_text(),
-					text_color = kit.to_faded(kit.colors.base_content, 0.7),
+					text_color = kit.with_opacity(kit.colors.base_content, 0.7),
 					flags = {.Wrap_Text},
 				},
 				"onlymuse reads Apple Music with the sign-in of music.apple.com. Apple's own sign-in page opens in a window of its own.",

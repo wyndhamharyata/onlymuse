@@ -47,7 +47,7 @@ draw_frame :: proc() -> bool {
 	playback.build_shuffle_rules()
 	kit.build_toast(look.PLAYER_HEIGHT_POINTS)
 	if core.app.is_sign_in_needed do build_sign_in_card()
-	dev.build_frame_time(kit.to_faded(kit.colors.base_content, 0.5))
+	dev.build_frame_time(kit.with_opacity(kit.colors.base_content, 0.5))
 
 	is_frame_wanted := app.end_frame()
 	save_scroll_at_rest()

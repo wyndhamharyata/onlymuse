@@ -95,7 +95,7 @@ build_up_next :: proc() {
 				{
 					width = ui.fill(),
 					height = ui.fit_text(),
-					text_color = kit.to_faded(kit.colors.base_content, 0.7),
+					text_color = kit.with_opacity(kit.colors.base_content, 0.7),
 					font_size = 11.5,
 					flags = {.Wrap_Text},
 				},
@@ -109,8 +109,8 @@ build_up_next :: proc() {
 					height = ui.points(22),
 					padding = {8, 0, 8, 0},
 					corner_radius = 6,
-					background = kit.to_faded(kit.colors.base_content, kit.HOVER_OPACITY),
-					hover_background = kit.to_faded(kit.colors.base_content, kit.HOVER_OPACITY),
+					background = kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY),
+					hover_background = kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY),
 					text_color = kit.colors.base_content,
 					font_size = 11.5,
 					font_weight = .Semibold,
@@ -151,9 +151,9 @@ build_up_next :: proc() {
 build_queue_row :: proc(index: int) -> bool {
 	song := playback.queue.songs[index]
 	is_current := index == playback.queue.index
-	tint := kit.to_faded(kit.colors.primary, kit.SOFT_OPACITY)
+	tint := kit.with_opacity(kit.colors.primary, kit.SOFT_OPACITY)
 	background: [4]f32 = tint if is_current else {}
-	hover_background := tint if is_current else kit.to_faded(kit.colors.base_content, kit.HOVER_OPACITY)
+	hover_background := tint if is_current else kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY)
 	name_color := kit.colors.primary if is_current else kit.colors.base_content
 	row := ui.box(
 		fmt.tprintf("queue_%d_%s", index, song.id),
@@ -189,14 +189,14 @@ build_queue_row :: proc(index: int) -> bool {
 			kit.scrolling_text(
 				"artist",
 				song.artist_name,
-				kit.to_faded(kit.colors.base_content, 0.7),
+				kit.with_opacity(kit.colors.base_content, 0.7),
 				12,
 				is_hovered = is_hovered,
 			)
 		}
 
 		if !is_current && ui.signal(row).is_hovered {
-			is_removed = kit.button("remove", icon = "xmark", icon_size = 11, icon_color = kit.to_faded(kit.colors.base_content, 0.7)).is_activated
+			is_removed = kit.button("remove", icon = "xmark", icon_size = 11, icon_color = kit.with_opacity(kit.colors.base_content, 0.7)).is_activated
 		}
 	}
 

@@ -238,7 +238,7 @@ build_playlist_menu :: proc(
 				{
 					width = ui.fill(),
 					height = ui.fit_text(),
-					text_color = kit.to_faded(kit.colors.base_content, 0.5),
+					text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 					font_size = 11,
 					padding = {4, 4, 4, 2},
 				},
@@ -287,7 +287,7 @@ build_playlist_menu :: proc(
 				{
 					width = ui.fill(),
 					height = ui.fit_text(),
-					text_color = kit.to_faded(kit.colors.base_content, 0.5),
+					text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 					font_size = 12,
 					padding = {8, 4, 8, 4},
 				},

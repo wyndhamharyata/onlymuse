@@ -38,7 +38,7 @@ to_phase_text :: proc(phase: apple.Phase) -> string {
 
 build_phase :: proc(phase: apple.Phase, what: string) {
 	if phase == .Failed {
-		kit.text(to_phase_text(phase), kit.to_faded(kit.colors.base_content, 0.7), is_wrapped = true)
+		kit.text(to_phase_text(phase), kit.with_opacity(kit.colors.base_content, 0.7), is_wrapped = true)
 		return
 	}
 
@@ -102,11 +102,11 @@ build_loading :: proc(what: string) {
 		if ui.scope(label) {
 			kit.text(
 				fmt.tprintf("Loading %s", what),
-				kit.to_faded(kit.colors.base_content, 0.7),
+				kit.with_opacity(kit.colors.base_content, 0.7),
 				LOADING_TEXT_POINTS,
 				width = ui.fit_text(),
 			)
-			kit.text(all_dots[:dot_count], kit.to_faded(kit.colors.base_content, 0.7), LOADING_TEXT_POINTS, width = dots_width)
+			kit.text(all_dots[:dot_count], kit.with_opacity(kit.colors.base_content, 0.7), LOADING_TEXT_POINTS, width = dots_width)
 		}
 	}
 
@@ -123,7 +123,7 @@ draw_loading_bar :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	filled := rect
 	filled.x = rect.x + (rect.z - rect.x) * ratios[0]
 	filled.z = rect.x + (rect.z - rect.x) * ratios[1]
-	track_color := kit.to_faded(kit.colors.base_content, kit.TRACK_OPACITY * opacity)
+	track_color := kit.with_opacity(kit.colors.base_content, kit.TRACK_OPACITY * opacity)
 	render.push({rect = rect, color = track_color, corner_radius = radius, clip = clip})
-	render.push({rect = filled, color = kit.to_faded(kit.colors.base_content, opacity), corner_radius = radius, clip = clip})
+	render.push({rect = filled, color = kit.with_opacity(kit.colors.base_content, opacity), corner_radius = radius, clip = clip})
 }

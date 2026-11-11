@@ -209,7 +209,7 @@ build_card_tile :: proc(
 				{
 					width = ui.fill(),
 					height = ui.fit_text(),
-					text_color = kit.to_faded(kit.colors.base_content, 0.7),
+					text_color = kit.with_opacity(kit.colors.base_content, 0.7),
 					font_size = 12,
 					flags = {.Truncate_Text},
 				},

@@ -153,7 +153,7 @@ build_stat_card :: proc(
 				{
 					width = ui.fill(),
 					height = ui.fit_text(),
-					text_color = kit.to_faded(kit.colors.base_content, 0.5),
+					text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 					font_size = 11,
 					font_weight = .Semibold,
 				},
@@ -176,7 +176,7 @@ build_stat_card :: proc(
 				{
 					width = ui.fill(),
 					height = ui.fit_text(),
-					text_color = kit.to_faded(kit.colors.base_content, 0.7),
+					text_color = kit.with_opacity(kit.colors.base_content, 0.7),
 					font_size = 12,
 					flags = {.Truncate_Text},
 				},

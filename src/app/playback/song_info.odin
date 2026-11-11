@@ -226,6 +226,6 @@ apply_favourite_answer :: proc(message: helper.Message) {
 
 build_favourite_button :: proc(id: string, is_favourite: bool) -> bool {
 	return kit.button(id, icon = "heart.circle.fill" if is_favourite else "heart.circle", icon_size = 13,
-		icon_color = kit.colors.primary if is_favourite else kit.to_faded(kit.colors.base_content, 0.5),
+		icon_color = kit.colors.primary if is_favourite else kit.with_opacity(kit.colors.base_content, 0.5),
 	).is_activated
 }

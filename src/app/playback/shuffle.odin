@@ -287,7 +287,7 @@ build_shuffle_rules :: proc() {
 				{
 					width = ui.fill(),
 					height = ui.fit_text(),
-					text_color = kit.to_faded(kit.colors.base_content, 0.5),
+					text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 					font_size = 11.5,
 					padding = {9, 4, 9, 4},
 					flags = {.Wrap_Text},

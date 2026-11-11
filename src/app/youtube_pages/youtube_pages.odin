@@ -72,10 +72,10 @@ build_youtube_sign_in_page :: proc(title, text: string) {
 
 	if ui.scope(page) {
 		kit.heading(title)
-		kit.text(text, kit.to_faded(kit.colors.base_content, 0.7), is_wrapped = true)
+		kit.text(text, kit.with_opacity(kit.colors.base_content, 0.7), is_wrapped = true)
 		kit.text(
 			"Sign in at music.youtube.com in Helium, then use its sign-in here. macOS asks once to let onlymuse read Helium's key. Choose Always Allow.",
-			kit.to_faded(kit.colors.base_content, 0.7),
+			kit.with_opacity(kit.colors.base_content, 0.7),
 is_wrapped = true,
 		)
 

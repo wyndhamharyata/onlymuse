@@ -42,7 +42,7 @@ draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	is_symbol_showing := image_opacity < 1 && paint.symbol != ""
 
 	if is_symbol_showing {
-		color := kit.to_faded(paint.symbol_color, opacity * (1 - image_opacity))
+		color := kit.with_opacity(paint.symbol_color, opacity * (1 - image_opacity))
 		icon.draw(paint.symbol, ui.to_pixels(paint.symbol_points), rect, clip, color)
 	}
 

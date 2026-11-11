@@ -115,24 +115,16 @@ has_term :: proc(name, term: string) -> bool {
 	return to_term_score(name, term) >= 0
 }
 
+// 0 when name starts with term, 1 when a word of it does, 2 when term is anywhere in it, and -1
+// when it isn't: kit's match score, without its looser letters-in-order match.
 @(private = "file")
 to_term_score :: proc(name, term: string) -> int {
-	lower := strings.to_lower(name, context.temp_allocator)
-	at := strings.index(lower, term)
-	if at < 0 do return -1
-	if at == 0 do return 0
+	// No term matches everything, as a start does.
+	if term == "" do return 0
 
-	for start := at; start >= 0; {
-		before := lower[start - 1]
-		is_word_start := before == ' ' || before == '(' || before == '-'
-		if is_word_start do return 1
+	score := kit.to_match_score(name, term)
 
-		next := strings.index(lower[start + 1:], term)
-		if next < 0 do break
-		start += 1 + next
-	}
-
-	return 2
+	return 4 - score if score >= 2 else -1
 }
 
 @(private = "file")

@@ -217,6 +217,6 @@ build_panel_tabs :: proc(width: f32) {
 	case .Lyrics:
 		selected = "lyrics"
 	}
-	tabs := kit.choice("panel_tabs", &selected, PANEL_TABS, .Segments, width = ui.points(width))
+	tabs := kit.segmented("panel_tabs", &selected, PANEL_TABS, width = ui.points(width))
 	if tabs.is_changed do core.set_panel(.Lyrics if selected == "lyrics" else .Up_Next)
 }

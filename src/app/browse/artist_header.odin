@@ -46,14 +46,13 @@ build_artist_header :: proc(data: ^core.Page_Data, detail: string, width: f32) {
 				width = ui.fill(),
 				height = ui.fill(),
 				corner_radius = ARTIST_HEADER_RADIUS_POINTS,
-				background = {window_color.r, window_color.g, window_color.b, 0},
-				end_background = {
-					window_color.r,
-					window_color.g,
-					window_color.b,
-					ARTIST_SHADE_ALPHA,
+				layers = {
+					ui.Gradient {
+						from = {window_color.r, window_color.g, window_color.b, 0},
+						to = {window_color.r, window_color.g, window_color.b, ARTIST_SHADE_ALPHA},
+						stops = {0.35, 1},
+					},
 				},
-				gradient = {0.35, 1},
 				flags = {.Floating},
 			},
 		)

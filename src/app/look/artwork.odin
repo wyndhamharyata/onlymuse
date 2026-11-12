@@ -148,8 +148,7 @@ artwork_rect_box :: proc(
 			height = ui.points(size_points.y),
 			corner_radius = radius_points,
 			background = placeholder.top,
-			end_background = placeholder.bottom,
-			gradient = {0, 1},
+			layers = {ui.Gradient{from = placeholder.top, to = placeholder.bottom}},
 		},
 	)
 

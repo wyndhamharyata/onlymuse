@@ -29,12 +29,12 @@ build_page_area :: proc() {
 		)
 
 		if ui.scope(toolbar) {
-			if kit.button("back", icon = "chevron.left", icon_size = 16, is_disabled = !core.can_go_back()).is_activated {
+			if kit.button("back", icon = "chevron.left", icon_size = 16, is_disabled = !core.can_go_back(), tooltip = "Back").is_activated {
 				core.go_back()
 			}
 
 			if kit.button("forward", icon = "chevron.right", icon_size = 16,
-				is_disabled = !core.can_go_forward(),
+				is_disabled = !core.can_go_forward(), tooltip = "Forward",
 			).is_activated {
 				core.go_forward()
 			}

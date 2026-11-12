@@ -196,7 +196,7 @@ build_queue_row :: proc(index: int) -> bool {
 		}
 
 		if !is_current && ui.signal(row).is_hovered {
-			is_removed = kit.button("remove", icon = "xmark", icon_size = 11, icon_color = kit.with_opacity(kit.colors.base_content, 0.7)).is_activated
+			is_removed = kit.button("remove", icon = "xmark", icon_size = 11, icon_color = kit.with_opacity(kit.colors.base_content, 0.7), tooltip = "Remove from Up Next").is_activated
 		}
 	}
 

@@ -1,5 +1,6 @@
 package player
 
+import "core:fmt"
 import "core:math"
 import "om:app/core"
 import "om:app/look"
@@ -35,7 +36,7 @@ build_controls :: proc() {
 
 		if ui.scope(buttons) {
 			shuffle_color := kit.colors.primary if playback.queue.is_shuffled else kit.with_opacity(kit.colors.base_content, 0.5)
-			shuffle := kit.button("shuffle", icon = "shuffle", icon_size = 14, icon_color = shuffle_color)
+			shuffle := kit.button("shuffle", icon = "shuffle", icon_size = 14, icon_color = shuffle_color, tooltip = "Shuffle")
 			if shuffle.is_activated do playback.toggle_shuffle()
 			if shuffle.is_secondary {
 				playback.open_shuffle_rules(shuffle.box.rect.xy + SHUFFLE_RULES_OFFSET_POINTS)
@@ -44,7 +45,7 @@ build_controls :: proc() {
 			resume_seconds :=
 				playback.queue.resume_point.position_seconds if playback.is_resume_shown() else helper.read_position_seconds(now_playing)
 
-			if kit.button("previous", icon = "backward.fill", icon_size = 17).is_activated {
+			if kit.button("previous", icon = "backward.fill", icon_size = 17, tooltip = "Previous").is_activated {
 				playback.skip_to_previous(resume_seconds)
 			}
 
@@ -60,6 +61,7 @@ build_controls :: proc() {
 				},
 			)
 
+			play.role, play.label = .Button, "Pause" if is_playing else "Play"
 			play_symbol := "pause.fill" if is_playing else "play.fill"
 			// The symbol's box fills the circle, so the symbol sits in its middle.
 			if ui.scope(play) do kit.icon_box(play_symbol, 15, kit.colors.base_200, {width = ui.fill(), height = ui.fill()})
@@ -72,7 +74,7 @@ build_controls :: proc() {
 				helper.send_play_pause()
 			}
 
-			if kit.button("next", icon = "forward.fill", icon_size = 17).is_activated {
+			if kit.button("next", icon = "forward.fill", icon_size = 17, tooltip = "Next").is_activated {
 				playback.skip_to_next()
 			}
 
@@ -80,7 +82,7 @@ build_controls :: proc() {
 			repeat_color :=
 				kit.colors.primary if playback.queue.repeat != "off" else kit.with_opacity(kit.colors.base_content, 0.5)
 
-			if kit.button("repeat", icon = repeat_symbol, icon_size = 14, icon_color = repeat_color).is_activated {
+			if kit.button("repeat", icon = repeat_symbol, icon_size = 14, icon_color = repeat_color, tooltip = "Repeat").is_activated {
 				playback.cycle_repeat()
 			}
 		}
@@ -126,6 +128,8 @@ build_progress :: proc(has_song: bool) {
 		shown_ratio := ratio
 		seek := kit.slider("seek", &shown_ratio, is_set_on_release = true, tone = .Base, width = ui.fill())
 		clock.text = look.to_clock_text(f64(shown_ratio) * duration_seconds)
+		seek.box.label = "Position"
+		seek.box.value = fmt.tprintf("%s of %s", clock.text, look.to_clock_text(duration_seconds))
 		kit.text(
 			look.to_clock_text(duration_seconds),
 			kit.with_opacity(kit.colors.base_content, 0.5),
@@ -154,7 +158,7 @@ build_player_end :: proc() {
 		ui.box("", {width = ui.fill(), height = ui.points(1)})
 		panel_color := kit.colors.primary if core.app.panel != .None else kit.with_opacity(kit.colors.base_content, 0.5)
 
-		if kit.button("panel", icon = "sidebar.right", icon_size = 16, icon_color = panel_color).is_activated {
+		if kit.button("panel", icon = "sidebar.right", icon_size = 16, icon_color = panel_color, tooltip = "Panel").is_activated {
 			core.set_panel(.None if core.app.panel != .None else core.app.last_panel)
 		}
 
@@ -162,6 +166,7 @@ build_player_end :: proc() {
 
 		shown_ratio := f32(core.app.now_playing.volume_percent / 100)
 		volume := kit.slider("volume", &shown_ratio, is_set_on_release = true, tone = .Base, width = ui.points(80))
+		volume.box.label = "Volume"
 
 		if volume.is_changed {
 			percent := int(math.round(shown_ratio * 100))

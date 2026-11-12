@@ -9,7 +9,6 @@ import "om:app/look"
 import "om:app/menus"
 import "om:app/playback"
 import "om:apple"
-import "thor:dev"
 import "thor:kit"
 import "thor:ui"
 
@@ -58,8 +57,6 @@ is_wrapped = true,
 	if needs_read do read_album(data, watched.body)
 
 	page := look.page_scroll("album")
-	dev.bench_scroll(page)
-
 	if ui.scope(page) {
 		if data.title == "" {
 			look.build_phase(watched.phase, "the album")

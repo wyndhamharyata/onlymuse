@@ -53,7 +53,7 @@ draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 			rect = rect,
 			uv = to_fill_uv(rect, texture, paint.focus_y),
 			color = {1, 1, 1, opacity * image_opacity},
-			corner_radius = ui.to_pixels(box.style.corner_radius),
+			corner_radius = box.style.corner_radius * ui.to_pixels(1),
 			clip = clip,
 			kind = .Image,
 		},

@@ -6,7 +6,6 @@ import "om:app/lists"
 import "om:app/look"
 import "om:app/youtube_lists"
 import "om:apple"
-import "thor:dev"
 import "thor:kit"
 import "thor:ui"
 
@@ -33,8 +32,6 @@ build_shelves_page :: proc(title, path: string, is_new: bool) {
 	}
 
 	page := look.page_scroll("shelves")
-	dev.bench_scroll(page)
-
 	if ui.scope(page) {
 		kit.heading(title)
 

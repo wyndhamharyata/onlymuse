@@ -8,7 +8,6 @@ import "om:app/lists"
 import "om:app/look"
 import "om:app/youtube_lists"
 import "om:apple"
-import "thor:dev"
 import "thor:kit"
 import "thor:ui"
 
@@ -105,8 +104,6 @@ is_wrapped = true,
 	if needs_read do read_artist(data, watched.body, library_albums)
 
 	page := look.page_scroll("artist")
-	dev.bench_scroll(page)
-
 	if ui.scope(page) {
 		if data.title == "" {
 			look.build_phase(watched.phase, name)

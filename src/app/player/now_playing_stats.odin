@@ -3,6 +3,7 @@ package player
 import "core:fmt"
 import "core:math"
 import "core:strings"
+import "core:time"
 import "om:app/core"
 import "om:app/look"
 import "om:app/playback"
@@ -55,7 +56,7 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f3
 			"last played",
 			"LAST PLAYED",
 			to_day_text(last_ms, now_ms, zone_seconds) if last_ms > 0 else "Never",
-			platform.format_date(last_ms, "HH:mm") if last_ms > 0 else "",
+			platform.format_date(to_moment(last_ms), "HH:mm") if last_ms > 0 else "",
 			1,
 			{},
 			false,
@@ -63,8 +64,8 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f3
 		{
 			"added",
 			"IN LIBRARY SINCE",
-			platform.format_date(added_ms, "d MMM") if added_ms > 0 else "Unknown",
-			platform.format_date(added_ms, "yyyy") if added_ms > 0 else "",
+			platform.format_date(to_moment(added_ms), "d MMM") if added_ms > 0 else "Unknown",
+			platform.format_date(to_moment(added_ms), "yyyy") if added_ms > 0 else "",
 			1,
 			{},
 			false,
@@ -73,7 +74,7 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f3
 			"skips",
 			"SKIPS",
 			fmt.tprintf("%d", info.skipped_count),
-			fmt.tprintf("last on %s", platform.format_date(skipped_ms, "d MMM")) if skipped_ms > 0 else "",
+			fmt.tprintf("last on %s", platform.format_date(to_moment(skipped_ms), "d MMM")) if skipped_ms > 0 else "",
 			1,
 			{},
 			false,
@@ -305,5 +306,9 @@ to_day_text :: proc(unix_ms, now_ms, zone_seconds: f64) -> string {
 		return "Yesterday"
 	}
 
-	return platform.format_date(unix_ms, "d MMM")
+	return platform.format_date(to_moment(unix_ms), "d MMM")
+}
+
+to_moment :: proc(unix_ms: f64) -> time.Time {
+	return time.unix(0, i64(unix_ms * f64(time.Millisecond)))
 }

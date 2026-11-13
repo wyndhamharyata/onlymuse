@@ -128,7 +128,5 @@ to_console_text :: proc(entries: []console.Entry) -> string {
 
 @(private = "file")
 to_console_time :: proc(at: time.Time) -> string {
-	at_ms := f64(time.to_unix_nanoseconds(at)) / f64(time.Millisecond)
-
-	return platform.format_date(at_ms, "HH:mm:ss")
+	return platform.format_date(at, "HH:mm:ss")
 }

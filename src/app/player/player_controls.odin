@@ -2,6 +2,7 @@ package player
 
 import "core:fmt"
 import "core:math"
+import "core:time"
 import "om:app/core"
 import "om:app/look"
 import "om:app/playback"
@@ -143,7 +144,7 @@ build_progress :: proc(has_song: bool) {
 	// Nothing else draws a frame when the clock text changes, so this timer asks for one.
 	if now_playing.playback == .Playing && !is_waiting {
 		next_second := 1 - (position_seconds - math.floor(position_seconds))
-		ui.request_frame_after(next_second + TIMER_SLACK_SECONDS)
+		ui.request_frame_after(time.Duration((next_second + TIMER_SLACK_SECONDS) * f64(time.Second)))
 	}
 }
 

@@ -5,6 +5,7 @@ import "core:mem"
 import "core:mem/virtual"
 import "core:slice"
 import "core:strings"
+import "core:time"
 import "om:app/core"
 import "om:app/playback"
 import "om:apple"
@@ -32,7 +33,7 @@ watch_results :: proc() {
 	catalog: apple.Watched
 	is_settled := helper.now_ms() - palette.typed_at_ms >= PALETTE_SETTLE_MS
 	is_search_due := term != "" && is_settled
-	if term != "" && !is_settled do ui.request_frame_after(PALETTE_SETTLE_MS / 1000.0)
+	if term != "" && !is_settled do ui.request_frame_after(PALETTE_SETTLE_MS * time.Millisecond)
 
 	if is_search_due {
 		catalog = apple.watch(

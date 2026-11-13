@@ -3,6 +3,7 @@ package playback
 import "core:fmt"
 import "core:strings"
 import "core:sync"
+import "core:time"
 import "om:app/core"
 import "om:app/look"
 import "om:app/matching"
@@ -272,7 +273,7 @@ apply_added_song :: proc(now_ms: f64) {
 
 	queue_state.poll_deadline_ms = now_ms + ADD_TIMEOUT_SECONDS * 1000
 	queue_state.next_poll_ms = now_ms + ADD_POLL_SECONDS * 1000
-	ui.request_frame_after(ADD_POLL_SECONDS)
+	ui.request_frame_after(time.Duration(ADD_POLL_SECONDS * f64(time.Second)))
 }
 
 @(private = "file")

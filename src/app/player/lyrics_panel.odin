@@ -2,6 +2,7 @@ package player
 
 import "core:fmt"
 import "core:strconv"
+import "core:time"
 import "om:app/core"
 import "om:helper"
 import "om:lyrics"
@@ -103,7 +104,7 @@ start_lyrics_timer :: proc(lines: []lyrics.Line, position_seconds: f64) {
 		}
 	}
 
-	if next >= 0 do ui.request_frame_after(next - position_seconds + TIMER_SLACK_SECONDS)
+	if next >= 0 do ui.request_frame_after(time.Duration((next - position_seconds + TIMER_SLACK_SECONDS) * f64(time.Second)))
 }
 
 is_word_fading :: proc(lines: []lyrics.Line, position_seconds: f64) -> bool {

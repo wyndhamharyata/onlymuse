@@ -1,6 +1,7 @@
 package look
 
 import "core:math"
+import "core:math/linalg"
 import "om:apple"
 import "thor:icon"
 import "thor:images"
@@ -104,8 +105,8 @@ to_placeholder :: proc(
 		text_color := kit.to_color_from_hex(artwork.text_color) or_else kit.colors.base_content
 
 		return {
-			top = kit.mix_color(background, text_color, 0.18),
-			bottom = kit.mix_color(background, {0, 0, 0, 1}, 0.25),
+			top = linalg.lerp(background, text_color, 0.18),
+			bottom = linalg.lerp(background, {0, 0, 0, 1}, 0.25),
 			symbol = symbol,
 			symbol_color = {text_color.r, text_color.g, text_color.b, 0.5},
 		}

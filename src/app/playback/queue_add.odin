@@ -4,6 +4,7 @@ import "core:fmt"
 import "core:strings"
 import "core:sync"
 import "core:thread"
+import "core:time"
 import "om:app/core"
 import "om:app/matching"
 import "om:apple"
@@ -60,7 +61,7 @@ set_start_deadline :: proc() {
 	if queue.songs[queue.index].youtube_id == "" do return
 
 	queue_state.start_deadline_ms = helper.now_ms() + START_TIMEOUT_SECONDS * 1000
-	ui.request_frame_after(START_TIMEOUT_SECONDS)
+	ui.request_frame_after(time.Duration(START_TIMEOUT_SECONDS * f64(time.Second)))
 }
 
 @(private)

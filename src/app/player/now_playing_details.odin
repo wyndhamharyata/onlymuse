@@ -227,7 +227,7 @@ to_release_note :: proc(date: string, now_day: int, allocator := context.allocat
 	if is_new {
 		return fmt.aprintf(
 			"NEW · %s",
-			platform.format_date(f64(time.to_unix_seconds(release)) * 1000, "d MMM"),
+			platform.format_date(release, "d MMM"),
 			allocator = allocator,
 		)
 	}

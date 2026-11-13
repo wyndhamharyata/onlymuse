@@ -3,6 +3,7 @@ package playback
 import "core:encoding/json"
 import "core:strings"
 import "core:sync"
+import "core:time"
 import "om:app/core"
 import "om:app/matching"
 import "om:console"
@@ -237,7 +238,7 @@ apply_poll_answer :: proc(answered_id: string) {
 
 	if !is_poll_over {
 		queue_state.next_poll_ms = helper.now_ms() + ADD_POLL_SECONDS * 1000
-		ui.request_frame_after(ADD_POLL_SECONDS)
+		ui.request_frame_after(time.Duration(ADD_POLL_SECONDS * f64(time.Second)))
 		return
 	}
 

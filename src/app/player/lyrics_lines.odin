@@ -1,6 +1,7 @@
 package player
 
 import "core:fmt"
+import "core:time"
 import "om:helper"
 import "om:lyrics"
 import "thor:kit"
@@ -109,7 +110,7 @@ build_lead_note :: proc() {
 	shown_seconds := (helper.now_ms() - lyrics_state.lead_changed_ms) / 1000
 	if shown_seconds > LEAD_NOTE_SECONDS do return
 
-	ui.request_frame_after(LEAD_NOTE_SECONDS - shown_seconds + TIMER_SLACK_SECONDS)
+	ui.request_frame_after(time.Duration((LEAD_NOTE_SECONDS - shown_seconds + TIMER_SLACK_SECONDS) * f64(time.Second)))
 
 	text := fmt.tprintf(
 		"The lyrics run %.2f s ahead of Music.app. Cmd [ and Cmd ] change it.",

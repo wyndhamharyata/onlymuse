@@ -60,7 +60,7 @@ build_loading :: proc(what: string) {
 	shown_seconds := elapsed_seconds - LOADING_DELAY_SECONDS
 
 	if shown_seconds < 0 {
-		ui.request_frame_after(-shown_seconds)
+		ui.request_frame_after(time.Duration(-shown_seconds * f64(time.Second)))
 		return
 	}
 

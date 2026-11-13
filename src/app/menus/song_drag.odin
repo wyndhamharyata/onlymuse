@@ -29,6 +29,8 @@ apply_song_row_signal :: proc(signal: ui.Signal, song: core.Catalog_Song) -> boo
 			song        = core.copy_song(song),
 		}
 	}
+	// The pressed row's cursor shows until the release, wherever the song is dragged.
+	if drag.is_dragging && signal.is_held do signal.box.style.cursor = .Closed_Hand
 
 	return signal.is_activated && drag.ended_frame != app.frame_count
 }

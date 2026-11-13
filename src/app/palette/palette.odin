@@ -149,7 +149,8 @@ build_palette :: proc() {
 			height = ui.fill(),
 			background = kit.to_color(0x00000059),
 			position = {0, 0},
-			flags = {.Floating, .Clickable},
+			pointer = .Click,
+			flags = {.Floating},
 		},
 	)
 	is_closing := ui.signal(cover).is_activated && app.frame_count > palette.opened_frame + 1
@@ -184,7 +185,8 @@ build_palette :: proc() {
 				border_width = 1,
 				border_color = kit.to_color(0xffffff1f),
 				position = position,
-				flags = {.Floating, .Clickable},
+				pointer = .Click,
+				flags = {.Floating},
 			},
 		)
 

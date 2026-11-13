@@ -82,7 +82,7 @@ build_artist_header :: proc(data: ^core.Page_Data, detail: string, width: f32) {
 						text_color = kit.colors.base_content,
 						font_size = 40,
 						font_weight = .Bold,
-						flags = {.Truncate_Text},
+						text_fit = .Truncate,
 					},
 					data.title,
 				)

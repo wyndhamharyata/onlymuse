@@ -106,7 +106,8 @@ build_sign_in_card :: proc() {
 			height = ui.fill(),
 			background = kit.to_color(0x000000a0),
 			position = {0, 0},
-			flags = {.Floating, .Clickable},
+			pointer = .Click,
+			flags = {.Floating},
 		},
 	)
 
@@ -149,7 +150,7 @@ build_sign_in_card :: proc() {
 					width = ui.fill(),
 					height = ui.fit_text(),
 					text_color = kit.with_opacity(kit.colors.base_content, 0.7),
-					flags = {.Wrap_Text},
+					text_fit = .Wrap,
 				},
 				"onlymuse reads Apple Music with the sign-in of music.apple.com. Apple's own sign-in page opens in a window of its own.",
 			)

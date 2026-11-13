@@ -140,7 +140,7 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 			padding = {8, 0, 10, 0},
 			corner_radius = 8,
 			background = kit.with_opacity(kit.colors.primary, kit.SOFT_OPACITY) if is_selected else {},
-			flags = {.Clickable},
+			pointer = .Click,
 		},
 	)
 	signal := ui.signal(row)
@@ -174,7 +174,7 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 				height = ui.fit_text(),
 				text_color = kit.with_opacity(kit.colors.base_content, 0.5) if result.is_disabled else kit.colors.base_content,
 				font_size = 13.5,
-				flags = {.Truncate_Text},
+				text_fit = .Truncate,
 			},
 			result.title,
 		)
@@ -185,7 +185,7 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 				height = ui.fit_text(),
 				text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 				font_size = 12,
-				flags = {.Truncate_Text},
+				text_fit = .Truncate,
 			},
 			result.subtitle,
 		)

@@ -73,7 +73,8 @@ build_song_menu :: proc() {
 			width = ui.fill(),
 			height = ui.fill(),
 			position = {0, 0},
-			flags = {.Floating, .Clickable},
+			pointer = .Click,
+			flags = {.Floating},
 		},
 	)
 	is_closing :=

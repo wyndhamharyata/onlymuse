@@ -130,7 +130,7 @@ build_recent_songs_shelf :: proc(artist_id, artist_name: string) {
 				axis = .X,
 				align = .Center,
 				gap = 4,
-				flags = {.Clickable},
+				pointer = .Click,
 			},
 		)
 		text_alpha := 1 - HOVER_FADE * ui.animate("recent_songs_title_hover", 1 if ui.signal(title).is_hovered else 0, kit.motion.fast)

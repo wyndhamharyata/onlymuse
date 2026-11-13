@@ -99,7 +99,7 @@ build_sidebar_item :: proc(
 			background = background,
 			hover_background = background if is_selected else kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY),
 			press_background = kit.with_opacity(kit.colors.base_content, kit.SELECTED_OPACITY),
-			flags = {.Clickable},
+			pointer = .Click,
 		},
 	)
 

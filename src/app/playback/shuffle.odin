@@ -222,7 +222,8 @@ build_shuffle_rules :: proc() {
 			width = ui.fill(),
 			height = ui.fill(),
 			position = {0, 0},
-			flags = {.Floating, .Clickable},
+			pointer = .Click,
+			flags = {.Floating},
 		},
 	)
 
@@ -290,7 +291,7 @@ build_shuffle_rules :: proc() {
 					text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 					font_size = 11.5,
 					padding = {9, 4, 9, 4},
-					flags = {.Wrap_Text},
+					text_fit = .Wrap,
 				},
 				"onlymuse counts plays and skips itself. Changes apply the next time you shuffle.",
 			)

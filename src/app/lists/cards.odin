@@ -132,7 +132,7 @@ build_shelf_title :: proc(title: string, is_youtube: bool) {
 				text_color = kit.colors.base_content,
 				font_size = look.SHELF_TITLE_POINTS,
 				font_weight = .Bold,
-				flags = {.Truncate_Text},
+				text_fit = .Truncate,
 			},
 			title,
 		)
@@ -147,7 +147,6 @@ build_card_tile :: proc(
 	is_wide := false,
 ) -> bool {
 	can_open := card.kind != .Other
-	tile_flags: ui.Flags = {.Clickable} if can_open else {}
 	tile := ui.box(
 		id,
 		{
@@ -156,7 +155,7 @@ build_card_tile :: proc(
 			axis = .Y,
 			gap = 3,
 			align = .Center if is_round else .Start,
-			flags = tile_flags,
+			pointer = .Click if can_open else .Passive,
 		},
 	)
 
@@ -198,7 +197,7 @@ build_card_tile :: proc(
 				text_color = kit.colors.base_content,
 				font_size = kit.SMALL_TEXT_POINTS,
 				text_align = text_align,
-				flags = {.Truncate_Text},
+				text_fit = .Truncate,
 			},
 			card.name,
 		)
@@ -211,7 +210,7 @@ build_card_tile :: proc(
 					height = ui.fit_text(),
 					text_color = kit.with_opacity(kit.colors.base_content, 0.7),
 					font_size = 12,
-					flags = {.Truncate_Text},
+					text_fit = .Truncate,
 				},
 				card.subtitle,
 			)

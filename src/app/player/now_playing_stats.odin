@@ -168,7 +168,7 @@ build_stat_card :: proc(
 					text_color = kit.colors.base_content,
 					font_size = 24,
 					font_weight = .Bold,
-					flags = {.Truncate_Text},
+					text_fit = .Truncate,
 				},
 				value,
 			)
@@ -179,7 +179,7 @@ build_stat_card :: proc(
 					height = ui.fit_text(),
 					text_color = kit.with_opacity(kit.colors.base_content, 0.7),
 					font_size = 12,
-					flags = {.Truncate_Text},
+					text_fit = .Truncate,
 				},
 				note_text,
 			)

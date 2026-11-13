@@ -111,11 +111,9 @@ build_song_info :: proc() {
 			placeholder = look.to_placeholder(queue_song.artwork, queue_song.album_name)
 		}
 
-		// odinfmt cannot read `{.Clickable} if ...` inside another literal, so a local holds it.
-		cover_flags: ui.Flags = {.Clickable} if is_song else {}
 		cover := ui.box(
 			"cover",
-			{width = ui.fit_children(), height = ui.fit_children(), flags = cover_flags},
+			{width = ui.fit_children(), height = ui.fit_children(), pointer = .Click if is_song else .Passive},
 		)
 		if ui.signal(cover).is_activated do core.navigate({kind = .Now_Playing})
 

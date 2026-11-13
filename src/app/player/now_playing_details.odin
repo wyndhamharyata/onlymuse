@@ -197,7 +197,7 @@ build_detail_card :: proc(id, title: string, rows: []Detail, weight: f32) {
 						text_color = kit.colors.base_content,
 						font_size = 13,
 						text_align = .End,
-						flags = {.Truncate_Text},
+						text_fit = .Truncate,
 					},
 					row.value,
 				)

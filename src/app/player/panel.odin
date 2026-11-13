@@ -97,7 +97,7 @@ build_up_next :: proc() {
 					height = ui.fit_text(),
 					text_color = kit.with_opacity(kit.colors.base_content, 0.7),
 					font_size = 11.5,
-					flags = {.Wrap_Text},
+					text_fit = .Wrap,
 				},
 				note_text,
 			)
@@ -114,7 +114,7 @@ build_up_next :: proc() {
 					text_color = kit.colors.base_content,
 					font_size = 11.5,
 					font_weight = .Semibold,
-					flags = {.Clickable},
+					pointer = .Click,
 				},
 				"Rules",
 			)
@@ -167,7 +167,7 @@ build_queue_row :: proc(index: int) -> bool {
 			corner_radius = 6,
 			background = background,
 			hover_background = hover_background,
-			flags = {.Clickable},
+			pointer = .Click,
 		},
 	)
 	is_removed := false

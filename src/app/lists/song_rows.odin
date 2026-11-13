@@ -129,7 +129,7 @@ build_song_row :: proc(
 			background = tint if is_current else {},
 			hover_background = tint if is_current else kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY),
 			press_background = kit.with_opacity(kit.colors.base_content, kit.SELECTED_OPACITY),
-			flags = {.Clickable},
+			pointer = .Click,
 		},
 	)
 

@@ -56,7 +56,7 @@ build_timed_text :: proc(text: string, words: []lyrics.Word, index: int, font_si
 			font_size = font_size,
 			font_weight = .Bold,
 			text_color = kit.with_opacity(kit.colors.base_content, 0.7),
-			flags = {.Wrap_Text},
+			text_fit = .Wrap,
 		},
 		text,
 	)
@@ -96,7 +96,7 @@ build_lyric_line :: proc(line: ^lyrics.Line, index: int) {
 					height = ui.fit_text(),
 					font_size = TRANSLATION_FONT_SIZE,
 					text_color = kit.with_opacity(kit.colors.base_content, 0.7),
-					flags = {.Wrap_Text},
+					text_fit = .Wrap,
 				},
 				line.translation,
 			)
@@ -126,7 +126,8 @@ build_lead_note :: proc() {
 			background = kit.colors.base_300,
 			text_color = kit.colors.base_content,
 			font_size = 12,
-			flags = {.Floating, .Wrap_Text},
+			text_fit = .Wrap,
+			flags = {.Floating},
 		},
 		text,
 	)

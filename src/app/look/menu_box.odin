@@ -39,7 +39,8 @@ menu_box :: proc(id: string, position: [2]f32, width: f32, window_size: [2]f32) 
 			border_width = kit.shape.border,
 			border_color = kit.colors.line,
 			position = {x, y},
-			flags = {.Floating, .Clickable},
+			pointer = .Click,
+			flags = {.Floating},
 		},
 	)
 	menu.role, menu.label = .Popover, id

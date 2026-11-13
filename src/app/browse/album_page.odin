@@ -159,8 +159,6 @@ build_album_info :: proc(data: ^core.Page_Data, info_points: f32) {
 		title_size = 26
 	}
 
-	artist_flags := ui.Flags{.Truncate_Text}
-	if data.artist_id != "" do artist_flags |= {.Clickable}
 	library_label := "In Library" if data.is_in_library else "Not in Library"
 	library_color := kit.to_color(0x7ee2a8ff) if data.is_in_library else kit.with_opacity(kit.colors.base_content, 0.5)
 
@@ -175,7 +173,7 @@ build_album_info :: proc(data: ^core.Page_Data, info_points: f32) {
 				text_color = kit.colors.base_content,
 				font_size = title_size,
 				font_weight = .Bold,
-				flags = {.Wrap_Text},
+				text_fit = .Wrap,
 			},
 			data.title,
 		)
@@ -188,7 +186,8 @@ build_album_info :: proc(data: ^core.Page_Data, info_points: f32) {
 				text_color = kit.colors.primary,
 				font_size = 20,
 				font_weight = .Semibold,
-				flags = artist_flags,
+				text_fit = .Truncate,
+				pointer = .Click if data.artist_id != "" else .Passive,
 			},
 			data.subtitle,
 		)
@@ -268,7 +267,7 @@ build_numbered_songs :: proc(songs: []core.Catalog_Song) {
 					corner_radius = 7,
 					background = tint if is_current else {},
 					hover_background = tint if is_current else kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY),
-					flags = {.Clickable},
+					pointer = .Click,
 				},
 			)
 

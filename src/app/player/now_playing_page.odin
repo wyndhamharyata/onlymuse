@@ -75,7 +75,7 @@ build_now_playing_page :: proc() {
 						height = ui.fit_text(),
 						text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 						font_size = 11.5,
-						flags = {.Wrap_Text},
+						text_fit = .Wrap,
 					},
 					details.copyright,
 				)
@@ -116,7 +116,7 @@ build_current_lyric :: proc(shown: helper.Song) {
 				text_color = kit.colors.base_content,
 				font_size = 17,
 				font_weight = .Semibold,
-				flags = {.Wrap_Text},
+				text_fit = .Wrap,
 			},
 			fmt.tprintf("♪ %s", line.text),
 		)
@@ -129,7 +129,7 @@ build_current_lyric :: proc(shown: helper.Song) {
 					height = ui.fit_text(),
 					text_color = kit.to_color(0xffffffa0),
 					font_size = 13,
-					flags = {.Wrap_Text},
+					text_fit = .Wrap,
 				},
 				line.pronunciation,
 			)

@@ -108,7 +108,7 @@ build_console_row :: proc(index: int, entry: console.Entry) {
 				height = ui.fit_text(),
 				text_color = kit.colors.base_content,
 				font_size = kit.SMALL_TEXT_POINTS,
-				flags = {.Wrap_Text},
+				text_fit = .Wrap,
 			},
 			entry.text,
 		)

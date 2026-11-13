@@ -93,14 +93,12 @@ build_hero :: proc(
 					font_size = to_title_size(info_width),
 					font_weight = .Bold,
 					padding = {0, 2, 0, 2},
-					flags = {.Wrap_Text},
+					text_fit = .Wrap,
 				},
 				details.song.name,
 			)
 
 			has_artist := details.artist_id != ""
-			artist_flags := ui.Flags{.Truncate_Text}
-			if has_artist do artist_flags |= {.Clickable}
 			artist_color := kit.colors.primary if has_artist else kit.colors.base_content
 			artist := ui.box(
 				"artist",
@@ -110,7 +108,8 @@ build_hero :: proc(
 					text_color = artist_color,
 					font_size = 20,
 					font_weight = .Semibold,
-					flags = artist_flags,
+					text_fit = .Truncate,
+					pointer = .Click if has_artist else .Passive,
 				},
 				details.song.artist_name,
 			)
@@ -123,8 +122,6 @@ build_hero :: proc(
 
 			album_line :=
 				details.album if details.label == "" else fmt.tprintf("%s · %s", details.album, details.label)
-			album_flags := ui.Flags{.Truncate_Text}
-			if details.album_id != "" do album_flags |= {.Clickable}
 			album := ui.box(
 				"album",
 				{
@@ -132,7 +129,8 @@ build_hero :: proc(
 					height = ui.fit_text(),
 					text_color = kit.to_color(0xffffffb0),
 					font_size = 14,
-					flags = album_flags,
+					text_fit = .Truncate,
+					pointer = .Click if details.album_id != "" else .Passive,
 				},
 				album_line,
 			)

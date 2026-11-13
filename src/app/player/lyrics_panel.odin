@@ -143,7 +143,7 @@ build_lyrics :: proc() -> bool {
 			text_color = kit.colors.base_content,
 			font_weight = .Semibold,
 			padding = {PANEL_INSET_POINTS, 0, PANEL_INSET_POINTS, 0},
-			flags = {.Truncate_Text},
+			text_fit = .Truncate,
 		},
 		song.name,
 	)
@@ -155,7 +155,7 @@ build_lyrics :: proc() -> bool {
 			text_color = kit.with_opacity(kit.colors.base_content, 0.7),
 			font_size = 12,
 			padding = {PANEL_INSET_POINTS, 0, PANEL_INSET_POINTS, 10},
-			flags = {.Truncate_Text},
+			text_fit = .Truncate,
 		},
 		song.artist_name,
 	)
@@ -235,7 +235,7 @@ build_panel_note :: proc(text: string) {
 			height = ui.fit_text(),
 			text_color = kit.with_opacity(kit.colors.base_content, 0.7),
 			padding = {PANEL_INSET_POINTS, 16, PANEL_INSET_POINTS, 0},
-			flags = {.Wrap_Text},
+			text_fit = .Wrap,
 		},
 		text,
 	)

@@ -58,7 +58,7 @@ build_controls :: proc() {
 					corner_radius = 17,
 					background = kit.colors.base_content,
 					hover_background = {1, 1, 1, 1},
-					flags = {.Clickable},
+					pointer = .Click,
 				},
 			)
 

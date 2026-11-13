@@ -19,12 +19,12 @@ import "thor:platform"
 import "thor:ui"
 
 draw_frame :: proc() -> bool {
-	frame_seconds := app.begin_frame()
+	since_last := app.begin_frame()
 	core.free_retired_memory()
 	playback.free_retired_songs()
 	youtube_lists.free_unused_youtube_lists()
 	apply_input()
-	look.set_accent(frame_seconds, player.find_player_artwork_source())
+	look.set_accent(since_last, player.find_player_artwork_source())
 
 	root := ui.current_parent()
 	root.style.axis = .Y

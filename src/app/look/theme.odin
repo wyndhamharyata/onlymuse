@@ -1,6 +1,7 @@
 package look
 
 import "core:math"
+import "core:time"
 import "om:app/core"
 import "thor:images"
 import "thor:kit"
@@ -71,7 +72,7 @@ MAX_ACCENT_FRAME_SECONDS :: 0.1
 
 ACCENT_SETTLED_DISTANCE :: 0.003
 
-set_accent :: proc(frame_seconds: f32, artwork_source: string) {
+set_accent :: proc(since_last: time.Duration, artwork_source: string) {
 	target := core.app.system_accent
 	color: images.Color
 	has_color := false
@@ -80,7 +81,7 @@ set_accent :: proc(frame_seconds: f32, artwork_source: string) {
 	is_cover_vivid := has_color && color.vividness >= MIN_COVER_VIVIDNESS
 	if is_cover_vivid do target = to_cover_accent(color.rgb)
 
-	amount := 1 - math.exp(-ACCENT_RATE_PER_SECOND * min(frame_seconds, MAX_ACCENT_FRAME_SECONDS))
+	amount := 1 - math.exp(-ACCENT_RATE_PER_SECOND * min(f32(time.duration_seconds(since_last)), MAX_ACCENT_FRAME_SECONDS))
 	kit.colors.primary += (target - kit.colors.primary) * amount
 	difference := target.rgb - kit.colors.primary.rgb
 	distance := abs(difference.r) + abs(difference.g) + abs(difference.b)

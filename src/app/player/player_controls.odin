@@ -126,9 +126,8 @@ build_progress :: proc(has_song: bool) {
 			"",
 		)
 		shown_ratio := ratio
-		seek := kit.slider("seek", &shown_ratio, is_set_on_release = true, tone = .Base, width = ui.fill())
+		seek := kit.slider("seek", &shown_ratio, "Position", is_label_hidden = true, is_set_on_release = true, tone = .Base, width = ui.fill())
 		clock.text = look.to_clock_text(f64(shown_ratio) * duration_seconds)
-		seek.box.label = "Position"
 		seek.box.value = fmt.tprintf("%s of %s", clock.text, look.to_clock_text(duration_seconds))
 		kit.text(
 			look.to_clock_text(duration_seconds),
@@ -165,8 +164,7 @@ build_player_end :: proc() {
 		kit.icon_box("speaker.wave.2.fill", 15, kit.with_opacity(kit.colors.base_content, 0.7))
 
 		shown_ratio := f32(core.app.now_playing.volume_percent / 100)
-		volume := kit.slider("volume", &shown_ratio, is_set_on_release = true, tone = .Base, width = ui.points(80))
-		volume.box.label = "Volume"
+		volume := kit.slider("volume", &shown_ratio, "Volume", is_label_hidden = true, is_set_on_release = true, tone = .Base, width = ui.points(80))
 
 		if volume.is_changed {
 			percent := int(math.round(shown_ratio * 100))

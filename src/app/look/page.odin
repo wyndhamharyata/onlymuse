@@ -1,13 +1,11 @@
 package look
 
 import "core:fmt"
-import "core:math"
 import "core:time"
 import "om:app/core"
 import "om:apple"
 import "thor:app"
 import "thor:kit"
-import "thor:render"
 import "thor:ui"
 
 page_scroll :: proc(id: string) -> ^ui.Box {
@@ -74,8 +72,6 @@ build_loading :: proc(what: string) {
 		return
 	}
 
-	sweep := f32(1 - math.cos(2 * math.PI * shown_seconds / LOADING_SWEEP_SECONDS)) / 2
-	first_ratio := sweep * (1 - LOADING_SEGMENT_RATIO)
 	dot_count := 1 + int(shown_seconds / LOADING_DOT_SECONDS) % 3
 	opacity := min(1, f32(shown_seconds / LOADING_FADE_SECONDS))
 
@@ -92,17 +88,7 @@ build_loading :: proc(what: string) {
 	)
 
 	if ui.scope(column) {
-		track := ui.box(
-			"",
-			{
-				width = ui.points(LOADING_BAR_WIDTH),
-				height = ui.points(LOADING_BAR_HEIGHT),
-			},
-		)
-		paint := new([2]f32, context.temp_allocator)
-		paint^ = {first_ratio, first_ratio + LOADING_SEGMENT_RATIO}
-		track.draw = draw_loading_bar
-		track.data = paint
+		kit.progress(0, .Base, ui.points(LOADING_BAR_WIDTH), is_indeterminate = true)
 
 		all_dots := "..."
 		dots_width := ui.points(kit.measure_text(all_dots, LOADING_TEXT_SIZE))
@@ -116,18 +102,4 @@ build_loading :: proc(what: string) {
 
 	ui.box("", {width = ui.fill(), height = ui.fill()})
 	ui.request_frame()
-}
-
-LOADING_BAR_HEIGHT :: 4
-
-// box.data points to two ratios. The bar fills the track between them.
-draw_loading_bar :: proc(box: ^ui.Box, rect_px, clip_px: [4]f32, opacity: f32) {
-	ratios := (cast(^[2]f32)box.data)^
-	radius := (rect_px.w - rect_px.y) / 2
-	filled := rect_px
-	filled.x = rect_px.x + (rect_px.z - rect_px.x) * ratios[0]
-	filled.z = rect_px.x + (rect_px.z - rect_px.x) * ratios[1]
-	track_color := kit.with_opacity(kit.colors.base_content, kit.TRACK_OPACITY * opacity)
-	render.push({rect = rect_px, color = track_color, corner_radius = radius, clip = clip_px})
-	render.push({rect = filled, color = kit.with_opacity(kit.colors.base_content, opacity), corner_radius = radius, clip = clip_px})
 }

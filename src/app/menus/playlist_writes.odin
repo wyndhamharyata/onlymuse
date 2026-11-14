@@ -64,7 +64,7 @@ run_write :: proc(data: rawptr) {
 
 		if is_done do append(&write_results.refresh, strings.clone(job.refresh_path))
 	}
-	platform.wake()
+	platform.request_frame_all()
 
 	delete(job.path)
 	delete(job.body)
@@ -238,7 +238,7 @@ run_create :: proc(data: rawptr) {
 		apple.to_resources(answer.body, context.temp_allocator) if is_success_status(answer.status) else nil
 
 	sync.guard(&write_results.mutex)
-	defer platform.wake()
+	defer platform.request_frame_all()
 
 	if len(resources) == 0 {
 		failed_text := fmt.tprintf("Could not make %s", job.name)

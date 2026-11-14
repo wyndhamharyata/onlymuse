@@ -91,7 +91,7 @@ finish_job :: proc(job: ^Match_Job, best: core.Catalog_Song, is_found: bool, sta
 	defer {
 		core.delete_song(job.song)
 		free(job)
-		platform.wake()
+		platform.request_frame_all()
 	}
 
 	if status == 429 {

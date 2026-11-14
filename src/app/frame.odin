@@ -45,7 +45,7 @@ draw_frame :: proc() -> bool {
 	menus.build_drag_ghost()
 	palette.build_palette()
 	playback.build_shuffle_rules()
-	kit.build_toast(look.PLAYER_HEIGHT_POINTS)
+	kit.toast(look.PLAYER_HEIGHT_POINTS)
 	if core.app.is_sign_in_needed do build_sign_in_card()
 	dev.build_frame_time(kit.with_opacity(kit.colors.base_content, 0.5))
 

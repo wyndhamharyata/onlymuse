@@ -206,7 +206,7 @@ build_palette :: proc() {
 		}
 	}
 
-	palette.last_mouse_position = ui.mouse_position()
+	palette.last_mouse_position = ui.pointer_position()
 
 	if picked >= 0 {
 		run_result(palette.results[picked])

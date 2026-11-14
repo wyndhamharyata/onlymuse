@@ -33,9 +33,9 @@ draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	image_opacity: f32
 
 	if paint.source != "" {
-		texture, image_opacity = images.watch(
+		texture, image_opacity = images.load_texture(
 			paint.source,
-			paint.size_pixels,
+			{f32(paint.size_pixels), f32(paint.size_pixels)},
 			to_crop(rect, paint.focus_y),
 		)
 	}

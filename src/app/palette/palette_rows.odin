@@ -144,7 +144,7 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 		},
 	)
 	signal := ui.signal(row)
-	has_pointer_moved := ui.mouse_position() != palette.last_mouse_position
+	has_pointer_moved := ui.pointer_position() != palette.last_mouse_position
 
 	if signal.is_hovered && has_pointer_moved {
 		palette.selected_index = index

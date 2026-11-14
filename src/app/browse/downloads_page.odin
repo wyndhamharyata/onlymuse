@@ -95,7 +95,7 @@ scan_downloads :: proc() {
 	downloads.finished_list = found[:]
 	downloads.version += 1
 	downloads.is_scanning = false
-	platform.wake()
+	platform.request_frame_all()
 }
 
 build_downloaded_page :: proc() {

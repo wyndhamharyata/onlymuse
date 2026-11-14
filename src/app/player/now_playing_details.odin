@@ -225,11 +225,9 @@ to_release_note :: proc(date: string, now_day: int, allocator := context.allocat
 	is_new := now_day - release_day <= NEW_RELEASE_DAYS && now_day >= release_day
 
 	if is_new {
-		return fmt.aprintf(
-			"NEW · %s",
-			platform.format_date(release, "d MMM"),
-			allocator = allocator,
-		)
+		moment, _ := time.time_to_datetime(release)
+
+		return fmt.aprintf("NEW · %s", platform.format_date(moment, "d MMM"), allocator = allocator)
 	}
 
 	return strings.clone(date[:4], allocator)

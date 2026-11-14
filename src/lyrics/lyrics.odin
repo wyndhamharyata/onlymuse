@@ -106,7 +106,7 @@ fetch_lyrics :: proc(data: rawptr) {
 	state.lines = lines
 	state.songwriters = songwriters
 	state.arena = arena
-	platform.wake()
+	platform.request_frame_all()
 }
 
 // "%5B" and "%5D" encode "[" and "]". The query asks for English translations and Latin letters.

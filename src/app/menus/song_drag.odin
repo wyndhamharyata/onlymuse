@@ -17,7 +17,7 @@ drag: struct {
 }
 
 apply_song_row_signal :: proc(signal: ui.Signal, song: core.Catalog_Song) -> bool {
-	if signal.is_secondary do open_song_menu(song, ui.mouse_position())
+	if signal.is_secondary do open_song_menu(song, ui.pointer_position())
 
 	moved := signal.drag
 	has_moved := moved.x * moved.x + moved.y * moved.y > DRAG_START_POINTS * DRAG_START_POINTS
@@ -70,7 +70,7 @@ apply_drag_release :: proc() {
 build_drag_ghost :: proc() {
 	if !drag.is_dragging do return
 
-	mouse := ui.mouse_position()
+	mouse := ui.pointer_position()
 	ghost := ui.box(
 		"drag_ghost",
 		{
@@ -103,5 +103,5 @@ build_drag_ghost :: proc() {
 		)
 	}
 
-	platform.request_frame()
+	ui.request_frame()
 }

@@ -168,7 +168,7 @@ fetch_entry :: proc(task: thread.Task) {
 		delete(answer.body)
 	}
 
-	platform.wake()
+	platform.request_frame_all()
 }
 
 refresh_all :: proc(prefix: string) {

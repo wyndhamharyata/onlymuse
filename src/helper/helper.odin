@@ -149,7 +149,7 @@ read_lines :: proc() {
 			append(&state.lines, line)
 		}
 
-		platform.wake()
+		platform.request_frame_all()
 	}
 
 	console.add("Helper", "The helper stopped. Quit onlymuse and open it again.")

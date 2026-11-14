@@ -24,7 +24,7 @@ Backdrop_Paint :: struct {
 @(private = "file")
 draw_backdrop :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	paint := cast(^Backdrop_Paint)box.data
-	texture, image_opacity := images.watch(paint.source, BACKDROP_PIXELS)
+	texture, image_opacity := images.load_texture(paint.source, {BACKDROP_PIXELS, BACKDROP_PIXELS})
 	if texture == nil do return
 
 	aspect := (rect.w - rect.y) / max(1, rect.z - rect.x)

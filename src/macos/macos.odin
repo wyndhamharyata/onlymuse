@@ -13,7 +13,7 @@ QUESTION_DELAY_SECONDS :: 0.5
 state: struct {
 	window:           ^platform.Native_Window,
 	target:           ^Macos_Target,
-	backdrop:         ^platform.Layer,
+	backdrop:         ^platform._Layer,
 	backdrop_view:    ^NS.View,
 	drag_timer:       ^NS.Timer,
 	fade_steps:       int,

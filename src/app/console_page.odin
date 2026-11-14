@@ -128,5 +128,7 @@ to_console_text :: proc(entries: []console.Entry) -> string {
 
 @(private = "file")
 to_console_time :: proc(at: time.Time) -> string {
-	return platform.format_date(at, "HH:mm:ss")
+	moment, _ := time.time_to_datetime(at)
+
+	return platform.format_date(moment, "HH:mm:ss")
 }

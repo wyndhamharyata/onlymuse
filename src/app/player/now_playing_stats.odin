@@ -4,6 +4,7 @@ import "core:fmt"
 import "core:math"
 import "core:strings"
 import "core:time"
+import "core:time/datetime"
 import "om:app/core"
 import "om:app/look"
 import "om:app/playback"
@@ -33,7 +34,7 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f3
 	added_ms := info.date_added_ms
 	skipped_ms := info.skipped_date_ms
 	now_ms := helper.now_ms()
-	zone_seconds := f64(platform.read_local_offset_seconds())
+	zone_seconds := f64(time.duration_seconds(platform.read_utc_offset()))
 
 	Stat :: struct {
 		id, label, value, note: string,
@@ -309,6 +310,8 @@ to_day_text :: proc(unix_ms, now_ms, zone_seconds: f64) -> string {
 	return platform.format_date(to_moment(unix_ms), "d MMM")
 }
 
-to_moment :: proc(unix_ms: f64) -> time.Time {
-	return time.unix(0, i64(unix_ms * f64(time.Millisecond)))
+to_moment :: proc(unix_ms: f64) -> datetime.DateTime {
+	moment, _ := time.time_to_datetime(time.unix(0, i64(unix_ms * f64(time.Millisecond))))
+
+	return moment
 }

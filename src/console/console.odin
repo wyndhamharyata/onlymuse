@@ -37,7 +37,7 @@ add :: proc(source: string, format: string, args: ..any) {
 		state.version += 1
 	}
 
-	platform.wake()
+	platform.request_frame_all()
 }
 
 list :: proc(allocator := context.temp_allocator) -> []Entry {

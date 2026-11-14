@@ -7,7 +7,6 @@ import "om:app/core"
 import "om:apple"
 import "thor:app"
 import "thor:kit"
-import "thor:platform"
 import "thor:render"
 import "thor:ui"
 
@@ -111,7 +110,7 @@ build_loading :: proc(what: string) {
 	}
 
 	ui.box("", {width = ui.fill(), height = ui.fill()})
-	platform.request_frame()
+	ui.request_frame()
 }
 
 LOADING_BAR_HEIGHT_POINTS :: 4

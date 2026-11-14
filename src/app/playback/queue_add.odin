@@ -51,7 +51,7 @@ start_adding :: proc(catalog_id: string, play_count: int) {
 
 			sync.guard(&queue_state.add_mutex)
 			queue_state.added_play_count = job.play_count
-			platform.wake()
+			platform.request_frame_all()
 		}, self_cleanup = true)
 }
 

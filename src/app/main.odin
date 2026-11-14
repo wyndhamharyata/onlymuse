@@ -16,6 +16,7 @@ import "om:store"
 import "om:youtube"
 import "thor:app"
 import "thor:dev"
+import "thor:images"
 import "thor:kit"
 import "thor:platform"
 import "thor:ui"
@@ -36,7 +37,7 @@ main :: proc() {
 	start_app_state()
 	start_parts()
 
-	helper.start(dev.is_background)
+	helper.start(dev.is_accessory)
 	core.start_player_mode()
 	start_covers()
 	open_main_window()
@@ -75,6 +76,8 @@ start_parts :: proc() {
 }
 
 open_main_window :: proc() {
+	images.fetch = fetch_cover
+	images.to_family = to_cover_family
 	app.open_main_window(
 		{
 			title = "onlymuse",
@@ -83,10 +86,8 @@ open_main_window :: proc() {
 			is_blurred = true,
 		},
 		draw_frame,
-		fetch_cover,
-		to_cover_family,
 	)
-	macos.start(app.native_window, dev.is_background && !dev.is_bench)
+	macos.start(app.native_window, dev.is_accessory && !dev.is_bench)
 	macos.install_player_menu({
 		is_driving = proc() -> bool {return core.app.drives_music_app},
 		toggle = proc() {core.set_player_mode(!core.app.drives_music_app)},

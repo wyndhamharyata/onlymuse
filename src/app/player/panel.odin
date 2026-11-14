@@ -185,13 +185,13 @@ build_queue_row :: proc(index: int) -> bool {
 		if ui.scope(text) {
 			is_hovered := ui.signal(row).is_hovered
 
-			kit.scrolling_text("name", song.name, name_color, 13, .Medium, is_hovered = is_hovered)
+			kit.scrolling_text("name", song.name, name_color, 13, .Medium, is_sliding = is_hovered)
 			kit.scrolling_text(
 				"artist",
 				song.artist_name,
 				kit.with_opacity(kit.colors.base_content, 0.7),
 				12,
-				is_hovered = is_hovered,
+				is_sliding = is_hovered,
 			)
 		}
 

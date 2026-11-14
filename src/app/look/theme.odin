@@ -5,7 +5,7 @@ import "core:time"
 import "om:app/core"
 import "thor:images"
 import "thor:kit"
-import "thor:platform"
+import "thor:ui"
 
 colors := struct {
 	sidebar, player, panel, youtube, drag_ghost, detail_card, detail_card_border: [4]f32,
@@ -91,7 +91,7 @@ set_accent :: proc(since_last: time.Duration, artwork_source: string) {
 		return
 	}
 
-	platform.request_frame()
+	ui.request_frame()
 }
 
 to_cover_accent :: proc(rgb: [3]f32) -> [4]f32 {

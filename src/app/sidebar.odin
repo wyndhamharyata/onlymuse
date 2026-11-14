@@ -7,12 +7,12 @@ import "thor:kit"
 import "thor:ui"
 
 build_sidebar :: proc() {
-	sidebar := kit.safe_area(
+	sidebar := ui.col(
 		"sidebar",
 		{
 			width = ui.points(look.SIDEBAR_WIDTH),
 			height = ui.fill(),
-			padding = {8, look.TOOLBAR_HEIGHT - look.TITLE_BAR_HEIGHT, 8, 0},
+			padding = {8, look.toolbar_height(), 8, 0},
 			bg = look.colors.sidebar,
 		},
 	)

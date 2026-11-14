@@ -28,6 +28,14 @@ PLAYER_HEIGHT :: 70
 
 TOOLBAR_HEIGHT :: 44
 
+// The toolbar's buttons and their padding, for a window with no title bar, as in full screen.
+TOOLBAR_MIN_HEIGHT :: 32
+
+// The band the toolbar and the sidebar's top share: the title bar's inset plus 16 points.
+toolbar_height :: proc() -> f32 {
+	return max(ui.safe_insets().y + TOOLBAR_HEIGHT - TITLE_BAR_HEIGHT, TOOLBAR_MIN_HEIGHT)
+}
+
 // The title bar, which the traffic lights sit in.
 TITLE_BAR_HEIGHT :: 28
 

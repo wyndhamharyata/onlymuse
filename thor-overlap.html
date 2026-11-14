@@ -516,6 +516,7 @@ kit.badge(pill, .Primary if is_quality else .Base, .Soft, .Large)</code></pre></
 <!-- ============================================================ -->
 <h2 id="signin">8. Sign-in card → <code>kit.dialog</code> <span class="v v-look">Look changes</span></h2>
 <p class="decided"><strong>Decision:</strong> Fix thor gap 8, then do item 8.</p>
+<p class="decided"><strong>Done:</strong> the sign-in card is a <code>kit.dialog</code> with <code>is_dismissable = false</code>, a Small heading and a description.</p>
 <p class="where"><code>src/app/main.odin:101</code></p>
 <p>The card builds its own dimmed cover and centers itself. <code>kit.dialog</code> adds what the hand-built card lacks: a fade-in, a dialog role, focus moved to the button, and focus given back on close. The panel uses kit's popover color, 10-point corners and a shadow, and the title goes from 18 to 15 points (<code>kit.heading(…, .Small)</code>).</p>
 <div class="mock">
@@ -830,7 +831,7 @@ kit.to_badge_width :: proc(label: string, size := Size.Medium) -> f32</pre>
 kit.palette_dialog :: proc(id: string, is_open: ^bool, width: f32 = 560) -> bool</pre>
 <p>This is one procedure for the element a person sees, rather than width and position options on <code>kit.dialog</code>. <code>command_palette</code> is rebuilt on top of it, so the two share one shell. onlymuse's palette moves down from 70 points to kit's 18% of the window height, as Spotlight sits.</p></td><td>Item 14's shell</td><td>Approved and built (thor, 14 Nov 2026)</td></tr>
 <tr><td>8</td><td><code>kit.dialog</code> has no setting for a dialog that can't be dismissed. A local bool works.</td><td class="design"><pre class="sig">kit.dialog :: proc(id: string, is_open: ^bool, is_dismissable := true) -> bool</pre>
-<p>With <code>is_dismissable = false</code>, Escape leaves <code>is_open^</code> alone, so the app closes the dialog itself, as sign-in does once it succeeds. A press outside never closes a dialog anyway.</p></td><td>Item 8, cleaner</td><td>Approved: build it</td></tr>
+<p>With <code>is_dismissable = false</code>, Escape leaves <code>is_open^</code> alone, so the app closes the dialog itself, as sign-in does once it succeeds. A press outside never closes a dialog anyway.</p></td><td>Item 8, cleaner</td><td>Approved and built (thor, 14 Nov 2026)</td></tr>
 <tr><td>9</td><td>No muted one-line text that truncates. <code>kit.description</code> always wraps.</td><td class="design"><p class="revised"><strong>Revised after your review:</strong> instead of a fix for <code>kit.description</code> alone, one setting for every text procedure.</p><p>I checked every text procedure in kit. Each one handles fitting its own way today:</p>
 <table class="inner">
 <tr><th>Procedure</th><th>Today</th><th>Proposed</th></tr>

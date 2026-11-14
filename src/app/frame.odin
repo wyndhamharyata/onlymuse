@@ -46,7 +46,7 @@ draw_frame :: proc() -> bool {
 	palette.build_palette()
 	playback.end_shuffle_rules()
 	kit.toast(look.PLAYER_HEIGHT)
-	if core.app.is_sign_in_needed do build_sign_in_card()
+	build_sign_in_card()
 	dev.build_frame_time(kit.with_opacity(kit.colors.base_content, 0.5))
 
 	is_frame_wanted := app.end_frame()

@@ -41,7 +41,10 @@ build_song_list_page :: proc(
 					count_text = fmt.tprintf("%s · %s", count_text, description)
 				}
 
-				kit.description(count_text if phase == .Ready else look.to_phase_text(phase))
+				kit.text(
+					count_text if phase == .Ready else look.to_phase_text(phase),
+					kit.with_opacity(kit.colors.base_content, 0.7),
+				)
 			}
 
 			if phase == .Ready && len(songs) > 0 do build_play_buttons(songs)

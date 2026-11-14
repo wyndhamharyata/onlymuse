@@ -878,6 +878,19 @@ if ui.is_menu_picked("music_app") do core.set_player_mode(!core.app.drives_music
 kit.progress :: proc(ratio: f32, tone := Tone.Primary, width := ui.Length{.Fill, 1},
 	is_indeterminate := false) -> ui.Signal</pre>
 <p>"Indeterminate" is the name macOS and HTML use for this. VoiceOver hears "busy", as with <code>kit.spinner</code>. With Reduce Motion on, the segment pulses in place instead of sweeping. onlymuse keeps its 0.3 s delay, its fade and its "Loading …" text, and calls <code>kit.progress(0, .Base, ui.points(160), is_indeterminate = true)</code>.</p></td><td>Item 10</td><td>Approved: build it</td></tr>
+<tr><td>15</td><td><code>kit.segmented</code> has no size: it is always 32 points tall, a Medium button's height, and outweighs 13-point text beside it. Found in the shuffle rules after item 9.</td><td class="design"><pre class="sig">kit.segmented :: proc(id: string, selected: ^string, options: []Option,
+	tone := Tone.Base, size := Size.Medium, width := ui.Length{}) -> ui.Signal</pre>
+<p>Sizes take <code>kit.button</code>'s metrics: Small is 26 points with 12-point labels, Large 40 with 15. The order matches <code>kit.button</code> and <code>kit.select</code>: tone, then size.</p></td><td>Shuffle rules</td><td>Waiting for your approval</td></tr>
+<tr><td>16</td><td><code>kit.popover</code> pads 5 points, sized for menu items that add their own 9. Other content guesses its inset: the Gallery uses 8, onlymuse 9.</td><td class="design"><pre class="sig">// How far a menu item's label sits in from a popover's edge; other content in a popover pads by this.
+kit.MENU_INSET :: 14
+
+// A column inside the popover being built, padded by MENU_INSET less the popover's own padding.
+@(deferred_none = ui.pop_parent)
+kit.popover_body :: proc(id: string, gap: f32 = 8) -> bool</pre>
+<p>The constant names the number; <code>popover_body</code> is the column most popovers want, so no app does the subtraction.</p></td><td>Shuffle rules, Gallery's details popover</td><td>Waiting for your approval</td></tr>
+<tr><td>17</td><td><code>kit.toggle</code> puts the switch before its label. macOS settings put a switch at the trailing edge, so onlymuse lays that row out by hand.</td><td class="design"><pre class="sig">kit.toggle :: proc(id: string, is_on: ^bool, label: string, is_label_hidden := false,
+	tone := Tone.Primary, side := Side.Before, style := ui.Style{}) -> ui.Signal</pre>
+<p><code>side = .After</code> puts the switch after the label and lets the label fill, so the switch sits at the row's trailing edge. <code>kit.Side</code> already exists, for <code>resize_handle</code>. The whole row is then one control, so a click on the label flips it too.</p></td><td>Shuffle rules</td><td>Waiting for your approval</td></tr>
 </table>
 
 <h2 id="noticed">Noticed along the way</h2>

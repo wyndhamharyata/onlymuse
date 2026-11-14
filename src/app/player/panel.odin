@@ -6,6 +6,7 @@ import "om:app/look"
 import "om:app/menus"
 import "om:app/playback"
 import "om:apple"
+import "thor:images"
 import "thor:kit"
 import "thor:ui"
 
@@ -150,7 +151,8 @@ build_queue_row :: proc(index: int) -> bool {
 		signal := ui.here()
 
 		look.artwork_box(
-			apple.to_artwork_url(song.artwork, look.to_artwork_px(QUEUE_COVER_SIZE)),
+			apple.to_artwork_url(song.artwork, images.to_texture_size_px(ui.to_px(QUEUE_COVER_SIZE))),
+			song.album_name,
 			QUEUE_COVER_SIZE,
 			4,
 			look.to_placeholder(song.artwork, song.album_name),

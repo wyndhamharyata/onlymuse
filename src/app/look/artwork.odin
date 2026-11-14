@@ -1,74 +1,9 @@
 package look
 
-import "core:math"
 import "core:math/linalg"
 import "om:apple"
-import "thor:icon"
-import "thor:images"
 import "thor:kit"
-import "thor:render"
 import "thor:ui"
-import MTL "vendor:darwin/Metal"
-
-ARTWORK_STEP_PX :: 100
-
-to_artwork_px :: proc(size: f32) -> int {
-	px := int(ui.to_px(size))
-
-	return (px + ARTWORK_STEP_PX - 1) / ARTWORK_STEP_PX * ARTWORK_STEP_PX
-}
-
-Artwork_Paint :: struct {
-	source:       string,
-	size_px:      int,
-	symbol:       string,
-	symbol_size:  f32,
-	symbol_color: [4]f32,
-	focus_y:      f32,
-}
-
-draw_artwork :: proc(box: ^ui.Box, rect_px, clip_px: [4]f32, opacity: f32) {
-	paint := cast(^Artwork_Paint)box.data
-	texture: ^MTL.Texture
-	image_opacity: f32
-
-	uv: [4]f32
-	size := [2]f32{rect_px.z - rect_px.x, rect_px.w - rect_px.y}
-
-	if paint.source != "" && size.x > 0 && size.y > 0 {
-		texture, uv, image_opacity = images.load_filling_texture(paint.source, to_stepped_size(size, paint.size_px), paint.focus_y)
-	}
-
-	is_symbol_showing := image_opacity < 1 && paint.symbol != ""
-
-	if is_symbol_showing {
-		color := kit.with_opacity(paint.symbol_color, opacity * (1 - image_opacity))
-		icon.draw(paint.symbol, ui.to_px(paint.symbol_size), rect_px, clip_px, color)
-	}
-
-	if texture == nil do return
-
-	render.push(
-		{
-			rect = rect_px,
-			uv = uv,
-			color = {1, 1, 1, opacity * image_opacity},
-			corner_radius = box.style.corner_radius * ui.to_px(1),
-			clip = clip_px,
-			kind = .Image,
-		},
-		texture,
-	)
-}
-
-// The box's size scaled so its longer side is size_px: the texture keeps one size while the box grows by a few
-// pixels. The longer side is set exactly, as thor rounds it up, and a float a hair over would load a new size.
-@(private = "file")
-to_stepped_size :: proc(size: [2]f32, size_px: int) -> [2]f32 {
-	if size.x >= size.y do return {f32(size_px), size.y * f32(size_px) / size.x}
-
-	return {size.x * f32(size_px) / size.y, f32(size_px)}
-}
 
 Placeholder :: struct {
 	top, bottom:  [4]f32,
@@ -107,46 +42,37 @@ to_placeholder :: proc(
 	}
 }
 
+// A song's, album's or card's artwork, cropped to fill size points, over its placeholder until it loads.
 artwork_box :: proc(
-	source: string,
+	source, label: string,
 	size: f32,
 	radius: f32,
 	placeholder: Placeholder,
 ) -> ^ui.Box {
-	return artwork_rect_box(source, {size, size}, radius, placeholder)
+	return artwork_rect_box(source, label, {size, size}, radius, placeholder)
 }
 
 artwork_rect_box :: proc(
-	source: string,
+	source, label: string,
 	size: [2]f32,
 	radius: f32,
 	placeholder: Placeholder,
+	focus_y: f32 = 0.5,
 ) -> ^ui.Box {
-	box := ui.box(
-		"",
-		{
-			width = ui.points(size.x),
-			height = ui.points(size.y),
-			corner_radius = radius,
-			bg = placeholder.top,
-			layers = {ui.Gradient{from = placeholder.top, to = placeholder.bottom}},
-		},
-	)
-
-	if source == "" && placeholder.symbol == "" do return box
-
-	paint := new(Artwork_Paint, context.temp_allocator)
-	paint^ = {
-		source       = source,
-		size_px      = to_artwork_px(max(size.x, size.y)),
-		symbol       = placeholder.symbol,
-		symbol_size  = max(8, math.round(min(size.x, size.y) * 0.3 / 4) * 4),
-		symbol_color = placeholder.symbol_color,
-		focus_y      = 0.5,
+	style := ui.Style {
+		width         = ui.points(size.x),
+		height        = ui.points(size.y),
+		corner_radius = radius,
+		bg            = placeholder.top,
+		layers        = {ui.Gradient{from = placeholder.top, to = placeholder.bottom}},
 	}
 
-	box.draw = draw_artwork
-	box.data = paint
-
-	return box
+	return kit.image(
+		source,
+		label,
+		style,
+		placeholder_icon = placeholder.symbol,
+		placeholder_color = placeholder.symbol_color,
+		focus_y = focus_y,
+	).box
 }

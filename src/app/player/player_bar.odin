@@ -8,6 +8,7 @@ import "om:apple"
 import "om:helper"
 import "om:youtube"
 import "thor:font"
+import "thor:images"
 import "thor:kit"
 import "thor:ui"
 
@@ -68,7 +69,7 @@ find_player_artwork_source :: proc() -> string {
 	if is_waiting_for_queue_song() {
 		return apple.to_artwork_url(
 			playback.queue.songs[playback.queue.index].artwork,
-			look.to_artwork_px(PLAYER_ARTWORK_SIZE),
+			images.to_texture_size_px(ui.to_px(PLAYER_ARTWORK_SIZE)),
 		)
 	}
 
@@ -78,7 +79,7 @@ find_player_artwork_source :: proc() -> string {
 	if is_queue_song && queue_song.artwork.url != "" {
 		return apple.to_artwork_url(
 			queue_song.artwork,
-			look.to_artwork_px(PLAYER_ARTWORK_SIZE),
+			images.to_texture_size_px(ui.to_px(PLAYER_ARTWORK_SIZE)),
 		)
 	}
 
@@ -117,7 +118,7 @@ build_song_info :: proc() {
 		if cover_signal.is_activated do core.navigate({kind = .Now_Playing})
 
 		if ui.scope(cover) {
-			look.artwork_box(artwork_source, PLAYER_ARTWORK_SIZE, 6, placeholder)
+			look.artwork_box(artwork_source, song.album_name, PLAYER_ARTWORK_SIZE, 6, placeholder)
 			ui.box(
 				"",
 				{

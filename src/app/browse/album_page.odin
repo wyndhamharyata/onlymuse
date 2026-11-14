@@ -9,6 +9,7 @@ import "om:app/look"
 import "om:app/menus"
 import "om:app/playback"
 import "om:apple"
+import "thor:images"
 import "thor:kit"
 import "thor:ui"
 
@@ -129,7 +130,8 @@ build_album_header :: proc(data: ^core.Page_Data, width: f32) {
 
 	if ui.scope(header) {
 		look.artwork_box(
-			apple.to_artwork_url(data.artwork, look.to_artwork_px(cover_size)),
+			apple.to_artwork_url(data.artwork, images.to_texture_size_px(ui.to_px(cover_size))),
+			data.title,
 			cover_size,
 			10,
 			look.to_placeholder(data.artwork, data.title, "square.stack"),

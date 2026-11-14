@@ -7,6 +7,7 @@ import "om:app/look"
 import "om:app/menus"
 import "om:app/playback"
 import "om:helper"
+import "thor:images"
 import "thor:kit"
 import "thor:platform"
 import "thor:ui"
@@ -66,11 +67,12 @@ build_hero :: proc(
 
 			source := to_cover_source(
 				details.song.artwork,
-				look.to_artwork_px(cover_size),
+				images.to_texture_size_px(ui.to_px(cover_size)),
 				shown.artwork_path,
 			)
 			look.artwork_box(
 				source,
+				details.album,
 				cover_size,
 				12,
 				look.to_placeholder(details.song.artwork, details.album, "music.note"),

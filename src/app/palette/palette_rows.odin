@@ -3,6 +3,7 @@ package palette
 import "core:fmt"
 import "om:app/look"
 import "om:apple"
+import "thor:images"
 import "thor:kit"
 import "thor:ui"
 
@@ -145,7 +146,8 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 	if ui.scope(row) {
 		if result.artwork.url != "" {
 			look.artwork_box(
-				apple.to_artwork_url(result.artwork, look.to_artwork_px(ROW_ARTWORK_SIZE)),
+				apple.to_artwork_url(result.artwork, images.to_texture_size_px(ui.to_px(ROW_ARTWORK_SIZE))),
+				result.title,
 				ROW_ARTWORK_SIZE,
 				ROW_ARTWORK_SIZE / 2 if result.is_round else 4,
 				look.to_placeholder(result.artwork, result.title),

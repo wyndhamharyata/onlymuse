@@ -6,6 +6,7 @@ import "om:app/core"
 import "om:app/look"
 import "om:app/playback"
 import "om:apple"
+import "thor:images"
 import "thor:kit"
 import "thor:ui"
 
@@ -146,7 +147,8 @@ build_card_tile :: proc(
 		radius: f32 = tile_size / 2 if is_round else 8
 		size := [2]f32{tile_size, tile_size * 9 / 16 if is_wide else tile_size}
 		artwork := look.artwork_rect_box(
-			apple.to_artwork_url(card.artwork, look.to_artwork_px(tile_size)),
+			apple.to_artwork_url(card.artwork, images.to_texture_size_px(ui.to_px(tile_size))),
+			card.name,
 			size,
 			radius,
 			look.to_placeholder(card.artwork, card.name, card_symbols[card.kind]),

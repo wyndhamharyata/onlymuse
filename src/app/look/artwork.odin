@@ -67,8 +67,8 @@ to_crop :: proc(rect: [4]f32, focus_y: f32) -> images.Crop {
 	height := rect.w - rect.y
 	if height <= 0 do return {}
 
-	// + 0.01 stops float noise from flooring a square, at 0.9999997, to 0.75 on some frames.
-	return {math.floor((rect.z - rect.x) / height * 4 + 0.01) / 4, focus_y}
+	// The nearest quarter step: a tile that springs a little off square while a panel opens keeps its square crop, so its image doesn't reload.
+	return {math.round((rect.z - rect.x) / height * 4) / 4, focus_y}
 }
 
 @(private = "file")

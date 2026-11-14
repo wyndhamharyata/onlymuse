@@ -695,6 +695,7 @@ if kit.popover("playlist_menu", &amp;song_menu.is_playlists_open, beside, width 
 <!-- ============================================================ -->
 <h2 id="keys">12. Keyboard shortcuts → <code>ui.is_key_pressed</code> <span class="v v-gap">Needs thor first</span></h2>
 <p class="decided"><strong>Decision:</strong> Fix gap 10, then item 12.</p>
+<p class="decided"><strong>Done:</strong> every shortcut is one <code>is_shortcut(key, modifiers)</code> line, built on <code>ui.is_key_pressed</code> and <code>ui.press_modifiers</code>; onlymuse reads no raw key events.</p>
 <p class="where"><code>src/app/frame.odin:105–160</code></p>
 <p><code>apply_keys</code> loops over <code>platform.list_events()</code> and checks <code>ui.is_key_taken</code> itself. <code>ui.is_key_pressed(key, modifiers)</code> would do this in one line per shortcut. But with no modifiers it means "with any modifiers", so <code>ui.is_key_pressed(.Left)</code> would also fire on ⌘←. Then ⌘← would both seek back 5 seconds and skip to the previous song.</p>
 <div class="pair">
@@ -846,7 +847,7 @@ ui.press_modifiers :: proc(key: platform.Key) -> platform.Modifiers</pre>
 <tr><td>⌘←</td><td>true</td><td><code>{.Command}</code></td><td>previous song only</td></tr>
 </table>
 <pre class="sig">if ui.is_key_pressed(.Left) &amp;&amp; .Command not_in ui.press_modifiers(.Left) do seek_back()</pre>
-<p><code>is_key_pressed</code> keeps its approved meaning. Making an empty set mean "exactly no modifiers" instead would change what all 8 key checks in kit and ui mean. For example, Escape with Shift held would stop closing a popover.</p></td><td>Item 12</td><td>Approved: build it</td></tr>
+<p><code>is_key_pressed</code> keeps its approved meaning. Making an empty set mean "exactly no modifiers" instead would change what all 8 key checks in kit and ui mean. For example, Escape with Shift held would stop closing a popover.</p></td><td>Item 12</td><td>Approved and built (thor, 14 Nov 2026)</td></tr>
 <tr><td>11</td><td>No drag and drop. A drag that ends on the box it started on still fires <code>is_activated</code>, which is why onlymuse keeps <code>ended_frame</code>.</td><td class="design"><p class="revised"><strong>Revised after your review:</strong> renamed. <code>is_dropped</code> reads as if the box itself were dropped; <code>is_dropped_on</code> says something was dropped on it, like the web's drop event on a target.</p><pre class="sig">Signal :: struct {
 	…
 	// A drag that began on another box ended over this one this frame.

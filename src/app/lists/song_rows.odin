@@ -142,7 +142,7 @@ build_song_row :: proc(
 
 		if ui.scope(text) {
 			kit.text(song.name, kit.colors.primary if is_current else kit.colors.base_content)
-			kit.description(subtitle, size = .Small)
+			kit.text(subtitle, kit.with_opacity(kit.colors.base_content, 0.7), 12)
 		}
 
 		if date != "" {

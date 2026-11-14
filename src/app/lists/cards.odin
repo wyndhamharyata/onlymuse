@@ -26,7 +26,8 @@ to_tile_size :: proc(width, target_width, gap: f32) -> f32 {
 	settled_width := width + look.to_panel_travel_left()
 	count := max(1, math.round((settled_width + gap) / (target_width + gap)))
 
-	return math.floor((width - gap * (count - 1)) / count)
+	// Not floored to whole points: thor snaps edges to pixels, and a floor makes every tile in a row jump a point at once.
+	return (width - gap * (count - 1)) / count
 }
 
 build_shelf :: proc(id: string, shelf: apple.Shelf, width, target_width: f32) {

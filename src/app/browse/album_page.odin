@@ -245,7 +245,7 @@ build_numbered_songs :: proc(songs: []core.Catalog_Song) {
 		for song, index in songs {
 			is_current := playback.is_current_song(song)
 			row := ui.box(
-				fmt.tprintf("%d %s", index, song.id),
+				fmt.tprintf("%d_%s", index, song.id),
 				{
 					width = ui.fill(),
 					height = ui.points(36),

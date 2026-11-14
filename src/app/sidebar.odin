@@ -84,8 +84,10 @@ build_sidebar_item :: proc(
 ) {
 	is_selected := core.current_page() == page
 	bg := kit.with_opacity(kit.colors.primary, kit.SOFT_OPACITY) if is_selected else {}
+	page_id := page.id
+	if page_id == "" do page_id = core.page_kind_id(page.kind)
 	row := ui.box(
-		label if page.id == "" else page.id,
+		page_id,
 		{
 			width = ui.fill(),
 			height = ui.points(30),

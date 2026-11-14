@@ -139,6 +139,11 @@ page_ids := [Page_Kind]string {
 	.Console             = "console",
 }
 
+// The id a page is known by when it has none of its own.
+page_kind_id :: proc(kind: Page_Kind) -> string {
+	return page_ids[kind]
+}
+
 @(private = "file")
 to_saved_page :: proc(page: Page) -> Saved_Page {
 	saved := Saved_Page {

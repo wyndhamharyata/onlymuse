@@ -89,7 +89,7 @@ build_song_rows :: proc(songs: []core.Catalog_Song, dates: []string = nil) {
 			date := look.to_date_text(dates[index]) if index < len(dates) else ""
 
 			if build_song_row(
-				fmt.tprintf("%d %s", index, song.id),
+				fmt.tprintf("%d_%s", index, song.id),
 				song,
 				subtitle,
 				is_current,

@@ -80,7 +80,7 @@ build_card_row :: proc(
 
 			for index in first ..= last {
 				if build_card_tile(
-					fmt.tprintf("%d %s", index, cards[index].id),
+					fmt.tprintf("%d_%s", index, cards[index].id),
 					cards[index],
 					tile_size,
 					is_round,

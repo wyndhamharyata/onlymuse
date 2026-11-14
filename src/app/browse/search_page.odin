@@ -119,7 +119,7 @@ build_search_top :: proc(data: ^core.Page_Data) {
 				subtitle := fmt.tprintf("%s · %s", song.artist_name, song.album_name)
 
 				if lists.build_song_row(
-					fmt.tprintf("%d %s", index, song.id),
+					fmt.tprintf("%d_%s", index, song.id),
 					song,
 					subtitle,
 					playback.is_current_song(song),

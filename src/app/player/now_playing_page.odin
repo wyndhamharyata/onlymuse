@@ -195,7 +195,7 @@ build_more_by :: proc(details: Song_Details) {
 		if ui.scope(row) {
 			for card, index in data.cards {
 				if lists.build_card_tile(
-					fmt.tprintf("%d %s", index, card.id),
+					fmt.tprintf("%d_%s", index, card.id),
 					card,
 					MORE_BY_TILE_SIZE,
 				) {

@@ -149,7 +149,7 @@ build_youtube_search_results :: proc(term: string, apple_songs: []core.Catalog_S
 
 			for song, index in shown {
 				if lists.build_song_row(
-					fmt.tprintf("%d %s", index, song.id),
+					fmt.tprintf("%d_%s", index, song.id),
 					song,
 					lists.to_song_subtitle(song),
 					playback.is_current_song(song),

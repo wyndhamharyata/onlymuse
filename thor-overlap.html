@@ -419,6 +419,7 @@ style = {…, bg = PALETTE_FIELD_BACKGROUND, flags = {.Tab_As_Arrows}},</code></
 <!-- ============================================================ -->
 <h2 id="sidebar">6. Sidebar → <code>kit.nav_row</code> <span class="v v-look">Look changes</span></h2>
 <p class="decided"><strong>Decision:</strong> Fix thor gap 6, then do item 6.</p>
+<p class="decided"><strong>Done:</strong> every sidebar row is a <code>kit.nav_row</code> with its icon and the <code>.Primary</code> tone, and the list takes <code>.Arrow_Keys</code>, so the sidebar is one Tab stop.</p>
 <p class="where"><code>src/app/sidebar.odin:79</code></p>
 <p><code>kit.nav_row</code> is the sidebar row the Gallery uses. It gives a row role, label and on state for VoiceOver, and selects only on click. With <code>.Arrow_Keys</code> on the list, the arrow keys move between rows without navigating. The look differs in three ways: the current row takes a gray tint instead of the accent, other labels show at 70% in medium weight, and rows are 32 points tall instead of 30.</p>
 <div class="mock">
@@ -821,7 +822,7 @@ kit.to_badge_width :: proc(label: string, size := Size.Medium) -> f32</pre>
 <tr><td>6</td><td><code>kit.nav_row</code> has no icon, and it overrides the current row's tint.</td><td class="design"><pre class="sig">kit.nav_row :: proc(id: string, selected: ^string, label: string,
 	icon := "", tone := Tone.Base, icon_color: [4]f32 = {},
 	is_label_hidden := false, style := ui.Style{}) -> bool</pre>
-<p>The icon draws before kit's label, so a row with an icon keeps kit's label styling. <code>tone</code> picks the current row's tint: <code>.Base</code> keeps today's gray, and any other tone tints the row softly in that tone. onlymuse would pass <code>.Primary</code>. A zero <code>icon_color</code> follows the label color. The order matches <code>kit.button</code>: icon, tone, then icon_color.</p></td><td>Item 6</td><td>Approved: build it</td></tr>
+<p>The icon draws before kit's label, so a row with an icon keeps kit's label styling. <code>tone</code> picks the current row's tint: <code>.Base</code> keeps today's gray, and any other tone tints the row softly in that tone. onlymuse would pass <code>.Primary</code>. A zero <code>icon_color</code> follows the label color. The order matches <code>kit.button</code>: icon, tone, then icon_color.</p></td><td>Item 6</td><td>Approved and built (thor, 14 Nov 2026)</td></tr>
 <tr><td>7</td><td>No public dialog with a chosen width and top. <code>kit.command_palette</code> uses the internal one.</td><td class="design"><pre class="sig">// The panel a command palette sits in: near the top of the window, with tight padding.
 // Escape or a press outside it closes it. Build a search field and rows inside.
 @(deferred_out = _end_dialog)

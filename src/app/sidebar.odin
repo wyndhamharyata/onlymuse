@@ -28,7 +28,7 @@ build_sidebar :: proc() {
 				axis = .Y,
 				gap = 1,
 				padding = {0, 0, 0, 8},
-				flags = {.Scroll, .Clip},
+				flags = {.Scroll, .Clip, .Arrow_Keys},
 			},
 		)
 
@@ -82,43 +82,21 @@ build_sidebar_item :: proc(
 	page: core.Page,
 	can_take_songs := false,
 ) {
-	is_selected := core.current_page() == page
-	bg := kit.with_opacity(kit.colors.primary, kit.SOFT_OPACITY) if is_selected else {}
 	page_id := page.id
 	if page_id == "" do page_id = core.page_kind_id(page.kind)
-	row := ui.box(
-		page_id,
-		{
-			width = ui.fill(),
-			height = ui.points(30),
-			axis = .X,
-			align = .Center,
-			gap = 9,
-			padding = {10, 0, 10, 0},
-			corner_radius = 7,
-			bg = bg,
-			hover_bg = bg if is_selected else kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY),
-			press_bg = kit.with_opacity(kit.colors.base_content, kit.SELECTED_OPACITY),
-			pointer = .Click,
-		},
-	)
+	// The row compares this with its id, so it reads as current only on the current page.
+	current := page_id if core.current_page() == page else ""
+	is_current := current != ""
+	icon_color := kit.colors.primary if is_current else symbol_color
 
-	signal := ui.signal(row)
-	if signal.is_activated do core.navigate(page)
+	if kit.nav_row(page_id, &current, label, symbol, .Primary, icon_color) {
+		row := ui.here()
+		if row.is_activated do core.navigate(page)
 
-	if menus.apply_song_drop(signal.is_hovered, page.id, page.title, can_take_songs) {
-		row.style.bg = kit.with_opacity(kit.colors.primary, kit.SOFT_OPACITY)
-		row.style.border_width = 1.5
-		row.style.border_color = kit.colors.primary
-	}
-
-	if ui.scope(row) {
-		kit.icon_box(
-			symbol,
-			15,
-			kit.colors.primary if is_selected else symbol_color,
-			{width = ui.points(18), height = ui.points(18)},
-		)
-		kit.text(label, kit.colors.base_content)
+		if menus.apply_song_drop(row.is_hovered, page.id, page.title, can_take_songs) {
+			row.box.style.bg = kit.with_opacity(kit.colors.primary, kit.SOFT_OPACITY)
+			row.box.style.border_width = 1.5
+			row.box.style.border_color = kit.colors.primary
+		}
 	}
 }

@@ -21,7 +21,7 @@ build_song_grid :: proc(
 ) {
 	grid := ui.box(
 		"grid",
-		{width = ui.fill(), height = ui.fit_children(), axis = .X, gap = GRID_GAP},
+		{width = ui.fill(), axis = .X, gap = GRID_GAP},
 	)
 	width := grid.size.x
 	is_narrow := width > 0 && (width - GRID_GAP) / 2 < MIN_GRID_COLUMN_WIDTH
@@ -33,7 +33,7 @@ build_song_grid :: proc(
 		for column in 0 ..< column_count {
 			column_box := ui.box(
 				fmt.tprintf("column_%d", column),
-				{width = ui.fill(), height = ui.fit_children(), axis = .Y},
+				{width = ui.fill(), axis = .Y},
 			)
 
 			if ui.scope(column_box) {
@@ -70,7 +70,7 @@ build_card_grid_page :: proc(
 ) {
 	page := look.page_scroll("grid_page")
 	if ui.scope(page) {
-		heading := ui.box("heading", {width = ui.fill(), height = ui.fit_children(), axis = .Y})
+		heading := ui.box("heading", {width = ui.fill(), axis = .Y})
 
 		if ui.scope(heading) {
 			kit.heading(title)

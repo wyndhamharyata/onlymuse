@@ -28,6 +28,9 @@ PLAYER_HEIGHT :: 70
 
 TOOLBAR_HEIGHT :: 44
 
+// The title bar, which the traffic lights sit in.
+TITLE_BAR_HEIGHT :: 28
+
 PAGE_PADDING :: 20
 
 SHELF_TITLE_SIZE :: 17

@@ -232,30 +232,14 @@ keep_scroll :: proc(page_box: ^ui.Box) {
 	index := navigation.index
 	saved := navigation.scrolls[index]
 
-	if restore.visit != navigation_visit {
-		restore = {
-			visit       = navigation_visit,
-			frames_left = RESTORE_FRAME_COUNT if saved > 0 else 0,
-		}
+	if restore_visit != navigation_visit {
+		restore_visit = navigation_visit
+		if saved > 0 do ui.set_scroll(page_box, saved)
 	}
 
-	if restore.frames_left > 0 {
-		max_scroll := max(0, page_box.content_size.y - page_box.size.y)
-		is_scrolled_away :=
-			page_box.size.y > 0 &&
-			page_box.scroll != saved &&
-			page_box.scroll != max_scroll
-
-		if !is_scrolled_away {
-			restore.frames_left -= 1
-			is_tall_enough := page_box.size.y > 0 && max_scroll >= saved
-			if is_tall_enough do restore.frames_left = 0
-			ui.set_scroll(page_box, saved)
-			return
-		}
-
-		restore.frames_left = 0
-	}
+	// set_scroll keeps the saved offset until the page is tall enough to reach it.
+	max_scroll := max(0, page_box.content_size.y - page_box.size.y)
+	if page_box.size.y > 0 && max_scroll < saved do return
 
 	if page_box.scroll == saved do return
 
@@ -263,12 +247,7 @@ keep_scroll :: proc(page_box: ^ui.Box) {
 	is_scroll_changed = true
 }
 
-RESTORE_FRAME_COUNT :: 240
-
 @(private = "file")
-restore: struct {
-	visit:       int,
-	frames_left: int,
-}
+restore_visit: int
 
 is_scroll_changed: bool

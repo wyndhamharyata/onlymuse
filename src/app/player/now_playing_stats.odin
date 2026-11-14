@@ -93,7 +93,7 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f3
 	for start := 0; start < len(stats); start += columns {
 		row := ui.box(
 			fmt.tprintf("stats_%d", start),
-			{width = ui.fill(), height = ui.fit_children(), axis = .X, gap = STAT_GAP},
+			{width = ui.fill(), axis = .X, gap = STAT_GAP},
 		)
 		in_row := stats[start:min(start + columns, len(stats))]
 		row_weight: f32
@@ -131,7 +131,6 @@ build_stat_card :: proc(
 		id,
 		{
 			width = ui.fill(weight),
-			height = ui.fit_children(),
 			axis = .Y if is_stacked else .X,
 			align = .Start if is_stacked else .End,
 			gap = 8 if is_stacked else 0,
@@ -146,7 +145,7 @@ build_stat_card :: proc(
 	if ui.scope(card) {
 		column := ui.box(
 			"text",
-			{width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 1},
+			{width = ui.fill(), axis = .Y, gap = 1},
 		)
 
 		if ui.scope(column) {
@@ -154,7 +153,6 @@ build_stat_card :: proc(
 				"",
 				{
 					width = ui.fill(),
-					height = ui.fit_text(),
 					text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 					font_size = 11,
 					font_weight = .Semibold,
@@ -165,7 +163,6 @@ build_stat_card :: proc(
 				"",
 				{
 					width = ui.fill(),
-					height = ui.fit_text(),
 					text_color = kit.colors.base_content,
 					font_size = 24,
 					font_weight = .Bold,
@@ -177,7 +174,6 @@ build_stat_card :: proc(
 				"",
 				{
 					width = ui.fill(),
-					height = ui.fit_text(),
 					text_color = kit.with_opacity(kit.colors.base_content, 0.7),
 					font_size = 12,
 					text_fit = .Truncate,

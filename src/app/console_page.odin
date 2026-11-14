@@ -26,13 +26,13 @@ build_console_page :: proc() {
 	if ui.scope(page) {
 		header := ui.box(
 			"header",
-			{width = ui.fill(), height = ui.fit_children(), axis = .X, align = .End, gap = 10},
+			{width = ui.fill(), axis = .X, align = .End, gap = 10},
 		)
 
 		if ui.scope(header) {
 			heading := ui.box(
 				"heading",
-				{width = ui.fill(), height = ui.fit_children(), axis = .Y},
+				{width = ui.fill(), axis = .Y},
 			)
 
 			if ui.scope(heading) {
@@ -50,7 +50,7 @@ build_console_page :: proc() {
 			}
 		}
 
-		rows := ui.box("rows", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 2})
+		rows := ui.box("rows", {width = ui.fill(), axis = .Y, gap = 2})
 
 		if ui.scope(rows) {
 			for index := len(entries) - 1; index >= 0; index -= 1 {
@@ -67,7 +67,6 @@ build_console_row :: proc(index: int, entry: console.Entry) {
 		fmt.tprintf("entry_%d", index),
 		{
 			width = ui.fill(),
-			height = ui.fit_children(),
 			axis = .X,
 			gap = 12,
 			padding = {8, 6, 8, 6},
@@ -81,7 +80,6 @@ build_console_row :: proc(index: int, entry: console.Entry) {
 			"",
 			{
 				width = ui.points(CONSOLE_TIME_WIDTH),
-				height = ui.fit_text(),
 				text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 				font_size = 12,
 			},
@@ -91,7 +89,6 @@ build_console_row :: proc(index: int, entry: console.Entry) {
 			"",
 			{
 				width = ui.points(CONSOLE_SOURCE_WIDTH),
-				height = ui.fit_text(),
 				text_color = source_color,
 				font_size = 12,
 				font_weight = .Semibold,
@@ -102,7 +99,6 @@ build_console_row :: proc(index: int, entry: console.Entry) {
 			"",
 			{
 				width = ui.fill(),
-				height = ui.fit_text(),
 				text_color = kit.colors.base_content,
 				font_size = kit.SMALL_TEXT_SIZE,
 				text_fit = .Wrap,

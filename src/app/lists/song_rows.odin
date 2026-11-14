@@ -24,13 +24,13 @@ build_song_list_page :: proc(
 	if ui.scope(page) {
 		header := ui.box(
 			"header",
-			{width = ui.fill(), height = ui.fit_children(), axis = .X, align = .End, gap = 10},
+			{width = ui.fill(), axis = .X, align = .End, gap = 10},
 		)
 
 		if ui.scope(header) {
 			heading := ui.box(
 				"heading",
-				{width = ui.fill(), height = ui.fit_children(), axis = .Y},
+				{width = ui.fill(), axis = .Y},
 			)
 
 			if ui.scope(heading) {
@@ -79,7 +79,6 @@ to_visible_range :: proc(
 build_song_rows :: proc(songs: []core.Catalog_Song, dates: []string = nil) {
 	style := ui.Style {
 		width  = ui.fill(),
-		height = ui.fit_children(),
 	}
 
 	if first, last, ok := kit.list("rows", len(songs), SONG_ROW_HEIGHT, style); ok {
@@ -141,7 +140,7 @@ build_song_row :: proc(
 			look.to_placeholder(song.artwork, song.album_name),
 		)
 
-		text := ui.box("", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 2})
+		text := ui.box("", {width = ui.fill(), axis = .Y, gap = 2})
 
 		if ui.scope(text) {
 			kit.text(song.name, kit.colors.primary if is_current else kit.colors.base_content)
@@ -152,8 +151,6 @@ build_song_row :: proc(
 			ui.box(
 				"",
 				{
-					width = ui.fit_text(),
-					height = ui.fit_text(),
 					text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 					font_size = 12,
 				},
@@ -166,7 +163,6 @@ build_song_row :: proc(
 			"",
 			{
 				width = ui.points(44),
-				height = ui.fit_text(),
 				text_align = .End,
 				text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 				font_size = 12,

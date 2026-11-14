@@ -80,7 +80,6 @@ build_up_next :: proc() {
 			"shuffle_note",
 			{
 				width = ui.fill(),
-				height = ui.fit_children(),
 				axis = .X,
 				align = .Center,
 				gap = 8,
@@ -94,7 +93,6 @@ build_up_next :: proc() {
 				"",
 				{
 					width = ui.fill(),
-					height = ui.fit_text(),
 					text_color = kit.with_opacity(kit.colors.base_content, 0.7),
 					font_size = 11.5,
 					text_fit = .Wrap,
@@ -105,7 +103,6 @@ build_up_next :: proc() {
 			rules := ui.box(
 				"rules",
 				{
-					width = ui.fit_text(),
 					height = ui.points(22),
 					padding = {8, 0, 8, 0},
 					corner_radius = 6,
@@ -180,7 +177,7 @@ build_queue_row :: proc(index: int) -> bool {
 			look.to_placeholder(song.artwork, song.album_name),
 		)
 
-		text := ui.box("text", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 2})
+		text := ui.box("text", {width = ui.fill(), axis = .Y, gap = 2})
 
 		if ui.scope(text) {
 			is_hovered := ui.signal(row).is_hovered

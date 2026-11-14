@@ -56,7 +56,7 @@ build_now_playing_page :: proc() {
 
 		stage := ui.box(
 			"stage",
-			{width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 20},
+			{width = ui.fill(), axis = .Y, gap = 20},
 		)
 
 		if ui.scope(stage) {
@@ -72,7 +72,6 @@ build_now_playing_page :: proc() {
 					"",
 					{
 						width = ui.fill(),
-						height = ui.fit_text(),
 						text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 						font_size = 11.5,
 						text_fit = .Wrap,
@@ -100,7 +99,6 @@ build_current_lyric :: proc(shown: helper.Song) {
 		"lyric_line",
 		{
 			width = ui.fill(),
-			height = ui.fit_children(),
 			axis = .Y,
 			gap = 2,
 			padding = {0, 14, 0, 0},
@@ -112,7 +110,6 @@ build_current_lyric :: proc(shown: helper.Song) {
 			"",
 			{
 				width = ui.fill(),
-				height = ui.fit_text(),
 				text_color = kit.colors.base_content,
 				font_size = 17,
 				font_weight = .Semibold,
@@ -126,7 +123,6 @@ build_current_lyric :: proc(shown: helper.Song) {
 				"",
 				{
 					width = ui.fill(),
-					height = ui.fit_text(),
 					text_color = kit.to_color(0xffffffa0),
 					font_size = 13,
 					text_fit = .Wrap,
@@ -183,7 +179,6 @@ build_more_by :: proc(details: Song_Details) {
 		"more_by",
 		{
 			width = ui.fill(),
-			height = ui.fit_children(),
 			axis = .Y,
 			gap = 10,
 			padding = {0, 4, 0, 0},
@@ -194,7 +189,7 @@ build_more_by :: proc(details: Song_Details) {
 		lists.build_shelf_title(fmt.tprintf("More by %s", details.song.artist_name), false)
 		row := ui.box(
 			"tiles",
-			{width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 12},
+			{width = ui.fill(), axis = .X, gap = 12},
 		)
 
 		if ui.scope(row) {

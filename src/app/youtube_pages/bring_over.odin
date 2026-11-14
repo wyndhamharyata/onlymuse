@@ -51,13 +51,13 @@ build_bring_over_page :: proc(page: core.Page) {
 	if ui.scope(scroll) {
 		header := ui.box(
 			"header",
-			{width = ui.fill(), height = ui.fit_children(), axis = .X, align = .End, gap = 10},
+			{width = ui.fill(), axis = .X, align = .End, gap = 10},
 		)
 
 		if ui.scope(header) {
 			heading := ui.box(
 				"heading",
-				{width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 2},
+				{width = ui.fill(), axis = .Y, gap = 2},
 			)
 
 			if ui.scope(heading) {

@@ -7,18 +7,17 @@ import "thor:kit"
 import "thor:ui"
 
 build_sidebar :: proc() {
-	sidebar := ui.box(
+	sidebar := kit.safe_area(
 		"sidebar",
 		{
 			width = ui.points(look.SIDEBAR_WIDTH),
 			height = ui.fill(),
-			axis = .Y,
-			padding = {8, look.TOOLBAR_HEIGHT, 8, 0},
+			padding = {8, look.TOOLBAR_HEIGHT - look.TITLE_BAR_HEIGHT, 8, 0},
 			bg = look.colors.sidebar,
 		},
 	)
 
-	if ui.scope(sidebar) {
+	if sidebar {
 		build_search_field()
 
 		list := ui.box(
@@ -68,7 +67,6 @@ build_group_title :: proc(title: string) {
 		"",
 		{
 			width = ui.fill(),
-			height = ui.fit_text(),
 			padding = {10, 14, 10, 4},
 			text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 			font_size = 11,

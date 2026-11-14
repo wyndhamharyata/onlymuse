@@ -61,7 +61,6 @@ build_detail_cards :: proc(
 		"details",
 		{
 			width = ui.fill(),
-			height = ui.fit_children(),
 			axis = .X if width >= SIDE_BY_SIDE_WIDTH else .Y,
 			gap = 10,
 		},
@@ -147,7 +146,6 @@ build_detail_card :: proc(id, title: string, rows: []Detail, weight: f32) {
 		id,
 		{
 			width = ui.fill(weight),
-			height = ui.fit_children(),
 			axis = .Y,
 			gap = 6,
 			padding = {16, 14, 16, 14},
@@ -163,7 +161,6 @@ build_detail_card :: proc(id, title: string, rows: []Detail, weight: f32) {
 			"",
 			{
 				width = ui.fill(),
-				height = ui.fit_text(),
 				text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 				font_size = 11,
 				font_weight = .Semibold,
@@ -175,15 +172,13 @@ build_detail_card :: proc(id, title: string, rows: []Detail, weight: f32) {
 		for row in rows {
 			line := ui.box(
 				row.label,
-				{width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 12},
+				{width = ui.fill(), axis = .X, gap = 12},
 			)
 
 			if ui.scope(line) {
 				ui.box(
 					"",
 					{
-						width = ui.fit_text(),
-						height = ui.fit_text(),
 						text_color = kit.with_opacity(kit.colors.base_content, 0.7),
 						font_size = 13,
 					},
@@ -193,7 +188,6 @@ build_detail_card :: proc(id, title: string, rows: []Detail, weight: f32) {
 					"",
 					{
 						width = ui.fill(),
-						height = ui.fit_text(),
 						text_color = kit.colors.base_content,
 						font_size = 13,
 						text_align = .End,

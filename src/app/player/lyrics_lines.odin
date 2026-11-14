@@ -52,7 +52,6 @@ build_timed_text :: proc(text: string, words: []lyrics.Word, index: int, font_si
 		"",
 		{
 			width = ui.fill(),
-			height = ui.fit_text(),
 			font_size = font_size,
 			font_weight = .Bold,
 			text_color = kit.with_opacity(kit.colors.base_content, 0.7),
@@ -73,7 +72,7 @@ build_lyric_line :: proc(line: ^lyrics.Line, index: int) {
 	)
 	line_box := ui.box(
 		fmt.tprintf("line_%d", index),
-		{width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 2, fade = 1 - opacity},
+		{width = ui.fill(), axis = .Y, gap = 2, fade = 1 - opacity},
 	)
 
 	if ui.scope(line_box) {
@@ -93,7 +92,6 @@ build_lyric_line :: proc(line: ^lyrics.Line, index: int) {
 				"translation",
 				{
 					width = ui.fill(),
-					height = ui.fit_text(),
 					font_size = TRANSLATION_FONT_SIZE,
 					text_color = kit.with_opacity(kit.colors.base_content, 0.7),
 					text_fit = .Wrap,
@@ -120,7 +118,6 @@ build_lead_note :: proc() {
 		"",
 		{
 			width = ui.fill(),
-			height = ui.fit_text(),
 			padding = {8, 8, 8, 8},
 			corner_radius = 8,
 			bg = kit.colors.base_300,

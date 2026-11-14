@@ -139,7 +139,6 @@ build_lyrics :: proc() -> bool {
 		"",
 		{
 			width = ui.fill(),
-			height = ui.fit_text(),
 			text_color = kit.colors.base_content,
 			font_weight = .Semibold,
 			padding = {PANEL_INSET, 0, PANEL_INSET, 0},
@@ -151,7 +150,6 @@ build_lyrics :: proc() -> bool {
 		"",
 		{
 			width = ui.fill(),
-			height = ui.fit_text(),
 			text_color = kit.with_opacity(kit.colors.base_content, 0.7),
 			font_size = 12,
 			padding = {PANEL_INSET, 0, PANEL_INSET, 10},
@@ -204,7 +202,6 @@ build_lyrics :: proc() -> bool {
 			"column",
 			{
 				width = ui.fill(),
-				height = ui.fit_children(),
 				axis = .Y,
 				gap = LYRIC_LINE_GAP,
 				pos = {PANEL_INSET, 10 - offset},
@@ -232,7 +229,6 @@ build_panel_note :: proc(text: string) {
 		"",
 		{
 			width = ui.fill(),
-			height = ui.fit_text(),
 			text_color = kit.with_opacity(kit.colors.base_content, 0.7),
 			padding = {PANEL_INSET, 16, PANEL_INSET, 0},
 			text_fit = .Wrap,
@@ -256,7 +252,6 @@ build_lyric_toggles :: proc(lines: []lyrics.Line) {
 		"toggles",
 		{
 			width = ui.fill(),
-			height = ui.fit_children(),
 			axis = .X,
 			gap = 6,
 			padding = {PANEL_INSET, 0, PANEL_INSET, 10},

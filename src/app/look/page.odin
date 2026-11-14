@@ -73,7 +73,6 @@ build_loading :: proc(what: string) {
 		"loading",
 		{
 			width = ui.fill(),
-			height = ui.fit_children(),
 			axis = .Y,
 			align = .Center,
 			gap = 10,
@@ -96,10 +95,10 @@ build_loading :: proc(what: string) {
 
 		all_dots := "..."
 		dots_width := ui.points(kit.measure_text(all_dots, LOADING_TEXT_SIZE))
-		label := ui.box("", {width = ui.fit_children(), height = ui.fit_children(), axis = .X})
+		label := ui.box("", {axis = .X})
 
 		if ui.scope(label) {
-			kit.description(fmt.tprintf("Loading %s", what), width = ui.fit_text())
+			kit.description(fmt.tprintf("Loading %s", what), width = ui.Length{})
 			kit.text(all_dots[:dot_count], kit.with_opacity(kit.colors.base_content, 0.7), LOADING_TEXT_SIZE, width = dots_width)
 		}
 	}

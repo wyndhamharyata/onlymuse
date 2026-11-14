@@ -117,7 +117,6 @@ build_sign_in_card :: proc() {
 			"card",
 			{
 				width = ui.points(SIGN_IN_CARD_WIDTH),
-				height = ui.fit_children(),
 				axis = .Y,
 				gap = 12,
 				padding = {24, 24, 24, 24},
@@ -138,7 +137,6 @@ build_sign_in_card :: proc() {
 				"",
 				{
 					width = ui.fill(),
-					height = ui.fit_text(),
 					text_color = kit.colors.base_content,
 					font_size = 18,
 					font_weight = .Bold,
@@ -149,7 +147,6 @@ build_sign_in_card :: proc() {
 				"",
 				{
 					width = ui.fill(),
-					height = ui.fit_text(),
 					text_color = kit.with_opacity(kit.colors.base_content, 0.7),
 					text_fit = .Wrap,
 				},

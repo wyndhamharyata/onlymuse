@@ -74,7 +74,7 @@ build_search_page :: proc(term: string) {
 
 @(private = "file")
 build_search_top :: proc(data: ^core.Page_Data) {
-	top := ui.box("top", {width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 20})
+	top := ui.box("top", {width = ui.fill(), axis = .X, gap = 20})
 
 	if ui.scope(top) {
 		if len(data.artists) > 0 {
@@ -82,7 +82,6 @@ build_search_top :: proc(data: ^core.Page_Data) {
 				"top_result",
 				{
 					width = ui.points(TOP_RESULT_WIDTH),
-					height = ui.fit_children(),
 					axis = .Y,
 					gap = 10,
 				},
@@ -100,7 +99,7 @@ build_search_top :: proc(data: ^core.Page_Data) {
 		songs := data.songs[:min(len(data.songs), SHOWN_SEARCH_SONG_COUNT)]
 		list := ui.box(
 			"songs",
-			{width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 0},
+			{width = ui.fill(), axis = .Y, gap = 0},
 		)
 
 		if ui.scope(list) {
@@ -108,7 +107,6 @@ build_search_top :: proc(data: ^core.Page_Data) {
 				"",
 				{
 					width = ui.fill(),
-					height = ui.fit_text(),
 					text_color = kit.colors.base_content,
 					font_size = look.SHELF_TITLE_SIZE,
 					font_weight = .Bold,

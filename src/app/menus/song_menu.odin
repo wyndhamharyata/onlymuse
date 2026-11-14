@@ -131,7 +131,7 @@ build_main_menu :: proc(song: core.Catalog_Song, pos, window_size: [2]f32) -> bo
 				"add_to_playlist",
 				"Add to Playlist",
 				"›",
-				is_selected = song_menu.is_playlists_open,
+				is_highlighted = song_menu.is_playlists_open,
 			)
 			if item.is_activated || item.is_hovered do song_menu.is_playlists_open = true
 		}
@@ -238,7 +238,6 @@ build_playlist_menu :: proc(
 				"",
 				{
 					width = ui.fill(),
-					height = ui.fit_text(),
 					text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 					font_size = 11,
 					padding = {4, 4, 4, 2},
@@ -287,7 +286,6 @@ build_playlist_menu :: proc(
 				"",
 				{
 					width = ui.fill(),
-					height = ui.fit_text(),
 					text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 					font_size = 12,
 					padding = {8, 4, 8, 4},

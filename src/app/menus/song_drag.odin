@@ -74,7 +74,6 @@ build_drag_ghost :: proc() {
 	ghost := ui.box(
 		"drag_ghost",
 		{
-			width = ui.fit_children(),
 			height = ui.points(30),
 			axis = .X,
 			align = .Center,
@@ -94,8 +93,6 @@ build_drag_ghost :: proc() {
 		ui.box(
 			"",
 			{
-				width = ui.fit_text(),
-				height = ui.fit_text(),
 				text_color = kit.colors.base_content,
 				font_size = kit.SMALL_TEXT_SIZE,
 			},

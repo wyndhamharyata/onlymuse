@@ -30,7 +30,6 @@ menu_box :: proc(id: string, pos: [2]f32, width: f32, window_size: [2]f32) -> ^u
 		id,
 		{
 			width = ui.points(width),
-			height = ui.fit_children(),
 			axis = .Y,
 			gap = 1,
 			padding = {5, 5, 5, 5},

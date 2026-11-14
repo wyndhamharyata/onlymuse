@@ -20,15 +20,13 @@ build_controls :: proc() {
 	has_song := helper.has_song(now_playing)
 	controls := ui.box(
 		"controls",
-		{width = ui.fill(1.25), height = ui.fit_children(), axis = .Y, align = .Center, gap = 6},
+		{width = ui.fill(1.25), axis = .Y, align = .Center, gap = 6},
 	)
 
 	if ui.scope(controls) {
 		buttons := ui.box(
 			"buttons",
 			{
-				width = ui.fit_children(),
-				height = ui.fit_children(),
 				axis = .X,
 				align = .Center,
 				gap = 16,
@@ -111,7 +109,7 @@ build_progress :: proc(has_song: bool) {
 	ratio := f32(pos_seconds / duration_seconds) if duration_seconds > 0 else 0
 	progress := ui.box(
 		"progress",
-		{width = ui.fill(), height = ui.fit_children(), axis = .X, align = .Center, gap = 10},
+		{width = ui.fill(), axis = .X, align = .Center, gap = 10},
 	)
 
 	if ui.scope(progress) {
@@ -119,7 +117,6 @@ build_progress :: proc(has_song: bool) {
 			"",
 			{
 				width = ui.points(CLOCK_WIDTH),
-				height = ui.fit_text(),
 				text_align = .End,
 				text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 				font_size = 11,
@@ -151,7 +148,7 @@ build_progress :: proc(has_song: bool) {
 build_player_end :: proc() {
 	end := ui.box(
 		"end",
-		{width = ui.fill(1), height = ui.fit_children(), axis = .X, align = .Center, gap = 12},
+		{width = ui.fill(1), axis = .X, align = .Center, gap = 12},
 	)
 
 	if ui.scope(end) {

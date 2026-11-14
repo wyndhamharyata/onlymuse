@@ -18,7 +18,6 @@ build_results :: proc() -> int {
 			"",
 			{
 				width = ui.fill(),
-				height = ui.fit_text(),
 				text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 				padding = {10, 6, 10, 8},
 			},
@@ -57,7 +56,6 @@ build_results :: proc() -> int {
 					"",
 					{
 						width = ui.fill(),
-						height = ui.fit_text(),
 						text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 						font_size = 11,
 						font_weight = .Bold,
@@ -170,8 +168,6 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 		ui.box(
 			"",
 			{
-				width = ui.fit_text(),
-				height = ui.fit_text(),
 				text_color = kit.with_opacity(kit.colors.base_content, 0.5) if result.is_disabled else kit.colors.base_content,
 				font_size = 13.5,
 				text_fit = .Truncate,
@@ -182,7 +178,6 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 			"",
 			{
 				width = ui.fill(),
-				height = ui.fit_text(),
 				text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 				font_size = 12,
 				text_fit = .Truncate,
@@ -194,8 +189,6 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 			ui.box(
 				"",
 				{
-					width = ui.fit_text(),
-					height = ui.fit_text(),
 					text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 					font_size = 12,
 				},
@@ -207,8 +200,6 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 			ui.box(
 				"",
 				{
-					width = ui.fit_text(),
-					height = ui.fit_text(),
 					text_color = kit.colors.primary,
 					font_size = 13,
 				},

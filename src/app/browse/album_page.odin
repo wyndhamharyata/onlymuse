@@ -121,7 +121,6 @@ build_album_header :: proc(data: ^core.Page_Data, width: f32) {
 		"header",
 		{
 			width = ui.fill(),
-			height = ui.fit_children(),
 			axis = .X if is_side_by_side else .Y,
 			align = .End if is_side_by_side else .Start,
 			gap = ALBUM_HEADER_GAP,
@@ -158,14 +157,13 @@ build_album_info :: proc(data: ^core.Page_Data, info_width: f32) {
 	library_label := "In Library" if data.is_in_library else "Not in Library"
 	library_color := kit.to_color(0x7ee2a8ff) if data.is_in_library else kit.with_opacity(kit.colors.base_content, 0.5)
 
-	info := ui.box("info", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 6})
+	info := ui.box("info", {width = ui.fill(), axis = .Y, gap = 6})
 
 	if ui.scope(info) {
 		ui.box(
 			"",
 			{
 				width = ui.fill(),
-				height = ui.fit_text(),
 				text_color = kit.colors.base_content,
 				font_size = title_size,
 				font_weight = .Bold,
@@ -178,7 +176,6 @@ build_album_info :: proc(data: ^core.Page_Data, info_width: f32) {
 			"artist",
 			{
 				width = ui.fill(),
-				height = ui.fit_text(),
 				text_color = kit.colors.primary,
 				font_size = 20,
 				font_weight = .Semibold,
@@ -198,7 +195,6 @@ build_album_info :: proc(data: ^core.Page_Data, info_width: f32) {
 			"badges",
 			{
 				width = ui.fill(),
-				height = ui.fit_children(),
 				axis = .X,
 				gap = 8,
 				padding = {0, 6, 0, 10},
@@ -215,7 +211,6 @@ build_album_info :: proc(data: ^core.Page_Data, info_width: f32) {
 			"buttons",
 			{
 				width = ui.fill(),
-				height = ui.fit_children(),
 				axis = .X,
 				gap = 8,
 				flags = {.Wrap_Children},
@@ -230,8 +225,6 @@ build_badge :: proc(label: string, color: [4]f32) {
 	ui.box(
 		"",
 		{
-			width = ui.fit_text(),
-			height = ui.fit_text(),
 			padding = {6, 1, 6, 1},
 			corner_radius = 4,
 			border_width = 1,
@@ -246,7 +239,7 @@ build_badge :: proc(label: string, color: [4]f32) {
 
 build_numbered_songs :: proc(songs: []core.Catalog_Song) {
 	tint := kit.with_opacity(kit.colors.primary, kit.SOFT_OPACITY)
-	list := ui.box("songs", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 1})
+	list := ui.box("songs", {width = ui.fill(), axis = .Y, gap = 1})
 
 	if ui.scope(list) {
 		for song, index in songs {
@@ -272,7 +265,6 @@ build_numbered_songs :: proc(songs: []core.Catalog_Song) {
 					"",
 					{
 						width = ui.points(24),
-						height = ui.fit_text(),
 						text_color = kit.colors.primary if is_current else kit.with_opacity(kit.colors.base_content, 0.5),
 					},
 					fmt.tprintf("%d", index + 1),
@@ -283,7 +275,6 @@ build_numbered_songs :: proc(songs: []core.Catalog_Song) {
 					"",
 					{
 						width = ui.points(44),
-						height = ui.fit_text(),
 						text_align = .End,
 						text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 						font_size = 12,

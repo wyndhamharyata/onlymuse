@@ -176,7 +176,6 @@ build_palette :: proc() {
 			"palette",
 			{
 				width = ui.points(width),
-				height = ui.fit_children(),
 				axis = .Y,
 				padding = {8, 8, 8, 8},
 				gap = 6,

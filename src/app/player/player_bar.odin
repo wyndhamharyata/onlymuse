@@ -93,7 +93,7 @@ build_song_info :: proc() {
 	waiting_song := playback.queue.songs[playback.queue.index] if is_waiting else {}
 	info := ui.box(
 		"info",
-		{width = ui.fill(1), height = ui.fit_children(), axis = .X, align = .Center, gap = 12},
+		{width = ui.fill(1), axis = .X, align = .Center, gap = 12},
 	)
 
 	if ui.scope(info) {
@@ -113,7 +113,7 @@ build_song_info :: proc() {
 
 		cover := ui.box(
 			"cover",
-			{width = ui.fit_children(), height = ui.fit_children(), pointer = .Click if is_song else .Passive},
+			{pointer = .Click if is_song else .Passive},
 		)
 		if ui.signal(cover).is_activated do core.navigate({kind = .Now_Playing})
 
@@ -132,7 +132,7 @@ build_song_info :: proc() {
 			)
 		}
 
-		text := ui.box("", {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 2})
+		text := ui.box("", {width = ui.fill(), axis = .Y, gap = 2})
 
 		if ui.scope(text) {
 			if is_waiting {
@@ -172,7 +172,6 @@ build_song_title :: proc(song: helper.Song, queue_song: core.Catalog_Song, is_qu
 		"title",
 		{
 			width = ui.fill(),
-			height = ui.fit_children(),
 			axis = .X,
 			align = .Center,
 			gap = TITLE_GAP,
@@ -222,8 +221,6 @@ build_song_title :: proc(song: helper.Song, queue_song: core.Catalog_Song, is_qu
 			ui.box(
 				"",
 				{
-					width = ui.fit_text(),
-					height = ui.fit_text(),
 					padding = {BADGE_PADDING, 0, BADGE_PADDING, 0},
 					corner_radius = 4,
 					border_width = 1,

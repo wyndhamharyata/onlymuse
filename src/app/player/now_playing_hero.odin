@@ -39,7 +39,6 @@ build_hero :: proc(
 		"hero",
 		{
 			width = ui.fill(),
-			height = ui.fit_children(),
 			axis = .X if is_side_by_side else .Y,
 			gap = HERO_GAP,
 		},
@@ -80,7 +79,7 @@ build_hero :: proc(
 
 		info_box := ui.box(
 			"info",
-			{width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 4},
+			{width = ui.fill(), axis = .Y, gap = 4},
 		)
 
 		if ui.scope(info_box) {
@@ -88,7 +87,6 @@ build_hero :: proc(
 				"",
 				{
 					width = ui.fill(),
-					height = ui.fit_text(),
 					text_color = kit.colors.base_content,
 					font_size = to_title_size(info_width),
 					font_weight = .Bold,
@@ -104,7 +102,6 @@ build_hero :: proc(
 				"artist",
 				{
 					width = ui.fill(),
-					height = ui.fit_text(),
 					text_color = artist_color,
 					font_size = 20,
 					font_weight = .Semibold,
@@ -126,7 +123,6 @@ build_hero :: proc(
 				"album",
 				{
 					width = ui.fill(),
-					height = ui.fit_text(),
 					text_color = kit.to_color(0xffffffb0),
 					font_size = 14,
 					text_fit = .Truncate,
@@ -181,7 +177,6 @@ build_pills :: proc(details: Song_Details, info: playback.Song_Info) {
 		"pills",
 		{
 			width = ui.fill(),
-			height = ui.fit_children(),
 			axis = .X,
 			gap = 6,
 			padding = {0, 10, 0, 0},
@@ -196,7 +191,6 @@ build_pills :: proc(details: Song_Details, info: playback.Song_Info) {
 			ui.box(
 				pill,
 				{
-					width = ui.fit_text(),
 					height = ui.points(26),
 					padding = {10, 0, 10, 0},
 					corner_radius = 13,
@@ -233,7 +227,6 @@ build_actions :: proc(details: Song_Details, persistent_id: string) {
 		"actions",
 		{
 			width = ui.fill(),
-			height = ui.fit_children(),
 			axis = .X,
 			gap = 8,
 			padding = {0, 12, 0, 0},

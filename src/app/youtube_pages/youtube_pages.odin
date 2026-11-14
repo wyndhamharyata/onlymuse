@@ -140,7 +140,7 @@ build_youtube_search_results :: proc(term: string, apple_songs: []core.Catalog_S
 	if len(shown) > 0 {
 		section := ui.box(
 			"youtube_songs",
-			{width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 0},
+			{width = ui.fill(), axis = .Y, gap = 0},
 		)
 
 		if ui.scope(section) {

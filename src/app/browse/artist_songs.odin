@@ -118,15 +118,13 @@ build_recent_songs_shelf :: proc(artist_id, artist_name: string) {
 
 	shelf := ui.box(
 		"recent_songs",
-		{width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 10},
+		{width = ui.fill(), axis = .Y, gap = 10},
 	)
 
 	if ui.scope(shelf) {
 		title := ui.box(
 			"title",
 			{
-				width = ui.fit_children(),
-				height = ui.fit_children(),
 				axis = .X,
 				align = .Center,
 				gap = 4,
@@ -139,8 +137,6 @@ build_recent_songs_shelf :: proc(artist_id, artist_name: string) {
 			ui.box(
 				"",
 				{
-					width = ui.fit_text(),
-					height = ui.fit_text(),
 					text_color = kit.with_opacity(kit.colors.base_content, text_alpha),
 					font_size = look.SHELF_TITLE_SIZE,
 					font_weight = .Bold,

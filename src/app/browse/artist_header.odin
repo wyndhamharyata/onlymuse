@@ -71,14 +71,13 @@ build_artist_header :: proc(data: ^core.Page_Data, detail: string, width: f32) {
 		)
 
 		if ui.scope(bottom) {
-			name := ui.box("name", {width = ui.fill(), height = ui.fit_children(), axis = .Y})
+			name := ui.box("name", {width = ui.fill(), axis = .Y})
 
 			if ui.scope(name) {
 				ui.box(
 					"",
 					{
 						width = ui.fill(),
-						height = ui.fit_text(),
 						text_color = kit.colors.base_content,
 						font_size = 40,
 						font_weight = .Bold,
@@ -98,7 +97,7 @@ build_artist_header :: proc(data: ^core.Page_Data, detail: string, width: f32) {
 build_artist_middle :: proc(data: ^core.Page_Data) {
 	middle := ui.box(
 		"middle",
-		{width = ui.fill(), height = ui.fit_children(), axis = .X, gap = 20},
+		{width = ui.fill(), axis = .X, gap = 20},
 	)
 
 	if ui.scope(middle) {
@@ -107,7 +106,6 @@ build_artist_middle :: proc(data: ^core.Page_Data) {
 				"latest",
 				{
 					width = ui.points(LATEST_RELEASE_WIDTH),
-					height = ui.fit_children(),
 					axis = .Y,
 					gap = 10,
 				},
@@ -124,7 +122,7 @@ build_artist_middle :: proc(data: ^core.Page_Data) {
 
 		top := ui.box(
 			"top_songs",
-			{width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 10},
+			{width = ui.fill(), axis = .Y, gap = 10},
 		)
 
 		if ui.scope(top) {

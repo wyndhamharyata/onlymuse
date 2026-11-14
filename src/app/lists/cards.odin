@@ -50,7 +50,7 @@ build_card_row :: proc(
 ) {
 	if len(cards) == 0 do return
 
-	shelf := ui.box(id, {width = ui.fill(), height = ui.fit_children(), axis = .Y, gap = 10})
+	shelf := ui.box(id, {width = ui.fill(), axis = .Y, gap = 10})
 
 	if ui.scope(shelf) {
 		if title != "" do build_shelf_title(title, is_youtube)
@@ -59,7 +59,6 @@ build_card_row :: proc(
 			"row",
 			{
 				width = ui.fill(),
-				height = ui.fit_children(),
 				axis = .X,
 				gap = CARD_GAP,
 				flags = {.Scroll, .Clip},
@@ -119,7 +118,7 @@ card_symbols := [apple.Card_Kind]string {
 build_shelf_title :: proc(title: string, is_youtube: bool) {
 	row := ui.box(
 		"title",
-		{width = ui.fill(), height = ui.fit_children(), axis = .X, align = .Center, gap = 7},
+		{width = ui.fill(), axis = .X, align = .Center, gap = 7},
 	)
 
 	if ui.scope(row) {
@@ -128,7 +127,6 @@ build_shelf_title :: proc(title: string, is_youtube: bool) {
 			"",
 			{
 				width = ui.fill(),
-				height = ui.fit_text(),
 				text_color = kit.colors.base_content,
 				font_size = look.SHELF_TITLE_SIZE,
 				font_weight = .Bold,
@@ -151,7 +149,6 @@ build_card_tile :: proc(
 		id,
 		{
 			width = ui.points(tile_size),
-			height = ui.fit_children(),
 			axis = .Y,
 			gap = 3,
 			align = .Center if is_round else .Start,
@@ -193,7 +190,6 @@ build_card_tile :: proc(
 			"",
 			{
 				width = ui.fill(),
-				height = ui.fit_text(),
 				text_color = kit.colors.base_content,
 				font_size = kit.SMALL_TEXT_SIZE,
 				text_align = text_align,
@@ -207,7 +203,6 @@ build_card_tile :: proc(
 				"",
 				{
 					width = ui.fill(),
-					height = ui.fit_text(),
 					text_color = kit.with_opacity(kit.colors.base_content, 0.7),
 					font_size = 12,
 					text_fit = .Truncate,

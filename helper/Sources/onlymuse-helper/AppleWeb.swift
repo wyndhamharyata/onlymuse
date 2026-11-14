@@ -64,14 +64,15 @@ final class AppleWeb: NSObject, WKNavigationDelegate {
     return Self.idPrefix + catalogID
   }
 
-  func stop() {
+  // isReported is false when another player takes over at once, so the app sees no stop between the songs.
+  func stop(isReported: Bool = true) {
     guard isActive else { return }
 
     isActive = false
     pollTimer?.invalidate()
     pollTimer = nil
     run("window.onlymuseSong = \"\"; window.MusicKit?.getInstance?.()?.pause(); true")
-    send(makeNowPlaying(state: "stopped", positionSeconds: 0, durationSeconds: 0))
+    if isReported { send(makeNowPlaying(state: "stopped", positionSeconds: 0, durationSeconds: 0)) }
   }
 
   func apply(_ command: Command) {
@@ -132,13 +133,16 @@ final class AppleWeb: NSObject, WKNavigationDelegate {
           window.onlymuseError = "the page has no player";
           return;
         }
+        // A song asked for or a stop while the queue loads takes over, so this one must not start.
+        const isCurrent = () => window.onlymuseSong === id;
         music.setQueue({ song: id })
           .then(() => {
+            if (!isCurrent()) return;
             music.volume = volume;
             const seek = window.onlymuseSeek || 0;
             return seek > 0 ? music.seekToTime(seek) : undefined;
           })
-          .then(() => music.play())
+          .then(() => isCurrent() ? music.play() : undefined)
           .catch((error) => { window.onlymuseError = String(error); });
       };
       attempt();

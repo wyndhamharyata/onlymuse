@@ -39,7 +39,11 @@ final class Handoff {
   }
 
   private func playSong(_ song: SongMatch) -> String? {
-    if let videoID = song.youTubeVideoID { return youTube.play(song, videoID: videoID) }
+    // One web player at a time: a song still loading on the other one would start beside this one.
+    if let videoID = song.youTubeVideoID {
+      appleWeb.stop(isReported: false)
+      return youTube.play(song, videoID: videoID)
+    }
 
     youTube.stop()
 

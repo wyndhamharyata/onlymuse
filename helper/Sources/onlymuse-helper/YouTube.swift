@@ -103,7 +103,9 @@ final class YouTube: NSObject, WKNavigationDelegate {
       run(toPlayScript(isLoadForced: resumeSeconds > 0, startSeconds: resumeSeconds))
       resumeSeconds = 0
     } else {
-      run("window.onlymuseVideoID = \(toJavaScriptText(videoID)); window.onlymuseIsPreparing = \(preparedID != "")")
+      // A song stopped while its page loaded must stay still, so the page holds it as it holds a prepared one.
+      let pause = preparedID == "" ? " document.getElementById('movie_player')?.pauseVideo();" : ""
+      run("window.onlymuseVideoID = \(toJavaScriptText(videoID)); window.onlymuseIsPreparing = true;\(pause)")
     }
   }
 
@@ -194,7 +196,8 @@ final class YouTube: NSObject, WKNavigationDelegate {
     isActive = false
     pollTimer?.invalidate()
     pollTimer = nil
-    run("document.getElementById('movie_player')?.pauseVideo()")
+    // Still buffering, the video could start after the pause; the page's playing listener pauses it again.
+    run("window.onlymuseIsPreparing = true; document.getElementById('movie_player')?.pauseVideo()")
     startIdleTimer()
   }
 

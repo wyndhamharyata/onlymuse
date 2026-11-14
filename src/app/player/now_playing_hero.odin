@@ -248,9 +248,8 @@ build_actions :: proc(details: Song_Details, persistent_id: string) {
 		}
 
 		add := kit.button("add_to_playlist", "Add to Playlist", "plus") if details.song.id != "" else {}
-		if add.is_activated {
-			menus.open_song_menu(details.song, {add.box.rect.x, add.box.rect.w + 4}, true)
-		}
+		if add.is_activated do menus.toggle_playlist_menu(details.song)
+		if add.box != nil do menus.build_playlist_menu(add.box)
 
 		if details.url != "" && kit.button("copy_link", "Copy Link", "link").is_activated {
 			platform.set_clipboard(details.url)

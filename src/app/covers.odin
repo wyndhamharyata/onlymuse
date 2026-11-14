@@ -40,8 +40,11 @@ fetch_cover :: proc(url: string) -> (path: string, ok: bool) {
 	return path, true
 }
 
-// Apple puts the size after the last slash. googleusercontent.com puts it after "=".
+// Apple puts the size after the last slash. googleusercontent.com puts it after "=". A query, as in
+// YouTube's "mixart?r=…", names the image itself, so a URL with one is its own family.
 to_cover_family :: proc(url: string) -> string {
+	if strings.contains_rune(url, '?') do return url
+
 	slash := strings.last_index_byte(url, '/')
 	equals := strings.last_index_byte(url, '=')
 

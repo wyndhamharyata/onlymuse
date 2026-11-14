@@ -37,7 +37,7 @@ build_controls :: proc() {
 
 		if ui.scope(buttons) {
 			shuffle_color := kit.colors.primary if playback.queue.is_shuffled else kit.with_opacity(kit.colors.base_content, 0.5)
-			shuffle := kit.button("shuffle", icon = "shuffle", icon_size = 14, icon_color = shuffle_color, tooltip = "Shuffle")
+			shuffle := kit.button("shuffle", "Shuffle", "shuffle", variant = .Ghost, icon_size = 14, icon_color = shuffle_color, is_label_hidden = true)
 			if shuffle.is_activated do playback.toggle_shuffle()
 			if shuffle.is_secondary {
 				playback.open_shuffle_rules(shuffle.box.rect.xy + SHUFFLE_RULES_OFFSET)
@@ -46,7 +46,7 @@ build_controls :: proc() {
 			resume_seconds :=
 				playback.queue.resume_point.pos_seconds if playback.is_resume_shown() else helper.read_pos_seconds(now_playing)
 
-			if kit.button("prev", icon = "backward.fill", icon_size = 17, tooltip = "Previous").is_activated {
+			if kit.button("prev", "Previous", "backward.fill", variant = .Ghost, icon_size = 17, is_label_hidden = true).is_activated {
 				playback.skip_to_prev(resume_seconds)
 			}
 
@@ -75,7 +75,7 @@ build_controls :: proc() {
 				helper.send_play_pause()
 			}
 
-			if kit.button("next", icon = "forward.fill", icon_size = 17, tooltip = "Next").is_activated {
+			if kit.button("next", "Next", "forward.fill", variant = .Ghost, icon_size = 17, is_label_hidden = true).is_activated {
 				playback.skip_to_next()
 			}
 
@@ -83,7 +83,7 @@ build_controls :: proc() {
 			repeat_color :=
 				kit.colors.primary if playback.queue.repeat != "off" else kit.with_opacity(kit.colors.base_content, 0.5)
 
-			if kit.button("repeat", icon = repeat_symbol, icon_size = 14, icon_color = repeat_color, tooltip = "Repeat").is_activated {
+			if kit.button("repeat", "Repeat", repeat_symbol, variant = .Ghost, icon_size = 14, icon_color = repeat_color, is_label_hidden = true).is_activated {
 				playback.cycle_repeat()
 			}
 		}
@@ -158,7 +158,7 @@ build_player_end :: proc() {
 		ui.box("", {width = ui.fill(), height = ui.points(1)})
 		panel_color := kit.colors.primary if core.app.panel != .None else kit.with_opacity(kit.colors.base_content, 0.5)
 
-		if kit.button("panel", icon = "sidebar.right", icon_size = 16, icon_color = panel_color, tooltip = "Panel").is_activated {
+		if kit.button("panel", "Panel", "sidebar.right", variant = .Ghost, icon_color = panel_color, is_label_hidden = true).is_activated {
 			core.set_panel(.None if core.app.panel != .None else core.app.last_panel)
 		}
 

@@ -191,7 +191,7 @@ build_song_title :: proc(song: helper.Song, queue_song: core.Catalog_Song, is_qu
 
 		badge_color := look.colors.youtube if is_from_youtube else kit.with_opacity(kit.colors.base_content, 0.7)
 		badge_border_color := look.colors.youtube if is_from_youtube else kit.with_opacity(kit.colors.base_content, 0.5)
-		name_width := ui.Size{.Fill, 1}
+		name_width := ui.Length{.Fill, 1}
 
 		if row_width := title.rect.z - title.rect.x; row_width > 0 {
 			after_width: f32 = HEART_BUTTON_SIZE + TITLE_GAP

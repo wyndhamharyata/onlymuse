@@ -225,8 +225,11 @@ apply_favourite_answer :: proc(message: helper.Message) {
 }
 
 build_favourite_button :: proc(id: string, is_favourite: bool) -> bool {
-	return kit.button(id, icon = "heart.circle.fill" if is_favourite else "heart.circle", icon_size = 13,
+	return kit.button(id, "Remove from Favorites" if is_favourite else "Add to Favorites",
+		"heart.circle.fill" if is_favourite else "heart.circle",
+		variant = .Ghost,
+		icon_size = 13,
 		icon_color = kit.colors.primary if is_favourite else kit.with_opacity(kit.colors.base_content, 0.5),
-		tooltip = "Remove from Favorites" if is_favourite else "Add to Favorites",
+		is_label_hidden = true,
 	).is_activated
 }

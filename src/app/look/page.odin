@@ -99,12 +99,7 @@ build_loading :: proc(what: string) {
 		label := ui.box("", {width = ui.fit_children(), height = ui.fit_children(), axis = .X})
 
 		if ui.scope(label) {
-			kit.text(
-				fmt.tprintf("Loading %s", what),
-				kit.with_opacity(kit.colors.base_content, 0.7),
-				LOADING_TEXT_SIZE,
-				width = ui.fit_text(),
-			)
+			kit.description(fmt.tprintf("Loading %s", what), width = ui.fit_text())
 			kit.text(all_dots[:dot_count], kit.with_opacity(kit.colors.base_content, 0.7), LOADING_TEXT_SIZE, width = dots_width)
 		}
 	}

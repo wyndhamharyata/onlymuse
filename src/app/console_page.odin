@@ -37,10 +37,7 @@ build_console_page :: proc() {
 
 			if ui.scope(heading) {
 				kit.heading("Console")
-				kit.text(
-					count_text if has_entries else "No errors since onlymuse started.",
-					kit.with_opacity(kit.colors.base_content, 0.7),
-				)
+				kit.description(count_text if has_entries else "No errors since onlymuse started.")
 			}
 
 			if has_entries && kit.button("copy_all", "Copy All", "doc.on.doc").is_activated {

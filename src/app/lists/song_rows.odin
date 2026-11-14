@@ -41,10 +41,7 @@ build_song_list_page :: proc(
 					count_text = fmt.tprintf("%s · %s", count_text, description)
 				}
 
-				kit.text(
-					count_text if phase == .Ready else look.to_phase_text(phase),
-					kit.with_opacity(kit.colors.base_content, 0.7),
-				)
+				kit.description(count_text if phase == .Ready else look.to_phase_text(phase))
 			}
 
 			if phase == .Ready && len(songs) > 0 do build_play_buttons(songs)
@@ -145,7 +142,7 @@ build_song_row :: proc(
 
 		if ui.scope(text) {
 			kit.text(song.name, kit.colors.primary if is_current else kit.colors.base_content)
-			kit.text(subtitle, kit.with_opacity(kit.colors.base_content, 0.7), 12)
+			kit.description(subtitle, size = .Small)
 		}
 
 		if date != "" {

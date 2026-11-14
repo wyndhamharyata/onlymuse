@@ -74,10 +74,7 @@ build_card_grid_page :: proc(
 
 		if ui.scope(heading) {
 			kit.heading(title)
-			kit.text(
-				fmt.tprintf("%d items", len(cards)) if phase == .Ready else look.to_phase_text(phase),
-				kit.with_opacity(kit.colors.base_content, 0.7),
-			)
+			kit.description(fmt.tprintf("%d items", len(cards)) if phase == .Ready else look.to_phase_text(phase))
 		}
 
 		if phase == .Loading do look.build_loading(title)

@@ -103,7 +103,7 @@ send_next :: proc() {
 }
 
 send_prev :: proc() {
-	send(`{"type":"prev"}`)
+	send(`{"type":"previous"}`)
 }
 
 send_seek :: proc(pos_seconds: f64) {

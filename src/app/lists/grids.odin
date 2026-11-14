@@ -83,7 +83,7 @@ build_card_grid_page :: proc(
 }
 
 build_card_grid :: proc(cards: []apple.Card, is_round: bool) {
-	if first, last, tile, ok := kit.grid("grid", len(cards), MIN_TILE_WIDTH, TILE_TEXT_HEIGHT, CARD_GAP, 1); ok {
+	if first, last, tile, ok := kit.grid("grid", len(cards), MIN_TILE_WIDTH, TILE_TEXT_HEIGHT, CARD_GAP, 1, style = {width = ui.fill()}); ok {
 		for index in first ..< last {
 			if build_card_tile(fmt.tprintf("%d_%s", index, cards[index].id), cards[index], tile.x, is_round) {
 				open_card(cards, index)

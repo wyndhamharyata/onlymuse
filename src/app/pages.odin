@@ -20,7 +20,8 @@ build_page_area :: proc() {
 			"toolbar",
 			{
 				width = ui.fill(),
-				height = ui.points(look.TOOLBAR_HEIGHT),
+				// The sidebar's own top spacing: the title bar's inset plus the toolbar's 16 points.
+				height = ui.points(ui.safe_insets().y + look.TOOLBAR_HEIGHT - look.TITLE_BAR_HEIGHT),
 				axis = .X,
 				align = .Center,
 				gap = 2,

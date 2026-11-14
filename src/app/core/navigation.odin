@@ -242,9 +242,8 @@ keep_scroll :: proc(page_box: ^ui.Box) {
 		if saved > 0 do ui.set_scroll(page_box, saved)
 	}
 
-	// set_scroll keeps the saved offset until the page is tall enough to reach it.
-	max_scroll := max(0, page_box.content_size.y - page_box.size.y)
-	if page_box.size.y > 0 && max_scroll < saved do return
+	// thor keeps the offset set_scroll asked for until the page can reach it, so it owns the waiting.
+	if page_box._scroll_wanted != nil do return
 
 	if page_box.scroll == saved do return
 

@@ -103,68 +103,58 @@ apply_helper_messages :: proc() {
 }
 
 apply_keys :: proc() {
-	for event in platform.list_events() {
-		key, is_key := event.(platform.Key_Press)
-		// Once a control has keyboard focus, Tab, the arrows, Return and Space move or use it.
-		if !is_key || ui.is_key_taken(key.key) do continue
+	apply_playback_keys()
+	apply_command_keys()
+}
 
-		if .Command in key.modifiers {
-			apply_command_key(key)
-		} else {
-			apply_playback_key(key)
-		}
+// True when key was pressed this frame with exactly modifiers, and keyboard focus didn't use it.
+@(private = "file")
+is_shortcut :: proc(key: platform.Key, modifiers: platform.Modifiers) -> bool {
+	return ui.is_key_pressed(key) && !ui.is_key_taken(key) && ui.press_modifiers(key) == modifiers
+}
+
+@(private = "file")
+DIGIT_KEYS := [10]platform.Key{.Digit_0, .Digit_1, .Digit_2, .Digit_3, .Digit_4, .Digit_5, .Digit_6, .Digit_7, .Digit_8, .Digit_9}
+
+@(private = "file")
+apply_playback_keys :: proc() {
+	if is_shortcut(.Space, {}) do playback.toggle_playback()
+	if is_shortcut(.Left, {}) do playback.seek_by_seconds(-playback.SEEK_STEP_SECONDS)
+	if is_shortcut(.Right, {}) do playback.seek_by_seconds(playback.SEEK_STEP_SECONDS)
+	if is_shortcut(.Left, {.Shift}) do playback.seek_by_seconds(-playback.SEEK_SHIFT_STEP_SECONDS)
+	if is_shortcut(.Right, {.Shift}) do playback.seek_by_seconds(playback.SEEK_SHIFT_STEP_SECONDS)
+
+	for key, digit in DIGIT_KEYS {
+		if is_shortcut(key, {}) do playback.seek_to_fraction(f64(digit) / 10)
 	}
 }
 
 @(private = "file")
-apply_playback_key :: proc(key: platform.Key_Press) {
-	#partial switch key.key {
-	case .Space:
-		playback.toggle_playback()
-	case .Left, .Right:
-		step :=
-			playback.SEEK_SHIFT_STEP_SECONDS if .Shift in key.modifiers else playback.SEEK_STEP_SECONDS
-		if key.key == .Left do step = -step
+apply_command_keys :: proc() {
+	if is_shortcut(.Left_Bracket, {.Command}) do player.change_lyrics_lead(-1)
+	if is_shortcut(.Right_Bracket, {.Command}) do player.change_lyrics_lead(1)
+	if is_shortcut(.K, {.Command}) do palette.toggle_palette()
+	if is_shortcut(.L, {.Command}) do toggle_playing_favourite()
 
-		playback.seek_by_seconds(step)
-	}
+	// In a text field, the arrows with ⌘ move the caret.
+	if kit.has_focused_input() do return
 
-	if len(key.characters) == 1 && key.characters[0] >= '0' && key.characters[0] <= '9' {
-		playback.seek_to_fraction(f64(key.characters[0] - '0') / 10)
-	}
+	if is_shortcut(.Left, {.Command}) do playback.skip_to_prev(helper.read_pos_seconds(core.app.now_playing))
+	if is_shortcut(.Right, {.Command}) do playback.skip_to_next()
+	if is_shortcut(.Up, {.Command}) do playback.change_volume(playback.VOLUME_STEP_PERCENT)
+	if is_shortcut(.Down, {.Command}) do playback.change_volume(-playback.VOLUME_STEP_PERCENT)
+	if is_shortcut(.Down, {.Command, .Option}) do playback.toggle_mute()
 }
 
 @(private = "file")
-apply_command_key :: proc(key: platform.Key_Press) {
-	player.apply_lead_key(key)
+toggle_playing_favourite :: proc() {
+	song, persistent_id, is_song := playback.find_playing_song()
+	if !is_song do return
 
-	if !kit.has_focused_input() {
-		#partial switch key.key {
-		case .Left:
-			playback.skip_to_prev(helper.read_pos_seconds(core.app.now_playing))
-		case .Right:
-			playback.skip_to_next()
-		case .Up:
-			playback.change_volume(playback.VOLUME_STEP_PERCENT)
-		case .Down:
-			if .Option in key.modifiers {
-				playback.toggle_mute()
-			} else {
-				playback.change_volume(-playback.VOLUME_STEP_PERCENT)
-			}
-		}
+	if !playback.can_favourite(song) {
+		kit.show_toast("Favourites need Music.app.", .Warning)
+		return
 	}
 
-	switch key.characters {
-	case "k":
-		palette.toggle_palette()
-	case "l":
-		if song, persistent_id, is_song := playback.find_playing_song(); is_song {
-			if playback.can_favourite(song) {
-				playback.toggle_favourite(song, persistent_id)
-			} else {
-				kit.show_toast("Favourites need Music.app.", .Warning)
-			}
-		}
-	}
+	playback.toggle_favourite(song, persistent_id)
 }

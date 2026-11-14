@@ -8,7 +8,6 @@ import "om:helper"
 import "om:lyrics"
 import "om:store"
 import "thor:kit"
-import "thor:platform"
 import "thor:ui"
 
 LINES_BEFORE_CURRENT :: 3
@@ -64,18 +63,10 @@ start_lyrics :: proc() {
 	if is_number && abs(lead_ms) <= MAX_LEAD_MS do lyrics_state.lead_ms = lead_ms
 }
 
-apply_lead_key :: proc(key: platform.Key_Press) {
-	step := 0
-
-	switch key.characters {
-	case "]":
-		step = LEAD_STEP_MS
-	case "[":
-		step = -LEAD_STEP_MS
-	}
-
-	next := lyrics_state.lead_ms + step
-	if step == 0 || abs(next) > MAX_LEAD_MS do return
+// Changes the lyrics lead by one step: ⌘] gives direction 1, ⌘[ gives -1.
+change_lyrics_lead :: proc(direction: int) {
+	next := lyrics_state.lead_ms + direction * LEAD_STEP_MS
+	if abs(next) > MAX_LEAD_MS do return
 
 	lyrics_state.lead_ms = next
 	lyrics_state.lead_changed_ms = helper.now_ms()

@@ -18,12 +18,6 @@ SONG_NAME_FONT_SIZE :: 13.5
 
 SONG_NAME_WEIGHT :: font.Weight.Semibold
 
-BADGE_FONT_SIZE :: 9.5
-
-BADGE_WEIGHT :: font.Weight.Bold
-
-BADGE_PADDING :: 4
-
 TITLE_GAP :: 7
 
 HEART_BUTTON_SIZE :: 22
@@ -189,17 +183,13 @@ build_song_title :: proc(song: helper.Song, queue_song: core.Catalog_Song, is_qu
 		}
 
 		badge_color := look.colors.youtube if is_from_youtube else kit.with_opacity(kit.colors.base_content, 0.7)
-		badge_border_color := look.colors.youtube if is_from_youtube else kit.with_opacity(kit.colors.base_content, 0.5)
 		name_width := ui.Length{.Fill, 1}
 
 		if row_width := title.rect.z - title.rect.x; row_width > 0 {
 			after_width: f32 = HEART_BUTTON_SIZE + TITLE_GAP
 
 			if badge != "" {
-				badge_width :=
-					kit.measure_text(badge, BADGE_FONT_SIZE, BADGE_WEIGHT) +
-					2 * BADGE_PADDING
-				after_width += badge_width + TITLE_GAP
+				after_width += kit.to_badge_width(badge, .Small) + TITLE_GAP
 			}
 
 			// At exactly its text width, a name such as "If" truncates to nothing.
@@ -217,21 +207,7 @@ build_song_title :: proc(song: helper.Song, queue_song: core.Catalog_Song, is_qu
 			width = name_width,
 		)
 
-		if badge != "" {
-			ui.box(
-				"",
-				{
-					padding = {BADGE_PADDING, 0, BADGE_PADDING, 0},
-					corner_radius = 4,
-					border_width = 1,
-					border_color = badge_border_color,
-					text_color = badge_color,
-					font_size = BADGE_FONT_SIZE,
-					font_weight = BADGE_WEIGHT,
-				},
-				badge,
-			)
-		}
+		if badge != "" do kit.badge(badge, variant = .Outline, size = .Small, color = badge_color)
 
 		playing, persistent_id, _ := playback.find_playing_song()
 		if !playback.is_web_played(persistent_id) do playback.watch_song_info(persistent_id)

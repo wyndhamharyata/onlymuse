@@ -190,21 +190,7 @@ build_pills :: proc(details: Song_Details, info: playback.Song_Info) {
 		for pill, index in pills {
 			is_quality := index == 0 && quality != ""
 
-			ui.box(
-				pill,
-				{
-					height = ui.points(26),
-					padding = {10, 0, 10, 0},
-					corner_radius = 13,
-					bg = kit.to_color(0xffffff14),
-					border_width = 1,
-					border_color = kit.colors.line,
-					text_color = kit.colors.primary if is_quality else kit.colors.base_content,
-					font_size = 12,
-					font_weight = .Semibold,
-				},
-				pill,
-			)
+			kit.badge(pill, .Primary if is_quality else .Base, .Soft, .Large)
 		}
 	}
 }

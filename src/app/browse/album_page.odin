@@ -204,8 +204,8 @@ build_album_info :: proc(data: ^core.Page_Data, info_width: f32) {
 		)
 
 		if ui.scope(badges) {
-			for label in data.badges do build_badge(label, kit.with_opacity(kit.colors.base_content, 0.7))
-			build_badge(library_label, library_color)
+			for label in data.badges do kit.badge(label, variant = .Outline, color = kit.with_opacity(kit.colors.base_content, 0.7))
+			kit.badge(library_label, variant = .Outline, color = library_color)
 		}
 
 		buttons := ui.box(
@@ -220,22 +220,6 @@ build_album_info :: proc(data: ^core.Page_Data, info_width: f32) {
 
 		if ui.scope(buttons) do lists.build_play_buttons(data.songs)
 	}
-}
-
-build_badge :: proc(label: string, color: [4]f32) {
-	ui.box(
-		"",
-		{
-			padding = {6, 1, 6, 1},
-			corner_radius = 4,
-			border_width = 1,
-			border_color = color,
-			text_color = color,
-			font_size = 11,
-			font_weight = .Bold,
-		},
-		label,
-	)
 }
 
 build_numbered_songs :: proc(songs: []core.Catalog_Song) {

@@ -474,6 +474,7 @@ if kit.nav_row(page_id, &amp;current, label, is_label_hidden = true) {
 <!-- ============================================================ -->
 <h2 id="badges">7. Badges → <code>kit.badge</code> <span class="v v-look">Look changes</span></h2>
 <p class="decided"><strong>Decision:</strong> Fix thor gap 5, then do item 7.</p>
+<p class="decided"><strong>Done:</strong> all three badge styles are <code>kit.badge</code>. The player bar and album badges keep their own colors through <code>color</code>, YouTube red included, and the player bar measures its badge with <code>kit.to_badge_width</code>. The pills are <code>.Soft</code> <code>.Large</code> badges.</p>
 <p class="where"><code>player/player_bar.odin:220</code> (YOUTUBE / LOSSLESS), <code>browse/album_page.odin:224</code> (album badges), <code>player/now_playing_hero.odin:152</code> (pills)</p>
 <p>onlymuse has three badge styles, each with its own padding, radius and font. <code>kit.badge(label, tone, variant, size)</code> covers all three, but sizes snap to kit's three sizes, corners are always 4 points, and colors come only from tones.</p>
 <div class="mock">
@@ -816,7 +817,7 @@ kit.submenu :: proc(id, label: string, width := ui.Length{}) -> bool</pre>
 
 // The width in points kit.badge takes for label at size, padding and border included.
 kit.to_badge_width :: proc(label: string, size := Size.Medium) -> f32</pre>
-<p>A zero <code>color</code> uses the tone. Otherwise the color replaces the tone's: Outline and Soft use it for the border, fill and text, and Solid fills with it and picks black or white text, whichever reads.</p></td><td>Item 7</td><td>Approved: build it</td></tr>
+<p>A zero <code>color</code> uses the tone. Otherwise the color replaces the tone's: Outline and Soft use it for the border, fill and text, and Solid fills with it and picks black or white text, whichever reads.</p></td><td>Item 7</td><td>Approved and built (thor, 14 Nov 2026)</td></tr>
 <tr><td>6</td><td><code>kit.nav_row</code> has no icon, and it overrides the current row's tint.</td><td class="design"><pre class="sig">kit.nav_row :: proc(id: string, selected: ^string, label: string,
 	icon := "", tone := Tone.Base, icon_color: [4]f32 = {},
 	is_label_hidden := false, style := ui.Style{}) -> bool</pre>

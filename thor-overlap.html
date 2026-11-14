@@ -1,0 +1,894 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>onlymuse: what it builds by hand that thor already has</title>
+<style>
+:root {
+	--ink: #16181d; --dim: #5b6170; --line: #dfe2e8; --paper: #ffffff; --card: #f6f7f9;
+	--accent: #3b5bdb; --ok: #2b8a3e; --warn: #b7791f; --bad: #c92a2a;
+	--mono: ui-monospace, "SF Mono", Menlo, monospace;
+	--sans: -apple-system, system-ui, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+	:root { --ink: #e8eaef; --dim: #a0a6b4; --line: #2c3039; --paper: #121418; --card: #1a1d23; --accent: #8ea6ff; --ok: #69db7c; --warn: #ffd43b; --bad: #ff8787; }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.6 var(--sans); }
+.layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); max-width: 1400px; margin: 0 auto; }
+nav { position: sticky; top: 0; height: 100vh; overflow-y: auto; padding: 32px 20px; border-right: 1px solid var(--line); font-size: 13.5px; }
+nav a { display: block; color: var(--dim); text-decoration: none; padding: 3px 0; }
+nav a:hover { color: var(--accent); }
+nav strong { display: block; margin: 14px 0 6px; font-size: 13px; color: var(--ink); }
+nav strong:first-child { margin-top: 0; font-size: 15px; }
+main { padding: 32px 48px 120px; min-width: 0; max-width: 1080px; }
+h1 { font-size: 30px; line-height: 1.25; margin: 0 0 20px; }
+h2 { font-size: 22px; margin: 56px 0 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+h3 { font-size: 16px; margin: 22px 0 8px; }
+p, ul, ol { margin: 0 0 14px; }
+li { margin: 4px 0; }
+a { color: var(--accent); }
+code { font: 13px var(--mono); background: var(--card); padding: 1px 5px; border-radius: 4px; }
+pre { tab-size: 4; white-space: pre-wrap; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-x: auto; font: 12px/1.55 var(--mono); margin: 0; }
+pre code { background: none; padding: 0; font-size: inherit; }
+pre .del { color: var(--bad); } pre .add { color: var(--ok); } pre .cm { color: var(--dim); font-style: italic; }
+table { width: 100%; border-collapse: collapse; margin: 0 0 18px; font-size: 13.5px; }
+th, td { text-align: left; vertical-align: top; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+th { font-weight: 600; background: var(--card); }
+td code { white-space: nowrap; }
+.rec { border-left: 3px solid var(--accent); background: var(--card); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 0 0 18px; }
+.rec p:last-child, .rec ul:last-child { margin-bottom: 0; }
+.v { display: inline-block; font: 600 11px var(--sans); padding: 1px 8px; border-radius: 99px; white-space: nowrap; margin-right: 6px; vertical-align: 2px; }
+.v-do { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+.v-look { background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--warn); }
+.v-gap { background: color-mix(in srgb, var(--bad) 16%, transparent); color: var(--bad); }
+.v-keep { background: color-mix(in srgb, var(--dim) 18%, transparent); color: var(--dim); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 10px 0 16px; }
+.pair > div > .cap { font: 600 12px var(--sans); color: var(--dim); margin-bottom: 4px; }
+.pair pre { height: calc(100% - 22px); }
+table.gaps td:nth-child(2) { width: 22%; } table.gaps td:nth-child(4), table.gaps td:nth-child(5) { width: 11%; }
+td.design p, td.design ul { margin: 6px 0 0; font-size: 13px; } td.design ul { padding-left: 18px; }
+.revised { font-size: 12.5px; margin: 0 0 6px; padding: 4px 8px; border-radius: 6px; background: color-mix(in srgb, var(--warn) 14%, transparent); }
+table.inner { margin: 6px 0; font-size: 12px; } table.inner td, table.inner th { padding: 4px 6px; }
+pre.sig + pre.sig { margin-top: 6px; }
+pre.sig { font-size: 11.5px; padding: 8px 10px; white-space: pre; }
+.decided { border-left: 3px solid var(--ok); background: color-mix(in srgb, var(--ok) 8%, var(--card)); padding: 8px 14px; border-radius: 0 8px 8px 0; margin: 0 0 14px; font-size: 14px; }
+.decided strong { color: var(--ok); }
+.where { font-size: 13px; color: var(--dim); }
+.where code { font-size: 12px; }
+
+/* Mockups: onlymuse's dark look, drawn with kit's dark colors */
+.mock { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 10px 0 18px; }
+.mock > div > .cap { font: 600 12px var(--sans); color: var(--dim); margin-bottom: 4px; }
+.app { --base100: #0e0e10; --base200: #1b1b1e; --base300: #2a2a2f; --content: #f2f2f4; --primary: #0a84ff; --pop: rgba(44,44,49,.96); --lineA: rgba(242,242,244,.12); --yt: #ff4e45; --err: #ff453a; --ok: #32d74b;
+	background: radial-gradient(120% 140% at 0% 0%, #23232a, var(--base100) 60%); color: var(--content); border-radius: 10px; padding: 18px; font: 13px/1.3 -apple-system, system-ui, sans-serif; min-height: 140px; position: relative; overflow: hidden; border: 1px solid #000; }
+.muted { color: rgba(242,242,244,.7); } .faint { color: rgba(242,242,244,.5); }
+.sym { display: inline-block; width: 18px; text-align: center; font-size: 13px; }
+
+/* sidebar */
+.side { width: 210px; background: rgba(255,255,255,.03); border-radius: 8px; padding: 6px; }
+.side .grp { font: 600 11px -apple-system, sans-serif; color: rgba(242,242,244,.5); padding: 10px 10px 4px; }
+.side .row { display: flex; align-items: center; gap: 9px; height: 30px; padding: 0 10px; border-radius: 7px; }
+.side .row .sym { color: var(--primary); }
+.side.before .row.on { background: rgba(10,132,255,.18); }
+.side.after .row { height: 32px; padding: 0 12px; gap: 12px; border-radius: 6px; font-weight: 500; }
+.side.after .row:not(.on) .lab { color: rgba(242,242,244,.7); }
+.side.after .row.on { background: rgba(242,242,244,.10); }
+.side .row:not(.on):hover { background: rgba(242,242,244,.07); }
+
+/* badges */
+.badges { display: flex; flex-direction: column; gap: 14px; }
+.badges .line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.badges .line > .lbl { width: 80px; font-size: 11px; color: rgba(242,242,244,.5); }
+.b { display: inline-flex; align-items: center; white-space: nowrap; }
+.b-bar { padding: 0 4px; height: 15px; border: 1px solid; border-radius: 4px; font: 700 9.5px -apple-system, sans-serif; }
+.b-album { padding: 1px 6px; border: 1px solid; border-radius: 4px; font: 700 11px -apple-system, sans-serif; }
+.b-pill { height: 26px; padding: 0 10px; border-radius: 13px; background: rgba(255,255,255,.08); border: 1px solid var(--lineA); font: 600 12px -apple-system, sans-serif; }
+.k-sm { height: 16px; padding: 0 5px; border-radius: 4px; font: 600 10px -apple-system, sans-serif; }
+.k-md { height: 18px; padding: 0 6px; border-radius: 4px; font: 600 11px -apple-system, sans-serif; }
+.k-lg { height: 22px; padding: 0 8px; border-radius: 4px; font: 600 12px -apple-system, sans-serif; }
+.k-out { border: 1px solid; }
+.k-soft-base { background: rgba(242,242,244,.18); }
+.k-soft-pri { background: rgba(10,132,255,.18); color: var(--primary); }
+
+/* menus */
+.menu { width: 260px; background: var(--pop); border: 1px solid var(--lineA); border-radius: 10px; padding: 5px; box-shadow: 0 8px 18px rgba(0,0,0,.5); }
+.menu .it { display: flex; align-items: center; height: 26px; padding: 0 9px; border-radius: 6px; gap: 6px; }
+.menu .it .chk { width: 11px; font-size: 10px; }
+.menu .it .lab { flex: 1; } .menu .it .hint { font-size: 12px; color: rgba(242,242,244,.5); }
+.menu .it.hl { background: var(--primary); } .menu .it.hl .hint { color: #fff; }
+.menu .sep { height: 1px; background: var(--lineA); margin: 4px 6px; }
+.menu .hd { font-weight: 700; padding: 4px 9px 6px; }
+.menu .note { font-size: 11.5px; color: rgba(242,242,244,.5); padding: 4px 9px; }
+.menu .trow { display: flex; align-items: center; justify-content: space-between; padding: 5px 9px; gap: 10px; }
+.sw { width: 32px; height: 18px; border-radius: 9px; background: rgba(242,242,244,.18); position: relative; flex: none; }
+.sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; }
+.sw.on { background: var(--primary); } .sw.on::after { left: 16px; }
+.seg { display: flex; background: rgba(242,242,244,.08); border-radius: 7px; padding: 2px; margin: 2px 9px 6px; }
+.seg span { flex: 1; text-align: center; font-size: 12px; padding: 3px 0; border-radius: 5px; color: rgba(242,242,244,.7); }
+.seg span.on { background: rgba(242,242,244,.16); color: var(--content); font-weight: 600; }
+
+/* placement */
+.place { position: relative; height: 190px; }
+.place .menu { position: absolute; width: 170px; }
+
+/* dialog */
+.cover { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.fakepage { position: absolute; inset: 14px; display: grid; grid-template-columns: 70px 1fr; gap: 10px; opacity: .5; }
+.fakepage div { background: rgba(255,255,255,.05); border-radius: 6px; }
+.dlg { position: relative; display: flex; flex-direction: column; gap: 12px; }
+.dlg .t { font-weight: 700; } .dlg .d { color: rgba(242,242,244,.7); font-size: 12.5px; line-height: 1.4; }
+.btn { align-self: flex-start; background: var(--primary); color: #fff; border-radius: 7px; padding: 5px 12px; font-weight: 500; font-size: 13px; }
+.dlg.before { width: 300px; background: var(--base300); border: 1px solid var(--lineA); border-radius: 14px; padding: 20px; }
+.dlg.before .t { font-size: 18px; }
+.dlg.after { width: 316px; background: var(--pop); border: 1px solid var(--lineA); border-radius: 10px; padding: 16px; box-shadow: 0 12px 20px rgba(0,0,0,.5); }
+.dlg.after .t { font-size: 15px; }
+
+/* loading */
+.load { display: flex; flex-direction: column; align-items: center; gap: 10px; justify-content: center; height: 120px; }
+.track { width: 160px; height: 4px; border-radius: 2px; background: rgba(242,242,244,.18); position: relative; overflow: hidden; }
+.track i { position: absolute; top: 0; bottom: 0; width: 30%; border-radius: 2px; background: var(--content); animation: sweep 1.6s ease-in-out infinite alternate; }
+@keyframes sweep { from { left: 0; } to { left: 70%; } }
+.dots::after { content: "."; animation: dots 1.2s steps(1) infinite; }
+@keyframes dots { 33% { content: ".."; } 66% { content: "..."; } }
+.spin { width: 16px; height: 16px; position: relative; animation: spin 1s steps(8) infinite; }
+.spin i { position: absolute; left: 7px; top: 0; width: 2px; height: 5px; border-radius: 1px; background: var(--content); transform-origin: 1px 8px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loadrow { display: flex; align-items: center; gap: 8px; justify-content: center; height: 120px; }
+
+/* palette */
+.pal { width: 100%; background: rgba(38,38,42,.96); border: 1px solid rgba(255,255,255,.12); border-radius: 14px; padding: 8px; }
+.pal .fld { height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 8px; font-size: 15px; color: rgba(242,242,244,.5); }
+.pal .gh { font: 700 10.5px -apple-system, sans-serif; color: rgba(242,242,244,.5); padding: 8px 10px 3px; }
+.pal .r { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 8px; border-radius: 8px; }
+.pal .r .art { width: 24px; height: 24px; border-radius: 4px; flex: none; }
+.pal .r .ti { white-space: nowrap; } .pal .r .su { flex: 1; color: rgba(242,242,244,.5); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pal .r.sel { background: rgba(10,132,255,.18); } .pal .r .ret { color: var(--primary); }
+.pal.kit .r { height: 30px; border-radius: 6px; } .pal.kit .r.sel { background: var(--primary); } .pal.kit .r .hint { color: rgba(242,242,244,.6); font-size: 12px; }
+.pal .div { height: 1px; background: rgba(255,255,255,.1); margin: 4px 0; }
+.art.a1 { background: linear-gradient(#c94b4b, #4b134f); } .art.a2 { background: linear-gradient(#2c5364, #0f2027); } .art.a3 { background: linear-gradient(#e0a96d, #6d3c1e); border-radius: 50% !important; }
+</style>
+</head>
+<body>
+<div class="layout">
+<nav>
+<strong>onlymuse × thor</strong>
+<a href="#summary">Summary</a>
+<a href="#decisions">Decisions (14 Nov 2026)</a>
+<a href="#order">Build order</a>
+<a href="#how">How I read it</a>
+<strong>Same behavior, no look change</strong>
+<a href="#shelves">1. Card shelves → kit.list across</a>
+<a href="#roles">2. Rows and links → kit.clickable, kit.as_button</a>
+<a href="#artwork">3. Artwork crop → images.load_filling_texture</a>
+<a href="#ghost">4. Palette field → variant .Ghost</a>
+<a href="#small">5. Small swaps</a>
+<strong>Same behavior, the look changes</strong>
+<a href="#sidebar">6. Sidebar → kit.nav_row</a>
+<a href="#badges">7. Badges → kit.badge</a>
+<a href="#signin">8. Sign-in card → kit.dialog</a>
+<a href="#rules">9. Shuffle rules → kit.popover</a>
+<a href="#loading">10. Loading → kit.spinner</a>
+<strong>Needs thor first</strong>
+<a href="#songmenu">11. Song menu → kit.popover</a>
+<a href="#keys">12. Keyboard shortcuts → ui.is_key_pressed</a>
+<a href="#image">13. Artwork → kit.image</a>
+<strong>Not a match</strong>
+<a href="#palette">14. Palette vs kit.command_palette</a>
+<a href="#keep">15. Keep as is</a>
+<strong>Lists</strong>
+<a href="#gaps">thor gaps found, with designs</a>
+<a href="#noticed">Noticed along the way</a>
+</nav>
+<main>
+
+<h1>onlymuse: what it builds by hand that thor already has</h1>
+
+<p>I read every UI file in <code>onlymuse/src/app</code> (about 9,000 lines) against thor's public API at <code>2f04f00</code>. I looked for code where onlymuse builds by hand something that thor already provides, whether as an exact match or as a component with the same behavior and a different look. This report only proposes changes; nothing in either repo has changed.</p>
+
+<h2 id="summary">Summary</h2>
+
+<table>
+<tr><th>#</th><th>onlymuse builds by hand</th><th>thor has</th><th>Verdict</th><th>Lines out (approx)</th><th>Your decision</th></tr>
+<tr><td>1</td><td>Shelf virtualization: <code>to_visible_range</code> plus two spacer boxes</td><td><code>kit.list</code> with <code>axis = .X</code></td><td><span class="v v-do">Swap</span></td><td>~30</td><td>Do it</td></tr>
+<tr><td>2</td><td>14 clickable boxes with no role or label, so VoiceOver can't press them</td><td><code>kit.clickable</code>, <code>kit.as_button</code></td><td><span class="v v-do">Swap</span></td><td>~10, plus an a11y fix</td><td>Do it</td></tr>
+<tr><td>3</td><td><code>to_crop</code> and <code>to_fill_uv</code>, copies of thor's own crop math</td><td><code>images.load_filling_texture</code></td><td><span class="v v-do">Swap</span></td><td>~30</td><td>Do it</td></tr>
+<tr><td>4</td><td>A text field background with 0.001 alpha</td><td><code>variant = .Ghost</code></td><td><span class="v v-do">Swap</span></td><td>3</td><td>Do it</td></tr>
+<tr><td>5</td><td>Month-name table, muted wrapped notes, drag threshold, drag-release scan, console rows, round play button, "Rules" pill</td><td><code>platform.format_date</code>, <code>kit.description</code>, <code>Signal.is_dragged</code>, <code>ui.interaction</code>, <code>kit.list</code>, <code>kit.button</code></td><td><span class="v v-do">Swap</span></td><td>~70</td><td>Do it</td></tr>
+<tr><td>6</td><td>Sidebar rows</td><td><code>kit.nav_row</code></td><td><span class="v v-look">Look changes</span></td><td>~15</td><td>Fix thor gap 6, then do it</td></tr>
+<tr><td>7</td><td>Three hand-built badge styles</td><td><code>kit.badge</code></td><td><span class="v v-look">Look changes</span></td><td>~40</td><td>Fix thor gap 5, then do it</td></tr>
+<tr><td>8</td><td>Sign-in card with its own dimmed cover</td><td><code>kit.dialog</code></td><td><span class="v v-look">Look changes</span></td><td>~25</td><td>Fix thor gap 8, then do it</td></tr>
+<tr><td>9</td><td>Shuffle rules menu: its own cover, menu box, close logic, ●/○ hints</td><td><code>kit.popover</code>, <code>kit.toggle</code>, <code>kit.segmented</code></td><td><span class="v v-look">Look changes</span></td><td>~35</td><td>Do it as mocked</td></tr>
+<tr><td>10</td><td>Custom loading bar with a draw proc and animated dots</td><td><code>kit.spinner</code></td><td><span class="v v-look">Look changes</span></td><td>~50</td><td>New spinner type (thor gap 14), then do it</td></tr>
+<tr><td>11</td><td>Song menu and its playlist submenu: <code>look/menu_box.odin</code>, cover, Escape scan, <code>opened_frame</code></td><td><code>kit.popover</code>, which nests</td><td><span class="v v-gap">Needs thor first</span></td><td>~90</td><td>Fix thor gaps 3 and 4, then do it</td></tr>
+<tr><td>12</td><td>Playback shortcuts read from raw platform events</td><td><code>ui.is_key_pressed</code></td><td><span class="v v-gap">Needs thor first</span></td><td>~15</td><td>Fix thor gap 10, then do it</td></tr>
+<tr><td>13</td><td><code>artwork_rect_box</code> and <code>draw_artwork</code></td><td><code>kit.image</code></td><td><span class="v v-gap">Needs thor first</span></td><td>~70</td><td>Fix thor gaps 1 and 2, then do it</td></tr>
+<tr><td>14</td><td>The command palette</td><td><code>kit.command_palette</code></td><td><span class="v v-keep">Not a match</span></td><td>0</td><td>Palette stays; fix thor gap 7, then the shell uses it</td></tr>
+</table>
+
+<div class="rec">
+<p><strong>Recommendation (decided, see <a href="#decisions">Decisions</a>):</strong> do items 1 to 5 in one onlymuse change. They keep the look, delete about 140 lines, and make every row, card and link pressable with VoiceOver. Items 6 to 10 each change what you see, so pick them from the mockups. Items 11 to 13 need small thor changes first; those are listed under <a href="#gaps">thor gaps</a>.</p>
+</div>
+
+<h2 id="decisions">Decisions (14 Nov 2026)</h2>
+<div class="decided"><strong>Plan approved, 14 Nov 2026.</strong> You approved the decisions below, and the revised design for every thor gap in <a href="#gaps">thor gaps found</a>. The order of the work is under <a href="#order">Build order</a>.</div>
+<p>Your answers, using the item and gap numbers in this report. Wherever an answer says "fix thor gap N", the gap's wording is the one in <a href="#gaps">thor gaps found</a>.</p>
+<table>
+<tr><th>Item</th><th>Your decision</th><th>What happens next</th></tr>
+<tr><td>1. Card shelves → kit.list across<br>2. Rows and links → kit.clickable, kit.as_button<br>3. Artwork crop → images.load_filling_texture<br>4. Palette field → variant .Ghost<br>5. Small swaps</td><td>1–5, all of them, including every row of item 5's table</td><td>One onlymuse change, with no thor change</td></tr>
+<tr><td>6. Sidebar → kit.nav_row</td><td>Fix thor gap 6, then do item 6</td><td>thor gap 6 first</td></tr>
+<tr><td>7. Badges → kit.badge</td><td>Fix thor gap 5, then do item 7</td><td>thor gap 5 first</td></tr>
+<tr><td>8. Sign-in card → kit.dialog</td><td>Fix thor gap 8, then do item 8</td><td>thor gap 8 first</td></tr>
+<tr><td>9. Shuffle rules → kit.popover</td><td>Do item 9 as mocked; the footnote is dropped</td><td>onlymuse change, with no thor change</td></tr>
+<tr><td>10. Loading → kit.spinner</td><td>Create a new type of spinner, following the API design rules, and do item 10</td><td>New thor gap 14 first. After your review ("either expand progress or expand spinner"), the design expands <code>kit.progress</code>.</td></tr>
+<tr><td>11. Song menu → kit.popover</td><td>Fix gaps 3 and 4, then item 11</td><td>thor gaps 3 and 4 first. Item 11 deletes <code>look/menu_box.odin</code>.</td></tr>
+<tr><td>12. Keyboard shortcuts → ui.is_key_pressed</td><td>Fix gap 10, then item 12</td><td>thor gap 10 first</td></tr>
+<tr><td>13. Artwork → kit.image</td><td>Fix gaps 1 and 2, then item 13</td><td>thor gaps 1 and 2 first</td></tr>
+<tr><td>14. Palette vs kit.command_palette</td><td>Fix gap 7, then the shell uses it. The palette itself stays.</td><td>thor gap 7 first</td></tr>
+<tr><td>thor gaps 9, 11, 12, 13</td><td>Build all four in thor</td><td>Gaps 9, 11 and 13 on their own. Gap 12 was withdrawn after your review, because <code>kit.as_toggle</code> already covers it.</td></tr>
+<tr><td>Noticed along the way</td><td>Fix all three: helper text against the UI rules, remove button only on hover, stale comment</td><td>onlymuse changes. The stale comment goes when item 11 deletes <code>menu_box.odin</code>.</td></tr>
+<tr><td>Not in this report: push Rukun, Gallery sidebar scroll-area label, Rukun 24-byte leaks, Rukun photo labels</td><td>None of these</td><td>They stay open</td></tr>
+</table>
+<div class="rec">
+<p><strong>Rule for the thor work:</strong> you chose to fix every thor gap. After your review, 13 remain; gap 12 was withdrawn. My proposed design for each is in <a href="#gaps">thor gaps found</a>, and none is built until you approve its design. Items 1–5, item 9 and the "noticed" fixes need no thor change, so they can go first.</p>
+</div>
+
+<h2 id="order">Build order</h2>
+<ol>
+<li><strong>onlymuse only:</strong> items 1–5 and item 9, <code>kit.as_toggle</code> on shuffle, repeat and the panel button (gap 12, withdrawn), removing the helper text, and making the remove button reachable.</li>
+<li><strong>Each thor gap, then the onlymuse item it unblocks.</strong> Each thor change comes with tests and updates every call site in the same change.
+<ol>
+<li>Gap 9, text fit, which changes the 17 <code>is_wrapped</code> call sites</li>
+<li>Gaps 3 and 4, submenus and menu placement, then item 11. This deletes <code>menu_box.odin</code> and its stale comment.</li>
+<li>Gap 10, <code>ui.press_modifiers</code>, then item 12</li>
+<li>Gaps 1 and 2, texture size steps and the image placeholder, then item 13</li>
+<li>Gap 5, badge color and width, then item 7</li>
+<li>Gap 6, <code>nav_row</code> icon and tone, then item 6</li>
+<li>Gap 7, <code>kit.palette_dialog</code>, then item 14's shell</li>
+<li>Gap 8, <code>is_dismissable</code>, then item 8</li>
+<li>Gap 14, indeterminate <code>kit.progress</code>, then item 10</li>
+<li>Gap 11, <code>is_dropped_on</code>, then song dragging</li>
+<li>Gap 13, app menu items, then onlymuse's player menu</li>
+</ol></li>
+<li><strong>Rukun:</strong> sync it to the final thor and check its tests pass. Nothing is pushed.</li>
+</ol>
+
+<h2 id="how">How I read it</h2>
+<ul>
+<li>I grepped every <code>pointer = .Click</code>, custom <code>draw</code> proc, <code>ui.animate</code>, <code>platform.list_events</code> and raw <code>ui.box</code> with text, then read each one next to the thor component that covers the same behavior.</li>
+<li>Line counts are rough: the code each swap deletes minus the code it adds.</li>
+<li>The mockups are HTML drawn with kit's dark colors and metrics, from the source rather than from screenshots. Treat them as close, not pixel-exact.</li>
+<li>I didn't build or run any of the proposals. The code on the right of each pair is a sketch.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="shelves">1. Card shelves → <code>kit.list</code> across <span class="v v-do">Swap</span></h2>
+<p class="decided"><strong>Decision:</strong> Do it. Part of the one onlymuse change for items 1–5.</p>
+<p class="where"><code>src/app/lists/cards.odin:46</code> <code>build_card_row</code>, <code>src/app/lists/song_rows.odin:67</code> <code>to_visible_range</code></p>
+<p>Each shelf works out its visible tiles from the scroll offset and pads both sides with spacer boxes. <code>kit.list</code> already does this across (<code>axis = .X</code>). thor's test <code>a_list_across_in_a_column_that_scrolls_keeps_its_own_axis</code> covers exactly a shelf inside a page that scrolls. As a bonus, kit's rows box sets <code>.Arrow_Keys</code>, so each shelf becomes one Tab stop with arrow keys inside. Today every tile is its own Tab stop.</p>
+<div class="pair">
+<div><div class="cap">Today</div><pre><code>row := ui.box("row", {width = ui.fill(), axis = .X, gap = CARD_GAP, flags = {.Scroll, .Clip}})
+step := tile_size + CARD_GAP
+first, last := to_visible_range(row.scroll, row.size.x, step, len(cards), EXTRA_CARD_COUNT)
+
+if ui.scope(row) {
+	if first > 0 {
+		ui.box("", {width = ui.points(f32(first) * step - CARD_GAP), height = ui.points(1)})
+	}
+	for index in first ..= last {
+		if build_card_tile(…) do open_card(cards, index)
+	}
+	if last < len(cards) - 1 {
+		ui.box("", {width = ui.points(f32(len(cards) - 1 - last) * step - CARD_GAP), height = ui.points(1)})
+	}
+}</code></pre></div>
+<div><div class="cap">With kit.list</div><pre><code>style := ui.Style {
+	width  = ui.fill(),
+	height = ui.points(to_tile_height(tile_size, is_wide)),
+	axis   = .X,
+	gap    = CARD_GAP,
+	flags  = {.Scroll, .Clip},
+}
+
+if first, last, ok := kit.list("row", len(cards), tile_size, style); ok {
+	for index in first ..&lt; last {
+		if build_card_tile(…) do open_card(cards, index)
+	}
+}</code></pre></div>
+</div>
+<ul>
+<li><strong>The one new need:</strong> a list across must have a height in points, because its rows box fills it. A tile's height is its art plus <code>TILE_TEXT_HEIGHT</code> (46, already in <code>grids.odin</code>). Round tiles have no subtitle, so their shelf gets a few points of extra space at the bottom.</li>
+<li><strong>Range change:</strong> kit's <code>last</code> is exclusive, so the loop changes from <code>..=</code> to <code>..&lt;</code>.</li>
+<li><strong>Deleted:</strong> <code>to_visible_range</code> and <code>EXTRA_CARD_COUNT</code>, since kit keeps its own two extra rows.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="roles">2. Rows and links → <code>kit.clickable</code>, <code>kit.as_button</code> <span class="v v-do">Swap</span></h2>
+<p class="decided"><strong>Decision:</strong> Do it. Part of the one onlymuse change for items 1–5.</p>
+<p>onlymuse sets a role on only two boxes in the whole app: the play button and the menu box. The 14 clickable boxes below have no role or label. thor only adds a box to the accessibility tree when it has a role or visible text. So VoiceOver reads their text as static text, offers no Press action, and the keyboard focus ring lands on an unnamed box.</p>
+<table>
+<tr><th>Box</th><th>Where</th><th>Use</th></tr>
+<tr><td>Song row</td><td><code>lists/song_rows.odin:110</code></td><td><code>kit.clickable</code>, whose look already matches: hover 0.07, press 0.1</td></tr>
+<tr><td>Up Next row</td><td><code>player/panel.odin:149</code></td><td><code>kit.clickable</code></td></tr>
+<tr><td>Album track row</td><td><code>browse/album_page.odin:247</code></td><td><code>kit.clickable</code></td></tr>
+<tr><td>Palette result row</td><td><code>palette/palette_rows.odin:128</code></td><td>add <code>.Menu_Item</code> and its title, as kit's palette does</td></tr>
+<tr><td>Card tile</td><td><code>lists/cards.odin:143</code></td><td><code>kit.as_button</code>, which keeps the art-only hover</td></tr>
+<tr><td>Player cover</td><td><code>player/player_bar.odin:114</code></td><td><code>kit.as_button(cover, "Now Playing")</code></td></tr>
+<tr><td>Artist and album links</td><td><code>now_playing_hero.odin:102, 123</code>, <code>album_page.odin:176</code></td><td><code>kit.as_button</code></td></tr>
+<tr><td>"Recent Songs ›" title</td><td><code>browse/artist_songs.odin:125</code></td><td><code>kit.as_button</code></td></tr>
+<tr><td>Sidebar row</td><td><code>sidebar.odin:79</code></td><td><a href="#sidebar">item 6</a></td></tr>
+<tr><td>"Rules" pill</td><td><code>player/panel.odin:105</code></td><td><a href="#small">item 5</a></td></tr>
+</table>
+<div class="pair">
+<div><div class="cap">Today: card tile</div><pre><code>tile := ui.box(id, {
+	width = ui.points(tile_size), axis = .Y, gap = 3,
+	align = .Center if is_round else .Start,
+	pointer = .Click if can_open else .Passive,
+})
+…
+return ui.signal(tile).is_activated</code></pre></div>
+<div><div class="cap">With as_button</div><pre><code>tile := ui.box(id, {
+	width = ui.points(tile_size), axis = .Y, gap = 3,
+	align = .Center if is_round else .Start,
+})
+signal: ui.Signal
+if can_open do signal = kit.as_button(tile, card.name)
+…
+return signal.is_activated</code></pre></div>
+</div>
+<div class="pair">
+<div><div class="cap">Today: song row</div><pre><code>row := ui.box(id, {
+	width = ui.fill(), height = ui.points(SONG_ROW_HEIGHT),
+	axis = .X, align = .Center, gap = 11, padding = {6, 0, 6, 0},
+	corner_radius = 7,
+	bg = tint if is_current else {},
+	hover_bg = tint if is_current else kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY),
+	press_bg = kit.with_opacity(kit.colors.base_content, kit.SELECTED_OPACITY),
+	pointer = .Click,
+})
+if ui.scope(row) { … }
+return menus.apply_song_row_signal(ui.signal(row), song)</code></pre></div>
+<div><div class="cap">With clickable</div><pre><code>style := ui.Style {
+	height = ui.points(SONG_ROW_HEIGHT),
+	axis = .X, align = .Center, gap = 11, padding = {6, 0, 6, 0},
+	corner_radius = 7,
+}
+if is_current do style.bg, style.hover_bg = tint, tint
+
+if kit.clickable(id, song.name, style) {
+	…
+	is_played = menus.apply_song_row_signal(ui.here(), song)
+}
+return is_played</code></pre></div>
+</div>
+<p>Nothing changes visually. The hover and press colors <code>kit.clickable</code> picks are the ones onlymuse already passes by hand.</p>
+
+<!-- ============================================================ -->
+<h2 id="artwork">3. Artwork crop → <code>images.load_filling_texture</code> <span class="v v-do">Swap</span></h2>
+<p class="decided"><strong>Decision:</strong> Do it. Part of the one onlymuse change for items 1–5.</p>
+<p class="where"><code>src/app/look/artwork.odin:30–92</code></p>
+<p><code>to_crop</code> and <code>to_fill_uv</code> are line-for-line copies of the crop-key rounding and <code>_to_fill_uv</code> inside <code>images.load_filling_texture</code>. We changed the same rounding twice today, once on each side. The one thing onlymuse adds is the texture size, which it rounds up to a step of 100 px. Scaling the box size to that step before the call keeps the aspect, so onlymuse can use thor's procedure today.</p>
+<div class="pair">
+<div><div class="cap">Today</div><pre><code>texture, image_opacity = images.load_texture(
+	paint.source,
+	{f32(paint.size_px), f32(paint.size_px)},
+	to_crop(rect_px, paint.focus_y),
+)
+…
+uv = to_fill_uv(rect_px, texture, paint.focus_y),
+…
+<span class="cm">// plus to_crop (8 lines) and to_fill_uv (17 lines)</span></code></pre></div>
+<div><div class="cap">With load_filling_texture</div><pre><code>size := [2]f32{rect_px.z - rect_px.x, rect_px.w - rect_px.y}
+<span class="cm">// Scaled up to the size step, so a box that grows doesn't load a new size every pixel.</span>
+stepped := size * f32(paint.size_px) / max(size.x, size.y)
+texture, uv, image_opacity = images.load_filling_texture(paint.source, stepped, paint.focus_y)
+…
+uv = uv,</code></pre></div>
+</div>
+<p>The same texture key and crop as today, so the jitter fixes from this afternoon still hold. <a href="#image">Item 13</a> covers moving to <code>kit.image</code> fully.</p>
+
+<!-- ============================================================ -->
+<h2 id="ghost">4. Palette field → <code>variant = .Ghost</code> <span class="v v-do">Swap</span></h2>
+<p class="decided"><strong>Decision:</strong> Do it. Part of the one onlymuse change for items 1–5.</p>
+<p class="where"><code>src/app/palette/palette.odin:29–30, 201</code></p>
+<div class="pair">
+<div><div class="cap">Today</div><pre><code><span class="cm">// kit.text_field draws its own field colour when the alpha is 0. This shows the panel's.</span>
+PALETTE_FIELD_BACKGROUND :: [4]f32{0, 0, 0, 0.001}
+…
+style = {…, bg = PALETTE_FIELD_BACKGROUND, flags = {.Tab_As_Arrows}},</code></pre></div>
+<div><div class="cap">With Ghost</div><pre><code>kit.text_field(…, variant = .Ghost, style = {…, flags = {.Tab_As_Arrows}})</code></pre></div>
+</div>
+<p>Ghost is the variant that draws no fill or border. kit's own palette uses it for the same reason.</p>
+
+<!-- ============================================================ -->
+<h2 id="small">5. Small swaps <span class="v v-do">Swap</span></h2>
+<p class="decided"><strong>Decision:</strong> Do it, every row of the table. Part of the one onlymuse change for items 1–5.</p>
+<table>
+<tr><th>Today</th><th>Where</th><th>Swap</th><th>Note</th></tr>
+<tr><td>A month-name table and string formatting in <code>to_date_text</code></td><td><code>look/widgets.odin:7</code></td><td>Parse the date, then <code>platform.format_date(date, "yMMMd")</code>, or <code>"yMMM"</code> with no day</td><td>The console page already uses <code>platform.format_date_time</code>. Dates follow the person's locale, so "14 Nov 2026" in Australia and "Nov 14, 2026" in the US.</td></tr>
+<tr><td><code>kit.text(x, kit.with_opacity(kit.colors.base_content, 0.7), is_wrapped = true)</code></td><td><code>song_rows.odin:56</code>, <code>downloads_page.odin:107</code>, <code>search_page.odin:50</code>, <code>page.odin:51</code>, <code>now_playing_page.odin:26</code>, <code>player_bar.odin:147, 162</code></td><td><code>kit.description(x)</code></td><td>This is an exact match only for wrapped text. One-line subtitles that truncate have no kit equivalent (gap 9).</td></tr>
+<tr><td>A drag-start distance of 6, worked out from <code>signal.drag</code></td><td><code>menus/song_drag.odin:19</code></td><td><code>signal.is_dragged</code></td><td>thor's threshold is 3, so a drag starts 3 points sooner.</td></tr>
+<tr><td><code>is_mouse_released</code> scans raw platform events</td><td><code>menus/song_drag.odin:51</code></td><td><code>!ui.interaction().is_held</code></td><td></td></tr>
+<tr><td>The console builds all 500 entries every frame</td><td><code>console_page.odin:53</code></td><td><code>kit.list("rows", len(entries), 0, …)</code>, which measures its rows</td><td>Rows wrap, so they need the measured mode. This fixes the cost of scrolling a full console.</td></tr>
+<tr><td>Round play button: a box, a role, a label and an icon</td><td><code>player/player_controls.odin:51</code></td><td><code>kit.button("play", label, symbol, icon_size = 15, icon_color = kit.colors.base_200, is_label_hidden = true, style = {width = ui.points(34), height = ui.points(34), corner_radius = 17, bg = kit.colors.base_content, hover_bg = {1, 1, 1, 1}})</code></td><td>It gains the press color, the disabled state and the hover tooltip, as the other player buttons have.</td></tr>
+<tr><td>"Rules" pill: a box with hover color and text</td><td><code>player/panel.odin:105</code></td><td><code>kit.button("rules", "Rules", variant = .Soft, size = .Small)</code></td><td>It also gets a role, so VoiceOver can press it.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="sidebar">6. Sidebar → <code>kit.nav_row</code> <span class="v v-look">Look changes</span></h2>
+<p class="decided"><strong>Decision:</strong> Fix thor gap 6, then do item 6.</p>
+<p class="where"><code>src/app/sidebar.odin:79</code></p>
+<p><code>kit.nav_row</code> is the sidebar row the Gallery uses. It gives a row role, label and on state for VoiceOver, and selects only on click. With <code>.Arrow_Keys</code> on the list, the arrow keys move between rows without navigating. The look differs in three ways: the current row takes a gray tint instead of the accent, other labels show at 70% in medium weight, and rows are 32 points tall instead of 30.</p>
+<div class="mock">
+<div><div class="cap">Today</div><div class="app"><div class="side before">
+<div class="grp">Apple Music</div>
+<div class="row on"><span class="sym">⌂</span><span class="lab">Home</span></div>
+<div class="row"><span class="sym">◎</span><span class="lab">New</span></div>
+<div class="row"><span class="sym">≋</span><span class="lab">Radio</span></div>
+<div class="grp">Library</div>
+<div class="row"><span class="sym">♪</span><span class="lab">Songs</span></div>
+</div></div></div>
+<div><div class="cap">kit.nav_row</div><div class="app"><div class="side after">
+<div class="grp">Apple Music</div>
+<div class="row on"><span class="sym">⌂</span><span class="lab">Home</span></div>
+<div class="row"><span class="sym">◎</span><span class="lab">New</span></div>
+<div class="row"><span class="sym">≋</span><span class="lab">Radio</span></div>
+<div class="grp">Library</div>
+<div class="row"><span class="sym">♪</span><span class="lab">Songs</span></div>
+</div></div></div>
+</div>
+<div class="pair">
+<div><div class="cap">Today</div><pre><code>is_selected := core.current_page() == page
+bg := kit.with_opacity(kit.colors.primary, kit.SOFT_OPACITY) if is_selected else {}
+row := ui.box(page_id, {
+	width = ui.fill(), height = ui.points(30), axis = .X, align = .Center, gap = 9,
+	padding = {10, 0, 10, 0}, corner_radius = 7,
+	bg = bg,
+	hover_bg = bg if is_selected else kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY),
+	press_bg = kit.with_opacity(kit.colors.base_content, kit.SELECTED_OPACITY),
+	pointer = .Click,
+})
+signal := ui.signal(row)
+if signal.is_activated do core.navigate(page)
+…
+if ui.scope(row) {
+	kit.icon_box(symbol, 15, …)
+	kit.text(label, kit.colors.base_content)
+}</code></pre></div>
+<div><div class="cap">With nav_row</div><pre><code><span class="cm">// current is the current page's id, worked out once per frame.</span>
+if kit.nav_row(page_id, &amp;current, label, is_label_hidden = true) {
+	signal := ui.here()
+	if signal.is_activated do core.navigate(page)
+	…drop target as today…
+	kit.icon_box(symbol, 15, …)
+	kit.text(label, kit.colors.base_content)
+}</code></pre></div>
+</div>
+<ul>
+<li><strong>Gap:</strong> <code>nav_row</code> has no icon, and it builds its label before your children. So an icon row must hide kit's label and draw its own, which loses the 70% medium styling unless onlymuse copies it (gap 6).</li>
+<li><strong>Gap:</strong> kit sets the current row's tint after it merges your style, so onlymuse can't keep its accent tint.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="badges">7. Badges → <code>kit.badge</code> <span class="v v-look">Look changes</span></h2>
+<p class="decided"><strong>Decision:</strong> Fix thor gap 5, then do item 7.</p>
+<p class="where"><code>player/player_bar.odin:220</code> (YOUTUBE / LOSSLESS), <code>browse/album_page.odin:224</code> (album badges), <code>player/now_playing_hero.odin:152</code> (pills)</p>
+<p>onlymuse has three badge styles, each with its own padding, radius and font. <code>kit.badge(label, tone, variant, size)</code> covers all three, but sizes snap to kit's three sizes, corners are always 4 points, and colors come only from tones.</p>
+<div class="mock">
+<div><div class="cap">Today</div><div class="app"><div class="badges">
+<div class="line"><span class="lbl">Player bar</span><span class="b b-bar" style="color:var(--yt);border-color:var(--yt)">YOUTUBE</span><span class="b b-bar muted" style="border-color:rgba(242,242,244,.5)">LOSSLESS</span></div>
+<div class="line"><span class="lbl">Album</span><span class="b b-album muted" style="border-color:rgba(242,242,244,.7)">Lossless</span><span class="b b-album muted" style="border-color:rgba(242,242,244,.7)">Dolby Atmos</span><span class="b b-album" style="color:#7ee2a8;border-color:#7ee2a8">In Library</span></div>
+<div class="line"><span class="lbl">Now Playing</span><span class="b b-pill" style="color:var(--primary)">Lossless · 24-bit/96 kHz</span><span class="b b-pill">Dolby Atmos</span><span class="b b-pill">Explicit</span></div>
+</div></div></div>
+<div><div class="cap">kit.badge</div><div class="app"><div class="badges">
+<div class="line"><span class="lbl">.Small .Outline</span><span class="b k-sm k-out" style="color:var(--err);border-color:var(--err)">YOUTUBE</span><span class="b k-sm k-out" style="border-color:var(--content)">LOSSLESS</span></div>
+<div class="line"><span class="lbl">.Medium .Outline</span><span class="b k-md k-out" style="border-color:var(--content)">Lossless</span><span class="b k-md k-out" style="border-color:var(--content)">Dolby Atmos</span><span class="b k-md k-out" style="color:var(--ok);border-color:var(--ok)">In Library</span></div>
+<div class="line"><span class="lbl">.Large .Soft</span><span class="b k-lg k-soft-pri">Lossless · 24-bit/96 kHz</span><span class="b k-lg k-soft-base">Dolby Atmos</span><span class="b k-lg k-soft-base">Explicit</span></div>
+</div></div></div>
+</div>
+<div class="pair">
+<div><div class="cap">Today (one of three)</div><pre><code>build_badge :: proc(label: string, color: [4]f32) {
+	ui.box("", {
+		padding = {6, 1, 6, 1},
+		corner_radius = 4,
+		border_width = 1,
+		border_color = color,
+		text_color = color,
+		font_size = 11,
+		font_weight = .Bold,
+	}, label)
+}</code></pre></div>
+<div><div class="cap">With kit.badge</div><pre><code>kit.badge("YOUTUBE", .Error, .Outline, .Small)
+kit.badge(label, .Base, .Outline)
+kit.badge("In Library", .Success, .Outline)
+kit.badge(pill, .Primary if is_quality else .Base, .Soft, .Large)</code></pre></div>
+</div>
+<ul>
+<li><strong>Gap: brand colors.</strong> YouTube red becomes <code>.Error</code>, which looks right but means "error". The muted gray outline becomes full-strength text. kit has no tone for a brand color or for muted text (gap 5).</li>
+<li><strong>Gap: measuring a badge.</strong> The player bar measures its badge to fit the song name beside it. With <code>kit.badge</code> it would have to copy kit's private badge metrics, which breaks silently if kit changes them.</li>
+<li><strong>Look:</strong> the Now Playing pills lose their round ends.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="signin">8. Sign-in card → <code>kit.dialog</code> <span class="v v-look">Look changes</span></h2>
+<p class="decided"><strong>Decision:</strong> Fix thor gap 8, then do item 8.</p>
+<p class="where"><code>src/app/main.odin:101</code></p>
+<p>The card builds its own dimmed cover and centers itself. <code>kit.dialog</code> adds what the hand-built card lacks: a fade-in, a dialog role, focus moved to the button, and focus given back on close. The panel uses kit's popover color, 10-point corners and a shadow, and the title goes from 18 to 15 points (<code>kit.heading(…, .Small)</code>).</p>
+<div class="mock">
+<div><div class="cap">Today</div><div class="app" style="min-height:220px"><div class="fakepage"><div></div><div></div></div><div class="cover" style="background:rgba(0,0,0,.63)">
+<div class="dlg before"><div class="t">Sign in to Apple Music</div><div class="d">onlymuse reads Apple Music with the sign-in of music.apple.com. Apple's own sign-in page opens in a window of its own.</div><div class="btn">Sign In</div></div></div></div></div>
+<div><div class="cap">kit.dialog</div><div class="app" style="min-height:220px"><div class="fakepage"><div></div><div></div></div><div class="cover" style="background:rgba(0,0,0,.45)">
+<div class="dlg after"><div class="t">Sign in to Apple Music</div><div class="d">onlymuse reads Apple Music with the sign-in of music.apple.com. Apple's own sign-in page opens in a window of its own.</div><div class="btn">Sign In</div></div></div></div></div>
+</div>
+<div class="pair">
+<div><div class="cap">Today</div><pre><code>cover := ui.box("sign_in_cover", {width = ui.fill(), height = ui.fill(),
+	bg = kit.to_color(0x000000a0), pos = {0, 0}, pointer = .Click, flags = {.Floating}})
+if ui.scope(cover) {
+	card := ui.box("card", {width = ui.points(SIGN_IN_CARD_WIDTH), axis = .Y, gap = 12,
+		padding = {24, 24, 24, 24}, corner_radius = 14, bg = kit.colors.base_300,
+		border_width = 1, border_color = kit.colors.line,
+		pos = {(window_size.x - SIGN_IN_CARD_WIDTH) / 2, window_size.y / 2 - SIGN_IN_CARD_HALF_HEIGHT},
+		flags = {.Floating}})
+	if ui.scope(card) {
+		ui.box("", {…, font_size = 18, font_weight = .Bold}, "Sign in to Apple Music")
+		ui.box("", {…, text_color = kit.with_opacity(…, 0.7), text_fit = .Wrap}, "onlymuse reads…")
+		if kit.button(…).is_activated { … }
+	}
+}</code></pre></div>
+<div><div class="cap">With kit.dialog</div><pre><code><span class="cm">// Signing in can't be skipped, so Escape only clears this frame's copy.</span>
+is_open := true
+if kit.dialog("sign_in", &amp;is_open) {
+	kit.heading("Sign in to Apple Music", .Small)
+	kit.description("onlymuse reads…")
+	if kit.button(…).is_activated { … }
+}</code></pre></div>
+</div>
+<p><strong>Gap:</strong> <code>kit.dialog</code> is always 400 wide and centered, and Escape always closes it. The local <code>is_open</code> works, but a dialog that can't be dismissed has no named setting (gap 8).</p>
+
+<!-- ============================================================ -->
+<h2 id="rules">9. Shuffle rules → <code>kit.popover</code> <span class="v v-look">Look changes</span></h2>
+<p class="decided"><strong>Decision:</strong> Do item 9 as mocked; the footnote is dropped.</p>
+<p class="where"><code>src/app/playback/shuffle.odin:214</code>, opened from <code>player/panel.odin:120</code> and <code>player/player_controls.odin:41</code></p>
+<p>This menu has its own cover, menu box and <code>opened_frame</code> guard, and it positions itself with fixed offsets (<code>RULES_MENU_LEFT</code>, <code>SHUFFLE_RULES_OFFSET</code>). A <code>kit.popover</code> anchored to the button that opened it places itself, flips when there's no room, closes on Escape or a click outside, and fades.</p>
+<p>The catch is that a <code>kit.menu_item</code> closes its popover when activated. The rules are settings you flip several at a time, so they should become toggles and a segmented control, which leave the popover open.</p>
+<div class="mock">
+<div><div class="cap">Today</div><div class="app"><div class="menu" style="width:300px">
+<div class="hd">Shuffle</div>
+<div class="it"><span class="chk"></span><span class="lab">Play recent songs last</span><span class="hint">Past 6 h</span></div>
+<div class="it hl"><span class="chk"></span><span class="lab">Play often-skipped songs last</span><span class="hint">●</span></div>
+<div class="it"><span class="chk"></span><span class="lab">Spread out songs from one album</span><span class="hint">○</span></div>
+<div class="it"><span class="chk"></span><span class="lab">Play favourites earlier</span><span class="hint">●</span></div>
+<div class="sep"></div>
+<div class="note">onlymuse counts plays and skips itself. Changes apply the next time you shuffle.</div>
+</div></div></div>
+<div><div class="cap">kit.popover with toggles</div><div class="app"><div class="menu" style="width:300px">
+<div class="hd">Shuffle</div>
+<div class="trow"><span>Play recent songs last</span></div>
+<div class="seg"><span>Off</span><span>2 h</span><span class="on">6 h</span><span>24 h</span></div>
+<div class="trow"><span>Play often-skipped songs last</span><span class="sw on"></span></div>
+<div class="trow"><span>Spread out songs from one album</span><span class="sw"></span></div>
+<div class="trow"><span>Play favourites earlier</span><span class="sw on"></span></div>
+</div></div></div>
+</div>
+<div class="pair">
+<div><div class="cap">Today</div><pre><code>cover := ui.box("rules_cover", {…, pointer = .Click, flags = {.Floating}})
+is_closing := (ui.signal(cover).is_activated || ui.signal(cover).is_secondary) &amp;&amp;
+	app.frame_count > rules_menu.opened_frame + 1
+if ui.scope(cover) {
+	menu := look.menu_box("rules", rules_menu.pos, 300, window_size)
+	if ui.scope(menu) {
+		…
+		if kit.menu_item("recent", "Play recent songs last", hours_text).is_activated {
+			…cycle to the next choice…
+		}
+		for toggle in toggles {
+			if kit.menu_item(toggle.id, toggle.label, "●" if toggle.is_on^ else "○").is_activated { … }
+		}
+	}
+}
+if is_closing do rules_menu.is_open = false</code></pre></div>
+<div><div class="cap">With kit.popover</div><pre><code><span class="cm">// anchor is the id of the button that opened it: "rules" or "shuffle".</span>
+if kit.popover("rules_menu", &amp;rules_menu.is_open, rules_menu.anchor, width = ui.points(300)) {
+	kit.heading("Shuffle", .Small)
+	kit.text("Play recent songs last")
+	if kit.segmented("recent", &amp;recent_id, RECENT_OPTIONS).is_changed do save_shuffle_rules()
+
+	for toggle in toggles {
+		if kit.toggle(toggle.id, toggle.is_on, toggle.label).is_changed do save_shuffle_rules()
+	}
+}</code></pre></div>
+</div>
+<ul>
+<li><strong>VoiceOver:</strong> each rule is announced as a switch with its on/off state. Today the ●/○ hints carry the state, and VoiceOver reads them as part of the label.</li>
+<li><strong>Footnote:</strong> the mockup drops it. See <a href="#noticed">noticed along the way</a>.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="loading">10. Loading → <code>kit.spinner</code> <span class="v v-look">Look changes</span></h2>
+<p class="decided"><strong>Decision:</strong> Create a new type of spinner, following the API design rules, and do item 10. Recorded as thor gap 14.</p>
+<p class="where"><code>src/app/look/page.odin:64–133</code></p>
+<p>onlymuse draws its own indeterminate bar with a custom draw proc, a cosine sweep and dots that cycle. That's about 60 lines and 7 constants. <code>kit.spinner</code> is thor's busy indicator, with a progress role and the value "busy" for VoiceOver. The 0.3-second delay and the fade stay in onlymuse; they're a few lines and worth keeping, so a quick load never flashes.</p>
+<div class="mock">
+<div><div class="cap">Today</div><div class="app"><div class="load"><div class="track"><i></i></div><div class="muted">Loading the songs<span class="dots"></span></div></div></div></div>
+<div><div class="cap">kit.spinner</div><div class="app"><div class="loadrow"><div class="spin"><i style="transform:rotate(0deg)"></i><i style="transform:rotate(45deg);opacity:.9"></i><i style="transform:rotate(90deg);opacity:.8"></i><i style="transform:rotate(135deg);opacity:.7"></i><i style="transform:rotate(180deg);opacity:.6"></i><i style="transform:rotate(225deg);opacity:.5"></i><i style="transform:rotate(270deg);opacity:.4"></i><i style="transform:rotate(315deg);opacity:.3"></i></div><span class="muted">Loading the songs</span></div></div></div>
+</div>
+<div class="pair">
+<div><div class="cap">Today (body only)</div><pre><code>sweep := f32(1 - math.cos(2 * math.PI * shown_seconds / LOADING_SWEEP_SECONDS)) / 2
+first_ratio := sweep * (1 - LOADING_SEGMENT_RATIO)
+dot_count := 1 + int(shown_seconds / LOADING_DOT_SECONDS) % 3
+…
+track.draw = draw_loading_bar
+track.data = paint
+…
+kit.description(fmt.tprintf("Loading %s", what), width = ui.Length{})
+kit.text(all_dots[:dot_count], …)
+…
+ui.request_frame()
+<span class="cm">// plus draw_loading_bar, 12 lines</span></code></pre></div>
+<div><div class="cap">With kit.spinner</div><pre><code>row := ui.box("loading", {width = ui.fill(), axis = .X, justify = .Center, align = .Center, gap = 8, fade = 1 - opacity})
+if ui.scope(row) {
+	kit.spinner()
+	kit.description(fmt.tprintf("Loading %s", what), width = ui.Length{})
+}
+<span class="cm">// The spinner asks for its own frames, 8 a second instead of 120.</span></code></pre></div>
+</div>
+<p>This one is a matter of taste. The bar is a deliberate design choice, so keep it if you like it. The spinner also redraws 8 times a second, where the bar asks for every frame.</p>
+
+<!-- ============================================================ -->
+<h2 id="songmenu">11. Song menu → <code>kit.popover</code> <span class="v v-gap">Needs thor first</span></h2>
+<p class="decided"><strong>Decision:</strong> Fix gaps 3 and 4, then item 11.</p>
+<p class="where"><code>src/app/menus/song_menu.odin:66</code>, <code>src/app/look/menu_box.odin</code></p>
+<p><code>menu_box.odin</code> exists because, as its comment says, "kit.popover cannot nest". That's no longer true: thor's popovers nest, and <code>tests/popover_test.odin:178</code> builds a submenu inside a menu. Moving over deletes <code>menu_box.odin</code>, the cover box, the raw Escape scan, the <code>opened_frame</code> guard and the right-click-to-close logic. It also adds the fade, arrow keys within the menu, Escape closing only the topmost menu, and focus that moves in and back.</p>
+<div class="pair">
+<div><div class="cap">Today</div><pre><code>cover := ui.box("menu_cover", {…, pointer = .Click, flags = {.Floating}})
+is_closing := (ui.signal(cover).is_activated || ui.signal(cover).is_secondary) &amp;&amp;
+	app.frame_count > song_menu.opened_frame + 1
+for event in platform.list_events() {
+	if key, ok := event.(platform.Key_Press); ok &amp;&amp; key.key == .Escape do is_closing = true
+}
+if ui.scope(cover) {
+	if !song_menu.is_playlists_only {
+		if build_main_menu(song, pos, window_size) do is_closing = true
+		main_width = SONG_MENU_WIDTH + SUBMENU_GAP
+	}
+	if song_menu.is_playlists_open &amp;&amp; build_playlist_menu(song, pos + {main_width, 0}, window_size) {
+		is_closing = true
+	}
+}
+if is_closing do close_song_menu()</code></pre></div>
+<div><div class="cap">With kit.popover</div><pre><code>if kit.popover("song_menu", &amp;song_menu.is_open, song_menu.pos, width = ui.points(SONG_MENU_WIDTH)) {
+	song := matching.watch_playable(song_menu.song)
+	if build_main_menu(song) do song_menu.is_open = false
+}
+if !song_menu.is_open do close_song_menu()
+
+<span class="cm">// in build_main_menu</span>
+item := kit.menu_item("add_to_playlist", "Add to Playlist", "›", is_highlighted = song_menu.is_playlists_open)
+if item.is_hovered do song_menu.is_playlists_open = true
+beside := [2]f32{item.box.rect.z + SUBMENU_GAP, item.box.rect.y}
+if kit.popover("playlist_menu", &amp;song_menu.is_playlists_open, beside, width = ui.points(PLAYLIST_MENU_WIDTH)) {
+	if build_playlist_items(song) do song_menu.is_open = false
+}</code></pre></div>
+</div>
+<h3>Where the submenu opens</h3>
+<p>A popover opens below its anchor. Passing a point at the item's right edge as the anchor puts the submenu beside the item, as onlymuse does today.</p>
+<div class="mock">
+<div><div class="cap">Anchor: the item's box (kit default)</div><div class="app"><div class="place">
+<div class="menu" style="left:0;top:0"><div class="it"><span class="chk"></span><span class="lab">Play Next</span></div><div class="it hl"><span class="chk"></span><span class="lab">Add to Playlist</span><span class="hint">›</span></div><div class="sep"></div><div class="it"><span class="chk"></span><span class="lab">Favourite</span></div><div class="it"><span class="chk"></span><span class="lab">Go to Artist</span></div></div>
+<div class="menu" style="left:6px;top:66px;width:150px"><div class="it"><span class="chk"></span><span class="lab" style="color:var(--primary)">New Playlist…</span></div><div class="sep"></div><div class="it"><span class="chk"></span><span class="lab">Running</span></div><div class="it"><span class="chk"></span><span class="lab">Late Night</span></div></div>
+</div></div></div>
+<div><div class="cap">Anchor: a point at the item's right edge</div><div class="app"><div class="place">
+<div class="menu" style="left:0;top:0"><div class="it"><span class="chk"></span><span class="lab">Play Next</span></div><div class="it hl"><span class="chk"></span><span class="lab">Add to Playlist</span><span class="hint">›</span></div><div class="sep"></div><div class="it"><span class="chk"></span><span class="lab">Favourite</span></div><div class="it"><span class="chk"></span><span class="lab">Go to Artist</span></div></div>
+<div class="menu" style="left:178px;top:31px;width:150px"><div class="it"><span class="chk"></span><span class="lab" style="color:var(--primary)">New Playlist…</span></div><div class="sep"></div><div class="it"><span class="chk"></span><span class="lab">Running</span></div><div class="it"><span class="chk"></span><span class="lab">Late Night</span></div></div>
+</div></div></div>
+</div>
+<h3>Why it waits on thor</h3>
+<ul>
+<li><strong>Clicking "Add to Playlist" would close the whole menu.</strong> <code>kit.menu_item</code> closes the popover being built when it's activated, and the submenu's item is built inside the song menu. Hovering opens the submenu first, so most pointer users wouldn't notice, but a click, a tap or Return closes everything (gap 3). thor's nested test never clicks the opening item.</li>
+<li><strong>No room on the right:</strong> a point anchor clamps the submenu inside the window, on top of its menu, instead of flipping it to the left side (gap 4).</li>
+<li><strong>To check:</strong> Escape in the playlist name field should cancel the name without also closing the submenu. I didn't trace this through kit.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="keys">12. Keyboard shortcuts → <code>ui.is_key_pressed</code> <span class="v v-gap">Needs thor first</span></h2>
+<p class="decided"><strong>Decision:</strong> Fix gap 10, then item 12.</p>
+<p class="where"><code>src/app/frame.odin:105–160</code></p>
+<p><code>apply_keys</code> loops over <code>platform.list_events()</code> and checks <code>ui.is_key_taken</code> itself. <code>ui.is_key_pressed(key, modifiers)</code> would do this in one line per shortcut. But with no modifiers it means "with any modifiers", so <code>ui.is_key_pressed(.Left)</code> would also fire on ⌘←. Then ⌘← would both seek back 5 seconds and skip to the previous song.</p>
+<div class="pair">
+<div><div class="cap">Today</div><pre><code>for event in platform.list_events() {
+	key, is_key := event.(platform.Key_Press)
+	if !is_key || ui.is_key_taken(key.key) do continue
+	if .Command in key.modifiers {
+		apply_command_key(key)
+	} else {
+		apply_playback_key(key)
+	}
+}</code></pre></div>
+<div><div class="cap">With is_key_pressed (once thor can say "no modifiers")</div><pre><code>if ui.is_key_pressed(.K, {.Command}) do palette.toggle_palette()
+if ui.is_key_pressed(.Right, {.Command}) do playback.skip_to_next()
+if is_bare_key(.Space) do playback.toggle_playback()
+if is_bare_key(.Left) do playback.seek_by_seconds(-playback.SEEK_STEP_SECONDS)
+<span class="cm">// is_bare_key: pressed, not taken by focus, no ⌘. Needs gap 10 in thor.</span></code></pre></div>
+</div>
+<p>The song menu's Escape scan goes away with <a href="#songmenu">item 11</a>, and the drag-release scan with <a href="#small">item 5</a>.</p>
+
+<!-- ============================================================ -->
+<h2 id="image">13. Artwork → <code>kit.image</code> <span class="v v-gap">Needs thor first</span></h2>
+<p class="decided"><strong>Decision:</strong> Fix gaps 1 and 2, then item 13.</p>
+<p class="where"><code>src/app/look/artwork.odin:95–172</code></p>
+<p><code>kit.image</code> covers the same job: a cropped image that fades in over a placeholder, with an SF Symbol while it loads and <code>focus_y</code> for faces. onlymuse's placeholder gradient would pass through <code>style.bg</code> and <code>style.layers</code>, and the artist header's <code>focus_y = 0.25</code> hack (<code>artist_header.odin:39</code>) becomes a parameter. Three things block it:</p>
+<ul>
+<li><strong>No size steps (the one that matters).</strong> <code>kit.image</code> asks <code>images</code> for a texture at the box's exact pixel size. While the panel springs open, tiles change width every frame, so each frame asks for a new size and starts a new load. That's the jitter we spent today removing. onlymuse avoids it by rounding up to 100 px steps, and the artist header to its own <code>PHOTO_WIDTH_STEP_PX</code>. The fix belongs in thor: <code>images</code> should round sizes up to a step itself (gap 1).</li>
+<li><strong>A fixed placeholder symbol.</strong> kit draws the symbol in base content at 50%, at 30% of the box. onlymuse tints it with the album's own text color (gap 2).</li>
+<li><strong>A pop instead of a cross-fade.</strong> kit stops drawing the symbol the moment the texture arrives, while the image is still fading in. onlymuse fades the symbol out as the image fades in (gap 2).</li>
+</ul>
+<p>Once those are in thor, <code>artwork_box</code> becomes a call to <code>kit.image</code> with a style, and <code>Artwork_Paint</code>, <code>draw_artwork</code> and <code>to_artwork_px</code> go away. <a href="#artwork">Item 3</a> is the part you can do today.</p>
+
+<!-- ============================================================ -->
+<h2 id="palette">14. Palette vs <code>kit.command_palette</code> <span class="v v-keep">Not a match</span></h2>
+<p class="decided"><strong>Decision:</strong> The palette stays. Fix gap 7, then the shell uses it.</p>
+<p class="where"><code>src/app/palette/</code> (790 lines)</p>
+<p><code>kit.command_palette</code> ranks a fixed list of <code>kit.Option</code>s: an icon, a label and a hint. onlymuse's palette has grouped results, artwork, round artist images, subtitles, results that arrive while you type (Apple Music search), and disabled rows that still show. None of those fit an <code>Option</code>.</p>
+<div class="mock">
+<div><div class="cap">onlymuse's palette</div><div class="app"><div class="pal">
+<div class="fld">⌕ <span style="color:var(--content)">radiohead</span></div>
+<div class="gh">ARTISTS</div>
+<div class="r sel"><span class="art a3"></span><span class="ti">Radiohead</span><span class="su">Artist</span><span class="ret">↵</span></div>
+<div class="gh">SONGS</div>
+<div class="r"><span class="art a1"></span><span class="ti">Weird Fishes</span><span class="su">Radiohead · In Rainbows</span></div>
+<div class="r"><span class="art a2"></span><span class="ti">Reckoner</span><span class="su">Radiohead · In Rainbows</span></div>
+<div class="gh">ACTIONS</div>
+<div class="r"><span class="sym faint">⇄</span><span class="ti">Shuffle All</span><span class="su"></span></div>
+</div></div></div>
+<div><div class="cap">kit.command_palette</div><div class="app"><div class="pal kit">
+<div class="fld">⌕ <span style="color:var(--content)">radiohead</span></div>
+<div class="div"></div>
+<div class="r sel"><span class="sym">♫</span><span class="ti" style="flex:1">Radiohead</span><span class="hint" style="color:#fff">Artist</span></div>
+<div class="r"><span class="sym faint">♪</span><span class="ti" style="flex:1">Weird Fishes</span><span class="hint">Radiohead</span></div>
+<div class="r"><span class="sym faint">♪</span><span class="ti" style="flex:1">Reckoner</span><span class="hint">Radiohead</span></div>
+<div class="r"><span class="sym faint">⇄</span><span class="ti" style="flex:1">Shuffle All</span><span class="hint"></span></div>
+</div></div></div>
+</div>
+<p>Keep onlymuse's palette. Within it, take the field fix (<a href="#ghost">item 4</a>) and the row roles (<a href="#roles">item 2</a>). Its shell (dimmed cover, shadow box, panel, <code>opened_frame</code>, closing on a click outside) repeats what <code>kit.dialog</code> does. kit's own palette uses the internal <code>kit._begin_dialog</code> to get a custom width and top. onlymuse could call that too, since <code>_</code> names are open to apps, but a public way to set a dialog's width and top would be cleaner (gap 7).</p>
+
+<!-- ============================================================ -->
+<h2 id="keep">15. Keep as is <span class="v v-keep">Keep</span></h2>
+<p class="decided"><strong>Decision:</strong> Unchanged: these stay as they are.</p>
+<table>
+<tr><th>onlymuse code</th><th>Why it stays</th></tr>
+<tr><td>Song grid columns (<code>lists/grids.odin:17</code>)</td><td><code>kit.grid</code> would fit, but it allows a third column on wide windows, and the grid shows only a handful of songs, so there's nothing to virtualize.</td></tr>
+<tr><td>Card hover overlay (<code>cards.odin:164</code>, <code>player_bar.odin:128</code>)</td><td>A white wash over the art. <code>hover_bg</code> draws under the image, so it can't do this.</td></tr>
+<tr><td>Palette's scroll-to-selected</td><td>Its rows sit between group titles, so kit's fixed-step <code>_scroll_to_row</code> doesn't fit.</td></tr>
+<tr><td>Lyrics panel scroll</td><td>A spring-animated offset that follows the song. It isn't a scroll area the person drives.</td></tr>
+<tr><td>Panel open and close (<code>panel.odin:22</code>)</td><td>A width spring with a fade. This is what <code>ui.animate</code> is for.</td></tr>
+<tr><td>Cover accent (<code>look/theme.odin</code>)</td><td>An app feature built on <code>images.find_color</code> and <code>kit.to_color_from_hsv</code>.</td></tr>
+<tr><td>Window backdrop (<code>src/macos/backdrop.odin</code>)</td><td>A workaround for the live blur stuttering after Mission Control, beyond what thor's <code>is_blurred</code> covers.</td></tr>
+<tr><td>Player menu items (<code>macos.install_player_menu</code>)</td><td><code>platform.install_menu</code> can't add app items (gap 13).</td></tr>
+<tr><td>Song drag and drop, and the drag ghost</td><td>thor has no drag and drop (gap 11).</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="gaps">thor gaps found</h2>
+<p>These are the places where onlymuse builds something by hand because thor falls short. Gap 14 came from your decision on item 10. Each row has my proposed design; nothing is built until you approve it. Every new name follows the API rules: one procedure per element a person sees, zero values that mean the obvious default, the same order and names as the neighboring kit procedures, and no callbacks.</p>
+<table class="gaps">
+<tr><th>#</th><th>Gap</th><th>Proposed design</th><th>Unblocks</th><th>Your decision</th></tr>
+<tr><td>1</td><td><code>images</code> loads a new texture for every pixel size. It should round sizes up to a step, as onlymuse does with 100 px.</td><td class="design"><p class="revised"><strong>Revised after your review:</strong> the name now says what it returns: the size of the texture images loads.</p><pre class="sig">images.TEXTURE_SIZE_STEP_PX :: 100
+
+// The size, in pixels, of the texture images loads for a box box_size_px across:
+// rounded up to TEXTURE_SIZE_STEP_PX, so a box that grows a few pixels keeps its texture.
+images.to_texture_size_px :: proc(box_size_px: f32) -> int</pre>
+<p><code>load_texture</code> and <code>load_filling_texture</code> round with it themselves, so <code>kit.image</code> stops reloading while a box springs. An app that puts the size in a URL, as Apple's artwork URLs do, asks for the same number. onlymuse's <code>ARTWORK_STEP_PX</code>, <code>to_artwork_px</code> and <code>PHOTO_WIDTH_STEP_PX</code> become this one call.</p></td><td>Item 13. It also stops any thor app's images reloading while a box resizes.</td><td>Approved: build it</td></tr>
+<tr><td>2</td><td><code>kit.image</code>'s placeholder symbol can't take a color, and it pops off instead of fading out as the image fades in.</td><td class="design"><pre class="sig">kit.image :: proc(source, label: string, style := ui.Style{},
+	is_fading_in := true, placeholder_icon := "",
+	placeholder_color: [4]f32 = {}, focus_y: f32 = 0.5) -> ui.Signal</pre>
+<p>A zero <code>placeholder_color</code> keeps today's muted base content, the same rule <code>kit.button</code>'s <code>icon_color</code> follows. The symbol now draws at <code>1 - fade</code> while the image fades in, so it fades out instead of popping. That part is no API change.</p></td><td>Item 13</td><td>Approved: build it</td></tr>
+<tr><td>3</td><td>A <code>kit.menu_item</code> that opens a submenu closes its menu when clicked.</td><td class="design"><p class="revised"><strong>Revised after your review:</strong> menus now nest to any depth, as in Photoshop, instead of stopping at one level. Today kit stops at 4 popovers deep (<code>_POPOVER_DEPTH :: 4</code>), and the first design also made the app keep a bool for every submenu.</p><pre class="sig">// A menu item that opens a menu beside it, on hover, a click, Return or Right.
+// It works inside any menu, including another submenu, to any depth.
+// Left or Escape closes only it. Build its items inside the if.
+@(deferred_out = _end_popover)
+kit.submenu :: proc(id, label: string, width := ui.Length{}) -> bool</pre>
+<pre class="sig">if kit.menu_button("file", "File", &amp;is_file_open) {
+	kit.menu_item("open", "Open…", "⌘O")
+	if kit.submenu("export", "Export") {
+		if kit.submenu("as_image", "As Image") {
+			if kit.menu_item("png", "PNG").is_activated do export_png()
+			if kit.menu_item("jpeg", "JPEG").is_activated do export_jpeg()
+		}
+		kit.menu_item("as_pdf", "As PDF")
+	}
+}</pre>
+<ul>
+<li><strong>State:</strong> the app keeps one bool, for the top menu. kit keeps which submenu is open at each level, because macOS allows only one open submenu per level: opening one closes its siblings, and closing a menu closes everything under it. That's the same kind of state as keyboard focus, which kit already keeps. With a bool per submenu, every app would have to write that sibling-closing logic.</li>
+<li><strong>Depth:</strong> the fixed 4-deep popover stack becomes a dynamic array, so there's no depth limit.</li>
+<li><strong>Picking:</strong> picking a <code>menu_item</code> at any level closes the whole menu, as macOS does. Today only the innermost popover closes, so thor's nested-popover test changes.</li>
+</ul>
+<p>I read "expanding menu to support nesting" as the menu procedures you already have (<code>menu_button</code>, <code>popover</code> and context menus) accepting submenus at any depth, with one new procedure for the item that opens a level. If you meant something else, tell me.</p></td><td>Item 11</td><td>Approved: build it</td></tr>
+<tr><td>4</td><td>A popover anchored to a point clamps inside the window instead of flipping to the other side.</td><td class="design"><p>No API change. <code>_to_popover_pos</code> learns two placements:</p>
+<ul><li><strong>A point anchor</strong> (a context menu) opens to the right of and below the point. It flips left when there's no room on the right, and up when there's no room below, as macOS context menus do.</li>
+<li><strong>A <code>kit.submenu</code></strong> opens beside its item, top edges lined up. It flips to the menu's left side when there's no room on the right.</li></ul></td><td>Item 11</td><td>Approved: build it</td></tr>
+<tr><td>5</td><td><code>kit.badge</code> colors come only from tones, with no brand or muted color, and an app can't measure a badge.</td><td class="design"><p class="revised"><strong>Revised after your review:</strong> the new procedure is named for what it returns, <code>to_badge_width</code>, like kit's other <code>to_</code> procedures.</p><pre class="sig">kit.badge :: proc(label: string, tone := Tone.Base, variant := Variant.Soft,
+	size := Size.Medium, color: [4]f32 = {}) -> ui.Signal
+
+// The width in points kit.badge takes for label at size, padding and border included.
+kit.to_badge_width :: proc(label: string, size := Size.Medium) -> f32</pre>
+<p>A zero <code>color</code> uses the tone. Otherwise the color replaces the tone's: Outline and Soft use it for the border, fill and text, and Solid fills with it and picks black or white text, whichever reads.</p></td><td>Item 7</td><td>Approved: build it</td></tr>
+<tr><td>6</td><td><code>kit.nav_row</code> has no icon, and it overrides the current row's tint.</td><td class="design"><pre class="sig">kit.nav_row :: proc(id: string, selected: ^string, label: string,
+	icon := "", tone := Tone.Base, icon_color: [4]f32 = {},
+	is_label_hidden := false, style := ui.Style{}) -> bool</pre>
+<p>The icon draws before kit's label, so a row with an icon keeps kit's label styling. <code>tone</code> picks the current row's tint: <code>.Base</code> keeps today's gray, and any other tone tints the row softly in that tone. onlymuse would pass <code>.Primary</code>. A zero <code>icon_color</code> follows the label color. The order matches <code>kit.button</code>: icon, tone, then icon_color.</p></td><td>Item 6</td><td>Approved: build it</td></tr>
+<tr><td>7</td><td>No public dialog with a chosen width and top. <code>kit.command_palette</code> uses the internal one.</td><td class="design"><pre class="sig">// The panel a command palette sits in: near the top of the window, with tight padding.
+// Escape or a press outside it closes it. Build a search field and rows inside.
+@(deferred_out = _end_dialog)
+kit.palette_dialog :: proc(id: string, is_open: ^bool, width: f32 = 560) -> bool</pre>
+<p>This is one procedure for the element a person sees, rather than width and position options on <code>kit.dialog</code>. <code>command_palette</code> is rebuilt on top of it, so the two share one shell. onlymuse's palette moves down from 70 points to kit's 18% of the window height, as Spotlight sits.</p></td><td>Item 14's shell</td><td>Approved: build it</td></tr>
+<tr><td>8</td><td><code>kit.dialog</code> has no setting for a dialog that can't be dismissed. A local bool works.</td><td class="design"><pre class="sig">kit.dialog :: proc(id: string, is_open: ^bool, is_dismissable := true) -> bool</pre>
+<p>With <code>is_dismissable = false</code>, Escape leaves <code>is_open^</code> alone, so the app closes the dialog itself, as sign-in does once it succeeds. A press outside never closes a dialog anyway.</p></td><td>Item 8, cleaner</td><td>Approved: build it</td></tr>
+<tr><td>9</td><td>No muted one-line text that truncates. <code>kit.description</code> always wraps.</td><td class="design"><p class="revised"><strong>Revised after your review:</strong> instead of a fix for <code>kit.description</code> alone, one setting for every text procedure.</p><p>I checked every text procedure in kit. Each one handles fitting its own way today:</p>
+<table class="inner">
+<tr><th>Procedure</th><th>Today</th><th>Proposed</th></tr>
+<tr><td><code>kit.text</code></td><td><code>is_wrapped := false</code>: truncates, or wraps</td><td><code>fit := ui.Text_Fit.Truncate</code></td></tr>
+<tr><td><code>kit.heading</code></td><td>No setting: always truncates, so a long title is cut off</td><td><code>fit := ui.Text_Fit.Truncate</code></td></tr>
+<tr><td><code>kit.description</code></td><td>No setting: always wraps, unless its width fits the text</td><td><code>fit := ui.Text_Fit.Wrap</code></td></tr>
+<tr><td><code>kit.scrolling_text</code></td><td>One line that slides</td><td>Unchanged: sliding needs an id and per-text state, so it stays a component of its own</td></tr>
+<tr><td>Labels in <code>button</code>, <code>menu_item</code>, <code>list_row</code>, <code>select</code>, table headers</td><td>Truncate</td><td>Unchanged: a control's label is one line by design</td></tr>
+</table>
+<p>The one concept is <code>ui.Text_Fit</code> (<code>.None</code>, <code>.Wrap</code>, <code>.Truncate</code>), which every box already has as <code>style.text_fit</code>. Each kit text procedure takes it under one name, <code>fit</code>, with the default it has today, so nothing looks different. <code>kit.text</code>'s <code>is_wrapped</code> goes, and its 17 call sites across thor, the Gallery, the examples, onlymuse and Rukun change to <code>fit = .Wrap</code>.</p></td><td>About 30 subtitle lines</td><td>Approved: build it</td></tr>
+<tr><td>10</td><td><code>ui.is_key_pressed</code> can't ask for "no modifiers".</td><td class="design"><p class="revised"><strong>Revised after your review:</strong> explained plainly, and renamed after thor's own name for it.</p><p><strong>The problem:</strong> onlymuse uses ← to seek back 5 seconds and ⌘← to go to the previous song. <code>ui.is_key_pressed(.Left)</code> answers "was ← pressed, with any modifier keys?", so it's true for ⌘← as well. Pressing ⌘← would then do both: seek and skip. thor gives no way to ask "was ← pressed without ⌘?".</p>
+<pre class="sig">// The modifier keys held when key was pressed this frame; empty when it wasn't pressed.
+ui.press_modifiers :: proc(key: platform.Key) -> platform.Modifiers</pre>
+<table class="inner">
+<tr><th>Keys pressed</th><th><code>is_key_pressed(.Left)</code></th><th><code>press_modifiers(.Left)</code></th><th>onlymuse does</th></tr>
+<tr><td>←</td><td>true</td><td><code>{}</code></td><td>seek back 5 s</td></tr>
+<tr><td>⇧←</td><td>true</td><td><code>{.Shift}</code></td><td>seek back further</td></tr>
+<tr><td>⌘←</td><td>true</td><td><code>{.Command}</code></td><td>previous song only</td></tr>
+</table>
+<pre class="sig">if ui.is_key_pressed(.Left) &amp;&amp; .Command not_in ui.press_modifiers(.Left) do seek_back()</pre>
+<p><code>is_key_pressed</code> keeps its approved meaning. Making an empty set mean "exactly no modifiers" instead would change what all 8 key checks in kit and ui mean. For example, Escape with Shift held would stop closing a popover.</p></td><td>Item 12</td><td>Approved: build it</td></tr>
+<tr><td>11</td><td>No drag and drop. A drag that ends on the box it started on still fires <code>is_activated</code>, which is why onlymuse keeps <code>ended_frame</code>.</td><td class="design"><p class="revised"><strong>Revised after your review:</strong> renamed. <code>is_dropped</code> reads as if the box itself were dropped; <code>is_dropped_on</code> says something was dropped on it, like the web's drop event on a target.</p><pre class="sig">Signal :: struct {
+	…
+	// A drag that began on another box ended over this one this frame.
+	is_dropped_on: bool,
+}</pre>
+<p>The behavior also changes: a press that became a drag never activates on release. What's dragged, and its ghost, stay in the app as plain data. thor only reports the drop, and the source already sees <code>is_dragged</code>. onlymuse's <code>ended_frame</code> and <code>is_mouse_released</code> go away.</p></td><td>Song dragging</td><td>Approved: build it</td></tr>
+<tr><td>12</td><td><code>kit.button</code> has no on state, so shuffle, repeat and the panel button don't announce on or off.</td><td class="design"><p class="revised"><strong>Revised after your review:</strong> <strong>withdrawn.</strong> You're right: <code>kit.as_toggle</code> already does this, so there's no gap.</p><pre class="sig">is_shuffled := playback.queue.is_shuffled
+shuffle := kit.button("shuffle", "Shuffle", "shuffle", variant = .Ghost, icon_color = shuffle_color, is_label_hidden = true)
+if kit.as_toggle(shuffle.box, &amp;is_shuffled, "Shuffle").is_changed do playback.toggle_shuffle()</pre>
+<p><code>as_toggle</code> makes the button's box a toggle for VoiceOver, with its on state, and returns the same click as <code>is_changed</code>. onlymuse keeps its own on and off icon colors, so nothing looks different. The same goes for repeat and the panel button.</p></td><td>VoiceOver on the player bar</td><td>Withdrawn: no gap</td></tr>
+<tr><td>13</td><td><code>platform.install_menu</code> can't add app menu items.</td><td class="design"><p class="revised"><strong>Revised after your review:</strong> the context, added.</p><p><strong>What onlymuse does today:</strong> the macOS menu bar's "onlymuse" menu starts with a checkable item, "Play in Music.app", which switches between onlymuse playing songs itself and driving Music.app. thor's <code>platform.install_menu</code> builds that menu with fixed items: Hide, Hide Others, Show All, Quit. So onlymuse adds the item through its own Objective-C code: <code>src/macos/menu.odin</code> (25 lines), plus an Objective-C target class with <code>togglePlayerMode:</code> and <code>validateMenuItem:</code> methods, and a struct of two callbacks (<code>Player_Menu</code>) in <code>macos.odin</code>. Any thor app that wants its own menu items has to do the same.</p>
+<pre class="sig">platform.Menu_Item :: struct {
+	id, label:  string,
+	key:        Key,
+	modifiers:  Modifiers,
+	is_checked: bool,
+}
+
+// Puts items in the app menu after About. Call it each frame with their states;
+// thor changes the native menu only when they differ.
+app.set_menu_items :: proc(items: []platform.Menu_Item)
+
+// True on the frame the person picks the item with this id.
+ui.is_menu_picked :: proc(id: string) -> bool</pre>
+<pre class="sig">app.set_menu_items({{id = "music_app", label = "Play in Music.app", is_checked = core.app.drives_music_app}})
+if ui.is_menu_picked("music_app") do core.set_player_mode(!core.app.drives_music_app)</pre>
+<p>There are no callbacks: a pick arrives as an event, the same way thor's Edit menu items already reach the app as key presses.</p></td><td><code>src/macos/macos.odin</code></td><td>Approved: build it</td></tr>
+<tr><td>14</td><td>kit has no indeterminate loading bar like onlymuse's: <code>kit.spinner</code> only has spokes, and <code>kit.progress</code> needs a ratio. Added by your decision on item 10.</td><td class="design"><p class="revised"><strong>Revised after your review:</strong> this expands <code>kit.progress</code> rather than adding a new procedure. I picked progress over spinner because the bar has a width, which <code>progress</code> already takes, while a spinner has a size. It also follows daisyUI, where a progress bar with no value is indeterminate.</p><pre class="sig">// A filled track showing ratio from 0 to 1. With is_indeterminate, a segment sweeps
+// the track instead and ratio is unused, for a wait with no known end.
+kit.progress :: proc(ratio: f32, tone := Tone.Primary, width := ui.Length{.Fill, 1},
+	is_indeterminate := false) -> ui.Signal</pre>
+<p>"Indeterminate" is the name macOS and HTML use for this. VoiceOver hears "busy", as with <code>kit.spinner</code>. With Reduce Motion on, the segment pulses in place instead of sweeping. onlymuse keeps its 0.3 s delay, its fade and its "Loading …" text, and calls <code>kit.progress(0, .Base, ui.points(160), is_indeterminate = true)</code>.</p></td><td>Item 10</td><td>Approved: build it</td></tr>
+</table>
+
+<h2 id="noticed">Noticed along the way</h2>
+<p class="decided"><strong>Decision:</strong> Fix all three. The stale comment goes when item 11 deletes <code>menu_box.odin</code>.</p>
+<ul>
+<li><strong>Helper text against the UI rules.</strong> The playlist-name field has "Return makes the playlist. Escape goes back." under it (<code>song_menu.odin:245</code>). The rules menu ends with a footnote (<code>shuffle.odin:294</code>). The palette's group titles are uppercase eyebrows (<code>palette_rows.odin:64</code>).</li>
+<li><strong>Remove button only on hover.</strong> Up Next's remove button only exists while the pointer is over the row (<code>panel.odin:205</code>), so the keyboard and VoiceOver can never reach it.</li>
+<li><strong>Stale comment.</strong> <code>look/menu_box.odin:7</code> says kit.popover can't nest. It can.</li>
+</ul>
+
+</main>
+</div>
+</body>
+</html>

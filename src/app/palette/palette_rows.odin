@@ -9,7 +9,7 @@ import "thor:ui"
 
 GROUP_TITLE_HEIGHT :: 27
 
-ROW_ARTWORK :: 26
+ROW_ARTWORK_SIZE :: 26
 
 @(private)
 build_results :: proc() -> int {
@@ -153,9 +153,9 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 	if ui.scope(row) {
 		if result.artwork.url != "" {
 			look.artwork_box(
-				apple.to_artwork_url(result.artwork, look.to_artwork_px(ROW_ARTWORK)),
-				ROW_ARTWORK,
-				ROW_ARTWORK / 2 if result.is_round else 4,
+				apple.to_artwork_url(result.artwork, look.to_artwork_px(ROW_ARTWORK_SIZE)),
+				ROW_ARTWORK_SIZE,
+				ROW_ARTWORK_SIZE / 2 if result.is_round else 4,
 				look.to_placeholder(result.artwork, result.title),
 			)
 		} else {
@@ -163,7 +163,7 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 				result.symbol if result.symbol != "" else "arrow.right",
 				14,
 				kit.colors.primary if is_selected else kit.with_opacity(kit.colors.base_content, 0.7),
-				{width = ui.points(ROW_ARTWORK), height = ui.points(ROW_ARTWORK)},
+				{width = ui.points(ROW_ARTWORK_SIZE), height = ui.points(ROW_ARTWORK_SIZE)},
 			)
 		}
 

@@ -13,7 +13,7 @@ import "thor:ui"
 
 MAX_MORE_BY_COUNT :: 6
 
-MORE_BY_TILE :: 118
+MORE_BY_TILE_SIZE :: 118
 
 build_now_playing_page :: proc() {
 	shown, is_song := playback.find_shown_song()
@@ -202,7 +202,7 @@ build_more_by :: proc(details: Song_Details) {
 				if lists.build_card_tile(
 					fmt.tprintf("%d %s", index, card.id),
 					card,
-					MORE_BY_TILE,
+					MORE_BY_TILE_SIZE,
 				) {
 					lists.open_card(data.cards, index)
 				}

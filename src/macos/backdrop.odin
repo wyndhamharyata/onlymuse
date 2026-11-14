@@ -74,7 +74,7 @@ add_backdrop :: proc() {
 
 	if image == nil do return
 
-	layer := objc_send(^platform._Layer, platform._Layer, "layer")
+	layer := objc_send(^platform.CA_Layer, platform.CA_Layer, "layer")
 	objc_send(nil, layer, "setContentsGravity:", NS.AT("resize"))
 	objc_send(nil, layer, "setContents:", image)
 	mac.CGImageRelease(image)

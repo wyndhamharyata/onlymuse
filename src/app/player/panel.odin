@@ -11,9 +11,9 @@ import "thor:ui"
 
 PANEL_PADDING :: 8
 
-QUEUE_ROW :: 52
+QUEUE_ROW_HEIGHT :: 52
 
-QUEUE_COVER :: 36
+QUEUE_COVER_SIZE :: 36
 
 RULES_MENU_LEFT :: 240
 
@@ -140,7 +140,7 @@ build_up_next :: proc() {
 		flags   = {.Scroll, .Clip},
 	}
 
-	if first, last, ok := kit.list("up_next", shown_count, QUEUE_ROW - 2, style); ok {
+	if first, last, ok := kit.list("up_next", shown_count, QUEUE_ROW_HEIGHT - 2, style); ok {
 		for offset in first ..< last {
 			index := playback.queue.index + offset
 			if build_queue_row(index) do removed_row = index
@@ -159,7 +159,7 @@ build_queue_row :: proc(index: int) -> bool {
 		fmt.tprintf("queue_%d_%s", index, song.id),
 		{
 			width = ui.fill(),
-			height = ui.points(QUEUE_ROW - 2),
+			height = ui.points(QUEUE_ROW_HEIGHT - 2),
 			axis = .X,
 			align = .Center,
 			gap = 10,
@@ -174,8 +174,8 @@ build_queue_row :: proc(index: int) -> bool {
 
 	if ui.scope(row) {
 		look.artwork_box(
-			apple.to_artwork_url(song.artwork, look.to_artwork_px(QUEUE_COVER)),
-			QUEUE_COVER,
+			apple.to_artwork_url(song.artwork, look.to_artwork_px(QUEUE_COVER_SIZE)),
+			QUEUE_COVER_SIZE,
 			4,
 			look.to_placeholder(song.artwork, song.album_name),
 		)
@@ -185,13 +185,22 @@ build_queue_row :: proc(index: int) -> bool {
 		if ui.scope(text) {
 			is_hovered := ui.signal(row).is_hovered
 
-			kit.scrolling_text("name", song.name, name_color, 13, .Medium, is_sliding = is_hovered)
+			kit.scrolling_text(
+				"name",
+				song.name,
+				name_color,
+				13,
+				.Medium,
+				is_sliding = is_hovered,
+				pointer = .Passive,
+			)
 			kit.scrolling_text(
 				"artist",
 				song.artist_name,
 				kit.with_opacity(kit.colors.base_content, 0.7),
 				12,
 				is_sliding = is_hovered,
+				pointer = .Passive,
 			)
 		}
 

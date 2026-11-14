@@ -62,7 +62,7 @@ build_detail_cards :: proc(
 		{
 			width = ui.fill(),
 			height = ui.fit_children(),
-			axis = .X if width >= SIDE_BY_SIDE else .Y,
+			axis = .X if width >= SIDE_BY_SIDE_WIDTH else .Y,
 			gap = 10,
 		},
 	)
@@ -227,7 +227,7 @@ to_release_note :: proc(date: string, now_day: int, allocator := context.allocat
 	if is_new {
 		moment, _ := time.time_to_datetime(release)
 
-		return fmt.aprintf("NEW · %s", platform.format_date(moment, "d MMM"), allocator = allocator)
+		return fmt.aprintf("NEW · %s", platform.format_date_time(moment, "d MMM"), allocator = allocator)
 	}
 
 	return strings.clone(date[:4], allocator)

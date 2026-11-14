@@ -84,7 +84,7 @@ state: struct {
 	is_started:  bool,
 }
 
-start :: proc(is_bg: bool) {
+start :: proc(is_in_background: bool) {
 	path := os.get_env("OM_HELPER", context.temp_allocator)
 
 	if path == "" {
@@ -103,7 +103,7 @@ start :: proc(is_bg: bool) {
 	environment, _ := os.environ(context.temp_allocator)
 	child_environment := make([dynamic]string, context.temp_allocator)
 	append(&child_environment, ..environment)
-	if is_bg do append(&child_environment, "GPUIX_BACKGROUND=1")
+	if is_in_background do append(&child_environment, "GPUIX_BACKGROUND=1")
 
 	_, error := os.process_start(
 		{
@@ -211,7 +211,7 @@ apply :: proc(now_playing: ^Now_Playing, message: Message) {
 		now_playing.has_started =
 			message.has_started || message.pos_seconds >= MIN_PROGRESS_SECONDS
 		now_playing.is_loading = message.is_loading
-	case "pos":
+	case "position":
 		is_same_song :=
 			now_playing.playback == .Playing &&
 			now_playing.song.persistent_id == message.persistent_id

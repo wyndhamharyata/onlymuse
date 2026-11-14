@@ -7,7 +7,7 @@ import "thor:kit"
 import "thor:platform"
 import "thor:ui"
 
-DRAG_START :: 6
+DRAG_START_DISTANCE :: 6
 
 @(private = "file")
 drag: struct {
@@ -20,7 +20,7 @@ apply_song_row_signal :: proc(signal: ui.Signal, song: core.Catalog_Song) -> boo
 	if signal.is_secondary do open_song_menu(song, ui.pointer_pos())
 
 	moved := signal.drag
-	has_moved := moved.x * moved.x + moved.y * moved.y > DRAG_START * DRAG_START
+	has_moved := moved.x * moved.x + moved.y * moved.y > DRAG_START_DISTANCE * DRAG_START_DISTANCE
 	can_start_drag := signal.is_held && !drag.is_dragging && song.id != ""
 
 	if can_start_drag && has_moved {

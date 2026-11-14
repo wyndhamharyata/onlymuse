@@ -45,7 +45,7 @@ build_shelves_page :: proc(title, path: string, is_new: bool) {
 
 		for shelf, index in data.shelves {
 			target_width: f32 =
-				lists.FIRST_SHELF_TILE if index == 0 else lists.SHELF_TILE
+				lists.FIRST_SHELF_TILE_WIDTH if index == 0 else lists.SHELF_TILE_WIDTH
 			lists.build_shelf(fmt.tprintf("shelf_%d", index), shelf, width, target_width)
 		}
 	}

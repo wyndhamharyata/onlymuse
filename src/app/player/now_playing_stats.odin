@@ -13,11 +13,11 @@ import "thor:kit"
 import "thor:platform"
 import "thor:ui"
 
-MIN_FOUR_COLUMNS :: 720
+MIN_FOUR_COLUMNS_WIDTH :: 720
 
-MIN_TWO_COLUMNS :: 380
+MIN_TWO_COLUMNS_WIDTH :: 380
 
-MIN_BARS_BESIDE :: 260
+MIN_BARS_BESIDE_WIDTH :: 260
 
 STAT_GAP :: 10
 
@@ -57,7 +57,7 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f3
 			"last played",
 			"LAST PLAYED",
 			to_day_text(last_ms, now_ms, zone_seconds) if last_ms > 0 else "Never",
-			platform.format_date(to_moment(last_ms), "HH:mm") if last_ms > 0 else "",
+			platform.format_date_time(to_moment(last_ms), "HH:mm") if last_ms > 0 else "",
 			1,
 			{},
 			false,
@@ -65,8 +65,8 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f3
 		{
 			"added",
 			"IN LIBRARY SINCE",
-			platform.format_date(to_moment(added_ms), "d MMM") if added_ms > 0 else "Unknown",
-			platform.format_date(to_moment(added_ms), "yyyy") if added_ms > 0 else "",
+			platform.format_date_time(to_moment(added_ms), "d MMM") if added_ms > 0 else "Unknown",
+			platform.format_date_time(to_moment(added_ms), "yyyy") if added_ms > 0 else "",
 			1,
 			{},
 			false,
@@ -75,7 +75,7 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f3
 			"skips",
 			"SKIPS",
 			fmt.tprintf("%d", info.skipped_count),
-			fmt.tprintf("last on %s", platform.format_date(to_moment(skipped_ms), "d MMM")) if skipped_ms > 0 else "",
+			fmt.tprintf("last on %s", platform.format_date_time(to_moment(skipped_ms), "d MMM")) if skipped_ms > 0 else "",
 			1,
 			{},
 			false,
@@ -84,9 +84,9 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f3
 
 	columns := 1
 
-	if width >= MIN_FOUR_COLUMNS {
+	if width >= MIN_FOUR_COLUMNS_WIDTH {
 		columns = 4
-	} else if width >= MIN_TWO_COLUMNS {
+	} else if width >= MIN_TWO_COLUMNS_WIDTH {
 		columns = 2
 	}
 
@@ -103,7 +103,7 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f3
 			for stat in in_row {
 				gaps_width := STAT_GAP * f32(len(in_row) - 1)
 				card_width := (width - gaps_width) * stat.weight / row_weight
-				is_stacked := stat.has_bars && card_width < MIN_BARS_BESIDE
+				is_stacked := stat.has_bars && card_width < MIN_BARS_BESIDE_WIDTH
 				card := build_stat_card(
 					stat.id,
 					stat.label,
@@ -307,7 +307,7 @@ to_day_text :: proc(unix_ms, now_ms, zone_seconds: f64) -> string {
 		return "Yesterday"
 	}
 
-	return platform.format_date(to_moment(unix_ms), "d MMM")
+	return platform.format_date_time(to_moment(unix_ms), "d MMM")
 }
 
 to_moment :: proc(unix_ms: f64) -> datetime.DateTime {

@@ -9,11 +9,11 @@ import "om:apple"
 import "thor:kit"
 import "thor:ui"
 
-SHELF_TILE :: 150
+SHELF_TILE_WIDTH :: 150
 
-FIRST_SHELF_TILE :: 210
+FIRST_SHELF_TILE_WIDTH :: 210
 
-WIDE_TILE :: 240
+WIDE_TILE_WIDTH :: 240
 
 YOUTUBE_SYMBOL :: "play.rectangle.fill"
 
@@ -28,7 +28,7 @@ to_tile_size :: proc(width, target_width, gap: f32) -> f32 {
 }
 
 build_shelf :: proc(id: string, shelf: apple.Shelf, width, target_width: f32) {
-	target := WIDE_TILE if shelf.is_wide else target_width
+	target := WIDE_TILE_WIDTH if shelf.is_wide else target_width
 
 	build_card_row(
 		id,
@@ -130,7 +130,7 @@ build_shelf_title :: proc(title: string, is_youtube: bool) {
 				width = ui.fill(),
 				height = ui.fit_text(),
 				text_color = kit.colors.base_content,
-				font_size = look.SHELF_TITLE,
+				font_size = look.SHELF_TITLE_SIZE,
 				font_weight = .Bold,
 				text_fit = .Truncate,
 			},

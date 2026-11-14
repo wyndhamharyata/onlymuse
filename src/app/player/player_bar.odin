@@ -11,7 +11,7 @@ import "thor:font"
 import "thor:kit"
 import "thor:ui"
 
-PLAYER_ARTWORK :: 52
+PLAYER_ARTWORK_SIZE :: 52
 
 SONG_NAME_FONT_SIZE :: 13.5
 
@@ -25,7 +25,7 @@ BADGE_PADDING :: 4
 
 TITLE_GAP :: 7
 
-HEART_BUTTON :: 22
+HEART_BUTTON_SIZE :: 22
 
 build_player_bar :: proc() {
 	bar_box := ui.box(
@@ -68,7 +68,7 @@ find_player_artwork_source :: proc() -> string {
 	if is_waiting_for_queue_song() {
 		return apple.to_artwork_url(
 			playback.queue.songs[playback.queue.index].artwork,
-			look.to_artwork_px(PLAYER_ARTWORK),
+			look.to_artwork_px(PLAYER_ARTWORK_SIZE),
 		)
 	}
 
@@ -78,7 +78,7 @@ find_player_artwork_source :: proc() -> string {
 	if is_queue_song && queue_song.artwork.url != "" {
 		return apple.to_artwork_url(
 			queue_song.artwork,
-			look.to_artwork_px(PLAYER_ARTWORK),
+			look.to_artwork_px(PLAYER_ARTWORK_SIZE),
 		)
 	}
 
@@ -118,12 +118,12 @@ build_song_info :: proc() {
 		if ui.signal(cover).is_activated do core.navigate({kind = .Now_Playing})
 
 		if ui.scope(cover) {
-			look.artwork_box(artwork_source, PLAYER_ARTWORK, 6, placeholder)
+			look.artwork_box(artwork_source, PLAYER_ARTWORK_SIZE, 6, placeholder)
 			ui.box(
 				"",
 				{
-					width = ui.points(PLAYER_ARTWORK),
-					height = ui.points(PLAYER_ARTWORK),
+					width = ui.points(PLAYER_ARTWORK_SIZE),
+					height = ui.points(PLAYER_ARTWORK_SIZE),
 					corner_radius = 6,
 					bg = {1, 1, 1, 0.12 * ui.animate("player_cover_hover", 1 if is_song && ui.signal(cover).is_hovered else 0, kit.motion.fast)},
 					pos = {0, 0},
@@ -194,7 +194,7 @@ build_song_title :: proc(song: helper.Song, queue_song: core.Catalog_Song, is_qu
 		name_width := ui.Size{.Fill, 1}
 
 		if row_width := title.rect.z - title.rect.x; row_width > 0 {
-			after_width: f32 = HEART_BUTTON + TITLE_GAP
+			after_width: f32 = HEART_BUTTON_SIZE + TITLE_GAP
 
 			if badge != "" {
 				badge_width :=

@@ -181,6 +181,6 @@ build_youtube_search_results :: proc(term: string, apple_songs: []core.Catalog_S
 		"youtube videos",
 		{title = "Videos on YouTube", cards = cards, is_youtube = true, is_wide = true},
 		width,
-		lists.WIDE_TILE,
+		lists.WIDE_TILE_WIDTH,
 	)
 }

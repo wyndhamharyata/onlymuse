@@ -95,17 +95,17 @@ build_loading :: proc(what: string) {
 		track.data = paint
 
 		all_dots := "..."
-		dots_width := ui.points(kit.measure_text(all_dots, LOADING_TEXT))
+		dots_width := ui.points(kit.measure_text(all_dots, LOADING_TEXT_SIZE))
 		label := ui.box("", {width = ui.fit_children(), height = ui.fit_children(), axis = .X})
 
 		if ui.scope(label) {
 			kit.text(
 				fmt.tprintf("Loading %s", what),
 				kit.with_opacity(kit.colors.base_content, 0.7),
-				LOADING_TEXT,
+				LOADING_TEXT_SIZE,
 				width = ui.fit_text(),
 			)
-			kit.text(all_dots[:dot_count], kit.with_opacity(kit.colors.base_content, 0.7), LOADING_TEXT, width = dots_width)
+			kit.text(all_dots[:dot_count], kit.with_opacity(kit.colors.base_content, 0.7), LOADING_TEXT_SIZE, width = dots_width)
 		}
 	}
 

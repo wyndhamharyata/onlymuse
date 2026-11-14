@@ -10,7 +10,7 @@ import "thor:ui"
 
 PHOTO_WIDTH_STEP_PX :: 400
 
-LATEST_RELEASE :: 210
+LATEST_RELEASE_WIDTH :: 210
 
 ARTIST_HEADER_RADIUS :: 12
 
@@ -20,7 +20,7 @@ ARTIST_SHADE_ALPHA :: 0xf2 / 255.0
 build_artist_header :: proc(data: ^core.Page_Data, detail: string, width: f32) {
 	fallback_color :=
 		kit.to_color_from_hex(data.artwork.bg_color) or_else kit.colors.base_300
-	header := ui.box("header", {width = ui.fill(), height = ui.points(ARTIST_HEADER)})
+	header := ui.box("header", {width = ui.fill(), height = ui.points(ARTIST_HEADER_HEIGHT)})
 
 	if ui.scope(header) {
 		if width > 0 {
@@ -31,7 +31,7 @@ build_artist_header :: proc(data: ^core.Page_Data, detail: string, width: f32) {
 			photo := apple.to_artwork_url(data.artwork, photo_width)
 			box := look.artwork_rect_box(
 				photo,
-				{width, ARTIST_HEADER},
+				{width, ARTIST_HEADER_HEIGHT},
 				ARTIST_HEADER_RADIUS,
 				{top = fallback_color, bottom = fallback_color},
 			)
@@ -106,7 +106,7 @@ build_artist_middle :: proc(data: ^core.Page_Data) {
 			latest := ui.box(
 				"latest",
 				{
-					width = ui.points(LATEST_RELEASE),
+					width = ui.points(LATEST_RELEASE_WIDTH),
 					height = ui.fit_children(),
 					axis = .Y,
 					gap = 10,
@@ -116,7 +116,7 @@ build_artist_middle :: proc(data: ^core.Page_Data) {
 			if ui.scope(latest) {
 				lists.build_shelf_title("Latest Release", false)
 
-				if lists.build_card_tile("latest card", data.latest[0], LATEST_RELEASE) {
+				if lists.build_card_tile("latest card", data.latest[0], LATEST_RELEASE_WIDTH) {
 					lists.open_card(data.latest, 0)
 				}
 			}

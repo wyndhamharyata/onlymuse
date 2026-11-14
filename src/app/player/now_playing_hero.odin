@@ -11,17 +11,17 @@ import "thor:kit"
 import "thor:platform"
 import "thor:ui"
 
-STAGE_COVER :: 280
+STAGE_COVER_SIZE :: 280
 
-SMALL_STAGE_COVER :: 220
+SMALL_STAGE_COVER_SIZE :: 220
 
 LARGE_COVER_MIN_WIDTH :: 760
 
-SIDE_BY_SIDE :: 560
+SIDE_BY_SIDE_WIDTH :: 560
 
 HERO_GAP :: 26
 
-MIN_INFO :: 360
+MIN_INFO_WIDTH :: 360
 
 @(private)
 build_hero :: proc(
@@ -31,9 +31,9 @@ build_hero :: proc(
 	width: f32,
 ) {
 	cover_size: f32 =
-		STAGE_COVER if width >= LARGE_COVER_MIN_WIDTH else SMALL_STAGE_COVER
+		STAGE_COVER_SIZE if width >= LARGE_COVER_MIN_WIDTH else SMALL_STAGE_COVER_SIZE
 	cover_size = min(cover_size, width)
-	is_side_by_side := width - cover_size - HERO_GAP >= MIN_INFO
+	is_side_by_side := width - cover_size - HERO_GAP >= MIN_INFO_WIDTH
 	info_width := width - cover_size - HERO_GAP if is_side_by_side else width
 	hero := ui.box(
 		"hero",

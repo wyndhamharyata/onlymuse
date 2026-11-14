@@ -8,9 +8,9 @@ import "om:apple"
 import "thor:kit"
 import "thor:ui"
 
-MIN_GRID_COLUMN :: 300
+MIN_GRID_COLUMN_WIDTH :: 300
 
-MIN_DATED_COLUMN :: 420
+MIN_DATED_COLUMN_WIDTH :: 420
 
 GRID_GAP :: 20
 
@@ -24,10 +24,10 @@ build_song_grid :: proc(
 		{width = ui.fill(), height = ui.fit_children(), axis = .X, gap = GRID_GAP},
 	)
 	width := grid.size.x
-	is_narrow := width > 0 && (width - GRID_GAP) / 2 < MIN_GRID_COLUMN
+	is_narrow := width > 0 && (width - GRID_GAP) / 2 < MIN_GRID_COLUMN_WIDTH
 	column_count := 1 if is_narrow else 2
 	column_width := (width - GRID_GAP * f32(column_count - 1)) / f32(column_count)
-	has_dates := width <= 0 || column_width >= MIN_DATED_COLUMN
+	has_dates := width <= 0 || column_width >= MIN_DATED_COLUMN_WIDTH
 
 	if ui.scope(grid) {
 		for column in 0 ..< column_count {
@@ -58,9 +58,9 @@ build_song_grid :: proc(
 }
 
 // At the usual window widths, a tile is about 160 points wide.
-MIN_TILE :: 140
+MIN_TILE_WIDTH :: 140
 
-TILE_TEXT :: 46
+TILE_TEXT_HEIGHT :: 46
 
 build_card_grid_page :: proc(
 	title: string,
@@ -86,7 +86,7 @@ build_card_grid_page :: proc(
 }
 
 build_card_grid :: proc(cards: []apple.Card, is_round: bool) {
-	if first, last, tile, ok := kit.grid("grid", len(cards), MIN_TILE, TILE_TEXT, CARD_GAP, 1); ok {
+	if first, last, tile, ok := kit.grid("grid", len(cards), MIN_TILE_WIDTH, TILE_TEXT_HEIGHT, CARD_GAP, 1); ok {
 		for index in first ..< last {
 			if build_card_tile(fmt.tprintf("%d %s", index, cards[index].id), cards[index], tile.x, is_round) {
 				open_card(cards, index)

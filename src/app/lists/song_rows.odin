@@ -10,9 +10,9 @@ import "om:apple"
 import "thor:kit"
 import "thor:ui"
 
-SONG_ROW :: 54
+SONG_ROW_HEIGHT :: 54
 
-SONG_ARTWORK :: 40
+SONG_ARTWORK_SIZE :: 40
 
 build_song_list_page :: proc(
 	title, description: string,
@@ -65,13 +65,13 @@ build_play_buttons :: proc(songs: []core.Catalog_Song) {
 }
 
 to_visible_range :: proc(
-	offset, view, step: f32,
+	offset, view_length, step_length: f32,
 	count, extra_count: int,
 ) -> (
 	first, last: int,
 ) {
-	first = max(0, int(offset / step) - extra_count)
-	last = min(count - 1, int((offset + view) / step) + extra_count)
+	first = max(0, int(offset / step_length) - extra_count)
+	last = min(count - 1, int((offset + view_length) / step_length) + extra_count)
 
 	return
 }
@@ -82,7 +82,7 @@ build_song_rows :: proc(songs: []core.Catalog_Song, dates: []string = nil) {
 		height = ui.fit_children(),
 	}
 
-	if first, last, ok := kit.list("rows", len(songs), SONG_ROW, style); ok {
+	if first, last, ok := kit.list("rows", len(songs), SONG_ROW_HEIGHT, style); ok {
 		for index in first ..< last {
 			song := songs[index]
 			is_current := playback.is_current_song(song)
@@ -120,7 +120,7 @@ build_song_row :: proc(
 		id,
 		{
 			width = ui.fill(),
-			height = ui.points(SONG_ROW),
+			height = ui.points(SONG_ROW_HEIGHT),
 			axis = .X,
 			align = .Center,
 			gap = 11,
@@ -135,8 +135,8 @@ build_song_row :: proc(
 
 	if ui.scope(row) {
 		look.artwork_box(
-			apple.to_artwork_url(song.artwork, look.to_artwork_px(SONG_ARTWORK)),
-			SONG_ARTWORK,
+			apple.to_artwork_url(song.artwork, look.to_artwork_px(SONG_ARTWORK_SIZE)),
+			SONG_ARTWORK_SIZE,
 			5,
 			look.to_placeholder(song.artwork, song.album_name),
 		)

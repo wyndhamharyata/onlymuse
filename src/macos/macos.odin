@@ -13,7 +13,7 @@ QUESTION_DELAY_SECONDS :: 0.5
 state: struct {
 	window:           ^platform.Native_Window,
 	target:           ^Macos_Target,
-	backdrop:         ^platform._Layer,
+	backdrop:         ^platform.CA_Layer,
 	backdrop_view:    ^NS.View,
 	drag_timer:       ^NS.Timer,
 	fade_steps:       int,
@@ -87,7 +87,7 @@ Macos_Target_askForSavedWallpaper :: proc "c" (self: ^Macos_Target, sender: NS.i
 	ask_for_saved_wallpaper()
 }
 
-start :: proc(window: ^platform.Native_Window, is_bg: bool) {
+start :: proc(window: ^platform.Native_Window, is_in_background: bool) {
 	state.window = window
 	state.odin_context = context
 	state.target = objc_send(
@@ -126,7 +126,7 @@ start :: proc(window: ^platform.Native_Window, is_bg: bool) {
 		NS.AT("NSWindowDidBecomeKeyNotification"),
 	)
 
-	if is_bg do return
+	if is_in_background do return
 
 	objc_send(
 		nil,

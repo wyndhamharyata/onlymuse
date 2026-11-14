@@ -12,11 +12,11 @@ import "om:apple"
 import "thor:kit"
 import "thor:ui"
 
-ALBUM_COVER :: 240
+ALBUM_COVER_SIZE :: 240
 
 ALBUM_HEADER_GAP :: 20
 
-MIN_ALBUM_INFO :: 300
+MIN_ALBUM_INFO_WIDTH :: 300
 
 build_album_page :: proc(album_id: string) {
 	catalog_id := album_id
@@ -116,9 +116,9 @@ read_album :: proc(data: ^core.Page_Data, body: string) {
 }
 
 build_album_header :: proc(data: ^core.Page_Data, width: f32) {
-	cover_size: f32 = ALBUM_COVER if width <= 0 else min(ALBUM_COVER, width)
+	cover_size: f32 = ALBUM_COVER_SIZE if width <= 0 else min(ALBUM_COVER_SIZE, width)
 	side := width - cover_size - ALBUM_HEADER_GAP
-	is_side_by_side := width <= 0 || side >= MIN_ALBUM_INFO
+	is_side_by_side := width <= 0 || side >= MIN_ALBUM_INFO_WIDTH
 	info := side if is_side_by_side && width > 0 else width
 
 	header := ui.box(
@@ -144,18 +144,18 @@ build_album_header :: proc(data: ^core.Page_Data, width: f32) {
 }
 
 @(private = "file")
-MIN_LARGE_TITLE_INFO :: 360
+MIN_LARGE_TITLE_INFO_WIDTH :: 360
 
 @(private = "file")
-MIN_MEDIUM_TITLE_INFO :: 240
+MIN_MEDIUM_TITLE_INFO_WIDTH :: 240
 
 @(private = "file")
-build_album_info :: proc(data: ^core.Page_Data, info: f32) {
+build_album_info :: proc(data: ^core.Page_Data, info_width: f32) {
 	title_size: f32 = 22
 
-	if info <= 0 || info >= MIN_LARGE_TITLE_INFO {
+	if info_width <= 0 || info_width >= MIN_LARGE_TITLE_INFO_WIDTH {
 		title_size = 32
-	} else if info >= MIN_MEDIUM_TITLE_INFO {
+	} else if info_width >= MIN_MEDIUM_TITLE_INFO_WIDTH {
 		title_size = 26
 	}
 

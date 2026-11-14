@@ -13,7 +13,7 @@ import "thor:ui"
 
 SHOWN_SEARCH_SONG_COUNT :: 6
 
-TOP_RESULT :: 180
+TOP_RESULT_WIDTH :: 180
 
 build_search_page :: proc(term: string) {
 	path := fmt.tprintf(
@@ -60,13 +60,13 @@ build_search_page :: proc(term: string) {
 			"albums",
 			"Albums",
 			data.cards,
-			lists.to_tile_size(width, ARTIST_ALBUM, lists.CARD_GAP),
+			lists.to_tile_size(width, ARTIST_ALBUM_WIDTH, lists.CARD_GAP),
 		)
 		lists.build_card_row(
 			"artists",
 			"Artists",
 			data.artists,
-			lists.to_tile_size(width, SIMILAR_ARTIST, lists.CARD_GAP),
+			lists.to_tile_size(width, SIMILAR_ARTIST_WIDTH, lists.CARD_GAP),
 			true,
 		)
 	}
@@ -81,7 +81,7 @@ build_search_top :: proc(data: ^core.Page_Data) {
 			result := ui.box(
 				"top_result",
 				{
-					width = ui.points(TOP_RESULT),
+					width = ui.points(TOP_RESULT_WIDTH),
 					height = ui.fit_children(),
 					axis = .Y,
 					gap = 10,
@@ -91,7 +91,7 @@ build_search_top :: proc(data: ^core.Page_Data) {
 			if ui.scope(result) {
 				lists.build_shelf_title("Top Result", false)
 
-				if lists.build_card_tile("top artist", data.artists[0], TOP_RESULT, true) {
+				if lists.build_card_tile("top artist", data.artists[0], TOP_RESULT_WIDTH, true) {
 					lists.open_card(data.artists, 0)
 				}
 			}
@@ -110,7 +110,7 @@ build_search_top :: proc(data: ^core.Page_Data) {
 					width = ui.fill(),
 					height = ui.fit_text(),
 					text_color = kit.colors.base_content,
-					font_size = look.SHELF_TITLE,
+					font_size = look.SHELF_TITLE_SIZE,
 					font_weight = .Bold,
 					padding = {0, 0, 0, 10},
 				},

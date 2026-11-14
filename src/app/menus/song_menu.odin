@@ -14,11 +14,11 @@ import "thor:kit"
 import "thor:platform"
 import "thor:ui"
 
-SONG_MENU :: 220
+SONG_MENU_WIDTH :: 220
 
-PLAYLIST_MENU :: 240
+PLAYLIST_MENU_WIDTH :: 240
 
-MAX_PLAYLIST_LIST :: 324
+MAX_PLAYLIST_LIST_HEIGHT :: 324
 
 PLAYLIST_ITEM_GAP :: 1
 
@@ -94,7 +94,7 @@ build_song_menu :: proc() {
 
 		if !song_menu.is_playlists_only {
 			if build_main_menu(song, pos, window_size) do is_closing = true
-			main_width = SONG_MENU + SUBMENU_GAP
+			main_width = SONG_MENU_WIDTH + SUBMENU_GAP
 		}
 
 		if song_menu.is_playlists_open &&
@@ -117,7 +117,7 @@ build_main_menu :: proc(song: core.Catalog_Song, pos, window_size: [2]f32) -> bo
 	favourite_hint := "⌘L" if is_playing else ""
 	is_done := false
 
-	menu := look.menu_box("song_menu", pos, SONG_MENU, window_size)
+	menu := look.menu_box("song_menu", pos, SONG_MENU_WIDTH, window_size)
 
 	if ui.scope(menu) {
 		if kit.menu_item("play_next", "Play Next").is_activated {
@@ -214,7 +214,7 @@ build_playlist_menu :: proc(
 	pos: [2]f32,
 	window_size: [2]f32,
 ) -> bool {
-	menu := look.menu_box("playlist_menu", pos, PLAYLIST_MENU, window_size)
+	menu := look.menu_box("playlist_menu", pos, PLAYLIST_MENU_WIDTH, window_size)
 	is_done := false
 
 	if ui.scope(menu) {
@@ -258,7 +258,7 @@ build_playlist_menu :: proc(
 
 		list_height := min(
 			f32(editable_count) * (kit.MENU_ITEM_HEIGHT + PLAYLIST_ITEM_GAP),
-			MAX_PLAYLIST_LIST,
+			MAX_PLAYLIST_LIST_HEIGHT,
 		)
 		list := ui.box(
 			"playlists",

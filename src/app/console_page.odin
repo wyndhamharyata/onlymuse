@@ -9,9 +9,9 @@ import "thor:kit"
 import "thor:platform"
 import "thor:ui"
 
-CONSOLE_TIME :: 62
+CONSOLE_TIME_WIDTH :: 62
 
-CONSOLE_SOURCE :: 62
+CONSOLE_SOURCE_WIDTH :: 62
 
 build_console_page :: proc() {
 	entries := console.list()
@@ -83,7 +83,7 @@ build_console_row :: proc(index: int, entry: console.Entry) {
 		ui.box(
 			"",
 			{
-				width = ui.points(CONSOLE_TIME),
+				width = ui.points(CONSOLE_TIME_WIDTH),
 				height = ui.fit_text(),
 				text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 				font_size = 12,
@@ -93,7 +93,7 @@ build_console_row :: proc(index: int, entry: console.Entry) {
 		ui.box(
 			"",
 			{
-				width = ui.points(CONSOLE_SOURCE),
+				width = ui.points(CONSOLE_SOURCE_WIDTH),
 				height = ui.fit_text(),
 				text_color = source_color,
 				font_size = 12,
@@ -130,5 +130,5 @@ to_console_text :: proc(entries: []console.Entry) -> string {
 to_console_time :: proc(at: time.Time) -> string {
 	moment, _ := time.time_to_datetime(at)
 
-	return platform.format_date(moment, "HH:mm:ss")
+	return platform.format_date_time(moment, "HH:mm:ss")
 }

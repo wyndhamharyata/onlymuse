@@ -180,12 +180,11 @@ build_album_info :: proc(data: ^core.Page_Data, info_width: f32) {
 				font_size = 20,
 				font_weight = .Semibold,
 				text_fit = .Truncate,
-				pointer = .Click if data.artist_id != "" else .Passive,
 			},
 			data.subtitle,
 		)
 
-		if ui.signal(artist).is_activated {
+		if data.artist_id != "" && kit.as_button(artist, data.subtitle).is_activated {
 			core.navigate({kind = .Artist, id = data.artist_id, title = data.subtitle})
 		}
 
@@ -244,23 +243,18 @@ build_numbered_songs :: proc(songs: []core.Catalog_Song) {
 	if ui.scope(list) {
 		for song, index in songs {
 			is_current := playback.is_current_song(song)
-			row := ui.box(
-				fmt.tprintf("%d_%s", index, song.id),
-				{
-					width = ui.fill(),
-					height = ui.points(36),
-					axis = .X,
-					align = .Center,
-					gap = 12,
-					padding = {10, 0, 10, 0},
-					corner_radius = 7,
-					bg = tint if is_current else {},
-					hover_bg = tint if is_current else kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY),
-					pointer = .Click,
-				},
-			)
+			style := ui.Style {
+				width         = ui.fill(),
+				height        = ui.points(36),
+				axis          = .X,
+				align         = .Center,
+				gap           = 12,
+				padding       = {10, 0, 10, 0},
+				corner_radius = 7,
+			}
+			if is_current do style.bg, style.hover_bg = tint, tint
 
-			if ui.scope(row) {
+			if kit.clickable(fmt.tprintf("%d_%s", index, song.id), song.name, style) {
 				ui.box(
 					"",
 					{
@@ -281,10 +275,8 @@ build_numbered_songs :: proc(songs: []core.Catalog_Song) {
 					},
 					look.to_clock_text(song.duration_seconds),
 				)
-			}
 
-			if menus.apply_song_row_signal(ui.signal(row), song) {
-				playback.play_songs(songs, index)
+				if menus.apply_song_row_signal(ui.here(), song) do playback.play_songs(songs, index)
 			}
 		}
 	}

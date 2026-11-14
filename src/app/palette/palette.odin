@@ -26,9 +26,6 @@ PALETTE_FIELD_HEIGHT :: 40
 
 PALETTE_FIELD_FONT_SIZE :: 16
 
-// kit.text_field draws its own field colour when the alpha is 0. This shows the panel's.
-PALETTE_FIELD_BACKGROUND :: [4]f32{0, 0, 0, 0.001}
-
 @(private)
 Palette_Action :: enum {
 	Navigate,
@@ -195,10 +192,10 @@ build_palette :: proc() {
 				field,
 				"Go to a page, an artist, a song, or do something",
 				"magnifyingglass",
+				variant = .Ghost,
 				style = {
 					height = ui.points(PALETTE_FIELD_HEIGHT),
 					font_size = PALETTE_FIELD_FONT_SIZE,
-					bg = PALETTE_FIELD_BACKGROUND,
 					flags = {.Tab_As_Arrows},
 				},
 			)

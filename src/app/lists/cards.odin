@@ -19,8 +19,6 @@ YOUTUBE_SYMBOL :: "play.rectangle.fill"
 
 CARD_GAP :: 14
 
-EXTRA_CARD_COUNT :: 2
-
 to_tile_size :: proc(width, target_width, gap: f32) -> f32 {
 	// The count comes from the width the content settles at, so while the panel moves the tiles scale smoothly instead of jumping between counts.
 	settled_width := width + look.to_panel_travel_left()
@@ -58,30 +56,17 @@ build_card_row :: proc(
 	if ui.scope(shelf) {
 		if title != "" do build_shelf_title(title, is_youtube)
 
-		row := ui.box(
-			"row",
-			{
-				width = ui.fill(),
-				axis = .X,
-				gap = CARD_GAP,
-				flags = {.Scroll, .Clip},
-			},
-		)
-		step := tile_size + CARD_GAP
-		first, last := to_visible_range(row.scroll, row.size.x, step, len(cards), EXTRA_CARD_COUNT)
+		art_height := tile_size * 9 / 16 if is_wide else tile_size
+		style := ui.Style {
+			width  = ui.fill(),
+			height = ui.points(art_height + TILE_TEXT_HEIGHT),
+			axis   = .X,
+			gap    = CARD_GAP,
+			flags  = {.Scroll, .Clip},
+		}
 
-		if ui.scope(row) {
-			if first > 0 {
-				ui.box(
-					"",
-					{
-						width = ui.points(f32(first) * step - CARD_GAP),
-						height = ui.points(1),
-					},
-				)
-			}
-
-			for index in first ..= last {
+		if first, last, ok := kit.list("row", len(cards), tile_size, style); ok {
+			for index in first ..< last {
 				if build_card_tile(
 					fmt.tprintf("%d_%s", index, cards[index].id),
 					cards[index],
@@ -91,16 +76,6 @@ build_card_row :: proc(
 				) {
 					open_card(cards, index)
 				}
-			}
-
-			if last < len(cards) - 1 {
-				ui.box(
-					"",
-					{
-						width = ui.points(f32(len(cards) - 1 - last) * step - CARD_GAP),
-						height = ui.points(1),
-					},
-				)
 			}
 		}
 	}
@@ -155,13 +130,17 @@ build_card_tile :: proc(
 			axis = .Y,
 			gap = 3,
 			align = .Center if is_round else .Start,
-			pointer = .Click if can_open else .Passive,
 		},
 	)
+	signal: ui.Signal
+	if can_open {
+		label := card.name if card.subtitle == "" else fmt.tprintf("%s, %s", card.name, card.subtitle)
+		signal = kit.as_button(tile, label)
+	}
 
 	// The tile's parent is its shelf, so a card on two shelves fades separately on each.
 	hover_id := fmt.tprintf("%s %s hover", tile.parent.id, id)
-	hover := ui.animate(hover_id, 1 if can_open && ui.signal(tile).is_hovered else 0, kit.motion.fast)
+	hover := ui.animate(hover_id, 1 if signal.is_hovered else 0, kit.motion.fast)
 
 	if ui.scope(tile) {
 		radius: f32 = tile_size / 2 if is_round else 8
@@ -215,7 +194,7 @@ build_card_tile :: proc(
 		}
 	}
 
-	return ui.signal(tile).is_activated
+	return signal.is_activated
 }
 
 open_card :: proc(cards: []apple.Card, index: int) {

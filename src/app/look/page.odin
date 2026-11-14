@@ -48,7 +48,7 @@ to_phase_text :: proc(phase: apple.Phase) -> string {
 
 build_phase :: proc(phase: apple.Phase, what: string) {
 	if phase == .Failed {
-		kit.text(to_phase_text(phase), kit.with_opacity(kit.colors.base_content, 0.7), is_wrapped = true)
+		kit.description(to_phase_text(phase))
 		return
 	}
 

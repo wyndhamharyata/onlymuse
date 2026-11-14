@@ -53,7 +53,7 @@ build_song_list_page :: proc(
 		if phase == .Loading do look.build_loading(title)
 
 		if phase == .Ready {
-			if len(songs) == 0 do kit.text("Nothing here yet.", kit.with_opacity(kit.colors.base_content, 0.7), is_wrapped = true)
+			if len(songs) == 0 do kit.description("Nothing here yet.")
 			build_song_rows(songs, dates)
 		}
 	}
@@ -62,18 +62,6 @@ build_song_list_page :: proc(
 build_play_buttons :: proc(songs: []core.Catalog_Song) {
 	if kit.button("play", "Play", "play.fill", .Primary).is_activated do playback.play_songs(songs, 0)
 	if kit.button("shuffle", "Shuffle", "shuffle").is_activated do playback.shuffle_songs(songs)
-}
-
-to_visible_range :: proc(
-	offset, view_length, step_length: f32,
-	count, extra_count: int,
-) -> (
-	first, last: int,
-) {
-	first = max(0, int(offset / step_length) - extra_count)
-	last = min(count - 1, int((offset + view_length) / step_length) + extra_count)
-
-	return
 }
 
 build_song_rows :: proc(songs: []core.Catalog_Song, dates: []string = nil) {
@@ -114,25 +102,22 @@ build_song_row :: proc(
 	is_current: bool,
 	date := "",
 ) -> bool {
-	tint := kit.with_opacity(kit.colors.primary, kit.SOFT_OPACITY)
-	row := ui.box(
-		id,
-		{
-			width = ui.fill(),
-			height = ui.points(SONG_ROW_HEIGHT),
-			axis = .X,
-			align = .Center,
-			gap = 11,
-			padding = {6, 0, 6, 0},
-			corner_radius = 7,
-			bg = tint if is_current else {},
-			hover_bg = tint if is_current else kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY),
-			press_bg = kit.with_opacity(kit.colors.base_content, kit.SELECTED_OPACITY),
-			pointer = .Click,
-		},
-	)
+	style := ui.Style {
+		width         = ui.fill(),
+		height        = ui.points(SONG_ROW_HEIGHT),
+		axis          = .X,
+		align         = .Center,
+		gap           = 11,
+		padding       = {6, 0, 6, 0},
+		corner_radius = 7,
+	}
+	if is_current {
+		tint := kit.with_opacity(kit.colors.primary, kit.SOFT_OPACITY)
+		style.bg, style.hover_bg = tint, tint
+	}
+	is_played := false
 
-	if ui.scope(row) {
+	if kit.clickable(id, song.name, style) {
 		look.artwork_box(
 			apple.to_artwork_url(song.artwork, look.to_artwork_px(SONG_ARTWORK_SIZE)),
 			SONG_ARTWORK_SIZE,
@@ -169,9 +154,11 @@ build_song_row :: proc(
 			},
 			look.to_clock_text(song.duration_seconds),
 		)
+
+		is_played = menus.apply_song_row_signal(ui.here(), song)
 	}
 
-	return menus.apply_song_row_signal(ui.signal(row), song)
+	return is_played
 }
 
 build_row_heart :: proc(chosen: core.Catalog_Song, is_current: bool) {

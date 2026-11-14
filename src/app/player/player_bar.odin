@@ -111,11 +111,10 @@ build_song_info :: proc() {
 			placeholder = look.to_placeholder(queue_song.artwork, queue_song.album_name)
 		}
 
-		cover := ui.box(
-			"cover",
-			{pointer = .Click if is_song else .Passive},
-		)
-		if ui.signal(cover).is_activated do core.navigate({kind = .Now_Playing})
+		cover := ui.box("cover", {})
+		cover_signal: ui.Signal
+		if is_song do cover_signal = kit.as_button(cover, "Now Playing")
+		if cover_signal.is_activated do core.navigate({kind = .Now_Playing})
 
 		if ui.scope(cover) {
 			look.artwork_box(artwork_source, PLAYER_ARTWORK_SIZE, 6, placeholder)
@@ -125,7 +124,7 @@ build_song_info :: proc() {
 					width = ui.points(PLAYER_ARTWORK_SIZE),
 					height = ui.points(PLAYER_ARTWORK_SIZE),
 					corner_radius = 6,
-					bg = {1, 1, 1, 0.12 * ui.animate("player_cover_hover", 1 if is_song && ui.signal(cover).is_hovered else 0, kit.motion.fast)},
+					bg = {1, 1, 1, 0.12 * ui.animate("player_cover_hover", 1 if cover_signal.is_hovered else 0, kit.motion.fast)},
 					pos = {0, 0},
 					flags = {.Floating},
 				},

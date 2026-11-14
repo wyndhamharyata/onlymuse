@@ -15,8 +15,6 @@ QUEUE_ROW_HEIGHT :: 52
 
 QUEUE_COVER_SIZE :: 36
 
-RULES_MENU_LEFT :: 240
-
 build_panel :: proc() -> bool {
 	is_open := core.app.panel != .None
 	width := ui.animate("panel width", look.PANEL_WIDTH if is_open else 0, kit.motion.normal)
@@ -101,27 +99,9 @@ build_up_next :: proc() {
 				note_text,
 			)
 
-			rules := ui.box(
-				"rules",
-				{
-					height = ui.points(22),
-					padding = {8, 0, 8, 0},
-					corner_radius = 6,
-					bg = kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY),
-					hover_bg = kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY),
-					text_color = kit.colors.base_content,
-					font_size = 11.5,
-					font_weight = .Semibold,
-					pointer = .Click,
-				},
-				"Rules",
-			)
+			rules := kit.button("rules", "Rules", variant = .Soft, size = .Small)
 
-			if ui.signal(rules).is_activated {
-				playback.open_shuffle_rules(
-					{rules.rect.x - RULES_MENU_LEFT, rules.rect.w + 4},
-				)
-			}
+			if rules.is_activated do playback.open_shuffle_rules({rules.box.rect.x, rules.box.rect.w})
 		}
 	}
 
@@ -149,28 +129,25 @@ build_up_next :: proc() {
 build_queue_row :: proc(index: int) -> bool {
 	song := playback.queue.songs[index]
 	is_current := index == playback.queue.index
-	tint := kit.with_opacity(kit.colors.primary, kit.SOFT_OPACITY)
-	bg: [4]f32 = tint if is_current else {}
-	hover_bg := tint if is_current else kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY)
 	name_color := kit.colors.primary if is_current else kit.colors.base_content
-	row := ui.box(
-		fmt.tprintf("queue_%d_%s", index, song.id),
-		{
-			width = ui.fill(),
-			height = ui.points(QUEUE_ROW_HEIGHT - 2),
-			axis = .X,
-			align = .Center,
-			gap = 10,
-			padding = {6, 0, 4, 0},
-			corner_radius = 6,
-			bg = bg,
-			hover_bg = hover_bg,
-			pointer = .Click,
-		},
-	)
+	style := ui.Style {
+		width         = ui.fill(),
+		height        = ui.points(QUEUE_ROW_HEIGHT - 2),
+		axis          = .X,
+		align         = .Center,
+		gap           = 10,
+		padding       = {6, 0, 4, 0},
+		corner_radius = 6,
+	}
+	if is_current {
+		tint := kit.with_opacity(kit.colors.primary, kit.SOFT_OPACITY)
+		style.bg, style.hover_bg = tint, tint
+	}
 	is_removed := false
 
-	if ui.scope(row) {
+	if kit.clickable(fmt.tprintf("queue_%d_%s", index, song.id), song.name, style) {
+		signal := ui.here()
+
 		look.artwork_box(
 			apple.to_artwork_url(song.artwork, look.to_artwork_px(QUEUE_COVER_SIZE)),
 			QUEUE_COVER_SIZE,
@@ -181,7 +158,7 @@ build_queue_row :: proc(index: int) -> bool {
 		text := ui.box("text", {width = ui.fill(), axis = .Y, gap = 2})
 
 		if ui.scope(text) {
-			is_hovered := ui.signal(row).is_hovered
+			is_hovered := signal.is_hovered
 
 			kit.scrolling_text(
 				"name",
@@ -202,13 +179,17 @@ build_queue_row :: proc(index: int) -> bool {
 			)
 		}
 
-		if !is_current && ui.signal(row).is_hovered {
+		// It shows under the pointer, and to the keyboard while the row or the button has focus. Tab moves
+		// focus to last frame's button before this frame builds it, so that button is asked too.
+		last_remove := ui.find_box("remove", signal.box)
+		is_remove_focused := last_remove != nil && ui.signal(last_remove).is_focused
+		is_remove_shown := !is_current && (signal.is_hovered || signal.is_focused || is_remove_focused)
+
+		if is_remove_shown {
 			is_removed = kit.button("remove", "Remove from Up Next", "xmark", variant = .Ghost, icon_size = 11, icon_color = kit.with_opacity(kit.colors.base_content, 0.7), is_label_hidden = true).is_activated
 		}
-	}
 
-	if !is_removed && menus.apply_song_row_signal(ui.signal(row), song) {
-		playback.play_queue_at(index)
+		if !is_removed && menus.apply_song_row_signal(signal, song) do playback.play_queue_at(index)
 	}
 
 	return is_removed

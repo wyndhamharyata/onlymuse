@@ -7,9 +7,7 @@ import "core:math/rand"
 import "core:slice"
 import "core:strings"
 import "om:app/core"
-import "om:app/look"
 import "om:store"
-import "thor:app"
 import "thor:kit"
 import "thor:ui"
 
@@ -200,101 +198,61 @@ set_shuffle_note :: proc(recent_count, skipped_count, apart_count: int) {
 	shuffle_note = strings.clone(note)
 }
 
-@(private = "file")
-rules_menu: struct {
-	is_open:      bool,
-	pos:          [2]f32,
-	opened_frame: int,
+RULES_MENU_WIDTH :: 300
+
+RECENT_OPTIONS := []kit.Option {
+	{id = "0", label = "Off"},
+	{id = "2", label = "2 h"},
+	{id = "6", label = "6 h"},
+	{id = "24", label = "24 h"},
 }
 
+@(private = "file")
+rules_menu: struct {
+	is_open: bool,
+	pos:     [2]f32,
+}
+
+// pos is a point by the control that opens the rules. They open below it, or above it with no room below.
 open_shuffle_rules :: proc(pos: [2]f32) {
-	rules_menu = {true, pos, app.frame_count}
+	rules_menu = {true, pos}
 }
 
 build_shuffle_rules :: proc() {
-	if !rules_menu.is_open do return
-
-	window_size := ui.window_size()
-
-	cover := ui.box(
-		"rules_cover",
-		{
-			width = ui.fill(),
-			height = ui.fill(),
-			pos = {0, 0},
-			pointer = .Click,
-			flags = {.Floating},
-		},
-	)
-
-	is_closing :=
-		(ui.signal(cover).is_activated || ui.signal(cover).is_secondary) &&
-		app.frame_count > rules_menu.opened_frame + 1
-
-	if ui.scope(cover) {
-		menu := look.menu_box("rules", rules_menu.pos, 300, window_size)
-
-		if ui.scope(menu) {
-			ui.box(
-				"",
-				{
-					width = ui.fill(),
-					text_color = kit.colors.base_content,
-					font_size = 13,
-					font_weight = .Bold,
-					padding = {9, 4, 9, 6},
-				},
-				"Shuffle",
-			)
-
-			hours := shuffle_rules.recent_hours
-			hours_text := "Off" if hours == 0 else fmt.tprintf("Past %d h", hours)
-
-			if kit.menu_item("recent", "Play recent songs last", hours_text).is_activated {
-				choices := RECENT_HOUR_CHOICES
-				next := 0
-
-				for choice, index in choices {
-					if choice == hours {
-						next = (index + 1) % len(choices)
-					}
-				}
-
-				shuffle_rules.recent_hours = choices[next]
-				save_shuffle_rules()
-			}
-
-			Toggle :: struct {
-				id, label: string,
-				is_on:     ^bool,
-			}
-			toggles := []Toggle {
-				{"skipped", "Play often-skipped songs last", &shuffle_rules.is_skipped_last},
-				{"albums", "Spread out songs from one album", &shuffle_rules.is_album_spread},
-				{"favourites", "Play favourites earlier", &shuffle_rules.is_favourite_early},
-			}
-
-			for toggle in toggles {
-				if kit.menu_item(toggle.id, toggle.label, "●" if toggle.is_on^ else "○").is_activated {
-					toggle.is_on^ = !toggle.is_on^
-					save_shuffle_rules()
-				}
-			}
-
-			kit.menu_separator()
-			ui.box(
-				"",
-				{
-					width = ui.fill(),
-					text_color = kit.with_opacity(kit.colors.base_content, 0.5),
-					font_size = 11.5,
-					padding = {9, 4, 9, 4},
-					text_fit = .Wrap,
-				},
-				"onlymuse counts plays and skips itself. Changes apply the next time you shuffle.",
-			)
+	if kit.popover("shuffle_rules", &rules_menu.is_open, rules_menu.pos, width = ui.points(RULES_MENU_WIDTH)) {
+		if ui.col("rules", {width = ui.fill(), gap = 8, padding = {9, 6, 9, 6}}) {
+			kit.heading("Shuffle", .Small)
+			kit.text("Play recent songs last")
+			build_recent_hours()
+			build_rule_toggle("skipped", "Play often-skipped songs last", &shuffle_rules.is_skipped_last)
+			build_rule_toggle("albums", "Spread out songs from one album", &shuffle_rules.is_album_spread)
+			build_rule_toggle("favourites", "Play favourites earlier", &shuffle_rules.is_favourite_early)
 		}
 	}
+}
 
-	if is_closing do rules_menu.is_open = false
+@(private = "file")
+build_recent_hours :: proc() {
+	choices := RECENT_HOUR_CHOICES
+	selected := RECENT_OPTIONS[0].id
+
+	for choice, index in choices {
+		if choice == shuffle_rules.recent_hours do selected = RECENT_OPTIONS[index].id
+	}
+
+	if !kit.segmented("recent", &selected, RECENT_OPTIONS, width = ui.fill()).is_changed do return
+
+	for option, index in RECENT_OPTIONS {
+		if option.id == selected do shuffle_rules.recent_hours = choices[index]
+	}
+
+	save_shuffle_rules()
+}
+
+@(private = "file")
+build_rule_toggle :: proc(id, label: string, is_on: ^bool) {
+	if ui.row(id, {width = ui.fill(), align = .Center, gap = 10}) {
+		kit.text(label)
+		if kit.toggle("switch", is_on, label, is_label_hidden = true).is_changed do save_shuffle_rules()
+	}
 }

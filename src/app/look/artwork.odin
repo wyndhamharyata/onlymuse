@@ -32,12 +32,11 @@ draw_artwork :: proc(box: ^ui.Box, rect_px, clip_px: [4]f32, opacity: f32) {
 	texture: ^MTL.Texture
 	image_opacity: f32
 
-	if paint.source != "" {
-		texture, image_opacity = images.load_texture(
-			paint.source,
-			{f32(paint.size_px), f32(paint.size_px)},
-			to_crop(rect_px, paint.focus_y),
-		)
+	uv: [4]f32
+	size := [2]f32{rect_px.z - rect_px.x, rect_px.w - rect_px.y}
+
+	if paint.source != "" && size.x > 0 && size.y > 0 {
+		texture, uv, image_opacity = images.load_filling_texture(paint.source, to_stepped_size(size, paint.size_px), paint.focus_y)
 	}
 
 	is_symbol_showing := image_opacity < 1 && paint.symbol != ""
@@ -52,7 +51,7 @@ draw_artwork :: proc(box: ^ui.Box, rect_px, clip_px: [4]f32, opacity: f32) {
 	render.push(
 		{
 			rect = rect_px,
-			uv = to_fill_uv(rect_px, texture, paint.focus_y),
+			uv = uv,
 			color = {1, 1, 1, opacity * image_opacity},
 			corner_radius = box.style.corner_radius * ui.to_px(1),
 			clip = clip_px,
@@ -62,32 +61,13 @@ draw_artwork :: proc(box: ^ui.Box, rect_px, clip_px: [4]f32, opacity: f32) {
 	)
 }
 
+// The box's size scaled so its longer side is size_px: the texture keeps one size while the box grows by a few
+// pixels. The longer side is set exactly, as thor rounds it up, and a float a hair over would load a new size.
 @(private = "file")
-to_crop :: proc(rect: [4]f32, focus_y: f32) -> images.Crop {
-	height := rect.w - rect.y
-	if height <= 0 do return {}
+to_stepped_size :: proc(size: [2]f32, size_px: int) -> [2]f32 {
+	if size.x >= size.y do return {f32(size_px), size.y * f32(size_px) / size.x}
 
-	// The nearest quarter step: a tile that springs a little off square while a panel opens keeps its square crop, so its image doesn't reload.
-	return {math.round((rect.z - rect.x) / height * 4) / 4, focus_y}
-}
-
-@(private = "file")
-to_fill_uv :: proc(rect: [4]f32, texture: ^MTL.Texture, focus_y: f32) -> [4]f32 {
-	rect_ratio := (rect.z - rect.x) / (rect.w - rect.y)
-	texture_ratio := f32(texture->width()) / f32(texture->height())
-	if rect_ratio <= 0 || abs(rect_ratio - texture_ratio) < 0.01 do return {0, 0, 1, 1}
-
-	if texture_ratio > rect_ratio {
-		width := rect_ratio / texture_ratio
-		left := (1 - width) / 2
-
-		return {left, 0, left + width, 1}
-	}
-
-	height := texture_ratio / rect_ratio
-	top := (1 - height) * focus_y
-
-	return {0, top, 1, top + height}
+	return {size.x * f32(size_px) / size.y, f32(size_px)}
 }
 
 Placeholder :: struct {

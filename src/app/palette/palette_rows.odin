@@ -1,13 +1,13 @@
 package palette
 
 import "core:fmt"
-import "core:strings"
 import "om:app/look"
 import "om:apple"
 import "thor:kit"
 import "thor:ui"
 
-GROUP_TITLE_HEIGHT :: 27
+// The line between two groups of results, with the space around it.
+GROUP_GAP_HEIGHT :: 9
 
 ROW_ARTWORK_SIZE :: 26
 
@@ -51,18 +51,11 @@ build_results :: proc() -> int {
 
 		for result, index in palette.results {
 			if result.group != group {
+				if group != "" {
+					gap := ui.box("", {width = ui.fill(), height = ui.points(GROUP_GAP_HEIGHT), padding = {8, 4, 8, 4}})
+					if ui.scope(gap) do kit.divider()
+				}
 				group = result.group
-				ui.box(
-					"",
-					{
-						width = ui.fill(),
-						text_color = kit.with_opacity(kit.colors.base_content, 0.5),
-						font_size = 11,
-						font_weight = .Bold,
-						padding = {10, 8, 10, 4},
-					},
-					strings.to_upper(group, context.temp_allocator),
-				)
 			}
 
 			if build_result_row(result, index) do picked = index
@@ -94,8 +87,8 @@ to_row_top :: proc(index: int) -> f32 {
 
 	for result, result_index in palette.results {
 		if result.group != group {
+			if group != "" do top += GROUP_GAP_HEIGHT
 			group = result.group
-			top += GROUP_TITLE_HEIGHT
 		}
 
 		if result_index == index do return top
@@ -120,7 +113,7 @@ to_list_height :: proc(results: []Palette_Result) -> f32 {
 
 	return(
 		f32(len(results)) * PALETTE_ROW_HEIGHT +
-		f32(group_count) * GROUP_TITLE_HEIGHT \
+		f32(max(0, group_count - 1)) * GROUP_GAP_HEIGHT \
 	)
 }
 
@@ -141,6 +134,7 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 			pointer = .Click,
 		},
 	)
+	row.role, row.label, row.is_on = .Menu_Item, result.title, is_selected
 	signal := ui.signal(row)
 	has_pointer_moved := ui.pointer_pos() != palette.last_mouse_pos
 

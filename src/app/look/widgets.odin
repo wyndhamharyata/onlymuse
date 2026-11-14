@@ -3,35 +3,23 @@ package look
 import "core:fmt"
 import "core:strconv"
 import "core:strings"
+import "thor:platform"
 
-to_date_text :: proc(date: string) -> string {
-	MONTHS :: [12]string {
-		"Jan",
-		"Feb",
-		"Mar",
-		"Apr",
-		"May",
-		"Jun",
-		"Jul",
-		"Aug",
-		"Sep",
-		"Oct",
-		"Nov",
-		"Dec",
-	}
+// A date from Apple, as "2024-05-17" or "2024-05", written as the person's language writes dates.
+to_date_text :: proc(text: string) -> string {
+	parts := strings.split(text, "-", context.temp_allocator)
+	if len(parts) < 2 do return text
 
-	parts := strings.split(date, "-", context.temp_allocator)
-	if len(parts) < 2 do return date
+	year, has_year := strconv.parse_int(parts[0])
+	month, has_month := strconv.parse_int(parts[1])
+	if !has_year || !has_month || month < 1 || month > 12 do return text
 
-	month, ok := strconv.parse_int(parts[1])
-	if !ok || month < 1 || month > 12 do return date
+	if len(parts) < 3 do return platform.format_date({i64(year), i8(month), 1}, "yMMM")
 
-	months := MONTHS
-	if len(parts) < 3 do return fmt.tprintf("%s %s", months[month - 1], parts[0])
+	day, has_day := strconv.parse_int(parts[2])
+	if !has_day || day < 1 || day > 31 do return text
 
-	day := strconv.parse_int(parts[2]) or_else 0
-
-	return fmt.tprintf("%d %s %s", day, months[month - 1], parts[0])
+	return platform.format_date({i64(year), i8(month), i8(day)}, "yMMMd")
 }
 
 to_clock_text :: proc(total_seconds: f64) -> string {

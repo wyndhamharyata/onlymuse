@@ -234,16 +234,6 @@ build_playlist_menu :: proc(
 				"Playlist name",
 				style = {height = ui.points(28)},
 			)
-			ui.box(
-				"",
-				{
-					width = ui.fill(),
-					text_color = kit.with_opacity(kit.colors.base_content, 0.5),
-					font_size = 11,
-					padding = {4, 4, 4, 2},
-				},
-				"Return makes the playlist. Escape goes back.",
-			)
 		} else if kit.menu_item("new_playlist", "New Playlist…", tone = .Primary).is_activated {
 			song_menu.is_naming = true
 			kit.focus_input(&playlist_name_field)

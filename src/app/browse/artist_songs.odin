@@ -128,10 +128,10 @@ build_recent_songs_shelf :: proc(artist_id, artist_name: string) {
 				axis = .X,
 				align = .Center,
 				gap = 4,
-				pointer = .Click,
 			},
 		)
-		text_alpha := 1 - HOVER_FADE * ui.animate("recent_songs_title_hover", 1 if ui.signal(title).is_hovered else 0, kit.motion.fast)
+		title_signal := kit.as_button(title, "Recent Songs")
+		text_alpha := 1 - HOVER_FADE * ui.animate("recent_songs_title_hover", 1 if title_signal.is_hovered else 0, kit.motion.fast)
 
 		if ui.scope(title) {
 			ui.box(
@@ -146,7 +146,7 @@ build_recent_songs_shelf :: proc(artist_id, artist_name: string) {
 			kit.icon_box("chevron.right", 13, kit.with_opacity(kit.with_opacity(kit.colors.base_content, 0.5), text_alpha))
 		}
 
-		if ui.signal(title).is_activated {
+		if title_signal.is_activated {
 			core.navigate({kind = .Artist_Recent_Songs, id = artist_id, title = artist_name})
 		}
 

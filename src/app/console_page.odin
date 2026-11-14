@@ -13,6 +13,9 @@ CONSOLE_TIME_WIDTH :: 62
 
 CONSOLE_SOURCE_WIDTH :: 62
 
+// One line of text in a row, which kit uses until it measures the row.
+CONSOLE_ROW_ESTIMATE :: 26
+
 build_console_page :: proc() {
 	entries := console.list()
 	has_entries := len(entries) > 0
@@ -50,10 +53,15 @@ build_console_page :: proc() {
 			}
 		}
 
-		rows := ui.box("rows", {width = ui.fill(), axis = .Y, gap = 2})
+		style := ui.Style {
+			width = ui.fill(),
+			gap   = 2,
+		}
 
-		if ui.scope(rows) {
-			for index := len(entries) - 1; index >= 0; index -= 1 {
+		// Rows wrap, so kit measures each one. The newest entry comes first.
+		if first, last, ok := kit.list("rows", len(entries), 0, style, CONSOLE_ROW_ESTIMATE); ok {
+			for place in first ..< last {
+				index := len(entries) - 1 - place
 				build_console_row(index, entries[index])
 			}
 		}

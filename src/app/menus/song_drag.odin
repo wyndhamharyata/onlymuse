@@ -4,10 +4,7 @@ import "om:app/core"
 import "om:app/look"
 import "thor:app"
 import "thor:kit"
-import "thor:platform"
 import "thor:ui"
-
-DRAG_START_DISTANCE :: 6
 
 @(private = "file")
 drag: struct {
@@ -19,11 +16,9 @@ drag: struct {
 apply_song_row_signal :: proc(signal: ui.Signal, song: core.Catalog_Song) -> bool {
 	if signal.is_secondary do open_song_menu(song, ui.pointer_pos())
 
-	moved := signal.drag
-	has_moved := moved.x * moved.x + moved.y * moved.y > DRAG_START_DISTANCE * DRAG_START_DISTANCE
-	can_start_drag := signal.is_held && !drag.is_dragging && song.id != ""
+	can_start_drag := signal.is_dragged && !drag.is_dragging && song.id != ""
 
-	if can_start_drag && has_moved {
+	if can_start_drag {
 		drag = {
 			is_dragging = true,
 			song        = core.copy_song(song),
@@ -42,24 +37,13 @@ apply_song_drop :: proc(
 ) -> bool {
 	if !drag.is_dragging || !is_hovered || !can_edit do return false
 
-	if is_mouse_released() do add_to_playlist(playlist_id, playlist_name, drag.song)
+	if !ui.interaction().is_held do add_to_playlist(playlist_id, playlist_name, drag.song)
 
 	return true
 }
 
-@(private = "file")
-is_mouse_released :: proc() -> bool {
-	for event in platform.list_events() {
-		if release, ok := event.(platform.Mouse_Release); ok && release.button == .Left {
-			return true
-		}
-	}
-
-	return false
-}
-
 apply_drag_release :: proc() {
-	if !drag.is_dragging || !is_mouse_released() do return
+	if !drag.is_dragging || ui.interaction().is_held do return
 
 	core.delete_song(drag.song)
 	drag = {

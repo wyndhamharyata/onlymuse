@@ -106,12 +106,11 @@ build_hero :: proc(
 					font_size = 20,
 					font_weight = .Semibold,
 					text_fit = .Truncate,
-					pointer = .Click if has_artist else .Passive,
 				},
 				details.song.artist_name,
 			)
 
-			if ui.signal(artist).is_activated {
+			if has_artist && kit.as_button(artist, details.song.artist_name).is_activated {
 				core.navigate(
 					{kind = .Artist, id = details.artist_id, title = details.song.artist_name},
 				)
@@ -126,11 +125,12 @@ build_hero :: proc(
 					text_color = kit.to_color(0xffffffb0),
 					font_size = 14,
 					text_fit = .Truncate,
-					pointer = .Click if details.album_id != "" else .Passive,
 				},
 				album_line,
 			)
-			if ui.signal(album).is_activated do core.navigate({kind = .Album, id = details.album_id})
+			if details.album_id != "" && kit.as_button(album, details.album).is_activated {
+				core.navigate({kind = .Album, id = details.album_id})
+			}
 
 			build_pills(details, info)
 			build_actions(details, shown.persistent_id)

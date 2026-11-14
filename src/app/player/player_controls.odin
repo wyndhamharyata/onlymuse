@@ -12,8 +12,6 @@ import "thor:ui"
 
 CLOCK_WIDTH :: 34
 
-SHUFFLE_RULES_OFFSET :: [2]f32{-130, -190}
-
 build_controls :: proc() {
 	now_playing := core.app.now_playing
 	is_playing := now_playing.playback == .Playing
@@ -36,10 +34,9 @@ build_controls :: proc() {
 		if ui.scope(buttons) {
 			shuffle_color := kit.colors.primary if playback.queue.is_shuffled else kit.with_opacity(kit.colors.base_content, 0.5)
 			shuffle := kit.button("shuffle", "Shuffle", "shuffle", variant = .Ghost, icon_size = 14, icon_color = shuffle_color, is_label_hidden = true)
-			if shuffle.is_activated do playback.toggle_shuffle()
-			if shuffle.is_secondary {
-				playback.open_shuffle_rules(shuffle.box.rect.xy + SHUFFLE_RULES_OFFSET)
-			}
+			is_shuffled := playback.queue.is_shuffled
+			if kit.as_toggle(shuffle.box, &is_shuffled, "Shuffle").is_changed do playback.toggle_shuffle()
+			if shuffle.is_secondary do playback.open_shuffle_rules(shuffle.box.rect.xy)
 
 			resume_seconds :=
 				playback.queue.resume_point.pos_seconds if playback.is_resume_shown() else helper.read_pos_seconds(now_playing)
@@ -48,24 +45,23 @@ build_controls :: proc() {
 				playback.skip_to_prev(resume_seconds)
 			}
 
-			play := ui.box(
+			play := kit.button(
 				"play",
-				{
+				"Pause" if is_playing else "Play",
+				"pause.fill" if is_playing else "play.fill",
+				icon_size = 15,
+				icon_color = kit.colors.base_200,
+				style = {
 					width = ui.points(34),
 					height = ui.points(34),
 					corner_radius = 17,
 					bg = kit.colors.base_content,
 					hover_bg = {1, 1, 1, 1},
-					pointer = .Click,
+					press_bg = kit.with_opacity(kit.colors.base_content, 0.85),
 				},
+				is_label_hidden = true,
 			)
-
-			play.role, play.label = .Button, "Pause" if is_playing else "Play"
-			play_symbol := "pause.fill" if is_playing else "play.fill"
-			// The symbol's box fills the circle, so the symbol sits in its middle.
-			if ui.scope(play) do kit.icon_box(play_symbol, 15, kit.colors.base_200, {width = ui.fill(), height = ui.fill()})
-
-			is_play_clicked := ui.signal(play).is_activated
+			is_play_clicked := play.is_activated
 
 			if is_play_clicked && playback.is_resume_shown() {
 				playback.resume_last_song()
@@ -81,9 +77,10 @@ build_controls :: proc() {
 			repeat_color :=
 				kit.colors.primary if playback.queue.repeat != "off" else kit.with_opacity(kit.colors.base_content, 0.5)
 
-			if kit.button("repeat", "Repeat", repeat_symbol, variant = .Ghost, icon_size = 14, icon_color = repeat_color, is_label_hidden = true).is_activated {
-				playback.cycle_repeat()
-			}
+			repeat := kit.button("repeat", "Repeat", repeat_symbol, variant = .Ghost, icon_size = 14, icon_color = repeat_color, is_label_hidden = true)
+			is_repeating := playback.queue.repeat != "off"
+			repeat_label := "Repeat One" if playback.queue.repeat == "one" else "Repeat"
+			if kit.as_toggle(repeat.box, &is_repeating, repeat_label).is_changed do playback.cycle_repeat()
 		}
 
 		build_progress(has_song)
@@ -155,8 +152,10 @@ build_player_end :: proc() {
 		ui.box("", {width = ui.fill(), height = ui.points(1)})
 		panel_color := kit.colors.primary if core.app.panel != .None else kit.with_opacity(kit.colors.base_content, 0.5)
 
-		if kit.button("panel", "Panel", "sidebar.right", variant = .Ghost, icon_color = panel_color, is_label_hidden = true).is_activated {
-			core.set_panel(.None if core.app.panel != .None else core.app.last_panel)
+		panel := kit.button("panel", "Panel", "sidebar.right", variant = .Ghost, icon_color = panel_color, is_label_hidden = true)
+		is_panel_open := core.app.panel != .None
+		if kit.as_toggle(panel.box, &is_panel_open, "Panel").is_changed {
+			core.set_panel(core.app.last_panel if is_panel_open else .None)
 		}
 
 		kit.icon_box("speaker.wave.2.fill", 15, kit.with_opacity(kit.colors.base_content, 0.7))

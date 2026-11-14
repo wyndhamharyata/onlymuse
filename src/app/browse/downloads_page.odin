@@ -104,7 +104,7 @@ build_downloaded_page :: proc() {
 
 		if ui.scope(page) {
 			kit.heading("Downloaded")
-			kit.text("Downloads need Music.app.", kit.with_opacity(kit.colors.base_content, 0.7), is_wrapped = true)
+			kit.description("Downloads need Music.app.")
 		}
 
 		return

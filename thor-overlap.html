@@ -639,6 +639,7 @@ if ui.scope(row) {
 <!-- ============================================================ -->
 <h2 id="songmenu">11. Song menu → <code>kit.popover</code> <span class="v v-gap">Needs thor first</span></h2>
 <p class="decided"><strong>Decision:</strong> Fix gaps 3 and 4, then item 11.</p>
+<p class="decided"><strong>Done:</strong> the context menu is a <code>kit.menu</code> with a <code>kit.submenu</code> for playlists; Now Playing's Add to Playlist button has its own <code>kit.menu</code>, which a second click closes. <code>look/menu_box.odin</code> and its stale comment are gone.</p>
 <p class="where"><code>src/app/menus/song_menu.odin:66</code>, <code>src/app/look/menu_box.odin</code></p>
 <p><code>menu_box.odin</code> exists because, as its comment says, "kit.popover cannot nest". That's no longer true: thor's popovers nest, and <code>tests/popover_test.odin:178</code> builds a submenu inside a menu. Moving over deletes <code>menu_box.odin</code>, the cover box, the raw Escape scan, the <code>opened_frame</code> guard and the right-click-to-close logic. It also adds the fade, arrow keys within the menu, Escape closing only the topmost menu, and focus that moves in and back.</p>
 <div class="pair">
@@ -804,10 +805,10 @@ kit.submenu :: proc(id, label: string, width := ui.Length{}) -> bool</pre>
 <li><strong>Depth:</strong> the fixed 4-deep popover stack becomes a dynamic array, so there's no depth limit.</li>
 <li><strong>Picking:</strong> picking a <code>menu_item</code> at any level closes the whole menu, as macOS does. Today only the innermost popover closes, so thor's nested-popover test changes.</li>
 </ul>
-<p>I read "expanding menu to support nesting" as the menu procedures you already have (<code>menu_button</code>, <code>popover</code> and context menus) accepting submenus at any depth, with one new procedure for the item that opens a level. If you meant something else, tell me.</p></td><td>Item 11</td><td>Approved: build it</td></tr>
+<p>I read "expanding menu to support nesting" as the menu procedures you already have (<code>menu_button</code>, <code>popover</code> and context menus) accepting submenus at any depth, with one new procedure for the item that opens a level. If you meant something else, tell me.</p></td><td>Item 11</td><td>Approved and built (thor, 14 Nov 2026)</td></tr>
 <tr><td>4</td><td>A popover anchored to a point clamps inside the window instead of flipping to the other side.</td><td class="design"><p>No API change. <code>_to_popover_pos</code> learns two placements:</p>
 <ul><li><strong>A point anchor</strong> (a context menu) opens to the right of and below the point. It flips left when there's no room on the right, and up when there's no room below, as macOS context menus do.</li>
-<li><strong>A <code>kit.submenu</code></strong> opens beside its item, top edges lined up. It flips to the menu's left side when there's no room on the right.</li></ul></td><td>Item 11</td><td>Approved: build it</td></tr>
+<li><strong>A <code>kit.submenu</code></strong> opens beside its item, top edges lined up. It flips to the menu's left side when there's no room on the right.</li></ul></td><td>Item 11</td><td>Approved and built (thor, 14 Nov 2026)</td></tr>
 <tr><td>5</td><td><code>kit.badge</code> colors come only from tones, with no brand or muted color, and an app can't measure a badge.</td><td class="design"><p class="revised"><strong>Revised after your review:</strong> the new procedure is named for what it returns, <code>to_badge_width</code>, like kit's other <code>to_</code> procedures.</p><pre class="sig">kit.badge :: proc(label: string, tone := Tone.Base, variant := Variant.Soft,
 	size := Size.Medium, color: [4]f32 = {}) -> ui.Signal
 

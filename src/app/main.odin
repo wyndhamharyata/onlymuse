@@ -87,10 +87,6 @@ open_main_window :: proc() {
 		draw_frame,
 	)
 	macos.start(app.native_window, dev.is_accessory && !dev.is_bench)
-	macos.install_player_menu({
-		is_driving = proc() -> bool {return core.app.drives_music_app},
-		toggle = proc() {core.set_player_mode(!core.app.drives_music_app)},
-	})
 }
 
 // It shows until onlymuse has a sign-in, so only signing in closes it.

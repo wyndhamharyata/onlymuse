@@ -880,7 +880,7 @@ app.set_menu_items :: proc(items: []platform.Menu_Item)
 ui.is_menu_picked :: proc(id: string) -> bool</pre>
 <pre class="sig">app.set_menu_items({{id = "music_app", label = "Play in Music.app", is_checked = core.app.drives_music_app}})
 if ui.is_menu_picked("music_app") do core.set_player_mode(!core.app.drives_music_app)</pre>
-<p>There are no callbacks: a pick arrives as an event, the same way thor's Edit menu items already reach the app as key presses.</p></td><td><code>src/macos/macos.odin</code></td><td>Approved: build it</td></tr>
+<p>There are no callbacks: a pick arrives as an event, the same way thor's Edit menu items already reach the app as key presses.</p></td><td><code>src/macos/macos.odin</code></td><td>Approved and built (thor, 14 Nov 2026)</td></tr>
 <tr><td>14</td><td>kit has no indeterminate loading bar like onlymuse's: <code>kit.spinner</code> only has spokes, and <code>kit.progress</code> needs a ratio. Added by your decision on item 10.</td><td class="design"><p class="revised"><strong>Revised after your review:</strong> this expands <code>kit.progress</code> rather than adding a new procedure. I picked progress over spinner because the bar has a width, which <code>progress</code> already takes, while a spinner has a size. It also follows daisyUI, where a progress bar with no value is indeterminate.</p><pre class="sig">// A filled track showing ratio from 0 to 1. With is_indeterminate, a segment sweeps
 // the track instead and ratio is unused, for a wait with no known end.
 kit.progress :: proc(ratio: f32, tone := Tone.Primary, width := ui.Length{.Fill, 1},

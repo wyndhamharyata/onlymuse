@@ -61,6 +61,16 @@ apply_input :: proc() {
 	playback.apply_now_playing_to_play_log()
 	menus.apply_write_results()
 	apply_keys()
+	apply_player_menu()
+}
+
+// The app menu's first item switches between the web player and Music.app, checked while Music.app plays.
+@(private = "file")
+apply_player_menu :: proc() {
+	items := []platform.Menu_Item{{id = "music_app", label = "Play in Music.app", is_checked = core.app.drives_music_app}}
+	app.set_menu_items(items)
+
+	if ui.is_menu_picked("music_app") do core.set_player_mode(!core.app.drives_music_app)
 }
 
 save_scroll_at_rest :: proc() {

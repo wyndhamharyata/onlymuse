@@ -17,8 +17,6 @@ state: struct {
 	backdrop_view:    ^NS.View,
 	drag_timer:       ^NS.Timer,
 	fade_steps:       int,
-	player_menu:      Player_Menu,
-	player_menu_item: ^NS.MenuItem,
 	odin_context:     runtime.Context,
 }
 
@@ -61,24 +59,6 @@ Macos_Target_windowDidChangeScreen :: proc "c" (self: ^Macos_Target, notificatio
 Macos_Target_windowDidBecomeKey :: proc "c" (self: ^Macos_Target, notification: NS.id) {
 	context = state.odin_context
 	apply_screen_change()
-}
-
-@(objc_type = Macos_Target, objc_implement, objc_name = "togglePlayerMode", objc_selector = "togglePlayerMode:")
-Macos_Target_togglePlayerMode :: proc "c" (self: ^Macos_Target, item: NS.id) {
-	context = state.odin_context
-	state.player_menu.toggle()
-}
-
-// The app menu asks for the state of its checkmark each time it opens.
-@(objc_type = Macos_Target, objc_implement, objc_name = "validateMenuItem", objc_selector = "validateMenuItem:")
-Macos_Target_validateMenuItem :: proc "c" (self: ^Macos_Target, item: ^NS.MenuItem) -> NS.BOOL {
-	context = state.odin_context
-
-	if item == state.player_menu_item {
-		objc_send(nil, item, "setState:", NS.Integer(1 if state.player_menu.is_driving() else 0))
-	}
-
-	return true
 }
 
 @(objc_type = Macos_Target, objc_implement, objc_name = "askForSavedWallpaper", objc_selector = "askForSavedWallpaper:")

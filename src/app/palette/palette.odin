@@ -199,6 +199,7 @@ build_palette :: proc() {
 					height = ui.points(PALETTE_FIELD_HEIGHT),
 					font_size = PALETTE_FIELD_FONT_SIZE,
 					bg = PALETTE_FIELD_BACKGROUND,
+					flags = {.Tab_As_Arrows},
 				},
 			)
 			picked = build_results()

@@ -200,6 +200,12 @@ set_shuffle_note :: proc(recent_count, skipped_count, apart_count: int) {
 
 RULES_MENU_WIDTH :: 300
 
+RULES_GROUP_GAP :: 12
+
+RULES_LABEL_GAP :: 4
+
+RULES_TOGGLE_GAP :: 8
+
 RECENT_OPTIONS := []kit.Option {
 	{id = "0", label = "Off"},
 	{id = "2", label = "2 h"},
@@ -220,13 +226,20 @@ open_shuffle_rules :: proc(pos: [2]f32) {
 
 build_shuffle_rules :: proc() {
 	if kit.popover("shuffle_rules", &rules_menu.is_open, rules_menu.pos, width = ui.points(RULES_MENU_WIDTH)) {
-		if ui.col("rules", {width = ui.fill(), gap = 8, padding = {9, 6, 9, 6}}) {
+		// With the popover's own 5, its content sits 14 points in on every side, as menu items' labels do.
+		if ui.col("rules", {width = ui.fill(), gap = RULES_GROUP_GAP, padding = 9}) {
 			kit.heading("Shuffle", .Small)
-			kit.text("Play recent songs last")
-			build_recent_hours()
-			build_rule_toggle("skipped", "Play often-skipped songs last", &shuffle_rules.is_skipped_last)
-			build_rule_toggle("albums", "Spread out songs from one album", &shuffle_rules.is_album_spread)
-			build_rule_toggle("favourites", "Play favourites earlier", &shuffle_rules.is_favourite_early)
+
+			if ui.col("recent", {width = ui.fill(), gap = RULES_LABEL_GAP}) {
+				kit.text("Play recent songs last")
+				build_recent_hours()
+			}
+
+			if ui.col("toggles", {width = ui.fill(), gap = RULES_TOGGLE_GAP}) {
+				build_rule_toggle("skipped", "Play often-skipped songs last", &shuffle_rules.is_skipped_last)
+				build_rule_toggle("albums", "Spread out songs from one album", &shuffle_rules.is_album_spread)
+				build_rule_toggle("favourites", "Play favourites earlier", &shuffle_rules.is_favourite_early)
+			}
 		}
 	}
 }

@@ -27,6 +27,17 @@ page_scroll :: proc(id: string) -> ^ui.Box {
 	return box
 }
 
+// The panel's width as it was drawn last frame, the frame a page's size comes from, while it springs open or shut.
+panel_width: f32
+
+// How much wider the content becomes once the panel stops moving: negative while it opens.
+to_panel_travel_left :: proc() -> f32 {
+	target: f32 = 0
+	if core.app.panel != .None do target = PANEL_WIDTH
+
+	return panel_width - target
+}
+
 to_content_width :: proc(page: ^ui.Box) -> f32 {
 	return page.size.x - page.style.padding.x - page.style.padding.z
 }

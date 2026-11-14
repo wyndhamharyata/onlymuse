@@ -22,7 +22,9 @@ CARD_GAP :: 14
 EXTRA_CARD_COUNT :: 2
 
 to_tile_size :: proc(width, target_width, gap: f32) -> f32 {
-	count := max(1, math.round((width + gap) / (target_width + gap)))
+	// The count comes from the width the content settles at, so while the panel moves the tiles scale smoothly instead of jumping between counts.
+	settled_width := width + look.to_panel_travel_left()
+	count := max(1, math.round((settled_width + gap) / (target_width + gap)))
 
 	return math.floor((width - gap * (count - 1)) / count)
 }

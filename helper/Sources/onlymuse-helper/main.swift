@@ -123,6 +123,9 @@ startReadingCommands(onCommand: { command in
 
     music.apply(command)
     if command.type == "seek" { handoff.arm() }
+  // On the web player, Music.app's own next and previous have nothing to act on, and would open Music.app.
+  case "next", "previous":
+    if handoff.isDrivingMusicApp { music.apply(command) }
   default:
     music.apply(command)
   }

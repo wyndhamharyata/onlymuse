@@ -1,0 +1,824 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>onlymuse on thor, then and now</title>
+<style>
+:root {
+  --bg: #141110;
+  --panel: rgba(30, 26, 24, .72);
+  --panel-solid: #1f1b19;
+  --raise: rgba(255, 255, 255, .06);
+  --raise-2: rgba(255, 255, 255, .1);
+  --line: rgba(255, 255, 255, .08);
+  --text: #f4efea;
+  --dim: rgba(244, 239, 234, .62);
+  --faint: rgba(244, 239, 234, .4);
+  --accent: #F7821B;
+  --accent-soft: rgba(247, 130, 27, .18);
+  --green: #3dd68c;
+  --red: #ff6369;
+  --radius: 12px;
+  --sidebar: 236px;
+  --bar: 84px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+body::before {
+  content: "";
+  position: fixed; inset: -120px;
+  background: url(docs/thor-then-now/now-now.jpg) center / cover;
+  filter: blur(90px) saturate(1.5);
+  opacity: .32;
+  z-index: -2;
+}
+body::after {
+  content: "";
+  position: fixed; inset: 0;
+  background: radial-gradient(1200px 700px at 70% -10%, rgba(247, 130, 27, .12), transparent 60%), linear-gradient(rgba(20, 17, 16, .55), rgba(20, 17, 16, .85));
+  z-index: -1;
+}
+a { color: var(--accent); text-decoration: none; }
+code, pre { font-family: "SF Mono", ui-monospace, Menlo, monospace; }
+
+/* Sidebar, like onlymuse's */
+.sidebar {
+  position: fixed; top: 0; left: 0; bottom: var(--bar);
+  width: var(--sidebar);
+  padding: 22px 12px;
+  background: var(--panel);
+  backdrop-filter: blur(30px) saturate(1.4);
+  border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.brand { display: flex; align-items: center; gap: 10px; padding: 0 10px 22px; font-weight: 700; font-size: 17px; }
+.brand img { width: 34px; height: 34px; }
+.nav-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 12px; border-radius: 8px;
+  color: var(--text); font-size: 15px;
+}
+.nav-row svg { width: 20px; height: 20px; color: var(--accent); flex: none; }
+.nav-row:hover { background: var(--raise); }
+.nav-row[aria-current="true"] { background: var(--accent-soft); }
+.sidebar .spacer { flex: 1; }
+.sidebar .meta { padding: 0 12px; font-size: 12px; color: var(--faint); }
+.sidebar .meta code { color: var(--dim); }
+
+main { margin-left: var(--sidebar); padding: 40px 56px calc(var(--bar) + 60px); max-width: calc(var(--sidebar) + 1240px); }
+section { padding-top: 28px; margin-bottom: 56px; }
+h1 { font-size: 46px; line-height: 1.05; letter-spacing: -.02em; margin: 0 0 14px; }
+h1 .accent { color: var(--accent); }
+h2 { font-size: 30px; letter-spacing: -.01em; margin: 0 0 18px; }
+h3 { font-size: 17px; margin: 0 0 10px; }
+p { margin: 0 0 14px; color: var(--dim); max-width: 760px; }
+p strong { color: var(--text); }
+
+/* Hero */
+.hero { display: grid; grid-template-columns: 220px 1fr; gap: 36px; align-items: center; margin-bottom: 34px; }
+.hero-art { width: 220px; height: 220px; border-radius: 16px; background: #0d0b0a; box-shadow: 0 24px 60px rgba(0, 0, 0, .55); display: grid; place-items: center; overflow: hidden; }
+.hero-art img { width: 125%; }
+.artist { color: var(--accent); font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+.pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
+.pill { padding: 4px 11px; border-radius: 7px; background: var(--raise-2); font-size: 13px; font-weight: 600; }
+.pill.accent { color: var(--accent); background: var(--accent-soft); }
+
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.stat { background: var(--panel); backdrop-filter: blur(20px); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; }
+.stat .big { font-size: 28px; font-weight: 700; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.stat .big .from { color: var(--faint); font-weight: 500; font-size: 20px; }
+.stat .big .arrow { color: var(--faint); font-weight: 400; font-size: 18px; margin: 0 4px; }
+.stat .label { color: var(--dim); font-size: 13px; }
+.down { color: var(--green); }
+.up { color: var(--accent); }
+
+/* Segmented control, like Up Next | Lyrics */
+.segmented { display: inline-flex; padding: 3px; gap: 3px; border-radius: 10px; background: var(--raise); border: 1px solid var(--line); margin-bottom: 16px; }
+.segmented button {
+  font: inherit; font-size: 14px; font-weight: 600; color: var(--dim);
+  background: none; border: 0; padding: 7px 16px; border-radius: 8px; cursor: pointer;
+}
+.segmented button:hover { color: var(--text); }
+.segmented button[aria-selected="true"] { background: var(--accent); color: #1c1006; }
+
+/* Swipe comparison */
+.compare {
+  position: relative; border-radius: 14px; overflow: hidden;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .5); border: 1px solid var(--line);
+  aspect-ratio: 1800 / 1130; user-select: none; background: #000;
+}
+.compare img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.compare .now-img { clip-path: inset(0 0 0 var(--split, 50%)); }
+.compare .divider { position: absolute; top: 0; bottom: 0; left: var(--split, 50%); width: 2px; background: var(--accent); transform: translateX(-1px); pointer-events: none; }
+.compare .knob { position: absolute; top: 50%; left: 50%; width: 38px; height: 38px; transform: translate(-50%, -50%); border-radius: 50%; background: var(--accent); box-shadow: 0 4px 18px rgba(0, 0, 0, .5); display: grid; place-items: center; color: #1c1006; }
+.compare input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: ew-resize; margin: 0; }
+.compare .tag { position: absolute; top: 14px; pointer-events: none; }
+.compare .tag.then { left: 14px; }
+.compare .tag.now { right: 14px; }
+.badge { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; backdrop-filter: blur(10px); }
+.badge.then { background: rgba(0, 0, 0, .6); color: var(--text); border: 1px solid rgba(255, 255, 255, .18); }
+.badge.now { background: var(--accent); color: #1c1006; }
+.badge.new { background: rgba(61, 214, 140, .16); color: var(--green); }
+.badge.changed { background: var(--accent-soft); color: var(--accent); }
+.badge.fixed { background: rgba(110, 160, 255, .16); color: #8fb2ff; }
+.screen-notes { margin-top: 14px; }
+
+/* Close-ups */
+.closeups { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 30px; }
+.card { background: var(--panel); backdrop-filter: blur(20px); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+.card.wide { grid-column: span 2; }
+.card p { font-size: 14px; margin: 0 0 14px; }
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.duo.stack { grid-template-columns: 1fr; }
+.shot { position: relative; margin: 0; border-radius: 9px; overflow: hidden; border: 1px solid var(--line); background: #000; }
+.shot img { display: block; width: 100%; }
+.shot .badge { position: absolute; top: 8px; left: 8px; }
+
+/* Behavior */
+.behave { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.behave .card h3 { display: flex; align-items: center; gap: 10px; }
+.behave .card h3 svg { width: 22px; height: 22px; color: var(--accent); }
+.behave ul { list-style: none; margin: 0; padding: 0; }
+.behave li { display: grid; grid-template-columns: 74px 1fr; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); font-size: 14px; color: var(--dim); }
+.behave li:first-child { border-top: 0; }
+.behave li b { color: var(--text); font-weight: 600; }
+.behave li .badge { justify-self: start; align-self: start; margin-top: 1px; }
+
+/* Code */
+.code-stats { display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.files { list-style: none; margin: 0; padding: 0; }
+.files li { display: grid; grid-template-columns: 230px 1fr 92px; gap: 12px; align-items: center; padding: 5px 0; font-size: 13px; }
+.files .path { font-family: "SF Mono", ui-monospace, monospace; font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.files .bars { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--raise); }
+.files .bars i { display: block; height: 100%; }
+.files .add { background: var(--green); }
+.files .rem { background: var(--red); }
+.files .num { text-align: right; font-variant-numeric: tabular-nums; }
+.plus { color: var(--green); font-weight: 600; }
+.minus { color: var(--red); font-weight: 600; }
+.kit-group { margin-bottom: 14px; }
+.kit-group h3 { font-size: 14px; display: flex; gap: 8px; align-items: center; }
+.chip { display: inline-block; margin: 0 6px 6px 0; padding: 3px 9px; border-radius: 6px; font: 12px "SF Mono", ui-monospace, monospace; background: var(--raise); color: var(--dim); }
+.chip.new { background: rgba(61, 214, 140, .13); color: var(--green); }
+.chip.gone { background: rgba(255, 99, 105, .12); color: var(--red); text-decoration: line-through; text-decoration-color: rgba(255, 99, 105, .5); }
+
+.pair-note { font-size: 14px; }
+.code-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+figure.code { margin: 0; background: rgba(12, 10, 9, .72); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+figure.code.now { border-color: rgba(247, 130, 27, .35); }
+figure.code figcaption { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+figure.code .lines { font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
+figure.code pre { margin: 0; padding: 14px; font-size: 12px; line-height: 1.55; overflow: auto; max-height: 560px; tab-size: 4; white-space: pre-wrap; overflow-wrap: anywhere; color: #e8e2dc; }
+.tok-k { color: #ff8fa3; }
+.tok-s { color: #a5d6a7; }
+.tok-c { color: #8a817a; font-style: italic; }
+.tok-n { color: #ffcc80; }
+.tok-t { color: var(--accent); }
+.tok-o { color: #9ecbff; }
+
+/* Commits, as the Up Next queue */
+.queue { list-style: none; margin: 0; padding: 0 6px 0 0; max-height: 620px; overflow: auto; }
+.queue li { display: flex; gap: 12px; align-items: center; padding: 7px 8px; border-radius: 9px; }
+.queue li:hover { background: var(--raise); }
+.queue .tile { flex: none; width: 40px; height: 40px; border-radius: 7px; display: grid; place-items: center; font-weight: 800; font-size: 15px; color: #fff; background: linear-gradient(135deg, var(--t), color-mix(in srgb, var(--t) 45%, #000)); }
+.queue .q-text { display: flex; flex-direction: column; min-width: 0; }
+.queue .q-title { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.queue .q-sub { font-size: 12px; color: var(--faint); }
+.queue-wrap { display: grid; grid-template-columns: 1fr 280px; gap: 16px; }
+.days { display: flex; flex-direction: column; gap: 8px; }
+.day { display: grid; grid-template-columns: 74px 1fr 28px; align-items: center; gap: 10px; font-size: 13px; color: var(--dim); }
+.day .track { height: 6px; border-radius: 3px; background: var(--raise); overflow: hidden; }
+.day .track i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.day b { text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
+
+.method { font-size: 13px; color: var(--faint); }
+.method code { color: var(--dim); }
+
+/* Player bar */
+.player {
+  position: fixed; left: 0; right: 0; bottom: 0; height: var(--bar);
+  display: grid; grid-template-columns: 300px 1fr 300px; align-items: center; gap: 20px;
+  padding: 0 22px;
+  background: rgba(24, 21, 19, .82); backdrop-filter: blur(30px) saturate(1.4);
+  border-top: 1px solid var(--line); z-index: 5;
+}
+.np { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.np img { width: 52px; height: 52px; border-radius: 8px; background: #0d0b0a; }
+.np .t { font-weight: 600; font-size: 14px; }
+.np .s { color: var(--dim); font-size: 13px; }
+.transport { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.transport .buttons { display: flex; align-items: center; gap: 22px; }
+.transport button { background: none; border: 0; color: var(--text); cursor: pointer; padding: 0; display: grid; place-items: center; }
+.transport button svg { width: 24px; height: 24px; }
+.transport button.play { width: 38px; height: 38px; border-radius: 50%; background: var(--text); color: #141110; }
+.transport button.play svg { width: 16px; height: 16px; }
+.seek { display: grid; grid-template-columns: 52px 1fr 52px; gap: 10px; align-items: center; width: min(640px, 100%); font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.seek .r { text-align: left; }
+.seek .l { text-align: right; }
+.seek .track { position: relative; height: 4px; border-radius: 2px; background: var(--raise-2); cursor: pointer; }
+.seek .fill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 2px; background: var(--text); }
+.seek .thumb { position: absolute; top: 50%; width: 12px; height: 12px; border-radius: 50%; background: #fff; transform: translate(-50%, -50%); left: 0; box-shadow: 0 1px 4px rgba(0, 0, 0, .5); }
+.player .right { justify-self: end; display: flex; gap: 8px; align-items: center; color: var(--dim); font-size: 13px; }
+
+@media (max-width: 1100px) {
+  .sidebar { display: none; }
+  main { margin-left: 0; padding: 28px 22px calc(var(--bar) + 40px); }
+  .stats, .closeups, .behave, .code-stats, .code-cols, .queue-wrap { grid-template-columns: 1fr; }
+  .card.wide { grid-column: auto; }
+  .hero { grid-template-columns: 1fr; }
+  .player { grid-template-columns: 1fr; }
+  .player .np, .player .right { display: none; }
+}
+</style>
+</head>
+<body>
+
+<nav class="sidebar" aria-label="Sections">
+  <div class="brand"><img src="design/app-icon.svg" alt="">onlymuse</div>
+  <a class="nav-row" href="#overview" aria-current="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></svg>Overview</a>
+  <a class="nav-row" href="#look"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2.5"/><path d="M8 21h8M9 4v14"/></svg>Look</a>
+  <a class="nav-row" href="#behavior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3l1 7 2-2 4 7 2-1-4-7 3-1z"/></svg>Behavior</a>
+  <a class="nav-row" href="#code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg>Code</a>
+  <a class="nav-row" href="#commits"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>Up Next</a>
+  <div class="spacer"></div>
+  <div class="meta">Then <code>397e90e</code> · thor <code>5b3ab8f</code><br>Now <code>bd1575b</code> · thor <code>b64265f</code></div>
+</nav>
+
+<main>
+
+<section id="overview">
+  <div class="hero">
+    <div class="hero-art"><img src="design/app-icon.svg" alt="onlymuse icon"></div>
+    <div>
+      <h1>onlymuse on thor,<br><span class="accent">then and now</span></h1>
+      <div class="artist">9 Nov → 14 Nov 2026</div>
+      <p>On 9 November onlymuse first ran entirely on thor: its layers had moved into thor, but the app still drew most of its controls itself. Five days and 68 commits later it is built from thor's kit components, and thor grew the pieces onlymuse was missing.</p>
+      <div class="pills"><span class="pill accent">68 commits</span><span class="pill">16 thor gaps closed</span><span class="pill">3 files deleted</span></div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="big"><span class="from">14,459</span><span class="arrow">→</span>13,618</div><div class="label">Lines of Odin in <code>src</code>, <span class="down">−841</span></div></div>
+    <div class="stat"><div class="big"><span class="from">171</span><span class="arrow">→</span>238</div><div class="label">Calls into thor's <code>kit</code>, <span class="up">+39%</span></div></div>
+    <div class="stat"><div class="big"><span class="from">174</span><span class="arrow">→</span>134</div><div class="label">Hand-built <code>ui.box</code> calls, <span class="down">−23%</span></div></div>
+    <div class="stat"><div class="big"><span class="from">58</span><span class="arrow">→</span>0</div><div class="label">Lines of Objective-C menu code</div></div>
+    <div class="stat"><div class="big"><span class="from">4</span><span class="arrow">→</span>1</div><div class="label">Custom draw procedures</div></div>
+    <div class="stat"><div class="big"><span class="from">252</span><span class="arrow">→</span>228</div><div class="label">Hand-tuned constants</div></div>
+    <div class="stat"><div class="big"><span class="plus">+1,391</span> <span class="minus">−2,232</span></div><div class="label">Lines changed in <code>src</code>, 65 files</div></div>
+    <div class="stat"><div class="big"><span class="from">30</span><span class="arrow">→</span>41</div><div class="label">Different kit components used</div></div>
+  </div>
+</section>
+
+<section id="look">
+  <h2>Look</h2>
+  <p>Both builds ran on the same copy of the library, in an 1800 × 1130 window at 150% zoom. Drag across a screen to compare.</p>
+
+  <div class="segmented" role="tablist" id="screen-tabs">
+    <button role="tab" data-screen="now" aria-selected="true">Now Playing song</button>
+    <button role="tab" data-screen="home">Home</button>
+    <button role="tab" data-screen="songs">Songs</button>
+    <button role="tab" data-screen="palette">Palette</button>
+  </div>
+
+  <div class="compare" id="compare">
+    <img class="then-img" alt="onlymuse on 9 Nov" src="docs/thor-then-now/then-now.jpg">
+    <img class="now-img" alt="onlymuse on 14 Nov" src="docs/thor-then-now/now-now.jpg">
+    <div class="divider"><div class="knob"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6-6 6 6 6M15 6l6 6-6 6"/></svg></div></div>
+    <span class="tag then badge then">Then · 9 Nov</span>
+    <span class="tag now badge now">Now · 14 Nov</span>
+    <input type="range" min="0" max="100" value="50" aria-label="Split between then and now">
+  </div>
+  <p class="screen-notes" id="screen-note"></p>
+
+  <div class="closeups">
+    <div class="card">
+      <h3>Album badges and buttons</h3>
+      <p>Round pills became <code>kit.badge</code>: squarer corners, a tighter fit, the same colours. The buttons are unchanged.</p>
+      <div class="duo stack">
+        <figure class="shot"><img src="docs/thor-then-now/then-header.jpg" alt=""><span class="badge then">Then</span></figure>
+        <figure class="shot"><img src="docs/thor-then-now/now-header.jpg" alt=""><span class="badge now">Now</span></figure>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Up Next and Lyrics</h3>
+      <p>The tinted tab became <code>kit.segmented</code>, filled with the primary colour so the open panel reads at a glance.</p>
+      <div class="duo stack">
+        <figure class="shot"><img src="docs/thor-then-now/then-tabs.jpg" alt=""><span class="badge then">Then</span></figure>
+        <figure class="shot"><img src="docs/thor-then-now/now-tabs.jpg" alt=""><span class="badge now">Now</span></figure>
+      </div>
+      <h3 style="margin-top:22px">Sidebar</h3>
+      <p>It looks the same. Its rows are <code>kit.nav_row</code> now, so the whole sidebar is one Tab stop and the arrow keys move between pages.</p>
+      <div class="duo">
+        <figure class="shot"><img src="docs/thor-then-now/then-sidebar.jpg" alt=""><span class="badge then">Then</span></figure>
+        <figure class="shot"><img src="docs/thor-then-now/now-sidebar.jpg" alt=""><span class="badge now">Now</span></figure>
+      </div>
+    </div>
+    <div class="card wide">
+      <h3>Player bar</h3>
+      <p>Seek and volume are <code>kit.slider</code> and show a thumb. The time and title text is unchanged.</p>
+      <div class="duo stack">
+        <figure class="shot"><img src="docs/thor-then-now/then-player.jpg" alt=""><span class="badge then">Then</span></figure>
+        <figure class="shot"><img src="docs/thor-then-now/now-player.jpg" alt=""><span class="badge now">Now</span></figure>
+      </div>
+    </div>
+    <div class="card wide">
+      <h3>Command palette</h3>
+      <p>The palette sits in <code>kit.palette_dialog</code>: a little lower, at 18% of the window's height, in kit's dialog look. Thin dividers replace the uppercase group titles, and Tab moves the choice like the arrows.</p>
+      <div class="duo">
+        <figure class="shot"><img src="docs/thor-then-now/then-palettecrop.jpg" alt=""><span class="badge then">Then</span></figure>
+        <figure class="shot"><img src="docs/thor-then-now/now-palettecrop.jpg" alt=""><span class="badge now">Now</span></figure>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="behavior">
+  <h2>Behavior</h2>
+  <p>Most of what changed is in how onlymuse responds, not how it looks. Each row below names what you'd notice.</p>
+  <div class="behave">
+    <div class="card">
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3l1 7 2-2 4 7 2-1-4-7 3-1z"/></svg>Pointer and dragging</h3>
+      <ul>
+        <li><span class="badge changed">Changed</span><span><b>A press that moves more than 3 points is a drag,</b> on every control. It never also counts as a click.</span></li>
+        <li><span class="badge new">New</span><span><b>The closed hand shows</b> while a song is dragged, wherever it goes.</span></li>
+        <li><span class="badge changed">Changed</span><span><b>Dropping a song on a playlist</b> uses thor's <code>is_dropped_on</code>; the old guard that stopped a drop from also opening the song is gone.</span></li>
+        <li><span class="badge changed">Changed</span><span><b>Sliders set on release wherever the pointer ends,</b> even off the track. Before, releasing off the seek bar set nothing.</span></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>Keyboard</h3>
+      <ul>
+        <li><span class="badge new">New</span><span><b>Tab moves focus</b> through the app. Space, the arrows and Return go to the focused control, and still play, seek and change the volume until you Tab.</span></li>
+        <li><span class="badge new">New</span><span><b>The sidebar is one Tab stop;</b> the arrow keys move between its rows.</span></li>
+        <li><span class="badge fixed">Fixed</span><span><b>Shortcuts match their modifiers exactly,</b> so ⌘← skips back without also seeking.</span></li>
+        <li><span class="badge new">New</span><span><b>Tab and Shift-Tab move the palette's choice,</b> as the arrows do.</span></li>
+        <li><span class="badge new">New</span><span><b>Song menus take the arrow keys,</b> and their playlists open as a submenu.</span></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>Menus, popovers and dialogs</h3>
+      <ul>
+        <li><span class="badge changed">Changed</span><span><b>The context menu opens at the click,</b> with playlists in a submenu beside it on the side with room.</span></li>
+        <li><span class="badge fixed">Fixed</span><span><b>Add to Playlist and Shuffle rules anchor to their button,</b> so a second click closes them.</span></li>
+        <li><span class="badge changed">Changed</span><span><b>The menu bar is thor's,</b> with Hide, Show All, Quit, Edit and View. Play in Music.app sits at the top of the app menu, checked while Music.app plays.</span></li>
+        <li><span class="badge changed">Changed</span><span><b>The sign-in card is a dialog</b> that Escape can't close; only signing in does.</span></li>
+        <li><span class="badge changed">Changed</span><span><b>The shuffle rules</b> are a popover with a small segmented control and switches on the trailing edge, spaced evenly.</span></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Motion and scrolling</h3>
+      <ul>
+        <li><span class="badge changed">Changed</span><span><b>Every animation runs on kit's motion,</b> which follows Reduce Motion.</span></li>
+        <li><span class="badge changed">Changed</span><span><b>The loading bar is an indeterminate progress bar;</b> under Reduce Motion it pulses in place instead of sweeping.</span></li>
+        <li><span class="badge fixed">Fixed</span><span><b>Shelf tiles scale smoothly</b> while the side panel opens, and keep their image instead of jumping a point at a time.</span></li>
+        <li><span class="badge changed">Changed</span><span><b>Song lists, grids, shelves and the queue</b> build only the rows on screen through <code>kit.list</code>.</span></li>
+        <li><span class="badge fixed">Fixed</span><span><b>A page's scroll is saved</b> once it has settled, and the toolbar fits its buttons when the window has no title bar.</span></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M5 9l7 1.5L19 9M12 10.5V15l-3 6M12 15l3 6"/></svg>VoiceOver</h3>
+      <ul>
+        <li><span class="badge new">New</span><span><b>Player controls have names;</b> the seek bar reads Position with the time.</span></li>
+        <li><span class="badge new">New</span><span><b>Rows, cards and links can be pressed,</b> and shuffle, repeat and the panel buttons are announced as toggles.</span></li>
+        <li><span class="badge new">New</span><span><b>Artwork reads as an image</b> named for its album, card or artist, and the loading bar reads busy.</span></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Playback and the app</h3>
+      <ul>
+        <li><span class="badge fixed">Fixed</span><span><b>Next and Previous on the web player</b> no longer open Music.app.</span></li>
+        <li><span class="badge fixed">Fixed</span><span><b>YouTube mix covers</b> no longer stand in for each other.</span></li>
+        <li><span class="badge changed">Changed</span><span><b>Zoom belongs to thor:</b> its keys, steps and saving. The zoom onlymuse saved itself is no longer read, so the first launch opened at 100%.</span></li>
+        <li><span class="badge changed">Changed</span><span><b>Palette matches rank</b> a start, then a word start, then anywhere; loose letters-in-order matches are left out.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="code">
+  <h2>Code</h2>
+  <p>onlymuse's code got smaller as thor got bigger. Each piece onlymuse built by hand moved into a thor component, or thor grew one, and onlymuse deleted its copy.</p>
+
+  <div class="segmented" role="tablist" id="pair-tabs"><button role="tab" data-pair="signin" aria-selected=true>Sign-in card</button><button role="tab" data-pair="menu">App menu</button><button role="tab" data-pair="drag">Drag a song to a playlist</button><button role="tab" data-pair="loading">Loading bar</button></div>
+  <div class="pair" data-pair="signin">
+<p class="pair-note">A hand-placed card with its own width, half-height and centring became a kit.dialog that only signing in can close.</p>
+<div class="code-cols">
+<figure class="code then"><figcaption><span class="badge then">Then</span><span class="lines">71 lines</span></figcaption><pre><code>SIGN_IN_CARD_WIDTH_POINTS :: 380
+
+SIGN_IN_CARD_HALF_HEIGHT_POINTS :: 110
+
+build_sign_in_card :: proc() {
+	root := ui.current_parent()
+	window_size := [2]f32{root.style.width.value, root.style.height.value}
+	cover := ui.box(
+		&quot;sign in cover&quot;,
+		{
+			width = ui.fill(),
+			height = ui.fill(),
+			background = kit.to_color(0x000000a0),
+			position = {0, 0},
+			flags = {.Floating, .Clickable},
+		},
+	)
+
+	if ui.scope(cover) {
+		card := ui.box(
+			&quot;card&quot;,
+			{
+				width = ui.points(SIGN_IN_CARD_WIDTH_POINTS),
+				height = ui.fit_children(),
+				axis = .Y,
+				gap = 12,
+				padding = {24, 24, 24, 24},
+				corner_radius = 14,
+				background = kit.colors.card,
+				border_width = 1,
+				border_color = kit.colors.line,
+				position = {
+					(window_size.x - SIGN_IN_CARD_WIDTH_POINTS) / 2,
+					window_size.y / 2 - SIGN_IN_CARD_HALF_HEIGHT_POINTS,
+				},
+				flags = {.Floating},
+			},
+		)
+
+		if ui.scope(card) {
+			ui.box(
+				&quot;&quot;,
+				{
+					width = ui.fill(),
+					height = ui.fit_text(),
+					text_color = kit.colors.text,
+					font_size = 18,
+					font_weight = .Bold,
+				},
+				&quot;Sign in to Apple Music&quot;,
+			)
+			ui.box(
+				&quot;&quot;,
+				{
+					width = ui.fill(),
+					height = ui.fit_text(),
+					text_color = kit.colors.dim,
+					flags = {.Wrap_Text},
+				},
+				&quot;onlymuse reads Apple Music with the sign-in of music.apple.com. Apple&#x27;s own sign-in page opens in a window of its own.&quot;,
+			)
+
+			label := &quot;Open the sign-in window again&quot; if core.app.is_sign_in_open else &quot;Sign In&quot;
+
+			if kit.action_button(label, &quot;person.crop.circle&quot;, true) {
+				core.app.is_sign_in_open = true
+				helper.send_sign_in()
+			}
+		}
+	}
+}</code></pre></figure>
+<figure class="code now"><figcaption><span class="badge now">Now</span><span class="lines">13 lines</span></figcaption><pre><code>build_sign_in_card :: proc() {
+	if kit.dialog(&quot;sign_in&quot;, &amp;core.app.is_sign_in_needed, is_dismissable = false) {
+		kit.heading(&quot;Sign in to Apple Music&quot;, .Small)
+		kit.description(&quot;onlymuse reads Apple Music with the sign-in of music.apple.com. Apple&#x27;s own sign-in page opens in a window of its own.&quot;)
+
+		label := &quot;Open the sign-in window again&quot; if core.app.is_sign_in_open else &quot;Sign In&quot;
+
+		if kit.button(&quot;sign_in&quot;, label, &quot;person.crop.circle&quot;, .Primary).is_activated {
+			core.app.is_sign_in_open = true
+			helper.send_sign_in()
+		}
+	}
+}</code></pre></figure>
+</div></div><div class="pair" data-pair="menu" hidden>
+<p class="pair-note">onlymuse built the whole menu bar in Objective-C to add one item. thor now owns the bar; onlymuse lists its item each frame and reads the pick.</p>
+<div class="code-cols">
+<figure class="code then"><figcaption><span class="badge then">Then</span><span class="lines">58 lines</span></figcaption><pre><code>package macos
+
+import &quot;base:intrinsics&quot;
+import NS &quot;core:sys/darwin/Foundation&quot;
+
+Player_Menu :: struct {
+	is_driving: proc() -&gt; bool,
+	toggle:     proc(),
+}
+
+install_player_menu :: proc(player: Player_Menu) {
+	state.player_menu = player
+
+	empty_key := NS.String.alloc()-&gt;initWithOdinString(&quot;&quot;)
+	app_item := NS.MenuItem.alloc()-&gt;initWithTitle(
+		NS.String.alloc()-&gt;initWithOdinString(&quot;onlymuse&quot;),
+		nil,
+		empty_key,
+	)
+	app_menu := NS.Menu.alloc()-&gt;initWithTitle(NS.String.alloc()-&gt;initWithOdinString(&quot;onlymuse&quot;))
+	state.player_menu_item =
+	NS.MenuItem.alloc()-&gt;initWithTitle(
+		NS.String.alloc()-&gt;initWithOdinString(&quot;Play in Music.app&quot;),
+		intrinsics.objc_find_selector(&quot;togglePlayerMode:&quot;),
+		empty_key,
+	)
+	NS.MenuItem_setTarget(state.player_menu_item, state.target)
+	NS.Menu_addItem(app_menu, state.player_menu_item)
+	NS.Menu_addItem(app_menu, NS.MenuItem_separatorItem())
+
+	quit_item := NS.MenuItem.alloc()-&gt;initWithTitle(
+		NS.String.alloc()-&gt;initWithOdinString(&quot;Quit onlymuse&quot;),
+		intrinsics.objc_find_selector(&quot;quitApp:&quot;),
+		NS.String.alloc()-&gt;initWithOdinString(&quot;q&quot;),
+	)
+	NS.MenuItem_setTarget(quit_item, state.target)
+	NS.Menu_addItem(app_menu, quit_item)
+
+	main_menu := NS.Menu.alloc()-&gt;initWithTitle(NS.String.alloc()-&gt;initWithOdinString(&quot;onlymuse&quot;))
+	NS.Menu_addItem(main_menu, app_item)
+	NS.Menu_setSubmenu(main_menu, app_menu, app_item)
+	NS.Application.sharedApplication()-&gt;setMainMenu(main_menu)
+}
+@(objc_type = Macos_Target, objc_implement, objc_name = &quot;togglePlayerMode&quot;, objc_selector = &quot;togglePlayerMode:&quot;)
+Macos_Target_togglePlayerMode :: proc &quot;c&quot; (self: ^Macos_Target, item: NS.id) {
+	context = state.odin_context
+	state.player_menu.toggle()
+}
+@(objc_type = Macos_Target, objc_implement, objc_name = &quot;validateMenuItem&quot;, objc_selector = &quot;validateMenuItem:&quot;)
+Macos_Target_validateMenuItem :: proc &quot;c&quot; (self: ^Macos_Target, item: ^NS.MenuItem) -&gt; NS.BOOL {
+	context = state.odin_context
+
+	if item == state.player_menu_item {
+		objc_send(nil, item, &quot;setState:&quot;, NS.Integer(1 if state.player_menu.is_driving() else 0))
+	}
+
+	return true
+}</code></pre></figure>
+<figure class="code now"><figcaption><span class="badge now">Now</span><span class="lines">8 lines</span></figcaption><pre><code>// The app menu&#x27;s first item switches between the web player and Music.app, checked while Music.app plays.
+@(private = &quot;file&quot;)
+apply_player_menu :: proc() {
+	items := []platform.Menu_Item{{id = &quot;music_app&quot;, label = &quot;Play in Music.app&quot;, is_checked = core.app.drives_music_app}}
+	app.set_menu_items(items)
+
+	if ui.is_menu_picked(&quot;music_app&quot;) do core.set_player_mode(!core.app.drives_music_app)
+}</code></pre></figure>
+</div></div><div class="pair" data-pair="drag" hidden>
+<p class="pair-note">The drag threshold, the release scan and the ended_frame guard are gone: thor reports is_dragged and is_dropped_on, and a drag never counts as a click.</p>
+<div class="code-cols">
+<figure class="code then"><figcaption><span class="badge then">Then</span><span class="lines">46 lines</span></figcaption><pre><code>apply_song_row_signal :: proc(signal: ui.Signal, song: core.Catalog_Song) -&gt; bool {
+	if signal.is_right_clicked do open_song_menu(song, ui.mouse_position())
+
+	press, is_down := ui.press_position()
+	moved := ui.mouse_position() - press
+	has_moved := moved.x * moved.x + moved.y * moved.y &gt; DRAG_START_POINTS * DRAG_START_POINTS
+	can_start_drag := signal.is_held &amp;&amp; is_down &amp;&amp; !drag.is_dragging &amp;&amp; song.id != &quot;&quot;
+
+	if can_start_drag &amp;&amp; has_moved {
+		drag = {
+			is_dragging = true,
+			song        = core.copy_song(song),
+		}
+	}
+
+	return signal.is_clicked &amp;&amp; drag.ended_frame != app.frame_count
+}
+apply_song_drop :: proc(
+	is_hovered: bool,
+	playlist_id, playlist_name: string,
+	can_edit: bool,
+) -&gt; bool {
+	if !drag.is_dragging || !is_hovered || !can_edit do return false
+
+	if is_mouse_released() do add_to_playlist(playlist_id, playlist_name, drag.song)
+
+	return true
+}
+@(private = &quot;file&quot;)
+is_mouse_released :: proc() -&gt; bool {
+	for event in platform.list_events() {
+		if release, ok := event.(platform.Mouse_Release); ok &amp;&amp; release.button == .Left {
+			return true
+		}
+	}
+
+	return false
+}
+apply_drag_release :: proc() {
+	if !drag.is_dragging || !is_mouse_released() do return
+
+	core.delete_song(drag.song)
+	drag = {
+		ended_frame = app.frame_count,
+	}
+}</code></pre></figure>
+<figure class="code now"><figcaption><span class="badge now">Now</span><span class="lines">35 lines</span></figcaption><pre><code>apply_song_row_signal :: proc(signal: ui.Signal, song: core.Catalog_Song) -&gt; bool {
+	if signal.is_secondary do open_song_menu(song, ui.pointer_pos())
+
+	can_start_drag := signal.is_dragged &amp;&amp; !drag.is_dragging &amp;&amp; song.id != &quot;&quot;
+
+	if can_start_drag {
+		drag = {
+			is_dragging = true,
+			song        = core.copy_song(song),
+		}
+	}
+	// The pressed row&#x27;s cursor shows until the release, wherever the song is dragged.
+	if drag.is_dragging &amp;&amp; signal.is_held do signal.box.style.cursor = .Closed_Hand
+
+	return signal.is_activated
+}
+// Adds the dragged song to the playlist when it is dropped on its row, and says whether the row shows as
+// the drop target now.
+apply_song_drop :: proc(
+	signal: ui.Signal,
+	playlist_id, playlist_name: string,
+	can_edit: bool,
+) -&gt; bool {
+	if !drag.is_dragging || !can_edit do return false
+
+	if signal.is_dropped_on do add_to_playlist(playlist_id, playlist_name, drag.song)
+
+	return signal.is_hovered
+}
+apply_drag_release :: proc() {
+	if !drag.is_dragging || ui.interaction().is_held do return
+
+	core.delete_song(drag.song)
+	drag = {}
+}</code></pre></figure>
+</div></div><div class="pair" data-pair="loading" hidden>
+<p class="pair-note">The sweep maths and the paint wiring became one indeterminate kit.progress, which also pulses in place under Reduce Motion.</p>
+<div class="code-cols">
+<figure class="code then"><figcaption><span class="badge then">Then</span><span class="lines">19 lines</span></figcaption><pre><code>	sweep := f32(1 - math.cos(2 * math.PI * shown_seconds / LOADING_SWEEP_SECONDS)) / 2
+	first_ratio := sweep * (1 - LOADING_SEGMENT_RATIO)
+
+	if ui.scope(column) {
+		track := ui.box(
+			&quot;&quot;,
+			{
+				width = ui.points(LOADING_BAR_WIDTH_POINTS),
+				height = ui.points(kit.BAR_TRACK_HEIGHT_POINTS),
+			},
+		)
+		paint := new(kit.Bar_Paint, context.temp_allocator)
+		paint^ = {first_ratio, first_ratio + LOADING_SEGMENT_RATIO}
+		track.draw = kit.draw_bar
+		track.data = paint
+
+// look/theme.odin
+LOADING_SWEEP_SECONDS :: 1.6
+LOADING_SEGMENT_RATIO :: 0.3</code></pre></figure>
+<figure class="code now"><figcaption><span class="badge now">Now</span><span class="lines">2 lines</span></figcaption><pre><code>	if ui.scope(column) {
+		kit.progress(0, .Base, ui.points(LOADING_BAR_WIDTH), is_indeterminate = true)</code></pre></figure>
+</div></div>
+
+  <div class="code-stats" style="margin-top:28px">
+    <div class="card">
+      <h3>Files that changed most</h3>
+      <ul class="files"><li><span class="path">app/menus/song_menu.odin</span><span class="bars"><i class="add" style="width:47.4%"></i><i class="rem" style="width:52.6%"></i></span><span class="num"><b class="plus">+163</b> <b class="minus">−181</b></span></li><li><span class="path">app/player/panel.odin</span><span class="bars"><i class="add" style="width:24.7%"></i><i class="rem" style="width:48.8%"></i></span><span class="num"><b class="plus">+85</b> <b class="minus">−168</b></span></li><li><span class="path">app/look/artwork.odin</span><span class="bars"><i class="add" style="width:8.7%"></i><i class="rem" style="width:36.0%"></i></span><span class="num"><b class="plus">+30</b> <b class="minus">−124</b></span></li><li><span class="path">app/playback/shuffle.odin</span><span class="bars"><i class="add" style="width:17.7%"></i><i class="rem" style="width:27.0%"></i></span><span class="num"><b class="plus">+61</b> <b class="minus">−93</b></span></li><li><span class="path">app/frame.odin</span><span class="bars"><i class="add" style="width:17.7%"></i><i class="rem" style="width:22.7%"></i></span><span class="num"><b class="plus">+61</b> <b class="minus">−78</b></span></li><li><span class="path">app/lists/song_rows.odin</span><span class="bars"><i class="add" style="width:13.7%"></i><i class="rem" style="width:25.0%"></i></span><span class="num"><b class="plus">+47</b> <b class="minus">−86</b></span></li><li><span class="path">app/player/player_controls.odin</span><span class="bars"><i class="add" style="width:16.6%"></i><i class="rem" style="width:20.9%"></i></span><span class="num"><b class="plus">+57</b> <b class="minus">−72</b></span></li><li><span class="path">app/browse/album_page.odin</span><span class="bars"><i class="add" style="width:13.7%"></i><i class="rem" style="width:23.5%"></i></span><span class="num"><b class="plus">+47</b> <b class="minus">−81</b></span></li><li><span class="path">app/lists/cards.odin</span><span class="bars"><i class="add" style="width:16.0%"></i><i class="rem" style="width:21.2%"></i></span><span class="num"><b class="plus">+55</b> <b class="minus">−73</b></span></li><li><span class="path">app/palette/palette.odin</span><span class="bars"><i class="add" style="width:9.0%"></i><i class="rem" style="width:23.3%"></i></span><span class="num"><b class="plus">+31</b> <b class="minus">−80</b></span></li><li><span class="path">app/main.odin</span><span class="bars"><i class="add" style="width:6.4%"></i><i class="rem" style="width:25.6%"></i></span><span class="num"><b class="plus">+22</b> <b class="minus">−88</b></span></li><li><span class="path">app/player/player_bar.odin</span><span class="bars"><i class="add" style="width:11.0%"></i><i class="rem" style="width:20.9%"></i></span><span class="num"><b class="plus">+38</b> <b class="minus">−72</b></span></li></ul>
+    </div>
+    <div class="card">
+      <h3>Kit vocabulary</h3>
+      <div class="kit-group"><h3><span class="badge new">32 new</span></h3><span class="chip new">kit.as_button</span><span class="chip new">kit.as_toggle</span><span class="chip new">kit.badge</span><span class="chip new">kit.button</span><span class="chip new">kit.clickable</span><span class="chip new">kit.description</span><span class="chip new">kit.dialog</span><span class="chip new">kit.divider</span><span class="chip new">kit.focus_input</span><span class="chip new">kit.grid</span><span class="chip new">kit.has_focused_input</span><span class="chip new">kit.heading</span><span class="chip new">kit.image</span><span class="chip new">kit.list</span><span class="chip new">kit.menu</span><span class="chip new">kit.nav_row</span><span class="chip new">kit.palette_dialog</span><span class="chip new">kit.popover</span><span class="chip new">kit.progress</span><span class="chip new">kit.segmented</span><span class="chip new">kit.set_input_text</span><span class="chip new">kit.slider</span><span class="chip new">kit.submenu</span><span class="chip new">kit.text</span><span class="chip new">kit.text_field</span><span class="chip new">kit.to_badge_width</span><span class="chip new">kit.to_color_from_hsv</span><span class="chip new">kit.to_input_text</span><span class="chip new">kit.to_match_score</span><span class="chip new">kit.toast</span><span class="chip new">kit.toggle</span><span class="chip new">kit.with_opacity</span></div>
+      <div class="kit-group"><h3><span class="badge changed">9 kept</span></h3><span class="chip kept">kit.icon_box</span><span class="chip kept">kit.measure_text</span><span class="chip kept">kit.menu_item</span><span class="chip kept">kit.menu_separator</span><span class="chip kept">kit.scrolling_text</span><span class="chip kept">kit.show_toast</span><span class="chip kept">kit.to_color</span><span class="chip kept">kit.to_color_from_hex</span><span class="chip kept">kit.toggle_chip</span></div>
+      <div class="kit-group"><h3><span class="badge" style="background:rgba(255,99,105,.12);color:var(--red)">21 gone or renamed</span></h3><span class="chip gone">kit.action_button</span><span class="chip gone">kit.bar</span><span class="chip gone">kit.build_text_field</span><span class="chip gone">kit.build_toast</span><span class="chip gone">kit.focus_field</span><span class="chip gone">kit.has_focused_field</span><span class="chip gone">kit.icon_button</span><span class="chip gone">kit.is_mouse_in</span><span class="chip gone">kit.menu_box</span><span class="chip gone">kit.menu_item_signal</span><span class="chip gone">kit.mix_color</span><span class="chip gone">kit.note</span><span class="chip gone">kit.page_heading</span><span class="chip gone">kit.set_field_text</span><span class="chip gone">kit.spacer</span><span class="chip gone">kit.text_box</span><span class="chip gone">kit.to_accent_tint</span><span class="chip gone">kit.to_color_from_hex_digits</span><span class="chip gone">kit.to_color_from_hsl</span><span class="chip gone">kit.to_faded</span><span class="chip gone">kit.to_field_text</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Deleted and added files</h3>
+    <ul class="files">
+      <li><span class="path">app/zoom.odin</span><span class="bars"><i class="rem" style="width:36%"></i></span><span class="num"><b class="minus">−66</b></span></li>
+      <li><span class="path">macos/menu.odin</span><span class="bars"><i class="rem" style="width:24%"></i></span><span class="num"><b class="minus">−43</b></span></li>
+      <li><span class="path">app/look/menu_box.odin</span><span class="bars"><i class="rem" style="width:4%"></i></span><span class="num">added, then deleted</span></li>
+      <li><span class="path">app/saved_window.odin</span><span class="bars"><i class="add" style="width:16%"></i></span><span class="num"><b class="plus">+new</b></span></li>
+    </ul>
+  </div>
+</section>
+
+<section id="commits">
+  <h2>Up Next: 68 commits</h2>
+  <div class="queue-wrap">
+    <div class="card"><ul class="queue"><li><span class="tile" style="--t:#F7821B">09</span><span class="q-text"><span class="q-title">Build the song rows, the card grid and the queue with kit.list</span><span class="q-sub">Mon 09 Nov · 0384e8e</span></span></li><li><span class="tile" style="--t:#F7821B">09</span><span class="q-text"><span class="q-title">Use kit&#x27;s new names for text, headings, notes, buttons and fields</span><span class="q-sub">Mon 09 Nov · edad9d0</span></span></li><li><span class="tile" style="--t:#F7821B">09</span><span class="q-text"><span class="q-title">Scroll the bench with thor&#x27;s dev.bench_scroll</span><span class="q-sub">Mon 09 Nov · fb3f6c2</span></span></li><li><span class="tile" style="--t:#E5484D">10</span><span class="q-text"><span class="q-title">Follow thor: icon_button takes is_disabled</span><span class="q-sub">Tue 10 Nov · 231d232</span></span></li><li><span class="tile" style="--t:#E5484D">10</span><span class="q-text"><span class="q-title">Use thor&#x27;s zoom</span><span class="q-sub">Tue 10 Nov · 9f41c9f</span></span></li><li><span class="tile" style="--t:#E5484D">10</span><span class="q-text"><span class="q-title">Put the player item in thor&#x27;s app menu</span><span class="q-sub">Tue 10 Nov · 1fa8cd8</span></span></li><li><span class="tile" style="--t:#E5484D">10</span><span class="q-text"><span class="q-title">Leave Tab, the arrows, Return and Space to focus when it uses them</span><span class="q-sub">Tue 10 Nov · 66db0fd</span></span></li><li><span class="tile" style="--t:#E5484D">10</span><span class="q-text"><span class="q-title">Follow thor&#x27;s components returning a ui.Signal</span><span class="q-sub">Tue 10 Nov · e29a635</span></span></li><li><span class="tile" style="--t:#E5484D">10</span><span class="q-text"><span class="q-title">Stay dark, with the window colour and accent on thor&#x27;s dark palette</span><span class="q-sub">Tue 10 Nov · 5e5ad57</span></span></li><li><span class="tile" style="--t:#E5484D">10</span><span class="q-text"><span class="q-title">Move onto thor&#x27;s daisyUI-classified tokens and tones</span><span class="q-sub">Tue 10 Nov · cf1f9d4</span></span></li><li><span class="tile" style="--t:#E5484D">10</span><span class="q-text"><span class="q-title">Follow thor&#x27;s named keys</span><span class="q-sub">Tue 10 Nov · 2ef2f18</span></span></li><li><span class="tile" style="--t:#E5484D">10</span><span class="q-text"><span class="q-title">Panel tabs and card grids on thor&#x27;s segmented and grid</span><span class="q-sub">Tue 10 Nov · 2d82f24</span></span></li><li><span class="tile" style="--t:#8E4EC6">11</span><span class="q-text"><span class="q-title">Rank palette matches with thor&#x27;s to_match_score</span><span class="q-sub">Wed 11 Nov · 3e65797</span></span></li><li><span class="tile" style="--t:#8E4EC6">11</span><span class="q-text"><span class="q-title">Follow thor&#x27;s reviewed API</span><span class="q-sub">Wed 11 Nov · a147689</span></span></li><li><span class="tile" style="--t:#8E4EC6">11</span><span class="q-text"><span class="q-title">Centre the play symbol in its circle again</span><span class="q-sub">Wed 11 Nov · e204d67</span></span></li><li><span class="tile" style="--t:#8E4EC6">11</span><span class="q-text"><span class="q-title">Use segmented and toggle_chip</span><span class="q-sub">Wed 11 Nov · 64f7437</span></span></li><li><span class="tile" style="--t:#8E4EC6">11</span><span class="q-text"><span class="q-title">Reword comments and alerts in plain technical English</span><span class="q-sub">Wed 11 Nov · aade217</span></span></li><li><span class="tile" style="--t:#8E4EC6">11</span><span class="q-text"><span class="q-title">Use kit.motion for every animation</span><span class="q-sub">Wed 11 Nov · b188518</span></span></li><li><span class="tile" style="--t:#8E4EC6">11</span><span class="q-text"><span class="q-title">Use kit.colors.line for borders and lines</span><span class="q-sub">Wed 11 Nov · 6592a6f</span></span></li><li><span class="tile" style="--t:#8E4EC6">11</span><span class="q-text"><span class="q-title">Rename kit.to_faded to kit.with_opacity</span><span class="q-sub">Wed 11 Nov · 5b35ab7</span></span></li><li><span class="tile" style="--t:#3E63DD">12</span><span class="q-text"><span class="q-title">Give VoiceOver words for the player&#x27;s controls</span><span class="q-sub">Thu 12 Nov · 9e78dcb</span></span></li><li><span class="tile" style="--t:#3E63DD">12</span><span class="q-text"><span class="q-title">Follow thor: corner_radius per corner, and no bench call</span><span class="q-sub">Thu 12 Nov · f25a50a</span></span></li><li><span class="tile" style="--t:#3E63DD">12</span><span class="q-text"><span class="q-title">Follow thor: gradients are Style.layers</span><span class="q-sub">Thu 12 Nov · 569f0a1</span></span></li><li><span class="tile" style="--t:#12A594">13</span><span class="q-text"><span class="q-title">Name the seek and volume sliders through thor&#x27;s label</span><span class="q-sub">Fri 13 Nov · 8f786b2</span></span></li><li><span class="tile" style="--t:#12A594">13</span><span class="q-text"><span class="q-title">Show the closed hand while a song is dragged</span><span class="q-sub">Fri 13 Nov · 0a05d83</span></span></li><li><span class="tile" style="--t:#12A594">13</span><span class="q-text"><span class="q-title">Follow thor: durations, time.Time for dates, linalg.lerp</span><span class="q-sub">Fri 13 Nov · 9c5b4e2</span></span></li><li><span class="tile" style="--t:#12A594">13</span><span class="q-text"><span class="q-title">Follow thor: Style.pointer and Style.text_fit</span><span class="q-sub">Fri 13 Nov · 6849676</span></span></li><li><span class="tile" style="--t:#12A594">13</span><span class="q-text"><span class="q-title">Follow thor: app.begin_frame returns a time.Duration</span><span class="q-sub">Fri 13 Nov · 4ea51d5</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Follow thor: images.fetch and to_family, durations, dates, is_accessory</span><span class="q-sub">Sat 14 Nov · 1f05128</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Follow thor: points keep no suffix, pixels end in _px, and the bg/pos/prev/buf/a11y shorthands</span><span class="q-sub">Sat 14 Nov · 3a07d46</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Follow thor: scrolling_text pointer, format_date_time, CA_Layer, and measure words</span><span class="q-sub">Sat 14 Nov · 92cfa1a</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Send the helper its own word for the previous track again</span><span class="q-sub">Sat 14 Nov · be7fa9e</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Follow thor: one size scale, descriptions, and labels on every control</span><span class="q-sub">Sat 14 Nov · fcea289</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Keep song row and album detail lines on one line, as before</span><span class="q-sub">Sat 14 Nov · c7fbc70</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Keep the song list header on one line, as before</span><span class="q-sub">Sat 14 Nov · 2f40359</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Follow thor: one fit length, safe areas, and a scroll set_scroll keeps</span><span class="q-sub">Sat 14 Nov · 472774e</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Name pages and list rows by ids, never by their labels</span><span class="q-sub">Sat 14 Nov · e76ec2e</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Follow thor: save the page&#x27;s scroll once set_scroll stops waiting, the toolbar takes the sidebar&#x27;s safe inset, and grids pass their style</span><span class="q-sub">Sat 14 Nov · eb19b4e</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Give the toolbar a height its buttons fit in when the window has no title bar, and share it with the sidebar</span><span class="q-sub">Sat 14 Nov · 1157261</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Show the Up Next and Lyrics switch in the primary color</span><span class="q-sub">Sat 14 Nov · 19731e9</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Snap artwork&#x27;s crop to the nearest quarter step, so tiles keep their image while a panel opens</span><span class="q-sub">Sat 14 Nov · 68a51cf</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Pick a shelf&#x27;s tile count from the width the page settles at, so tiles scale smoothly while the panel moves</span><span class="q-sub">Sat 14 Nov · e8ce847</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Size shelf tiles in fractions of a point, so rows don&#x27;t jump a point at once</span><span class="q-sub">Sat 14 Nov · 15cd8e5</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Let Tab and Shift-Tab move the palette&#x27;s choice, as the arrows do</span><span class="q-sub">Sat 14 Nov · d0cb1e0</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Keep a cover URL&#x27;s query in its family, so YouTube&#x27;s mix covers stop standing in for each other</span><span class="q-sub">Sat 14 Nov · a6c5e49</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Add the thor overlap report: what onlymuse builds by hand that thor has, with the approved plan</span><span class="q-sub">Sat 14 Nov · dba1741</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Use thor&#x27;s components where onlymuse built its own (overlap report items 1-5 and 9)</span><span class="q-sub">Sat 14 Nov · e408d1b</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Space the shuffle rules evenly: 14 points in on every side, labels by their control, groups apart</span><span class="q-sub">Sat 14 Nov · 82e34b8</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Add thor gaps 15-17 from the shuffle rules review, for approval</span><span class="q-sub">Sat 14 Nov · 5d1a65c</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Use kit text&#x27;s fit setting, and kit.description for one-line muted subtitles (thor gap 9)</span><span class="q-sub">Sat 14 Nov · 2c11af7</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Use a Small segmented control in the shuffle rules (thor gap 15)</span><span class="q-sub">Sat 14 Nov · 87ac5a7</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Anchor the shuffle rules to the button that opened it, so a second click closes them; give the rules one even gap</span><span class="q-sub">Sat 14 Nov · 5a9c367</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Record the approved redesigns of thor gaps 16 and 17</span><span class="q-sub">Sat 14 Nov · 2d97893</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Build the shuffle rules as a plain kit.popover with trailing kit.toggle switches (thor gaps 16 and 17)</span><span class="q-sub">Sat 14 Nov · a52abe6</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Build the song menus on kit.menu and kit.submenu, and delete look/menu_box.odin (overlap item 11)</span><span class="q-sub">Sat 14 Nov · 83bc267</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Mark thor gaps 3 and 4 and item 11 done in the report</span><span class="q-sub">Sat 14 Nov · 16a4beb</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Read the keyboard shortcuts through ui.is_key_pressed and ui.press_modifiers (overlap item 12)</span><span class="q-sub">Sat 14 Nov · 1c5650a</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Mark thor gap 10 and item 12 done in the report</span><span class="q-sub">Sat 14 Nov · 1d475a1</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">On the web player, don&#x27;t send next and previous to Music.app, which opened it</span><span class="q-sub">Sat 14 Nov · 375d1d9</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Draw artwork with kit.image, sized with images.to_texture_size_px (overlap item 13)</span><span class="q-sub">Sat 14 Nov · 5da28ff</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Draw onlymuse&#x27;s badges and pills with kit.badge (overlap item 7)</span><span class="q-sub">Sat 14 Nov · 36c2471</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Build the sidebar rows with kit.nav_row (overlap item 6)</span><span class="q-sub">Sat 14 Nov · a15ad81</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Put the palette in kit.palette_dialog (overlap item 14&#x27;s shell)</span><span class="q-sub">Sat 14 Nov · 4a47460</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Show the sign-in card as a kit.dialog that only signing in closes (overlap item 8)</span><span class="q-sub">Sat 14 Nov · 9f0a557</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Draw the loading bar with kit.progress&#x27;s is_indeterminate (overlap item 10)</span><span class="q-sub">Sat 14 Nov · 8908f7d</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Drop songs on playlists with Signal.is_dropped_on, and drop the ended_frame guard (thor gap 11)</span><span class="q-sub">Sat 14 Nov · 5fab3e2</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Put Play in Music.app in the app menu with app.set_menu_items, and delete the Objective-C menu code (thor gap 13)</span><span class="q-sub">Sat 14 Nov · 601201c</span></span></li><li><span class="tile" style="--t:#D6409F">14</span><span class="q-text"><span class="q-title">Mark thor gap 9 built in the report</span><span class="q-sub">Sat 14 Nov · bd1575b</span></span></li></ul></div>
+    <div class="card">
+      <h3>By day</h3>
+      <div class="days" id="days"></div>
+    </div>
+  </div>
+  <p class="method" style="margin-top:22px">Then is onlymuse <code>397e90e</code> built against thor <code>5b3ab8f</code>, the first build with every layer from thor. Now is onlymuse <code>bd1575b</code> with thor <code>b64265f</code>. Screenshots come from both builds run one after the other on a copy of the library; differences in Home's shelves come from Apple's data, not the app.</p>
+</section>
+
+</main>
+
+<footer class="player">
+  <div class="np"><img src="design/app-icon.svg" alt=""><div><div class="t">onlymuse on thor</div><div class="s">Then and now</div></div></div>
+  <div class="transport">
+    <div class="buttons">
+      <button id="prev" aria-label="Previous section"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 6v12l-8.5-6zM21 6v12l-8.5-6z"/></svg></button>
+      <button id="play" class="play" aria-label="Next section"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg></button>
+      <button id="next" aria-label="Next section"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 6v12l8.5-6zM13 6v12l8.5-6z"/></svg></button>
+    </div>
+    <div class="seek"><span class="l">9 Nov</span><div class="track" id="seek"><div class="fill"></div><div class="thumb"></div></div><span class="r">14 Nov</span></div>
+  </div>
+  <div class="right"><span class="badge changed" id="where">Overview</span></div>
+</footer>
+
+<script>
+const shots = {
+  now: 'Same song page in both. The badges, the Up Next switch and the sliders changed; the layout did not.',
+  home: 'Home keeps its shelves and cards. Shelves now build only the tiles on screen and scale smoothly while the side panel opens.',
+  songs: 'Song lists look the same. kit.list now builds the rows on screen, where onlymuse once tracked them itself.',
+  palette: 'The palette moved into kit.palette_dialog: lower in the window, kit\'s dialog look, and dividers in place of uppercase group titles.',
+}
+const compare = document.getElementById('compare')
+const [thenImg, nowImg] = compare.querySelectorAll('img')
+const range = compare.querySelector('input')
+const note = document.getElementById('screen-note')
+range.addEventListener('input', () => compare.style.setProperty('--split', range.value + '%'))
+
+function tabs(id, attr, show) {
+  const bar = document.getElementById(id)
+  bar.addEventListener('click', e => {
+    const button = e.target.closest('button')
+    if (!button) return
+    bar.querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', b === button))
+    show(button.dataset[attr])
+  })
+}
+function showScreen(name) {
+  thenImg.src = `docs/thor-then-now/then-${name}.jpg`
+  nowImg.src = `docs/thor-then-now/now-${name}.jpg`
+  note.textContent = shots[name]
+}
+tabs('screen-tabs', 'screen', showScreen)
+showScreen('now')
+tabs('pair-tabs', 'pair', name => document.querySelectorAll('.pair').forEach(p => p.hidden = p.dataset.pair !== name))
+
+// A small Odin highlighter.
+const KEYWORDS = /^(proc|if|else|do|return|for|in|struct|import|package|switch|case|defer|when|not_in|or_return|cast|true|false|nil)$/
+document.querySelectorAll('pre code').forEach(block => {
+  const src = block.textContent
+  const re = /(\/\/[^\n]*)|("(?:[^"\\\n]|\\.)*")|(@\([^)]*\))|\b(\d+(?:\.\d+)?)\b|\b((?:kit|ui|app|platform)\.[A-Za-z_]+)|\b([A-Za-z_]\w*)\b/g
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+  let out = '', last = 0, m
+  while ((m = re.exec(src))) {
+    out += esc(src.slice(last, m.index))
+    const [t] = m
+    if (m[1]) out += `<span class="tok-c">${esc(t)}</span>`
+    else if (m[2]) out += `<span class="tok-s">${esc(t)}</span>`
+    else if (m[3]) out += `<span class="tok-o">${esc(t)}</span>`
+    else if (m[4]) out += `<span class="tok-n">${t}</span>`
+    else if (m[5]) out += `<span class="tok-t">${t}</span>`
+    else if (KEYWORDS.test(t)) out += `<span class="tok-k">${t}</span>`
+    else if (/^NS$|^objc_|^intrinsics$/.test(t)) out += `<span class="tok-o">${t}</span>`
+    else out += t
+    last = re.lastIndex
+  }
+  block.innerHTML = out + esc(src.slice(last))
+})
+
+// Commits by day.
+const days = {}
+document.querySelectorAll('.queue .q-sub').forEach(s => {
+  const day = s.textContent.split(' · ')[0]
+  days[day] = (days[day] || 0) + 1
+})
+const most = Math.max(...Object.values(days))
+document.getElementById('days').innerHTML = Object.entries(days)
+  .map(([d, n]) => `<div class="day"><span>${d}</span><span class="track"><i style="width:${n / most * 100}%"></i></span><b>${n}</b></div>`).join('')
+
+// The player bar follows the page.
+const sections = [...document.querySelectorAll('main section')]
+const navRows = [...document.querySelectorAll('.nav-row')]
+const fill = document.querySelector('.seek .fill')
+const thumb = document.querySelector('.seek .thumb')
+const where = document.getElementById('where')
+function current() {
+  let index = 0
+  sections.forEach((s, i) => { if (s.getBoundingClientRect().top < innerHeight * .35) index = i })
+  return index
+}
+function update() {
+  const max = document.documentElement.scrollHeight - innerHeight
+  const ratio = max > 0 ? scrollY / max : 0
+  fill.style.width = thumb.style.left = (ratio * 100) + '%'
+  const index = current()
+  navRows.forEach((r, i) => r.setAttribute('aria-current', i === index))
+  where.textContent = navRows[index].textContent.trim()
+}
+addEventListener('scroll', update, { passive: true })
+update()
+const go = step => sections[Math.max(0, Math.min(sections.length - 1, current() + step))].scrollIntoView()
+document.getElementById('prev').onclick = () => go(-1)
+document.getElementById('next').onclick = () => go(1)
+document.getElementById('play').onclick = () => go(1)
+document.getElementById('seek').addEventListener('click', e => {
+  const r = e.currentTarget.getBoundingClientRect()
+  scrollTo(0, (e.clientX - r.left) / r.width * (document.documentElement.scrollHeight - innerHeight))
+})
+</script>
+</body>
+</html>

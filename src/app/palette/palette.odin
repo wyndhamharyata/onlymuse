@@ -6,13 +6,10 @@ import "om:app/lists"
 import "om:app/playback"
 import "om:apple"
 import "om:helper"
-import "thor:app"
 import "thor:kit"
 import "thor:ui"
 
 PALETTE_WIDTH :: 560
-
-PALETTE_TOP :: 70
 
 PALETTE_ROW_HEIGHT :: 36
 
@@ -69,7 +66,6 @@ palette: struct {
 	built_term:          string,
 	built_signature:     int,
 	typed_at_ms:         f64,
-	opened_frame:        int,
 	last_mouse_pos:      [2]f32,
 	should_reset_scroll: bool,
 }
@@ -87,7 +83,6 @@ toggle_palette :: proc() {
 
 	palette.is_open = true
 	palette.selected_index = 0
-	palette.opened_frame = app.frame_count
 	palette.built_signature = -1
 	palette.should_reset_scroll = true
 	kit.set_input_text(&palette.field, "")
@@ -106,7 +101,11 @@ close_palette :: proc() {
 }
 
 build_palette :: proc() {
-	if !palette.is_open do return
+	if !palette.is_open {
+		// kit's dialog closes it on Escape or a press outside, so the field lets go of the keyboard here.
+		if palette.field.is_focused do close_palette()
+		return
+	}
 
 	field := &palette.field
 
@@ -138,79 +137,31 @@ build_palette :: proc() {
 		return
 	}
 
-	window_size := ui.window_size()
-	cover := ui.box(
-		"palette_cover",
-		{
-			width = ui.fill(),
-			height = ui.fill(),
-			bg = kit.to_color(0x00000059),
-			pos = {0, 0},
-			pointer = .Click,
-			flags = {.Floating},
-		},
-	)
-	is_closing := ui.signal(cover).is_activated && app.frame_count > palette.opened_frame + 1
 	picked := -1
+	width := min(PALETTE_WIDTH, ui.window_size().x - 40)
 
-	if ui.scope(cover) {
-		width := min(PALETTE_WIDTH, window_size.x - 40)
-		pos := [2]f32{(window_size.x - width) / 2, PALETTE_TOP}
-
-		ui.box(
-			"palette_shadow",
-			{
-				width = ui.points(width),
-				height = ui.points(300),
-				corner_radius = 16,
-				bg = {0, 0, 0, 0.5},
-				softness = 40,
-				pos = pos + {0, 16},
-				flags = {.Floating},
+	if kit.palette_dialog("palette", &palette.is_open, width) {
+		kit.text_field(
+			"palette_field",
+			field,
+			"Go to a page, an artist, a song, or do something",
+			"magnifyingglass",
+			variant = .Ghost,
+			style = {
+				height = ui.points(PALETTE_FIELD_HEIGHT),
+				font_size = PALETTE_FIELD_FONT_SIZE,
+				flags = {.Tab_As_Arrows},
 			},
 		)
-		panel := ui.box(
-			"palette",
-			{
-				width = ui.points(width),
-				axis = .Y,
-				padding = {8, 8, 8, 8},
-				gap = 6,
-				corner_radius = 14,
-				bg = kit.to_color(0x26262af5),
-				border_width = 1,
-				border_color = kit.to_color(0xffffff1f),
-				pos = pos,
-				pointer = .Click,
-				flags = {.Floating},
-			},
-		)
-
-		if ui.scope(panel) {
-			kit.text_field(
-				"palette_field",
-				field,
-				"Go to a page, an artist, a song, or do something",
-				"magnifyingglass",
-				variant = .Ghost,
-				style = {
-					height = ui.points(PALETTE_FIELD_HEIGHT),
-					font_size = PALETTE_FIELD_FONT_SIZE,
-					flags = {.Tab_As_Arrows},
-				},
-			)
-			picked = build_results()
-		}
+		picked = build_results()
 	}
 
 	palette.last_mouse_pos = ui.pointer_pos()
 
 	if picked >= 0 {
 		run_result(palette.results[picked])
-		is_closing = true
+		close_palette()
 	}
-
-	if is_closing do close_palette()
 }
 
 @(private = "file")

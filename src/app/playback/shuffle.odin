@@ -200,7 +200,6 @@ set_shuffle_note :: proc(recent_count, skipped_count, apart_count: int) {
 
 RULES_MENU_WIDTH :: 300
 
-RULES_GAP :: 8
 
 RECENT_OPTIONS := []kit.Option {
 	{id = "0", label = "Off"},
@@ -236,15 +235,12 @@ build_shuffle_rules :: proc(opener: Rules_Opener, anchor: ^ui.Box) {
 	rules_menu.is_built = true
 
 	if kit.popover("shuffle_rules", &rules_menu.is_open, anchor, width = ui.points(RULES_MENU_WIDTH)) {
-		// With the popover's own 5, its content sits 14 points in on every side, as menu items' labels do.
-		if ui.col("rules", {width = ui.fill(), gap = RULES_GAP, padding = 9}) {
-			kit.heading("Shuffle", .Small)
-			kit.text("Play recent songs last")
-			build_recent_hours()
-			build_rule_toggle("skipped", "Play often-skipped songs last", &shuffle_rules.is_skipped_last)
-			build_rule_toggle("albums", "Spread out songs from one album", &shuffle_rules.is_album_spread)
-			build_rule_toggle("favourites", "Play favourites earlier", &shuffle_rules.is_favourite_early)
-		}
+		kit.heading("Shuffle", .Small)
+		kit.text("Play recent songs last")
+		build_recent_hours()
+		if kit.toggle("skipped", &shuffle_rules.is_skipped_last, "Play often-skipped songs last").is_changed do save_shuffle_rules()
+		if kit.toggle("albums", &shuffle_rules.is_album_spread, "Spread out songs from one album").is_changed do save_shuffle_rules()
+		if kit.toggle("favourites", &shuffle_rules.is_favourite_early, "Play favourites earlier").is_changed do save_shuffle_rules()
 	}
 }
 
@@ -270,12 +266,4 @@ build_recent_hours :: proc() {
 	}
 
 	save_shuffle_rules()
-}
-
-@(private = "file")
-build_rule_toggle :: proc(id, label: string, is_on: ^bool) {
-	if ui.row(id, {width = ui.fill(), align = .Center, gap = 10}) {
-		kit.text(label)
-		if kit.toggle("switch", is_on, label, is_label_hidden = true).is_changed do save_shuffle_rules()
-	}
 }

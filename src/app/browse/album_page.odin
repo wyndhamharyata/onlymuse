@@ -12,11 +12,11 @@ import "om:apple"
 import "thor:kit"
 import "thor:ui"
 
-ALBUM_COVER_POINTS :: 240
+ALBUM_COVER :: 240
 
-ALBUM_HEADER_GAP_POINTS :: 20
+ALBUM_HEADER_GAP :: 20
 
-MIN_ALBUM_INFO_POINTS :: 300
+MIN_ALBUM_INFO :: 300
 
 build_album_page :: proc(album_id: string) {
 	catalog_id := album_id
@@ -116,10 +116,10 @@ read_album :: proc(data: ^core.Page_Data, body: string) {
 }
 
 build_album_header :: proc(data: ^core.Page_Data, width: f32) {
-	cover_points: f32 = ALBUM_COVER_POINTS if width <= 0 else min(ALBUM_COVER_POINTS, width)
-	side_points := width - cover_points - ALBUM_HEADER_GAP_POINTS
-	is_side_by_side := width <= 0 || side_points >= MIN_ALBUM_INFO_POINTS
-	info_points := side_points if is_side_by_side && width > 0 else width
+	cover_size: f32 = ALBUM_COVER if width <= 0 else min(ALBUM_COVER, width)
+	side := width - cover_size - ALBUM_HEADER_GAP
+	is_side_by_side := width <= 0 || side >= MIN_ALBUM_INFO
+	info := side if is_side_by_side && width > 0 else width
 
 	header := ui.box(
 		"header",
@@ -128,34 +128,34 @@ build_album_header :: proc(data: ^core.Page_Data, width: f32) {
 			height = ui.fit_children(),
 			axis = .X if is_side_by_side else .Y,
 			align = .End if is_side_by_side else .Start,
-			gap = ALBUM_HEADER_GAP_POINTS,
+			gap = ALBUM_HEADER_GAP,
 		},
 	)
 
 	if ui.scope(header) {
 		look.artwork_box(
-			apple.to_artwork_url(data.artwork, look.to_artwork_pixels(cover_points)),
-			cover_points,
+			apple.to_artwork_url(data.artwork, look.to_artwork_px(cover_size)),
+			cover_size,
 			10,
 			look.to_placeholder(data.artwork, data.title, "square.stack"),
 		)
-		build_album_info(data, info_points)
+		build_album_info(data, info)
 	}
 }
 
 @(private = "file")
-MIN_LARGE_TITLE_INFO_POINTS :: 360
+MIN_LARGE_TITLE_INFO :: 360
 
 @(private = "file")
-MIN_MEDIUM_TITLE_INFO_POINTS :: 240
+MIN_MEDIUM_TITLE_INFO :: 240
 
 @(private = "file")
-build_album_info :: proc(data: ^core.Page_Data, info_points: f32) {
+build_album_info :: proc(data: ^core.Page_Data, info: f32) {
 	title_size: f32 = 22
 
-	if info_points <= 0 || info_points >= MIN_LARGE_TITLE_INFO_POINTS {
+	if info <= 0 || info >= MIN_LARGE_TITLE_INFO {
 		title_size = 32
-	} else if info_points >= MIN_MEDIUM_TITLE_INFO_POINTS {
+	} else if info >= MIN_MEDIUM_TITLE_INFO {
 		title_size = 26
 	}
 
@@ -265,8 +265,8 @@ build_numbered_songs :: proc(songs: []core.Catalog_Song) {
 					gap = 12,
 					padding = {10, 0, 10, 0},
 					corner_radius = 7,
-					background = tint if is_current else {},
-					hover_background = tint if is_current else kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY),
+					bg = tint if is_current else {},
+					hover_bg = tint if is_current else kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY),
 					pointer = .Click,
 				},
 			)

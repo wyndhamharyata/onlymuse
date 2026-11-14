@@ -87,7 +87,7 @@ Macos_Target_askForSavedWallpaper :: proc "c" (self: ^Macos_Target, sender: NS.i
 	ask_for_saved_wallpaper()
 }
 
-start :: proc(window: ^platform.Native_Window, is_background: bool) {
+start :: proc(window: ^platform.Native_Window, is_bg: bool) {
 	state.window = window
 	state.odin_context = context
 	state.target = objc_send(
@@ -126,7 +126,7 @@ start :: proc(window: ^platform.Native_Window, is_background: bool) {
 		NS.AT("NSWindowDidBecomeKeyNotification"),
 	)
 
-	if is_background do return
+	if is_bg do return
 
 	objc_send(
 		nil,

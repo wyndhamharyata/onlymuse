@@ -142,7 +142,7 @@ build_recent_songs_shelf :: proc(artist_id, artist_name: string) {
 					width = ui.fit_text(),
 					height = ui.fit_text(),
 					text_color = kit.with_opacity(kit.colors.base_content, text_alpha),
-					font_size = look.SHELF_TITLE_POINTS,
+					font_size = look.SHELF_TITLE,
 					font_weight = .Bold,
 				},
 				"Recent Songs",

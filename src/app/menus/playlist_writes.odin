@@ -24,8 +24,8 @@ Write_Job :: struct {
 @(private = "file")
 Created_Playlist :: struct {
 	id, name, done_text: string,
-	youtube_songs:       []youtube_lists.Playlist_YouTube_Song,
-	should_open_page:    bool,
+	youtube_songs:    []youtube_lists.Playlist_YouTube_Song,
+	should_open_page: bool,
 }
 
 @(private = "file")

@@ -32,13 +32,13 @@ Lyrics_Kind :: enum {
 
 @(private)
 Song_Details :: struct {
-	song:                                   core.Catalog_Song,
+	song:     core.Catalog_Song,
 	album, copyright, url:                  string,
 	artist_id, album_id, artist_path:       string,
 	composer, genre, released, label, isrc: string,
-	language:                               string,
-	lyrics:                                 Lyrics_Kind,
-	traits:                                 []string,
+	language: string,
+	lyrics:   Lyrics_Kind,
+	traits:   []string,
 	is_digital_master, is_explicit:         bool,
 }
 
@@ -62,7 +62,7 @@ build_detail_cards :: proc(
 		{
 			width = ui.fill(),
 			height = ui.fit_children(),
-			axis = .X if width >= SIDE_BY_SIDE_POINTS else .Y,
+			axis = .X if width >= SIDE_BY_SIDE else .Y,
 			gap = 10,
 		},
 	)
@@ -152,7 +152,7 @@ build_detail_card :: proc(id, title: string, rows: []Detail, weight: f32) {
 			gap = 6,
 			padding = {16, 14, 16, 14},
 			corner_radius = 10,
-			background = look.colors.detail_card,
+			bg = look.colors.detail_card,
 			border_width = 1,
 			border_color = look.colors.detail_card_border,
 		},

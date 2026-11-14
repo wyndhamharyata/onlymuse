@@ -10,24 +10,24 @@ import "thor:render"
 import "thor:ui"
 import MTL "vendor:darwin/Metal"
 
-ARTWORK_STEP_PIXELS :: 100
+ARTWORK_STEP_PX :: 100
 
-to_artwork_pixels :: proc(size_points: f32) -> int {
-	pixels := int(ui.to_pixels(size_points))
+to_artwork_px :: proc(size: f32) -> int {
+	px := int(ui.to_px(size))
 
-	return (pixels + ARTWORK_STEP_PIXELS - 1) / ARTWORK_STEP_PIXELS * ARTWORK_STEP_PIXELS
+	return (px + ARTWORK_STEP_PX - 1) / ARTWORK_STEP_PX * ARTWORK_STEP_PX
 }
 
 Artwork_Paint :: struct {
-	source:        string,
-	size_pixels:   int,
-	symbol:        string,
-	symbol_points: f32,
-	symbol_color:  [4]f32,
-	focus_y:       f32,
+	source:       string,
+	size_px:      int,
+	symbol:       string,
+	symbol_size:  f32,
+	symbol_color: [4]f32,
+	focus_y:      f32,
 }
 
-draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
+draw_artwork :: proc(box: ^ui.Box, rect_px, clip_px: [4]f32, opacity: f32) {
 	paint := cast(^Artwork_Paint)box.data
 	texture: ^MTL.Texture
 	image_opacity: f32
@@ -35,8 +35,8 @@ draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 	if paint.source != "" {
 		texture, image_opacity = images.load_texture(
 			paint.source,
-			{f32(paint.size_pixels), f32(paint.size_pixels)},
-			to_crop(rect, paint.focus_y),
+			{f32(paint.size_px), f32(paint.size_px)},
+			to_crop(rect_px, paint.focus_y),
 		)
 	}
 
@@ -44,18 +44,18 @@ draw_artwork :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
 
 	if is_symbol_showing {
 		color := kit.with_opacity(paint.symbol_color, opacity * (1 - image_opacity))
-		icon.draw(paint.symbol, ui.to_pixels(paint.symbol_points), rect, clip, color)
+		icon.draw(paint.symbol, ui.to_px(paint.symbol_size), rect_px, clip_px, color)
 	}
 
 	if texture == nil do return
 
 	render.push(
 		{
-			rect = rect,
-			uv = to_fill_uv(rect, texture, paint.focus_y),
+			rect = rect_px,
+			uv = to_fill_uv(rect_px, texture, paint.focus_y),
 			color = {1, 1, 1, opacity * image_opacity},
-			corner_radius = box.style.corner_radius * ui.to_pixels(1),
-			clip = clip,
+			corner_radius = box.style.corner_radius * ui.to_px(1),
+			clip = clip_px,
 			kind = .Image,
 		},
 		texture,
@@ -101,12 +101,12 @@ to_placeholder :: proc(
 	seed: string,
 	symbol := "music.note",
 ) -> Placeholder {
-	if background, ok := kit.to_color_from_hex(artwork.background_color); ok {
+	if bg, ok := kit.to_color_from_hex(artwork.bg_color); ok {
 		text_color := kit.to_color_from_hex(artwork.text_color) or_else kit.colors.base_content
 
 		return {
-			top = linalg.lerp(background, text_color, 0.18),
-			bottom = linalg.lerp(background, {0, 0, 0, 1}, 0.25),
+			top = linalg.lerp(bg, text_color, 0.18),
+			bottom = linalg.lerp(bg, {0, 0, 0, 1}, 0.25),
 			symbol = symbol,
 			symbol_color = {text_color.r, text_color.g, text_color.b, 0.5},
 		}
@@ -129,26 +129,26 @@ to_placeholder :: proc(
 
 artwork_box :: proc(
 	source: string,
-	size_points: f32,
-	radius_points: f32,
+	size: f32,
+	radius: f32,
 	placeholder: Placeholder,
 ) -> ^ui.Box {
-	return artwork_rect_box(source, {size_points, size_points}, radius_points, placeholder)
+	return artwork_rect_box(source, {size, size}, radius, placeholder)
 }
 
 artwork_rect_box :: proc(
 	source: string,
-	size_points: [2]f32,
-	radius_points: f32,
+	size: [2]f32,
+	radius: f32,
 	placeholder: Placeholder,
 ) -> ^ui.Box {
 	box := ui.box(
 		"",
 		{
-			width = ui.points(size_points.x),
-			height = ui.points(size_points.y),
-			corner_radius = radius_points,
-			background = placeholder.top,
+			width = ui.points(size.x),
+			height = ui.points(size.y),
+			corner_radius = radius,
+			bg = placeholder.top,
 			layers = {ui.Gradient{from = placeholder.top, to = placeholder.bottom}},
 		},
 	)
@@ -157,12 +157,12 @@ artwork_rect_box :: proc(
 
 	paint := new(Artwork_Paint, context.temp_allocator)
 	paint^ = {
-		source        = source,
-		size_pixels   = to_artwork_pixels(max(size_points.x, size_points.y)),
-		symbol        = placeholder.symbol,
-		symbol_points = max(8, math.round(min(size_points.x, size_points.y) * 0.3 / 4) * 4),
-		symbol_color  = placeholder.symbol_color,
-		focus_y       = 0.5,
+		source       = source,
+		size_px      = to_artwork_px(max(size.x, size.y)),
+		symbol       = placeholder.symbol,
+		symbol_size  = max(8, math.round(min(size.x, size.y) * 0.3 / 4) * 4),
+		symbol_color = placeholder.symbol_color,
+		focus_y      = 0.5,
 	}
 
 	box.draw = draw_artwork

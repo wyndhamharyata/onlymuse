@@ -21,7 +21,7 @@ TRANSLATION_FONT_SIZE :: 13
 
 LYRIC_LINE_GAP :: 14
 
-PANEL_INSET_POINTS :: 8
+PANEL_INSET :: 8
 
 OTHER_LINE_OPACITY :: 0.7
 
@@ -43,7 +43,7 @@ TIMER_SLACK_SECONDS :: 0.005
 lyrics_state: struct {
 	lead_ms:                int,
 	lead_changed_ms:        f64,
-	position_seconds:       f64,
+	pos_seconds:            f64,
 	current_index:          int,
 	lines:                  []lyrics.Line,
 	is_showing_romaji:      bool,
@@ -82,47 +82,47 @@ apply_lead_key :: proc(key: platform.Key_Press) {
 	store.save_state("lyricLeadMs", fmt.tprintf("%d", next))
 }
 
-find_current_line :: proc(lines: []lyrics.Line, position_seconds: f64) -> int {
+find_current_line :: proc(lines: []lyrics.Line, pos_seconds: f64) -> int {
 	current := -1
 
 	for line, index in lines {
-		if line.begin_seconds <= position_seconds do current = index
+		if line.begin_seconds <= pos_seconds do current = index
 	}
 
 	return current
 }
 
-start_lyrics_timer :: proc(lines: []lyrics.Line, position_seconds: f64) {
+start_lyrics_timer :: proc(lines: []lyrics.Line, pos_seconds: f64) {
 	next := -1.0
 
 	for line in lines {
 		for words in ([][]lyrics.Word{line.words, line.pronunciation_words}) {
 			for word in words {
-				is_later := word.begin_seconds > position_seconds
+				is_later := word.begin_seconds > pos_seconds
 				if is_later && (next < 0 || word.begin_seconds < next) do next = word.begin_seconds
 			}
 		}
 	}
 
-	if next >= 0 do ui.request_frame_after(time.Duration((next - position_seconds + TIMER_SLACK_SECONDS) * f64(time.Second)))
+	if next >= 0 do ui.request_frame_after(time.Duration((next - pos_seconds + TIMER_SLACK_SECONDS) * f64(time.Second)))
 }
 
-is_word_fading :: proc(lines: []lyrics.Line, position_seconds: f64) -> bool {
+is_word_fading :: proc(lines: []lyrics.Line, pos_seconds: f64) -> bool {
 	latest_begin := -1.0
 
 	for line in lines {
 		for word in line.words {
-			if word.begin_seconds <= position_seconds {
+			if word.begin_seconds <= pos_seconds {
 				latest_begin = max(latest_begin, word.begin_seconds)
 			}
 		}
 	}
 
-	return latest_begin >= 0 && position_seconds - latest_begin < WORD_FADE_SECONDS
+	return latest_begin >= 0 && pos_seconds - latest_begin < WORD_FADE_SECONDS
 }
 
-to_lyrics_position_seconds :: proc(now_playing: helper.Now_Playing, lead_ms: int) -> f64 {
-	return helper.read_position_seconds(now_playing) + f64(lead_ms) / 1000
+to_lyrics_pos_seconds :: proc(now_playing: helper.Now_Playing, lead_ms: int) -> f64 {
+	return helper.read_pos_seconds(now_playing) + f64(lead_ms) / 1000
 }
 
 build_lyrics :: proc() -> bool {
@@ -142,7 +142,7 @@ build_lyrics :: proc() -> bool {
 			height = ui.fit_text(),
 			text_color = kit.colors.base_content,
 			font_weight = .Semibold,
-			padding = {PANEL_INSET_POINTS, 0, PANEL_INSET_POINTS, 0},
+			padding = {PANEL_INSET, 0, PANEL_INSET, 0},
 			text_fit = .Truncate,
 		},
 		song.name,
@@ -154,7 +154,7 @@ build_lyrics :: proc() -> bool {
 			height = ui.fit_text(),
 			text_color = kit.with_opacity(kit.colors.base_content, 0.7),
 			font_size = 12,
-			padding = {PANEL_INSET_POINTS, 0, PANEL_INSET_POINTS, 10},
+			padding = {PANEL_INSET, 0, PANEL_INSET, 10},
 			text_fit = .Truncate,
 		},
 		song.artist_name,
@@ -174,9 +174,9 @@ build_lyrics :: proc() -> bool {
 
 	build_lyric_toggles(lines)
 
-	position_seconds := to_lyrics_position_seconds(now_playing, lyrics_state.lead_ms)
-	lyrics_state.position_seconds = position_seconds
-	lyrics_state.current_index = find_current_line(lines, position_seconds)
+	pos_seconds := to_lyrics_pos_seconds(now_playing, lyrics_state.lead_ms)
+	lyrics_state.pos_seconds = pos_seconds
+	lyrics_state.current_index = find_current_line(lines, pos_seconds)
 	lyrics_state.lines = lines
 
 	view := ui.box(
@@ -184,7 +184,7 @@ build_lyrics :: proc() -> bool {
 		{
 			width = ui.fill(),
 			height = ui.fill(),
-			padding = {PANEL_INSET_POINTS, 10, PANEL_INSET_POINTS, 0},
+			padding = {PANEL_INSET, 10, PANEL_INSET, 0},
 			flags = {.Clip},
 		},
 	)
@@ -207,7 +207,7 @@ build_lyrics :: proc() -> bool {
 				height = ui.fit_children(),
 				axis = .Y,
 				gap = LYRIC_LINE_GAP,
-				position = {PANEL_INSET_POINTS, 10 - offset},
+				pos = {PANEL_INSET, 10 - offset},
 				flags = {.Floating},
 			},
 		)
@@ -220,9 +220,9 @@ build_lyrics :: proc() -> bool {
 	}
 
 	if now_playing.playback != .Playing do return false
-	if is_word_fading(lines, position_seconds) do return true
+	if is_word_fading(lines, pos_seconds) do return true
 
-	start_lyrics_timer(lines, position_seconds)
+	start_lyrics_timer(lines, pos_seconds)
 
 	return false
 }
@@ -234,7 +234,7 @@ build_panel_note :: proc(text: string) {
 			width = ui.fill(),
 			height = ui.fit_text(),
 			text_color = kit.with_opacity(kit.colors.base_content, 0.7),
-			padding = {PANEL_INSET_POINTS, 16, PANEL_INSET_POINTS, 0},
+			padding = {PANEL_INSET, 16, PANEL_INSET, 0},
 			text_fit = .Wrap,
 		},
 		text,
@@ -259,7 +259,7 @@ build_lyric_toggles :: proc(lines: []lyrics.Line) {
 			height = ui.fit_children(),
 			axis = .X,
 			gap = 6,
-			padding = {PANEL_INSET_POINTS, 0, PANEL_INSET_POINTS, 10},
+			padding = {PANEL_INSET, 0, PANEL_INSET, 10},
 		},
 	)
 

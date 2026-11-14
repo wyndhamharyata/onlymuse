@@ -9,17 +9,17 @@ import "om:apple"
 import "thor:kit"
 import "thor:ui"
 
-PANEL_PADDING_POINTS :: 8
+PANEL_PADDING :: 8
 
-QUEUE_ROW_POINTS :: 52
+QUEUE_ROW :: 52
 
-QUEUE_COVER_POINTS :: 36
+QUEUE_COVER :: 36
 
-RULES_MENU_LEFT_POINTS :: 240
+RULES_MENU_LEFT :: 240
 
 build_panel :: proc() -> bool {
 	is_open := core.app.panel != .None
-	width := ui.animate("panel width", look.PANEL_WIDTH_POINTS if is_open else 0, kit.motion.normal)
+	width := ui.animate("panel width", look.PANEL_WIDTH if is_open else 0, kit.motion.normal)
 
 	if width < 1 do return false
 
@@ -30,19 +30,19 @@ build_panel :: proc() -> bool {
 			height = ui.fill(),
 			axis = .Y,
 			padding = {
-				PANEL_PADDING_POINTS,
-				PANEL_PADDING_POINTS,
-				PANEL_PADDING_POINTS,
-				PANEL_PADDING_POINTS,
+				PANEL_PADDING,
+				PANEL_PADDING,
+				PANEL_PADDING,
+				PANEL_PADDING,
 			},
 			gap = 4,
-			background = look.colors.panel,
-			fade = 1 - width / look.PANEL_WIDTH_POINTS,
+			bg = look.colors.panel,
+			fade = 1 - width / look.PANEL_WIDTH,
 			flags = {.Clip},
 		},
 	)
 	is_moving := false
-	inner_width: f32 = look.PANEL_WIDTH_POINTS - 2 * PANEL_PADDING_POINTS
+	inner_width: f32 = look.PANEL_WIDTH - 2 * PANEL_PADDING
 
 	if ui.scope(panel) {
 		inner := ui.box(
@@ -109,8 +109,8 @@ build_up_next :: proc() {
 					height = ui.points(22),
 					padding = {8, 0, 8, 0},
 					corner_radius = 6,
-					background = kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY),
-					hover_background = kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY),
+					bg = kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY),
+					hover_bg = kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY),
 					text_color = kit.colors.base_content,
 					font_size = 11.5,
 					font_weight = .Semibold,
@@ -121,7 +121,7 @@ build_up_next :: proc() {
 
 			if ui.signal(rules).is_activated {
 				playback.open_shuffle_rules(
-					{rules.rect.x - RULES_MENU_LEFT_POINTS, rules.rect.w + 4},
+					{rules.rect.x - RULES_MENU_LEFT, rules.rect.w + 4},
 				)
 			}
 		}
@@ -132,15 +132,15 @@ build_up_next :: proc() {
 
 	shown_count := len(playback.queue.songs) - playback.queue.index
 	style := ui.Style {
-		width   = ui.fill(),
-		height  = ui.fill(),
-		gap     = 2,
+		width  = ui.fill(),
+		height = ui.fill(),
+		gap    = 2,
 		// The old empty spacer above the rows added a 2 point gap. This padding keeps that gap.
 		padding = {0, 2, 0, 0},
 		flags   = {.Scroll, .Clip},
 	}
 
-	if first, last, ok := kit.list("up_next", shown_count, QUEUE_ROW_POINTS - 2, style); ok {
+	if first, last, ok := kit.list("up_next", shown_count, QUEUE_ROW - 2, style); ok {
 		for offset in first ..< last {
 			index := playback.queue.index + offset
 			if build_queue_row(index) do removed_row = index
@@ -152,21 +152,21 @@ build_queue_row :: proc(index: int) -> bool {
 	song := playback.queue.songs[index]
 	is_current := index == playback.queue.index
 	tint := kit.with_opacity(kit.colors.primary, kit.SOFT_OPACITY)
-	background: [4]f32 = tint if is_current else {}
-	hover_background := tint if is_current else kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY)
+	bg: [4]f32 = tint if is_current else {}
+	hover_bg := tint if is_current else kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY)
 	name_color := kit.colors.primary if is_current else kit.colors.base_content
 	row := ui.box(
 		fmt.tprintf("queue_%d_%s", index, song.id),
 		{
 			width = ui.fill(),
-			height = ui.points(QUEUE_ROW_POINTS - 2),
+			height = ui.points(QUEUE_ROW - 2),
 			axis = .X,
 			align = .Center,
 			gap = 10,
 			padding = {6, 0, 4, 0},
 			corner_radius = 6,
-			background = background,
-			hover_background = hover_background,
+			bg = bg,
+			hover_bg = hover_bg,
 			pointer = .Click,
 		},
 	)
@@ -174,8 +174,8 @@ build_queue_row :: proc(index: int) -> bool {
 
 	if ui.scope(row) {
 		look.artwork_box(
-			apple.to_artwork_url(song.artwork, look.to_artwork_pixels(QUEUE_COVER_POINTS)),
-			QUEUE_COVER_POINTS,
+			apple.to_artwork_url(song.artwork, look.to_artwork_px(QUEUE_COVER)),
+			QUEUE_COVER,
 			4,
 			look.to_placeholder(song.artwork, song.album_name),
 		)

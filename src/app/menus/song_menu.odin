@@ -14,21 +14,21 @@ import "thor:kit"
 import "thor:platform"
 import "thor:ui"
 
-SONG_MENU_POINTS :: 220
+SONG_MENU :: 220
 
-PLAYLIST_MENU_POINTS :: 240
+PLAYLIST_MENU :: 240
 
-MAX_PLAYLIST_LIST_POINTS :: 324
+MAX_PLAYLIST_LIST :: 324
 
-PLAYLIST_ITEM_GAP_POINTS :: 1
+PLAYLIST_ITEM_GAP :: 1
 
-SUBMENU_GAP_POINTS :: 4
+SUBMENU_GAP :: 4
 
 @(private = "file")
 song_menu: struct {
 	is_open:           bool,
 	song:              core.Catalog_Song,
-	position:          [2]f32,
+	pos:               [2]f32,
 	is_playlists_only: bool,
 	is_playlists_open: bool,
 	is_naming:         bool,
@@ -42,12 +42,12 @@ start_song_menu :: proc() {
 	playlist_name_field.is_keeping_focus = true
 }
 
-open_song_menu :: proc(song: core.Catalog_Song, position: [2]f32, is_playlists_only := false) {
+open_song_menu :: proc(song: core.Catalog_Song, pos: [2]f32, is_playlists_only := false) {
 	close_song_menu()
 	song_menu = {
 		is_open           = true,
 		song              = core.copy_song(song),
-		position          = position,
+		pos               = pos,
 		is_playlists_only = is_playlists_only,
 		is_playlists_open = is_playlists_only,
 		opened_frame      = app.frame_count,
@@ -72,7 +72,7 @@ build_song_menu :: proc() {
 		{
 			width = ui.fill(),
 			height = ui.fill(),
-			position = {0, 0},
+			pos = {0, 0},
 			pointer = .Click,
 			flags = {.Floating},
 		},
@@ -89,16 +89,16 @@ build_song_menu :: proc() {
 
 	if ui.scope(cover) {
 		song := matching.watch_playable(song_menu.song)
-		position := song_menu.position
+		pos := song_menu.pos
 		main_width: f32 = 0
 
 		if !song_menu.is_playlists_only {
-			if build_main_menu(song, position, window_size) do is_closing = true
-			main_width = SONG_MENU_POINTS + SUBMENU_GAP_POINTS
+			if build_main_menu(song, pos, window_size) do is_closing = true
+			main_width = SONG_MENU + SUBMENU_GAP
 		}
 
 		if song_menu.is_playlists_open &&
-		   build_playlist_menu(song, position + {main_width, 0}, window_size) {
+		   build_playlist_menu(song, pos + {main_width, 0}, window_size) {
 			is_closing = true
 		}
 	}
@@ -107,7 +107,7 @@ build_song_menu :: proc() {
 }
 
 @(private = "file")
-build_main_menu :: proc(song: core.Catalog_Song, position, window_size: [2]f32) -> bool {
+build_main_menu :: proc(song: core.Catalog_Song, pos, window_size: [2]f32) -> bool {
 	has_id := song.id != ""
 	is_from_youtube := youtube.is_song_id(song.id)
 	is_playing := is_playing_song(song)
@@ -117,7 +117,7 @@ build_main_menu :: proc(song: core.Catalog_Song, position, window_size: [2]f32) 
 	favourite_hint := "⌘L" if is_playing else ""
 	is_done := false
 
-	menu := look.menu_box("song_menu", position, SONG_MENU_POINTS, window_size)
+	menu := look.menu_box("song_menu", pos, SONG_MENU, window_size)
 
 	if ui.scope(menu) {
 		if kit.menu_item("play_next", "Play Next").is_activated {
@@ -211,10 +211,10 @@ build_youtube_song_items :: proc(song: core.Catalog_Song) -> bool {
 @(private = "file")
 build_playlist_menu :: proc(
 	song: core.Catalog_Song,
-	position: [2]f32,
+	pos: [2]f32,
 	window_size: [2]f32,
 ) -> bool {
-	menu := look.menu_box("playlist_menu", position, PLAYLIST_MENU_POINTS, window_size)
+	menu := look.menu_box("playlist_menu", pos, PLAYLIST_MENU, window_size)
 	is_done := false
 
 	if ui.scope(menu) {
@@ -257,8 +257,8 @@ build_playlist_menu :: proc(
 		for playlist in playlists do if playlist.can_edit do editable_count += 1
 
 		list_height := min(
-			f32(editable_count) * (kit.MENU_ITEM_HEIGHT_POINTS + PLAYLIST_ITEM_GAP_POINTS),
-			MAX_PLAYLIST_LIST_POINTS,
+			f32(editable_count) * (kit.MENU_ITEM_HEIGHT + PLAYLIST_ITEM_GAP),
+			MAX_PLAYLIST_LIST,
 		)
 		list := ui.box(
 			"playlists",
@@ -266,7 +266,7 @@ build_playlist_menu :: proc(
 				width = ui.fill(),
 				height = ui.points(list_height),
 				axis = .Y,
-				gap = PLAYLIST_ITEM_GAP_POINTS,
+				gap = PLAYLIST_ITEM_GAP,
 				flags = {.Scroll, .Clip},
 			},
 		)

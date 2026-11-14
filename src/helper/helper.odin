@@ -21,34 +21,34 @@ Song :: struct {
 }
 
 Message :: struct {
-	type:                string,
-	state:               string,
-	volume_percent:      f64 `json:"volumePercent"`,
-	position_seconds:    f64 `json:"positionSeconds"`,
-	position_read_at_ms: f64 `json:"positionReadAtMs"`,
-	persistent_id:       string `json:"persistentID"`,
-	song:                Song,
-	is_loading:          bool `json:"isLoading"`,
-	has_started:         bool `json:"hasStarted"`,
-	color:               string,
-	developer_token:     string `json:"developerToken"`,
-	user_token:          string `json:"userToken"`,
-	text:                string,
-	cookie:              string,
-	problem:             string,
-	request_id:          int `json:"requestId"`,
-	is_in_library:       bool `json:"isInLibrary"`,
-	is_favourite:        bool `json:"favorited"`,
-	played_count:        int `json:"playedCount"`,
-	played_date_ms:      f64 `json:"playedDateMs"`,
-	skipped_count:       int `json:"skippedCount"`,
-	skipped_date_ms:     f64 `json:"skippedDateMs"`,
-	date_added_ms:       f64 `json:"dateAddedMs"`,
-	bit_rate_kbps:       int `json:"bitRate"`,
-	sample_rate_hz:      int `json:"sampleRate"`,
-	kind:                string,
-	bpm:                 int,
-	size_bytes:          f64 `json:"size"`,
+	type:            string,
+	state:           string,
+	volume_percent:  f64 `json:"volumePercent"`,
+	pos_seconds:     f64 `json:"positionSeconds"`,
+	pos_read_at_ms:  f64 `json:"positionReadAtMs"`,
+	persistent_id:   string `json:"persistentID"`,
+	song:            Song,
+	is_loading:      bool `json:"isLoading"`,
+	has_started:     bool `json:"hasStarted"`,
+	color:           string,
+	developer_token: string `json:"developerToken"`,
+	user_token:      string `json:"userToken"`,
+	text:            string,
+	cookie:          string,
+	problem:         string,
+	request_id:      int `json:"requestId"`,
+	is_in_library:   bool `json:"isInLibrary"`,
+	is_favourite:    bool `json:"favorited"`,
+	played_count:    int `json:"playedCount"`,
+	played_date_ms:  f64 `json:"playedDateMs"`,
+	skipped_count:   int `json:"skippedCount"`,
+	skipped_date_ms: f64 `json:"skippedDateMs"`,
+	date_added_ms:   f64 `json:"dateAddedMs"`,
+	bit_rate_kbps:   int `json:"bitRate"`,
+	sample_rate_hz:  int `json:"sampleRate"`,
+	kind:            string,
+	bpm:             int,
+	size_bytes:      f64 `json:"size"`,
 }
 
 Playback :: enum {
@@ -59,15 +59,15 @@ Playback :: enum {
 }
 
 Now_Playing :: struct {
-	playback:            Playback,
-	volume_percent:      f64,
-	song:                Song,
-	position_seconds:    f64,
-	position_read_at_ms: f64,
+	playback:       Playback,
+	volume_percent: f64,
+	song:           Song,
+	pos_seconds:    f64,
+	pos_read_at_ms: f64,
 	// Music.app says it plays while it waits for a song it cannot load. The position stays still.
-	stall_count:         int,
-	has_started:         bool,
-	is_loading:          bool,
+	stall_count:    int,
+	has_started:    bool,
+	is_loading:     bool,
 }
 
 // A position this far past the last one counts as moved on. The helper sends one every 2 s.
@@ -84,7 +84,7 @@ state: struct {
 	is_started:  bool,
 }
 
-start :: proc(is_background: bool) {
+start :: proc(is_bg: bool) {
 	path := os.get_env("OM_HELPER", context.temp_allocator)
 
 	if path == "" {
@@ -103,7 +103,7 @@ start :: proc(is_background: bool) {
 	environment, _ := os.environ(context.temp_allocator)
 	child_environment := make([dynamic]string, context.temp_allocator)
 	append(&child_environment, ..environment)
-	if is_background do append(&child_environment, "GPUIX_BACKGROUND=1")
+	if is_bg do append(&child_environment, "GPUIX_BACKGROUND=1")
 
 	_, error := os.process_start(
 		{
@@ -130,14 +130,14 @@ start :: proc(is_background: bool) {
 
 @(private)
 read_lines :: proc() {
-	buffer: [64 * 1024]u8
+	buf: [64 * 1024]u8
 	pending := make([dynamic]u8)
 
 	for {
-		count, error := os.read(state.from_helper, buffer[:])
+		count, error := os.read(state.from_helper, buf[:])
 		if count <= 0 || error != nil do break
 
-		append(&pending, ..buffer[:count])
+		append(&pending, ..buf[:count])
 
 		for {
 			index := strings.index_byte(string(pending[:]), '\n')
@@ -205,23 +205,23 @@ apply :: proc(now_playing: ^Now_Playing, message: Message) {
 		delete_song(now_playing.song)
 		now_playing.song = clone_song(message.song)
 
-		now_playing.position_seconds = message.position_seconds
-		now_playing.position_read_at_ms = to_read_at_ms(message.position_read_at_ms, now_ms())
+		now_playing.pos_seconds = message.pos_seconds
+		now_playing.pos_read_at_ms = to_read_at_ms(message.pos_read_at_ms, now_ms())
 		now_playing.stall_count = 0
 		now_playing.has_started =
-			message.has_started || message.position_seconds >= MIN_PROGRESS_SECONDS
+			message.has_started || message.pos_seconds >= MIN_PROGRESS_SECONDS
 		now_playing.is_loading = message.is_loading
-	case "position":
+	case "pos":
 		is_same_song :=
 			now_playing.playback == .Playing &&
 			now_playing.song.persistent_id == message.persistent_id
 		if !is_same_song do return
 
-		has_moved := message.position_seconds > now_playing.position_seconds + MIN_PROGRESS_SECONDS
+		has_moved := message.pos_seconds > now_playing.pos_seconds + MIN_PROGRESS_SECONDS
 		now_playing.stall_count = 0 if has_moved else now_playing.stall_count + 1
 		if has_moved do now_playing.has_started = true
-		now_playing.position_seconds = message.position_seconds
-		now_playing.position_read_at_ms = to_read_at_ms(message.position_read_at_ms, now_ms())
+		now_playing.pos_seconds = message.pos_seconds
+		now_playing.pos_read_at_ms = to_read_at_ms(message.pos_read_at_ms, now_ms())
 	}
 }
 
@@ -260,17 +260,17 @@ has_song :: proc(now_playing: Now_Playing) -> bool {
 }
 
 // Music.app posts only on a change, so the position moves on here between its posts.
-read_position_seconds :: proc(now_playing: Now_Playing) -> f64 {
+read_pos_seconds :: proc(now_playing: Now_Playing) -> f64 {
 	#partial switch now_playing.playback {
 	case .Paused:
-		return now_playing.position_seconds
+		return now_playing.pos_seconds
 	case .Playing:
 		is_clock_stopped := now_playing.stall_count > 0 || !now_playing.has_started
-		if is_clock_stopped do return now_playing.position_seconds
+		if is_clock_stopped do return now_playing.pos_seconds
 
-		elapsed_seconds := max(0, now_ms() - now_playing.position_read_at_ms) / 1000
+		elapsed_seconds := max(0, now_ms() - now_playing.pos_read_at_ms) / 1000
 		return min(
-			now_playing.position_seconds + elapsed_seconds,
+			now_playing.pos_seconds + elapsed_seconds,
 			now_playing.song.duration_seconds,
 		)
 	}

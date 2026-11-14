@@ -9,32 +9,32 @@ import "om:apple"
 import "thor:kit"
 import "thor:ui"
 
-SHELF_TILE_POINTS :: 150
+SHELF_TILE :: 150
 
-FIRST_SHELF_TILE_POINTS :: 210
+FIRST_SHELF_TILE :: 210
 
-WIDE_TILE_POINTS :: 240
+WIDE_TILE :: 240
 
 YOUTUBE_SYMBOL :: "play.rectangle.fill"
 
-CARD_GAP_POINTS :: 14
+CARD_GAP :: 14
 
 EXTRA_CARD_COUNT :: 2
 
-to_tile_size :: proc(width_points, target_points, gap_points: f32) -> f32 {
-	count := max(1, math.round((width_points + gap_points) / (target_points + gap_points)))
+to_tile_size :: proc(width, target_width, gap: f32) -> f32 {
+	count := max(1, math.round((width + gap) / (target_width + gap)))
 
-	return math.floor((width_points - gap_points * (count - 1)) / count)
+	return math.floor((width - gap * (count - 1)) / count)
 }
 
-build_shelf :: proc(id: string, shelf: apple.Shelf, width, target_points: f32) {
-	target := WIDE_TILE_POINTS if shelf.is_wide else target_points
+build_shelf :: proc(id: string, shelf: apple.Shelf, width, target_width: f32) {
+	target := WIDE_TILE if shelf.is_wide else target_width
 
 	build_card_row(
 		id,
 		shelf.title,
 		shelf.cards,
-		to_tile_size(width, target, CARD_GAP_POINTS),
+		to_tile_size(width, target, CARD_GAP),
 		is_wide = shelf.is_wide,
 		is_youtube = shelf.is_youtube,
 	)
@@ -43,7 +43,7 @@ build_shelf :: proc(id: string, shelf: apple.Shelf, width, target_points: f32) {
 build_card_row :: proc(
 	id, title: string,
 	cards: []apple.Card,
-	tile_points: f32,
+	tile_size: f32,
 	is_round := false,
 	is_wide := false,
 	is_youtube := false,
@@ -61,11 +61,11 @@ build_card_row :: proc(
 				width = ui.fill(),
 				height = ui.fit_children(),
 				axis = .X,
-				gap = CARD_GAP_POINTS,
+				gap = CARD_GAP,
 				flags = {.Scroll, .Clip},
 			},
 		)
-		step := tile_points + CARD_GAP_POINTS
+		step := tile_size + CARD_GAP
 		first, last := to_visible_range(row.scroll, row.size.x, step, len(cards), EXTRA_CARD_COUNT)
 
 		if ui.scope(row) {
@@ -73,7 +73,7 @@ build_card_row :: proc(
 				ui.box(
 					"",
 					{
-						width = ui.points(f32(first) * step - CARD_GAP_POINTS),
+						width = ui.points(f32(first) * step - CARD_GAP),
 						height = ui.points(1),
 					},
 				)
@@ -83,7 +83,7 @@ build_card_row :: proc(
 				if build_card_tile(
 					fmt.tprintf("%d %s", index, cards[index].id),
 					cards[index],
-					tile_points,
+					tile_size,
 					is_round,
 					is_wide,
 				) {
@@ -95,7 +95,7 @@ build_card_row :: proc(
 				ui.box(
 					"",
 					{
-						width = ui.points(f32(len(cards) - 1 - last) * step - CARD_GAP_POINTS),
+						width = ui.points(f32(len(cards) - 1 - last) * step - CARD_GAP),
 						height = ui.points(1),
 					},
 				)
@@ -130,7 +130,7 @@ build_shelf_title :: proc(title: string, is_youtube: bool) {
 				width = ui.fill(),
 				height = ui.fit_text(),
 				text_color = kit.colors.base_content,
-				font_size = look.SHELF_TITLE_POINTS,
+				font_size = look.SHELF_TITLE,
 				font_weight = .Bold,
 				text_fit = .Truncate,
 			},
@@ -142,7 +142,7 @@ build_shelf_title :: proc(title: string, is_youtube: bool) {
 build_card_tile :: proc(
 	id: string,
 	card: apple.Card,
-	tile_points: f32,
+	tile_size: f32,
 	is_round := false,
 	is_wide := false,
 ) -> bool {
@@ -150,7 +150,7 @@ build_card_tile :: proc(
 	tile := ui.box(
 		id,
 		{
-			width = ui.points(tile_points),
+			width = ui.points(tile_size),
 			height = ui.fit_children(),
 			axis = .Y,
 			gap = 3,
@@ -164,10 +164,10 @@ build_card_tile :: proc(
 	hover := ui.animate(hover_id, 1 if can_open && ui.signal(tile).is_hovered else 0, kit.motion.fast)
 
 	if ui.scope(tile) {
-		radius: f32 = tile_points / 2 if is_round else 8
-		size := [2]f32{tile_points, tile_points * 9 / 16 if is_wide else tile_points}
+		radius: f32 = tile_size / 2 if is_round else 8
+		size := [2]f32{tile_size, tile_size * 9 / 16 if is_wide else tile_size}
 		artwork := look.artwork_rect_box(
-			apple.to_artwork_url(card.artwork, look.to_artwork_pixels(tile_points)),
+			apple.to_artwork_url(card.artwork, look.to_artwork_px(tile_size)),
 			size,
 			radius,
 			look.to_placeholder(card.artwork, card.name, card_symbols[card.kind]),
@@ -180,7 +180,7 @@ build_card_tile :: proc(
 					width = ui.points(size.x),
 					height = ui.points(size.y),
 					corner_radius = radius,
-					background = {1, 1, 1, 0.08 * hover},
+					bg = {1, 1, 1, 0.08 * hover},
 					flags = {.Floating},
 				},
 			)
@@ -195,7 +195,7 @@ build_card_tile :: proc(
 				width = ui.fill(),
 				height = ui.fit_text(),
 				text_color = kit.colors.base_content,
-				font_size = kit.SMALL_TEXT_POINTS,
+				font_size = kit.SMALL_TEXT_SIZE,
 				text_align = text_align,
 				text_fit = .Truncate,
 			},

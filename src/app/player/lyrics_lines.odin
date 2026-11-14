@@ -7,14 +7,14 @@ import "om:lyrics"
 import "thor:kit"
 import "thor:ui"
 
-to_fade :: proc(begin_seconds, position_seconds: f64) -> f32 {
-	return f32(clamp((position_seconds - begin_seconds) / WORD_FADE_SECONDS, 0, 1))
+to_fade :: proc(begin_seconds, pos_seconds: f64) -> f32 {
+	return f32(clamp((pos_seconds - begin_seconds) / WORD_FADE_SECONDS, 0, 1))
 }
 
 Line_Paint :: struct {
 	index, current_index:                    int,
 	words:                                   []lyrics.Word,
-	position_seconds, current_begin_seconds: f64,
+	pos_seconds, current_begin_seconds: f64,
 }
 
 to_lyric_glyph_color :: proc(utf16_index: int, data: rawptr) -> [4]f32 {
@@ -27,12 +27,12 @@ to_lyric_glyph_color :: proc(utf16_index: int, data: rawptr) -> [4]f32 {
 		is_out_of_range := utf16_index < word.utf16_range.x || utf16_index >= word.utf16_range.y
 		if is_out_of_range do continue
 
-		is_sung := word.begin_seconds <= paint.position_seconds
+		is_sung := word.begin_seconds <= paint.pos_seconds
 
 		if is_current_line {
-			lit = to_fade(word.begin_seconds, paint.position_seconds)
+			lit = to_fade(word.begin_seconds, paint.pos_seconds)
 		} else if is_line_before && is_sung {
-			lit = 1 - to_fade(paint.current_begin_seconds, paint.position_seconds)
+			lit = 1 - to_fade(paint.current_begin_seconds, paint.pos_seconds)
 		}
 
 		break
@@ -46,7 +46,7 @@ build_timed_text :: proc(text: string, words: []lyrics.Word, index: int, font_si
 	current := lyrics_state.current_index
 	current_begin_seconds := lyrics_state.lines[current].begin_seconds if current >= 0 else 0
 	paint := new(Line_Paint, context.temp_allocator)
-	paint^ = {index, current, words, lyrics_state.position_seconds, current_begin_seconds}
+	paint^ = {index, current, words, lyrics_state.pos_seconds, current_begin_seconds}
 
 	box := ui.box(
 		"",
@@ -123,7 +123,7 @@ build_lead_note :: proc() {
 			height = ui.fit_text(),
 			padding = {8, 8, 8, 8},
 			corner_radius = 8,
-			background = kit.colors.base_300,
+			bg = kit.colors.base_300,
 			text_color = kit.colors.base_content,
 			font_size = 12,
 			text_fit = .Wrap,

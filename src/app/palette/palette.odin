@@ -10,19 +10,19 @@ import "thor:app"
 import "thor:kit"
 import "thor:ui"
 
-PALETTE_WIDTH_POINTS :: 560
+PALETTE_WIDTH :: 560
 
-PALETTE_TOP_POINTS :: 70
+PALETTE_TOP :: 70
 
-PALETTE_ROW_HEIGHT_POINTS :: 36
+PALETTE_ROW_HEIGHT :: 36
 
-PALETTE_LIST_MAX_HEIGHT_POINTS :: 420
+PALETTE_LIST_MAX_HEIGHT :: 420
 
 PALETTE_SETTLE_MS :: 300
 
 MAX_GROUP_RESULT_COUNT :: 5
 
-PALETTE_FIELD_HEIGHT_POINTS :: 40
+PALETTE_FIELD_HEIGHT :: 40
 
 PALETTE_FIELD_FONT_SIZE :: 16
 
@@ -73,7 +73,7 @@ palette: struct {
 	built_signature:     int,
 	typed_at_ms:         f64,
 	opened_frame:        int,
-	last_mouse_position: [2]f32,
+	last_mouse_pos:      [2]f32,
 	should_reset_scroll: bool,
 }
 
@@ -147,8 +147,8 @@ build_palette :: proc() {
 		{
 			width = ui.fill(),
 			height = ui.fill(),
-			background = kit.to_color(0x00000059),
-			position = {0, 0},
+			bg = kit.to_color(0x00000059),
+			pos = {0, 0},
 			pointer = .Click,
 			flags = {.Floating},
 		},
@@ -157,8 +157,8 @@ build_palette :: proc() {
 	picked := -1
 
 	if ui.scope(cover) {
-		width := min(PALETTE_WIDTH_POINTS, window_size.x - 40)
-		position := [2]f32{(window_size.x - width) / 2, PALETTE_TOP_POINTS}
+		width := min(PALETTE_WIDTH, window_size.x - 40)
+		pos := [2]f32{(window_size.x - width) / 2, PALETTE_TOP}
 
 		ui.box(
 			"palette_shadow",
@@ -166,9 +166,9 @@ build_palette :: proc() {
 				width = ui.points(width),
 				height = ui.points(300),
 				corner_radius = 16,
-				background = {0, 0, 0, 0.5},
+				bg = {0, 0, 0, 0.5},
 				softness = 40,
-				position = position + {0, 16},
+				pos = pos + {0, 16},
 				flags = {.Floating},
 			},
 		)
@@ -181,10 +181,10 @@ build_palette :: proc() {
 				padding = {8, 8, 8, 8},
 				gap = 6,
 				corner_radius = 14,
-				background = kit.to_color(0x26262af5),
+				bg = kit.to_color(0x26262af5),
 				border_width = 1,
 				border_color = kit.to_color(0xffffff1f),
-				position = position,
+				pos = pos,
 				pointer = .Click,
 				flags = {.Floating},
 			},
@@ -197,16 +197,16 @@ build_palette :: proc() {
 				"Go to a page, an artist, a song, or do something",
 				"magnifyingglass",
 				style = {
-					height = ui.points(PALETTE_FIELD_HEIGHT_POINTS),
+					height = ui.points(PALETTE_FIELD_HEIGHT),
 					font_size = PALETTE_FIELD_FONT_SIZE,
-					background = PALETTE_FIELD_BACKGROUND,
+					bg = PALETTE_FIELD_BACKGROUND,
 				},
 			)
 			picked = build_results()
 		}
 	}
 
-	palette.last_mouse_position = ui.pointer_position()
+	palette.last_mouse_pos = ui.pointer_pos()
 
 	if picked >= 0 {
 		run_result(palette.results[picked])
@@ -235,7 +235,7 @@ run_result :: proc(result: Palette_Result) {
 	case .Next:
 		playback.skip_to_next()
 	case .Previous:
-		playback.skip_to_previous(helper.read_position_seconds(core.app.now_playing))
+		playback.skip_to_prev(helper.read_pos_seconds(core.app.now_playing))
 	case .Shuffle_All:
 		songs, _, _ := core.watch_library_songs()
 		playback.shuffle_songs(songs)

@@ -11,17 +11,17 @@ import "thor:kit"
 import "thor:platform"
 import "thor:ui"
 
-STAGE_COVER_POINTS :: 280
+STAGE_COVER :: 280
 
-SMALL_STAGE_COVER_POINTS :: 220
+SMALL_STAGE_COVER :: 220
 
-LARGE_COVER_MIN_WIDTH_POINTS :: 760
+LARGE_COVER_MIN_WIDTH :: 760
 
-SIDE_BY_SIDE_POINTS :: 560
+SIDE_BY_SIDE :: 560
 
-HERO_GAP_POINTS :: 26
+HERO_GAP :: 26
 
-MIN_INFO_POINTS :: 360
+MIN_INFO :: 360
 
 @(private)
 build_hero :: proc(
@@ -30,49 +30,49 @@ build_hero :: proc(
 	shown: helper.Song,
 	width: f32,
 ) {
-	cover_points: f32 =
-		STAGE_COVER_POINTS if width >= LARGE_COVER_MIN_WIDTH_POINTS else SMALL_STAGE_COVER_POINTS
-	cover_points = min(cover_points, width)
-	is_side_by_side := width - cover_points - HERO_GAP_POINTS >= MIN_INFO_POINTS
-	info_width := width - cover_points - HERO_GAP_POINTS if is_side_by_side else width
+	cover_size: f32 =
+		STAGE_COVER if width >= LARGE_COVER_MIN_WIDTH else SMALL_STAGE_COVER
+	cover_size = min(cover_size, width)
+	is_side_by_side := width - cover_size - HERO_GAP >= MIN_INFO
+	info_width := width - cover_size - HERO_GAP if is_side_by_side else width
 	hero := ui.box(
 		"hero",
 		{
 			width = ui.fill(),
 			height = ui.fit_children(),
 			axis = .X if is_side_by_side else .Y,
-			gap = HERO_GAP_POINTS,
+			gap = HERO_GAP,
 		},
 	)
 
 	if ui.scope(hero) {
 		cover := ui.box(
 			"cover",
-			{width = ui.points(cover_points), height = ui.points(cover_points)},
+			{width = ui.points(cover_size), height = ui.points(cover_size)},
 		)
 
 		if ui.scope(cover) {
 			ui.box(
 				"shadow",
 				{
-					width = ui.points(cover_points - 24),
-					height = ui.points(cover_points - 24),
+					width = ui.points(cover_size - 24),
+					height = ui.points(cover_size - 24),
 					corner_radius = 24,
-					background = {0, 0, 0, 0.75},
+					bg = {0, 0, 0, 0.75},
 					softness = 36,
-					position = {12, 40},
+					pos = {12, 40},
 					flags = {.Floating},
 				},
 			)
 
 			source := to_cover_source(
 				details.song.artwork,
-				look.to_artwork_pixels(cover_points),
+				look.to_artwork_px(cover_size),
 				shown.artwork_path,
 			)
 			look.artwork_box(
 				source,
-				cover_points,
+				cover_size,
 				12,
 				look.to_placeholder(details.song.artwork, details.album, "music.note"),
 			)
@@ -200,7 +200,7 @@ build_pills :: proc(details: Song_Details, info: playback.Song_Info) {
 					height = ui.points(26),
 					padding = {10, 0, 10, 0},
 					corner_radius = 13,
-					background = kit.to_color(0xffffff14),
+					bg = kit.to_color(0xffffff14),
 					border_width = 1,
 					border_color = kit.colors.line,
 					text_color = kit.colors.primary if is_quality else kit.colors.base_content,

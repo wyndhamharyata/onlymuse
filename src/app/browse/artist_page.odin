@@ -11,11 +11,11 @@ import "om:apple"
 import "thor:kit"
 import "thor:ui"
 
-ARTIST_HEADER_POINTS :: 300
+ARTIST_HEADER :: 300
 
-ARTIST_ALBUM_POINTS :: 150
+ARTIST_ALBUM :: 150
 
-SIMILAR_ARTIST_POINTS :: 130
+SIMILAR_ARTIST :: 130
 
 @(private = "file")
 Read_Text :: struct {
@@ -123,14 +123,14 @@ is_wrapped = true,
 		build_artist_middle(data)
 		if width <= 0 do return
 
-		album_tile_points := lists.to_tile_size(width, ARTIST_ALBUM_POINTS, lists.CARD_GAP_POINTS)
-		lists.build_card_row("library", "In Your Library", data.library_cards, album_tile_points)
-		lists.build_card_row("albums", "Albums", data.cards, album_tile_points)
+		album_tile := lists.to_tile_size(width, ARTIST_ALBUM, lists.CARD_GAP)
+		lists.build_card_row("library", "In Your Library", data.library_cards, album_tile)
+		lists.build_card_row("albums", "Albums", data.cards, album_tile)
 
 		for shelf, index in channel.shelves {
 			if !is_youtube_only_shelf(shelf) do continue
 
-			lists.build_shelf(fmt.tprintf("youtube_%d", index), shelf, width, ARTIST_ALBUM_POINTS)
+			lists.build_shelf(fmt.tprintf("youtube_%d", index), shelf, width, ARTIST_ALBUM)
 		}
 
 		build_recent_songs_shelf(artist_id, data.title)
@@ -138,7 +138,7 @@ is_wrapped = true,
 			"similar",
 			"Similar Artists",
 			data.similar,
-			lists.to_tile_size(width, SIMILAR_ARTIST_POINTS, lists.CARD_GAP_POINTS),
+			lists.to_tile_size(width, SIMILAR_ARTIST, lists.CARD_GAP),
 			true,
 		)
 	}

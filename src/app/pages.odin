@@ -20,11 +20,11 @@ build_page_area :: proc() {
 			"toolbar",
 			{
 				width = ui.fill(),
-				height = ui.points(look.TOOLBAR_HEIGHT_POINTS),
+				height = ui.points(look.TOOLBAR_HEIGHT),
 				axis = .X,
 				align = .Center,
 				gap = 2,
-				padding = {look.PAGE_PADDING_POINTS - kit.ICON_BUTTON_PADDING_POINTS, 0, 0, 0},
+				padding = {look.PAGE_PADDING - kit.ICON_BUTTON_PADDING, 0, 0, 0},
 			},
 		)
 

@@ -203,12 +203,12 @@ set_shuffle_note :: proc(recent_count, skipped_count, apart_count: int) {
 @(private = "file")
 rules_menu: struct {
 	is_open:      bool,
-	position:     [2]f32,
+	pos:          [2]f32,
 	opened_frame: int,
 }
 
-open_shuffle_rules :: proc(position: [2]f32) {
-	rules_menu = {true, position, app.frame_count}
+open_shuffle_rules :: proc(pos: [2]f32) {
+	rules_menu = {true, pos, app.frame_count}
 }
 
 build_shuffle_rules :: proc() {
@@ -221,7 +221,7 @@ build_shuffle_rules :: proc() {
 		{
 			width = ui.fill(),
 			height = ui.fill(),
-			position = {0, 0},
+			pos = {0, 0},
 			pointer = .Click,
 			flags = {.Floating},
 		},
@@ -232,7 +232,7 @@ build_shuffle_rules :: proc() {
 		app.frame_count > rules_menu.opened_frame + 1
 
 	if ui.scope(cover) {
-		menu := look.menu_box("rules", rules_menu.position, 300, window_size)
+		menu := look.menu_box("rules", rules_menu.pos, 300, window_size)
 
 		if ui.scope(menu) {
 			ui.box(

@@ -13,8 +13,8 @@ import "om:store"
 import "om:youtube"
 
 Resume_Point :: struct {
-	song:             helper.Song,
-	position_seconds: f64 `json:"positionSeconds"`,
+	song:        helper.Song,
+	pos_seconds: f64 `json:"positionSeconds"`,
 }
 
 // Music.app keeps no queue after a song that AppleScript starts, so the app plays each next song.
@@ -266,7 +266,7 @@ apply_resume_answer :: proc(request: Request, answered_id: string) {
 		save_queue_and_handoff()
 	}
 
-	helper.send_seek(queue.resume_point.position_seconds)
+	helper.send_seek(queue.resume_point.pos_seconds)
 }
 
 is_starting_youtube_song :: proc() -> bool {

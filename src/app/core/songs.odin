@@ -30,7 +30,7 @@ copy_card :: proc(card: apple.Card, allocator: mem.Allocator) -> apple.Card {
 copy_artwork :: proc(artwork: apple.Artwork, allocator: mem.Allocator) -> apple.Artwork {
 	return {
 		strings.clone(artwork.url, allocator),
-		strings.clone(artwork.background_color, allocator),
+		strings.clone(artwork.bg_color, allocator),
 		strings.clone(artwork.text_color, allocator),
 	}
 }
@@ -56,6 +56,6 @@ delete_song :: proc(song: Catalog_Song) {
 	delete(song.album_name)
 	delete(song.youtube_id)
 	delete(song.artwork.url)
-	delete(song.artwork.background_color)
+	delete(song.artwork.bg_color)
 	delete(song.artwork.text_color)
 }

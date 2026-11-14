@@ -24,7 +24,7 @@ import "thor:ui"
 // A long page needs more than the 256 KB that build.sh gives a thread.
 MAIN_TEMP_BYTES :: 4 * 1024 * 1024
 
-DEFAULT_WINDOW_SIZE_POINTS :: [2]f32{1200, 800}
+DEFAULT_WINDOW_SIZE :: [2]f32{1200, 800}
 
 main :: proc() {
 	runtime.default_temp_allocator_init(
@@ -81,8 +81,8 @@ open_main_window :: proc() {
 	app.open_main_window(
 		{
 			title = "onlymuse",
-			size = DEFAULT_WINDOW_SIZE_POINTS,
-			min_size = {look.MIN_WINDOW_WIDTH_POINTS, look.MIN_WINDOW_HEIGHT_POINTS},
+			size = DEFAULT_WINDOW_SIZE,
+			min_size = {look.MIN_WINDOW_WIDTH, look.MIN_WINDOW_HEIGHT},
 			is_blurred = true,
 		},
 		draw_frame,
@@ -94,9 +94,9 @@ open_main_window :: proc() {
 	})
 }
 
-SIGN_IN_CARD_WIDTH_POINTS :: 380
+SIGN_IN_CARD_WIDTH :: 380
 
-SIGN_IN_CARD_HALF_HEIGHT_POINTS :: 110
+SIGN_IN_CARD_HALF_HEIGHT :: 110
 
 build_sign_in_card :: proc() {
 	window_size := ui.window_size()
@@ -105,8 +105,8 @@ build_sign_in_card :: proc() {
 		{
 			width = ui.fill(),
 			height = ui.fill(),
-			background = kit.to_color(0x000000a0),
-			position = {0, 0},
+			bg = kit.to_color(0x000000a0),
+			pos = {0, 0},
 			pointer = .Click,
 			flags = {.Floating},
 		},
@@ -116,18 +116,18 @@ build_sign_in_card :: proc() {
 		card := ui.box(
 			"card",
 			{
-				width = ui.points(SIGN_IN_CARD_WIDTH_POINTS),
+				width = ui.points(SIGN_IN_CARD_WIDTH),
 				height = ui.fit_children(),
 				axis = .Y,
 				gap = 12,
 				padding = {24, 24, 24, 24},
 				corner_radius = 14,
-				background = kit.colors.base_300,
+				bg = kit.colors.base_300,
 				border_width = 1,
 				border_color = kit.colors.line,
-				position = {
-					(window_size.x - SIGN_IN_CARD_WIDTH_POINTS) / 2,
-					window_size.y / 2 - SIGN_IN_CARD_HALF_HEIGHT_POINTS,
+				pos = {
+					(window_size.x - SIGN_IN_CARD_WIDTH) / 2,
+					window_size.y / 2 - SIGN_IN_CARD_HALF_HEIGHT,
 				},
 				flags = {.Floating},
 			},

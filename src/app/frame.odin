@@ -28,7 +28,7 @@ draw_frame :: proc() -> bool {
 
 	root := ui.current_parent()
 	root.style.axis = .Y
-	if dev.capture_path != "" do root.style.background = kit.colors.base_100
+	if dev.capture_path != "" do root.style.bg = kit.colors.base_100
 	is_lyrics_moving := false
 
 	top := ui.box("top", {width = ui.fill(), height = ui.fill(), axis = .X})
@@ -45,7 +45,7 @@ draw_frame :: proc() -> bool {
 	menus.build_drag_ghost()
 	palette.build_palette()
 	playback.build_shuffle_rules()
-	kit.toast(look.PLAYER_HEIGHT_POINTS)
+	kit.toast(look.PLAYER_HEIGHT)
 	if core.app.is_sign_in_needed do build_sign_in_card()
 	dev.build_frame_time(kit.with_opacity(kit.colors.base_content, 0.5))
 
@@ -141,7 +141,7 @@ apply_command_key :: proc(key: platform.Key_Press) {
 	if !kit.has_focused_input() {
 		#partial switch key.key {
 		case .Left:
-			playback.skip_to_previous(helper.read_position_seconds(core.app.now_playing))
+			playback.skip_to_prev(helper.read_pos_seconds(core.app.now_playing))
 		case .Right:
 			playback.skip_to_next()
 		case .Up:

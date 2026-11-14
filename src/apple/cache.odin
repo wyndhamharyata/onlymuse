@@ -24,10 +24,10 @@ Watched :: struct {
 @(private)
 Entry :: struct {
 	using watched: Watched,
-	path:          string,
-	is_checking:   bool,
-	used_at_ms:    i64,
-	failed_at_ms:  i64,
+	path:         string,
+	is_checking:  bool,
+	used_at_ms:   i64,
+	failed_at_ms: i64,
 }
 
 @(private)

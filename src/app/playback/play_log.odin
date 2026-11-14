@@ -32,10 +32,10 @@ apply_now_playing_to_play_log :: proc() {
 	now_playing := core.app.now_playing
 	has_song := helper.has_song(now_playing)
 	persistent_id := now_playing.song.persistent_id if has_song else ""
-	position_seconds := helper.read_position_seconds(now_playing)
+	pos_seconds := helper.read_pos_seconds(now_playing)
 	is_restart :=
 		persistent_id == listening.persistent_id &&
-		position_seconds < SKIP_MIN_SECONDS &&
+		pos_seconds < SKIP_MIN_SECONDS &&
 		is_heard_as_play()
 	is_new_song := persistent_id != listening.persistent_id || is_restart
 
@@ -58,7 +58,7 @@ apply_now_playing_to_play_log :: proc() {
 
 	listening.furthest_seconds = max(
 		listening.furthest_seconds,
-		min(position_seconds, listening.duration_seconds),
+		min(pos_seconds, listening.duration_seconds),
 	)
 }
 

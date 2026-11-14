@@ -7,9 +7,9 @@ import "core:strings"
 
 Artwork :: struct {
 	// It has {w}, {h} and {f} in place of the size and the format.
-	url:              string,
-	background_color: string `json:"bgColor"`,
-	text_color:       string `json:"textColor1"`,
+	url:        string,
+	bg_color:   string `json:"bgColor"`,
+	text_color: string `json:"textColor1"`,
 }
 
 Catalog_Song :: struct {
@@ -256,22 +256,22 @@ to_new_shelves :: proc(body: string, allocator := context.allocator) -> []Shelf 
 	return shelves[:]
 }
 
-to_artwork_url :: proc(artwork: Artwork, width_pixels: int) -> string {
+to_artwork_url :: proc(artwork: Artwork, width_px: int) -> string {
 	with_width, _ := strings.replace_all(
 		artwork.url,
 		"{w}",
-		fmt.tprintf("%d", width_pixels),
+		fmt.tprintf("%d", width_px),
 		context.temp_allocator,
 	)
 	with_height, _ := strings.replace_all(
 		with_width,
 		"{h}",
-		fmt.tprintf("%d", width_pixels),
+		fmt.tprintf("%d", width_px),
 		context.temp_allocator,
 	)
 
 	// "ac" puts an artist's album cover on a square of its colour. "cc" crops it to fill.
-	size := fmt.tprintf("%dx%d", width_pixels, width_pixels)
+	size := fmt.tprintf("%dx%d", width_px, width_px)
 	cropped, _ := strings.replace_all(
 		with_height,
 		fmt.tprintf("%sac.", size),

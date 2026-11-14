@@ -7,7 +7,7 @@ import "thor:kit"
 import "thor:platform"
 import "thor:ui"
 
-DRAG_START_POINTS :: 6
+DRAG_START :: 6
 
 @(private = "file")
 drag: struct {
@@ -17,10 +17,10 @@ drag: struct {
 }
 
 apply_song_row_signal :: proc(signal: ui.Signal, song: core.Catalog_Song) -> bool {
-	if signal.is_secondary do open_song_menu(song, ui.pointer_position())
+	if signal.is_secondary do open_song_menu(song, ui.pointer_pos())
 
 	moved := signal.drag
-	has_moved := moved.x * moved.x + moved.y * moved.y > DRAG_START_POINTS * DRAG_START_POINTS
+	has_moved := moved.x * moved.x + moved.y * moved.y > DRAG_START * DRAG_START
 	can_start_drag := signal.is_held && !drag.is_dragging && song.id != ""
 
 	if can_start_drag && has_moved {
@@ -70,7 +70,7 @@ apply_drag_release :: proc() {
 build_drag_ghost :: proc() {
 	if !drag.is_dragging do return
 
-	mouse := ui.pointer_position()
+	mouse := ui.pointer_pos()
 	ghost := ui.box(
 		"drag_ghost",
 		{
@@ -81,10 +81,10 @@ build_drag_ghost :: proc() {
 			gap = 7,
 			padding = {10, 0, 12, 0},
 			corner_radius = 8,
-			background = look.colors.drag_ghost,
+			bg = look.colors.drag_ghost,
 			border_width = 1,
 			border_color = {kit.colors.primary.r, kit.colors.primary.g, kit.colors.primary.b, 0.6},
-			position = mouse + {12, 8},
+			pos = mouse + {12, 8},
 			flags = {.Floating},
 		},
 	)
@@ -97,7 +97,7 @@ build_drag_ghost :: proc() {
 				width = ui.fit_text(),
 				height = ui.fit_text(),
 				text_color = kit.colors.base_content,
-				font_size = kit.SMALL_TEXT_POINTS,
+				font_size = kit.SMALL_TEXT_SIZE,
 			},
 			drag.song.name,
 		)

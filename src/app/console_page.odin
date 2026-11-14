@@ -9,9 +9,9 @@ import "thor:kit"
 import "thor:platform"
 import "thor:ui"
 
-CONSOLE_TIME_POINTS :: 62
+CONSOLE_TIME :: 62
 
-CONSOLE_SOURCE_POINTS :: 62
+CONSOLE_SOURCE :: 62
 
 build_console_page :: proc() {
 	entries := console.list()
@@ -75,7 +75,7 @@ build_console_row :: proc(index: int, entry: console.Entry) {
 			gap = 12,
 			padding = {8, 6, 8, 6},
 			corner_radius = 6,
-			background = kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY) if index % 2 == 0 else {},
+			bg = kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY) if index % 2 == 0 else {},
 		},
 	)
 
@@ -83,7 +83,7 @@ build_console_row :: proc(index: int, entry: console.Entry) {
 		ui.box(
 			"",
 			{
-				width = ui.points(CONSOLE_TIME_POINTS),
+				width = ui.points(CONSOLE_TIME),
 				height = ui.fit_text(),
 				text_color = kit.with_opacity(kit.colors.base_content, 0.5),
 				font_size = 12,
@@ -93,7 +93,7 @@ build_console_row :: proc(index: int, entry: console.Entry) {
 		ui.box(
 			"",
 			{
-				width = ui.points(CONSOLE_SOURCE_POINTS),
+				width = ui.points(CONSOLE_SOURCE),
 				height = ui.fit_text(),
 				text_color = source_color,
 				font_size = 12,
@@ -107,7 +107,7 @@ build_console_row :: proc(index: int, entry: console.Entry) {
 				width = ui.fill(),
 				height = ui.fit_text(),
 				text_color = kit.colors.base_content,
-				font_size = kit.SMALL_TEXT_POINTS,
+				font_size = kit.SMALL_TEXT_SIZE,
 				text_fit = .Wrap,
 			},
 			entry.text,

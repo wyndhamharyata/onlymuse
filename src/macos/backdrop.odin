@@ -14,9 +14,9 @@ import "thor:platform"
 
 // shortcut: windows below and dynamic wallpapers do not show. Use the live blur if that matters.
 
-BACKDROP_PIXELS_PER_POINT :: 0.5
+BACKDROP_SCALE :: 0.5
 // This value matches the live blur by eye, against the same content without blur.
-BACKDROP_BLUR_SIGMA_POINTS :: 30
+BACKDROP_BLUR_SIGMA :: 30
 BACKDROP_FADE_SECONDS :: 0.2
 DRAG_STEP_SECONDS :: 0.05
 
@@ -202,14 +202,14 @@ read_backdrop_image :: proc(screen: ^NS.Screen) -> mac.Image_Ref {
 	if wallpaper == nil do return nil
 
 	extent := objc_send(NS.Rect, wallpaper, "extent")
-	has_pixels := extent.size.width > 0 && extent.size.height > 0
+	has_px := extent.size.width > 0 && extent.size.height > 0
 
-	if !has_pixels do return nil
+	if !has_px do return nil
 
 	size := screen->frame().size
-	width_pixels := size.width * BACKDROP_PIXELS_PER_POINT
-	height_pixels := size.height * BACKDROP_PIXELS_PER_POINT
-	scale := max(width_pixels / extent.size.width, height_pixels / extent.size.height)
+	width_px := size.width * BACKDROP_SCALE
+	height_px := size.height * BACKDROP_SCALE
+	scale := max(width_px / extent.size.width, height_px / extent.size.height)
 
 	filled := objc_send(
 		^CI_Image,
@@ -218,8 +218,8 @@ read_backdrop_image :: proc(screen: ^NS.Screen) -> mac.Image_Ref {
 		Affine_Transform {
 			a = scale,
 			d = scale,
-			tx = (width_pixels - extent.size.width * scale) / 2 - extent.origin.x * scale,
-			ty = (height_pixels - extent.size.height * scale) / 2 - extent.origin.y * scale,
+			tx = (width_px - extent.size.width * scale) / 2 - extent.origin.x * scale,
+			ty = (height_px - extent.size.height * scale) / 2 - extent.origin.y * scale,
 		},
 	)
 
@@ -229,7 +229,7 @@ read_backdrop_image :: proc(screen: ^NS.Screen) -> mac.Image_Ref {
 		^CI_Image,
 		clamped,
 		"imageByApplyingGaussianBlurWithSigma:",
-		NS.Float(BACKDROP_BLUR_SIGMA_POINTS * BACKDROP_PIXELS_PER_POINT),
+		NS.Float(BACKDROP_BLUR_SIGMA * BACKDROP_SCALE),
 	)
 
 	// The live blur mixes sRGB values. Core Image mixes linear light, about 7% brighter.
@@ -249,7 +249,7 @@ read_backdrop_image :: proc(screen: ^NS.Screen) -> mac.Image_Ref {
 		ci_context,
 		"createCGImage:fromRect:",
 		blurred,
-		NS.Rect{{0, 0}, {width_pixels, height_pixels}},
+		NS.Rect{{0, 0}, {width_px, height_px}},
 	)
 }
 

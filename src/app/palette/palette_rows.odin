@@ -7,9 +7,9 @@ import "om:apple"
 import "thor:kit"
 import "thor:ui"
 
-GROUP_TITLE_HEIGHT_POINTS :: 27
+GROUP_TITLE_HEIGHT :: 27
 
-ROW_ARTWORK_POINTS :: 26
+ROW_ARTWORK :: 26
 
 @(private)
 build_results :: proc() -> int {
@@ -32,7 +32,7 @@ build_results :: proc() -> int {
 		{
 			width = ui.fill(),
 			height = ui.points(
-				min(PALETTE_LIST_MAX_HEIGHT_POINTS, to_list_height_points(palette.results)),
+				min(PALETTE_LIST_MAX_HEIGHT, to_list_height(palette.results)),
 			),
 			axis = .Y,
 			flags = {.Scroll, .Clip},
@@ -76,9 +76,9 @@ build_results :: proc() -> int {
 
 @(private = "file")
 scroll_to_selected :: proc(list: ^ui.Box) {
-	top := to_row_top_points(palette.selected_index)
-	bottom := top + PALETTE_ROW_HEIGHT_POINTS
-	height := min(PALETTE_LIST_MAX_HEIGHT_POINTS, to_list_height_points(palette.results))
+	top := to_row_top(palette.selected_index)
+	bottom := top + PALETTE_ROW_HEIGHT
+	height := min(PALETTE_LIST_MAX_HEIGHT, to_list_height(palette.results))
 	view_top := list.scroll
 	view_bottom := view_top + height
 
@@ -90,26 +90,26 @@ scroll_to_selected :: proc(list: ^ui.Box) {
 }
 
 @(private = "file")
-to_row_top_points :: proc(index: int) -> f32 {
+to_row_top :: proc(index: int) -> f32 {
 	top: f32
 	group := ""
 
 	for result, result_index in palette.results {
 		if result.group != group {
 			group = result.group
-			top += GROUP_TITLE_HEIGHT_POINTS
+			top += GROUP_TITLE_HEIGHT
 		}
 
 		if result_index == index do return top
 
-		top += PALETTE_ROW_HEIGHT_POINTS
+		top += PALETTE_ROW_HEIGHT
 	}
 
 	return top
 }
 
 @(private = "file")
-to_list_height_points :: proc(results: []Palette_Result) -> f32 {
+to_list_height :: proc(results: []Palette_Result) -> f32 {
 	group_count := 0
 	group := ""
 
@@ -121,8 +121,8 @@ to_list_height_points :: proc(results: []Palette_Result) -> f32 {
 	}
 
 	return(
-		f32(len(results)) * PALETTE_ROW_HEIGHT_POINTS +
-		f32(group_count) * GROUP_TITLE_HEIGHT_POINTS \
+		f32(len(results)) * PALETTE_ROW_HEIGHT +
+		f32(group_count) * GROUP_TITLE_HEIGHT \
 	)
 }
 
@@ -133,18 +133,18 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 		fmt.tprintf("result_%d", index),
 		{
 			width = ui.fill(),
-			height = ui.points(PALETTE_ROW_HEIGHT_POINTS),
+			height = ui.points(PALETTE_ROW_HEIGHT),
 			axis = .X,
 			align = .Center,
 			gap = 10,
 			padding = {8, 0, 10, 0},
 			corner_radius = 8,
-			background = kit.with_opacity(kit.colors.primary, kit.SOFT_OPACITY) if is_selected else {},
+			bg = kit.with_opacity(kit.colors.primary, kit.SOFT_OPACITY) if is_selected else {},
 			pointer = .Click,
 		},
 	)
 	signal := ui.signal(row)
-	has_pointer_moved := ui.pointer_position() != palette.last_mouse_position
+	has_pointer_moved := ui.pointer_pos() != palette.last_mouse_pos
 
 	if signal.is_hovered && has_pointer_moved {
 		palette.selected_index = index
@@ -153,9 +153,9 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 	if ui.scope(row) {
 		if result.artwork.url != "" {
 			look.artwork_box(
-				apple.to_artwork_url(result.artwork, look.to_artwork_pixels(ROW_ARTWORK_POINTS)),
-				ROW_ARTWORK_POINTS,
-				ROW_ARTWORK_POINTS / 2 if result.is_round else 4,
+				apple.to_artwork_url(result.artwork, look.to_artwork_px(ROW_ARTWORK)),
+				ROW_ARTWORK,
+				ROW_ARTWORK / 2 if result.is_round else 4,
 				look.to_placeholder(result.artwork, result.title),
 			)
 		} else {
@@ -163,7 +163,7 @@ build_result_row :: proc(result: Palette_Result, index: int) -> bool {
 				result.symbol if result.symbol != "" else "arrow.right",
 				14,
 				kit.colors.primary if is_selected else kit.with_opacity(kit.colors.base_content, 0.7),
-				{width = ui.points(ROW_ARTWORK_POINTS), height = ui.points(ROW_ARTWORK_POINTS)},
+				{width = ui.points(ROW_ARTWORK), height = ui.points(ROW_ARTWORK)},
 			)
 		}
 

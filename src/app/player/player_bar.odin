@@ -11,7 +11,7 @@ import "thor:font"
 import "thor:kit"
 import "thor:ui"
 
-PLAYER_ARTWORK_POINTS :: 52
+PLAYER_ARTWORK :: 52
 
 SONG_NAME_FONT_SIZE :: 13.5
 
@@ -21,23 +21,23 @@ BADGE_FONT_SIZE :: 9.5
 
 BADGE_WEIGHT :: font.Weight.Bold
 
-BADGE_PADDING_POINTS :: 4
+BADGE_PADDING :: 4
 
-TITLE_GAP_POINTS :: 7
+TITLE_GAP :: 7
 
-HEART_BUTTON_POINTS :: 22
+HEART_BUTTON :: 22
 
 build_player_bar :: proc() {
 	bar_box := ui.box(
 		"player",
 		{
 			width = ui.fill(),
-			height = ui.points(look.PLAYER_HEIGHT_POINTS),
+			height = ui.points(look.PLAYER_HEIGHT),
 			axis = .X,
 			align = .Center,
 			gap = 16,
 			padding = {16, 0, 16, 0},
-			background = look.colors.player,
+			bg = look.colors.player,
 		},
 	)
 
@@ -47,8 +47,8 @@ build_player_bar :: proc() {
 			{
 				width = ui.fill(),
 				height = ui.points(1),
-				background = kit.colors.line,
-				position = {0, 0},
+				bg = kit.colors.line,
+				pos = {0, 0},
 				flags = {.Floating},
 			},
 		)
@@ -68,7 +68,7 @@ find_player_artwork_source :: proc() -> string {
 	if is_waiting_for_queue_song() {
 		return apple.to_artwork_url(
 			playback.queue.songs[playback.queue.index].artwork,
-			look.to_artwork_pixels(PLAYER_ARTWORK_POINTS),
+			look.to_artwork_px(PLAYER_ARTWORK),
 		)
 	}
 
@@ -78,7 +78,7 @@ find_player_artwork_source :: proc() -> string {
 	if is_queue_song && queue_song.artwork.url != "" {
 		return apple.to_artwork_url(
 			queue_song.artwork,
-			look.to_artwork_pixels(PLAYER_ARTWORK_POINTS),
+			look.to_artwork_px(PLAYER_ARTWORK),
 		)
 	}
 
@@ -118,15 +118,15 @@ build_song_info :: proc() {
 		if ui.signal(cover).is_activated do core.navigate({kind = .Now_Playing})
 
 		if ui.scope(cover) {
-			look.artwork_box(artwork_source, PLAYER_ARTWORK_POINTS, 6, placeholder)
+			look.artwork_box(artwork_source, PLAYER_ARTWORK, 6, placeholder)
 			ui.box(
 				"",
 				{
-					width = ui.points(PLAYER_ARTWORK_POINTS),
-					height = ui.points(PLAYER_ARTWORK_POINTS),
+					width = ui.points(PLAYER_ARTWORK),
+					height = ui.points(PLAYER_ARTWORK),
 					corner_radius = 6,
-					background = {1, 1, 1, 0.12 * ui.animate("player_cover_hover", 1 if is_song && ui.signal(cover).is_hovered else 0, kit.motion.fast)},
-					position = {0, 0},
+					bg = {1, 1, 1, 0.12 * ui.animate("player_cover_hover", 1 if is_song && ui.signal(cover).is_hovered else 0, kit.motion.fast)},
+					pos = {0, 0},
 					flags = {.Floating},
 				},
 			)
@@ -144,7 +144,7 @@ build_song_info :: proc() {
 				}
 
 				kit.text(waiting_song.name, kit.colors.base_content, SONG_NAME_FONT_SIZE, SONG_NAME_WEIGHT)
-				kit.text(waiting_text, kit.with_opacity(kit.colors.base_content, 0.7), kit.SMALL_TEXT_POINTS)
+				kit.text(waiting_text, kit.with_opacity(kit.colors.base_content, 0.7), kit.SMALL_TEXT_SIZE)
 			} else if is_song {
 				build_song_title(song, queue_song, is_queue_song)
 				build_song_subtitle(song)
@@ -159,7 +159,7 @@ build_song_info :: proc() {
 				if core.app.drives_music_app {
 					closed_text :=
 						"Music.app is not open." if now_playing.playback == .Closed else "Music.app has no song."
-					kit.text(closed_text, kit.with_opacity(kit.colors.base_content, 0.7), kit.SMALL_TEXT_POINTS)
+					kit.text(closed_text, kit.with_opacity(kit.colors.base_content, 0.7), kit.SMALL_TEXT_SIZE)
 				}
 			}
 		}
@@ -175,7 +175,7 @@ build_song_title :: proc(song: helper.Song, queue_song: core.Catalog_Song, is_qu
 			height = ui.fit_children(),
 			axis = .X,
 			align = .Center,
-			gap = TITLE_GAP_POINTS,
+			gap = TITLE_GAP,
 		},
 	)
 
@@ -194,13 +194,13 @@ build_song_title :: proc(song: helper.Song, queue_song: core.Catalog_Song, is_qu
 		name_width := ui.Size{.Fill, 1}
 
 		if row_width := title.rect.z - title.rect.x; row_width > 0 {
-			after_width: f32 = HEART_BUTTON_POINTS + TITLE_GAP_POINTS
+			after_width: f32 = HEART_BUTTON + TITLE_GAP
 
 			if badge != "" {
 				badge_width :=
 					kit.measure_text(badge, BADGE_FONT_SIZE, BADGE_WEIGHT) +
-					2 * BADGE_PADDING_POINTS
-				after_width += badge_width + TITLE_GAP_POINTS
+					2 * BADGE_PADDING
+				after_width += badge_width + TITLE_GAP
 			}
 
 			// At exactly its text width, a name such as "If" truncates to nothing.
@@ -224,7 +224,7 @@ build_song_title :: proc(song: helper.Song, queue_song: core.Catalog_Song, is_qu
 				{
 					width = ui.fit_text(),
 					height = ui.fit_text(),
-					padding = {BADGE_PADDING_POINTS, 0, BADGE_PADDING_POINTS, 0},
+					padding = {BADGE_PADDING, 0, BADGE_PADDING, 0},
 					corner_radius = 4,
 					border_width = 1,
 					border_color = badge_border_color,
@@ -262,7 +262,7 @@ build_song_subtitle :: proc(song: helper.Song) {
 		"subtitle",
 		subtitle_text,
 		kit.with_opacity(kit.colors.base_content, 0.7),
-		kit.SMALL_TEXT_POINTS,
+		kit.SMALL_TEXT_SIZE,
 		is_clickable = true,
 	)
 

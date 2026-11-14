@@ -13,7 +13,7 @@ import "thor:ui"
 
 MAX_MORE_BY_COUNT :: 6
 
-MORE_BY_TILE_POINTS :: 118
+MORE_BY_TILE :: 118
 
 build_now_playing_page :: proc() {
 	shown, is_song := playback.find_shown_song()
@@ -89,9 +89,9 @@ build_current_lyric :: proc(shown: helper.Song) {
 	phase, lines := lyrics.watch(shown.persistent_id, shown.name, shown.artist_name)
 	if phase != .Ready || len(lines) == 0 do return
 
-	position_seconds := to_lyrics_position_seconds(core.app.now_playing, lyrics_state.lead_ms)
-	index := find_current_line(lines, position_seconds)
-	start_lyrics_timer(lines, position_seconds)
+	pos_seconds := to_lyrics_pos_seconds(core.app.now_playing, lyrics_state.lead_ms)
+	index := find_current_line(lines, pos_seconds)
+	start_lyrics_timer(lines, pos_seconds)
 
 	if index < 0 || lines[index].text == "" do return
 
@@ -202,7 +202,7 @@ build_more_by :: proc(details: Song_Details) {
 				if lists.build_card_tile(
 					fmt.tprintf("%d %s", index, card.id),
 					card,
-					MORE_BY_TILE_POINTS,
+					MORE_BY_TILE,
 				) {
 					lists.open_card(data.cards, index)
 				}

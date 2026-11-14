@@ -8,31 +8,31 @@ import "om:apple"
 import "thor:kit"
 import "thor:ui"
 
-PHOTO_WIDTH_STEP_PIXELS :: 400
+PHOTO_WIDTH_STEP_PX :: 400
 
-LATEST_RELEASE_POINTS :: 210
+LATEST_RELEASE :: 210
 
-ARTIST_HEADER_RADIUS_POINTS :: 12
+ARTIST_HEADER_RADIUS :: 12
 
 ARTIST_SHADE_ALPHA :: 0xf2 / 255.0
 
 @(private)
 build_artist_header :: proc(data: ^core.Page_Data, detail: string, width: f32) {
 	fallback_color :=
-		kit.to_color_from_hex(data.artwork.background_color) or_else kit.colors.base_300
-	header := ui.box("header", {width = ui.fill(), height = ui.points(ARTIST_HEADER_POINTS)})
+		kit.to_color_from_hex(data.artwork.bg_color) or_else kit.colors.base_300
+	header := ui.box("header", {width = ui.fill(), height = ui.points(ARTIST_HEADER)})
 
 	if ui.scope(header) {
 		if width > 0 {
 			photo_width :=
-				int(math.ceil(ui.to_pixels(width) / PHOTO_WIDTH_STEP_PIXELS)) *
-				PHOTO_WIDTH_STEP_PIXELS
+				int(math.ceil(ui.to_px(width) / PHOTO_WIDTH_STEP_PX)) *
+				PHOTO_WIDTH_STEP_PX
 			// Apple fits the photo inside the asked size. A square gives the whole photo to crop.
 			photo := apple.to_artwork_url(data.artwork, photo_width)
 			box := look.artwork_rect_box(
 				photo,
-				{width, ARTIST_HEADER_POINTS},
-				ARTIST_HEADER_RADIUS_POINTS,
+				{width, ARTIST_HEADER},
+				ARTIST_HEADER_RADIUS,
 				{top = fallback_color, bottom = fallback_color},
 			)
 			box.style.flags += {.Floating}
@@ -45,7 +45,7 @@ build_artist_header :: proc(data: ^core.Page_Data, detail: string, width: f32) {
 			{
 				width = ui.fill(),
 				height = ui.fill(),
-				corner_radius = ARTIST_HEADER_RADIUS_POINTS,
+				corner_radius = ARTIST_HEADER_RADIUS,
 				layers = {
 					ui.Gradient {
 						from = {window_color.r, window_color.g, window_color.b, 0},
@@ -106,7 +106,7 @@ build_artist_middle :: proc(data: ^core.Page_Data) {
 			latest := ui.box(
 				"latest",
 				{
-					width = ui.points(LATEST_RELEASE_POINTS),
+					width = ui.points(LATEST_RELEASE),
 					height = ui.fit_children(),
 					axis = .Y,
 					gap = 10,
@@ -116,7 +116,7 @@ build_artist_middle :: proc(data: ^core.Page_Data) {
 			if ui.scope(latest) {
 				lists.build_shelf_title("Latest Release", false)
 
-				if lists.build_card_tile("latest card", data.latest[0], LATEST_RELEASE_POINTS) {
+				if lists.build_card_tile("latest card", data.latest[0], LATEST_RELEASE) {
 					lists.open_card(data.latest, 0)
 				}
 			}

@@ -10,11 +10,11 @@ build_sidebar :: proc() {
 	sidebar := ui.box(
 		"sidebar",
 		{
-			width = ui.points(look.SIDEBAR_WIDTH_POINTS),
+			width = ui.points(look.SIDEBAR_WIDTH),
 			height = ui.fill(),
 			axis = .Y,
-			padding = {8, look.TOOLBAR_HEIGHT_POINTS, 8, 0},
-			background = look.colors.sidebar,
+			padding = {8, look.TOOLBAR_HEIGHT, 8, 0},
+			bg = look.colors.sidebar,
 		},
 	)
 
@@ -85,7 +85,7 @@ build_sidebar_item :: proc(
 	can_take_songs := false,
 ) {
 	is_selected := core.current_page() == page
-	background := kit.with_opacity(kit.colors.primary, kit.SOFT_OPACITY) if is_selected else {}
+	bg := kit.with_opacity(kit.colors.primary, kit.SOFT_OPACITY) if is_selected else {}
 	row := ui.box(
 		label if page.id == "" else page.id,
 		{
@@ -96,9 +96,9 @@ build_sidebar_item :: proc(
 			gap = 9,
 			padding = {10, 0, 10, 0},
 			corner_radius = 7,
-			background = background,
-			hover_background = background if is_selected else kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY),
-			press_background = kit.with_opacity(kit.colors.base_content, kit.SELECTED_OPACITY),
+			bg = bg,
+			hover_bg = bg if is_selected else kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY),
+			press_bg = kit.with_opacity(kit.colors.base_content, kit.SELECTED_OPACITY),
 			pointer = .Click,
 		},
 	)
@@ -107,7 +107,7 @@ build_sidebar_item :: proc(
 	if signal.is_activated do core.navigate(page)
 
 	if menus.apply_song_drop(signal.is_hovered, page.id, page.title, can_take_songs) {
-		row.style.background = kit.with_opacity(kit.colors.primary, kit.SOFT_OPACITY)
+		row.style.bg = kit.with_opacity(kit.colors.primary, kit.SOFT_OPACITY)
 		row.style.border_width = 1.5
 		row.style.border_color = kit.colors.primary
 	}

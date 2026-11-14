@@ -10,9 +10,9 @@ import "om:apple"
 import "thor:kit"
 import "thor:ui"
 
-SONG_ROW_POINTS :: 54
+SONG_ROW :: 54
 
-SONG_ARTWORK_POINTS :: 40
+SONG_ARTWORK :: 40
 
 build_song_list_page :: proc(
 	title, description: string,
@@ -65,13 +65,13 @@ build_play_buttons :: proc(songs: []core.Catalog_Song) {
 }
 
 to_visible_range :: proc(
-	offset_points, view_points, step_points: f32,
+	offset, view, step: f32,
 	count, extra_count: int,
 ) -> (
 	first, last: int,
 ) {
-	first = max(0, int(offset_points / step_points) - extra_count)
-	last = min(count - 1, int((offset_points + view_points) / step_points) + extra_count)
+	first = max(0, int(offset / step) - extra_count)
+	last = min(count - 1, int((offset + view) / step) + extra_count)
 
 	return
 }
@@ -82,7 +82,7 @@ build_song_rows :: proc(songs: []core.Catalog_Song, dates: []string = nil) {
 		height = ui.fit_children(),
 	}
 
-	if first, last, ok := kit.list("rows", len(songs), SONG_ROW_POINTS, style); ok {
+	if first, last, ok := kit.list("rows", len(songs), SONG_ROW, style); ok {
 		for index in first ..< last {
 			song := songs[index]
 			is_current := playback.is_current_song(song)
@@ -120,23 +120,23 @@ build_song_row :: proc(
 		id,
 		{
 			width = ui.fill(),
-			height = ui.points(SONG_ROW_POINTS),
+			height = ui.points(SONG_ROW),
 			axis = .X,
 			align = .Center,
 			gap = 11,
 			padding = {6, 0, 6, 0},
 			corner_radius = 7,
-			background = tint if is_current else {},
-			hover_background = tint if is_current else kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY),
-			press_background = kit.with_opacity(kit.colors.base_content, kit.SELECTED_OPACITY),
+			bg = tint if is_current else {},
+			hover_bg = tint if is_current else kit.with_opacity(kit.colors.base_content, kit.HOVER_OPACITY),
+			press_bg = kit.with_opacity(kit.colors.base_content, kit.SELECTED_OPACITY),
 			pointer = .Click,
 		},
 	)
 
 	if ui.scope(row) {
 		look.artwork_box(
-			apple.to_artwork_url(song.artwork, look.to_artwork_pixels(SONG_ARTWORK_POINTS)),
-			SONG_ARTWORK_POINTS,
+			apple.to_artwork_url(song.artwork, look.to_artwork_px(SONG_ARTWORK)),
+			SONG_ARTWORK,
 			5,
 			look.to_placeholder(song.artwork, song.album_name),
 		)

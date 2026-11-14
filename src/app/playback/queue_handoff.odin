@@ -16,7 +16,7 @@ import "thor:ui"
 Tracking :: struct {
 	persistent_id:    string,
 	duration_seconds: f64,
-	position_seconds: f64,
+	pos_seconds:      f64,
 	received_at_ms:   f64,
 	is_playing:       bool,
 }
@@ -82,9 +82,9 @@ has_youtube_song_ahead :: proc() -> bool {
 
 @(private = "file")
 to_estimate_seconds :: proc(current: Tracking, now_ms: f64) -> f64 {
-	if !current.is_playing do return current.position_seconds
+	if !current.is_playing do return current.pos_seconds
 
-	return current.position_seconds + (now_ms - current.received_at_ms) / 1000
+	return current.pos_seconds + (now_ms - current.received_at_ms) / 1000
 }
 
 @(private = "file")
@@ -102,7 +102,7 @@ is_handoff_starting :: proc(now_playing: helper.Now_Playing, was_at_end: bool) -
 	handoff := queue_state.handoff
 	is_tracked_song := queue_state.has_tracking && tracking.persistent_id == persistent_id
 	is_restart :=
-		is_tracked_song && was_at_end && now_playing.position_seconds < END_TOLERANCE_SECONDS
+		is_tracked_song && was_at_end && now_playing.pos_seconds < END_TOLERANCE_SECONDS
 	is_handoff_song := queue_state.has_handoff && persistent_id == handoff.persistent_id
 	is_after_queue_song :=
 		queue_state.has_tracking &&
@@ -131,8 +131,8 @@ apply_playing_song :: proc(now_playing: helper.Now_Playing, now_ms: f64) {
 	queue_state.tracking = {
 		persistent_id    = fmt.aprint(now_playing.song.persistent_id),
 		duration_seconds = now_playing.song.duration_seconds,
-		position_seconds = max(now_playing.position_seconds, estimate_seconds) if is_paused else now_playing.position_seconds,
-		received_at_ms   = now_playing.position_read_at_ms,
+		pos_seconds      = max(now_playing.pos_seconds, estimate_seconds) if is_paused else now_playing.pos_seconds,
+		received_at_ms   = now_playing.pos_read_at_ms,
 		is_playing       = !is_paused,
 	}
 	queue_state.has_tracking = true
@@ -173,7 +173,7 @@ apply_queue_now_playing :: proc() {
 	queue_state.has_tracking = false
 
 	if has_ended && queue.resume_point.song.persistent_id != "" {
-		queue.resume_point.position_seconds = 0
+		queue.resume_point.pos_seconds = 0
 		save_resume_point()
 	}
 
@@ -208,7 +208,7 @@ apply_resume_point :: proc() {
 			song.duration_seconds,
 			strings.clone(song.artwork_path),
 		},
-		position_seconds = to_estimate_seconds(queue_state.tracking, helper.now_ms()),
+		pos_seconds = to_estimate_seconds(queue_state.tracking, helper.now_ms()),
 	}
 
 	delete(old.name)
@@ -240,7 +240,7 @@ restart_stalled_song :: proc(now_playing: helper.Now_Playing) {
 		console.add(
 			"Queue",
 			"Music.app stopped at %s of %s, so the queue starts the song again.",
-			look.to_clock_text(now_playing.position_seconds),
+			look.to_clock_text(now_playing.pos_seconds),
 			song.name,
 		)
 	} else {

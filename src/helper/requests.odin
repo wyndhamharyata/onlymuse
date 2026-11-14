@@ -102,17 +102,17 @@ send_next :: proc() {
 	send(`{"type":"next"}`)
 }
 
-send_previous :: proc() {
-	send(`{"type":"previous"}`)
+send_prev :: proc() {
+	send(`{"type":"prev"}`)
 }
 
-send_seek :: proc(position_seconds: f64) {
+send_seek :: proc(pos_seconds: f64) {
 	Command :: struct {
-		type:             string,
-		position_seconds: f64 `json:"positionSeconds"`,
+		type:        string,
+		pos_seconds: f64 `json:"positionSeconds"`,
 	}
 
-	send_value(Command{"seek", position_seconds})
+	send_value(Command{"seek", pos_seconds})
 }
 
 send_set_volume :: proc(volume_percent: int) {

@@ -13,15 +13,15 @@ import "thor:kit"
 import "thor:platform"
 import "thor:ui"
 
-MIN_FOUR_COLUMNS_POINTS :: 720
+MIN_FOUR_COLUMNS :: 720
 
-MIN_TWO_COLUMNS_POINTS :: 380
+MIN_TWO_COLUMNS :: 380
 
-MIN_BARS_BESIDE_POINTS :: 260
+MIN_BARS_BESIDE :: 260
 
-STAT_GAP_POINTS :: 10
+STAT_GAP :: 10
 
-BARS_HEIGHT_POINTS :: 30
+BARS_HEIGHT :: 30
 
 STAT_WEEKS :: 8
 
@@ -38,9 +38,9 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f3
 
 	Stat :: struct {
 		id, label, value, note: string,
-		weight:                 f32,
-		weeks:                  [STAT_WEEKS]int,
-		has_bars:               bool,
+		weight:   f32,
+		weeks:    [STAT_WEEKS]int,
+		has_bars: bool,
 	}
 
 	stats := [4]Stat {
@@ -84,16 +84,16 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f3
 
 	columns := 1
 
-	if width >= MIN_FOUR_COLUMNS_POINTS {
+	if width >= MIN_FOUR_COLUMNS {
 		columns = 4
-	} else if width >= MIN_TWO_COLUMNS_POINTS {
+	} else if width >= MIN_TWO_COLUMNS {
 		columns = 2
 	}
 
 	for start := 0; start < len(stats); start += columns {
 		row := ui.box(
 			fmt.tprintf("stats_%d", start),
-			{width = ui.fill(), height = ui.fit_children(), axis = .X, gap = STAT_GAP_POINTS},
+			{width = ui.fill(), height = ui.fit_children(), axis = .X, gap = STAT_GAP},
 		)
 		in_row := stats[start:min(start + columns, len(stats))]
 		row_weight: f32
@@ -101,9 +101,9 @@ build_stats :: proc(song: core.Catalog_Song, info: playback.Song_Info, width: f3
 
 		if ui.scope(row) {
 			for stat in in_row {
-				gaps_width := STAT_GAP_POINTS * f32(len(in_row) - 1)
+				gaps_width := STAT_GAP * f32(len(in_row) - 1)
 				card_width := (width - gaps_width) * stat.weight / row_weight
-				is_stacked := stat.has_bars && card_width < MIN_BARS_BESIDE_POINTS
+				is_stacked := stat.has_bars && card_width < MIN_BARS_BESIDE
 				card := build_stat_card(
 					stat.id,
 					stat.label,
@@ -137,7 +137,7 @@ build_stat_card :: proc(
 			gap = 8 if is_stacked else 0,
 			padding = {14, 12, 14, 12},
 			corner_radius = 10,
-			background = look.colors.detail_card,
+			bg = look.colors.detail_card,
 			border_width = 1,
 			border_color = look.colors.detail_card_border,
 		},
@@ -262,7 +262,7 @@ build_bars :: proc(weeks: [STAT_WEEKS]int) {
 		"bars",
 		{
 			width = ui.points(120),
-			height = ui.points(BARS_HEIGHT_POINTS),
+			height = ui.points(BARS_HEIGHT),
 			axis = .X,
 			align = .End,
 			gap = 3,
@@ -271,7 +271,7 @@ build_bars :: proc(weeks: [STAT_WEEKS]int) {
 
 	if ui.scope(bars) {
 		for count, index in weeks {
-			height := max(3, BARS_HEIGHT_POINTS * f32(count) / f32(max_count))
+			height := max(3, BARS_HEIGHT * f32(count) / f32(max_count))
 
 			ui.box(
 				fmt.tprintf("week_%d", index),
@@ -279,7 +279,7 @@ build_bars :: proc(weeks: [STAT_WEEKS]int) {
 					width = ui.fill(),
 					height = ui.points(height),
 					corner_radius = 2,
-					background = {
+					bg = {
 						kit.colors.primary.r,
 						kit.colors.primary.g,
 						kit.colors.primary.b,

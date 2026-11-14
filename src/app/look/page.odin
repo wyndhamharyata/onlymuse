@@ -18,7 +18,7 @@ page_scroll :: proc(id: string) -> ^ui.Box {
 			height = ui.fill(),
 			axis = .Y,
 			gap = 20,
-			padding = {PAGE_PADDING_POINTS, 0, PAGE_PADDING_POINTS, PAGE_PADDING_POINTS},
+			padding = {PAGE_PADDING, 0, PAGE_PADDING, PAGE_PADDING},
 			flags = {.Scroll, .Clip},
 		},
 	)
@@ -85,8 +85,8 @@ build_loading :: proc(what: string) {
 		track := ui.box(
 			"",
 			{
-				width = ui.points(LOADING_BAR_WIDTH_POINTS),
-				height = ui.points(LOADING_BAR_HEIGHT_POINTS),
+				width = ui.points(LOADING_BAR_WIDTH),
+				height = ui.points(LOADING_BAR_HEIGHT),
 			},
 		)
 		paint := new([2]f32, context.temp_allocator)
@@ -95,17 +95,17 @@ build_loading :: proc(what: string) {
 		track.data = paint
 
 		all_dots := "..."
-		dots_width := ui.points(kit.measure_text(all_dots, LOADING_TEXT_POINTS))
+		dots_width := ui.points(kit.measure_text(all_dots, LOADING_TEXT))
 		label := ui.box("", {width = ui.fit_children(), height = ui.fit_children(), axis = .X})
 
 		if ui.scope(label) {
 			kit.text(
 				fmt.tprintf("Loading %s", what),
 				kit.with_opacity(kit.colors.base_content, 0.7),
-				LOADING_TEXT_POINTS,
+				LOADING_TEXT,
 				width = ui.fit_text(),
 			)
-			kit.text(all_dots[:dot_count], kit.with_opacity(kit.colors.base_content, 0.7), LOADING_TEXT_POINTS, width = dots_width)
+			kit.text(all_dots[:dot_count], kit.with_opacity(kit.colors.base_content, 0.7), LOADING_TEXT, width = dots_width)
 		}
 	}
 
@@ -113,16 +113,16 @@ build_loading :: proc(what: string) {
 	ui.request_frame()
 }
 
-LOADING_BAR_HEIGHT_POINTS :: 4
+LOADING_BAR_HEIGHT :: 4
 
 // box.data points to two ratios. The bar fills the track between them.
-draw_loading_bar :: proc(box: ^ui.Box, rect, clip: [4]f32, opacity: f32) {
+draw_loading_bar :: proc(box: ^ui.Box, rect_px, clip_px: [4]f32, opacity: f32) {
 	ratios := (cast(^[2]f32)box.data)^
-	radius := (rect.w - rect.y) / 2
-	filled := rect
-	filled.x = rect.x + (rect.z - rect.x) * ratios[0]
-	filled.z = rect.x + (rect.z - rect.x) * ratios[1]
+	radius := (rect_px.w - rect_px.y) / 2
+	filled := rect_px
+	filled.x = rect_px.x + (rect_px.z - rect_px.x) * ratios[0]
+	filled.z = rect_px.x + (rect_px.z - rect_px.x) * ratios[1]
 	track_color := kit.with_opacity(kit.colors.base_content, kit.TRACK_OPACITY * opacity)
-	render.push({rect = rect, color = track_color, corner_radius = radius, clip = clip})
-	render.push({rect = filled, color = kit.with_opacity(kit.colors.base_content, opacity), corner_radius = radius, clip = clip})
+	render.push({rect = rect_px, color = track_color, corner_radius = radius, clip = clip_px})
+	render.push({rect = filled, color = kit.with_opacity(kit.colors.base_content, opacity), corner_radius = radius, clip = clip_px})
 }

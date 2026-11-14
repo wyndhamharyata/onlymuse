@@ -188,7 +188,7 @@ build_album_info :: proc(data: ^core.Page_Data, info_width: f32) {
 			core.navigate({kind = .Artist, id = data.artist_id, title = data.subtitle})
 		}
 
-		kit.text(data.detail, kit.with_opacity(kit.colors.base_content, 0.7))
+		kit.description(data.detail, fit = .Truncate)
 
 		badges := ui.box(
 			"badges",

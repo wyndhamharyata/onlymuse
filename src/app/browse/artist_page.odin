@@ -81,7 +81,7 @@ build_artist_page :: proc(page_id: string, name: string) {
 					kit.text(
 						fmt.tprintf("Apple Music has no artist named %s.", name),
 						kit.with_opacity(kit.colors.base_content, 0.7),
-is_wrapped = true,
+fit = .Wrap,
 					)
 				}
 			}

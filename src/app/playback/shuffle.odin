@@ -200,11 +200,7 @@ set_shuffle_note :: proc(recent_count, skipped_count, apart_count: int) {
 
 RULES_MENU_WIDTH :: 300
 
-RULES_GROUP_GAP :: 12
-
-RULES_LABEL_GAP :: 4
-
-RULES_TOGGLE_GAP :: 8
+RULES_GAP :: 8
 
 RECENT_OPTIONS := []kit.Option {
 	{id = "0", label = "Off"},
@@ -213,35 +209,49 @@ RECENT_OPTIONS := []kit.Option {
 	{id = "24", label = "24 h"},
 }
 
+// The button the shuffle rules open from, which they sit by and which closes them again.
+Rules_Opener :: enum {
+	None,
+	Rules_Button,
+	Shuffle_Button,
+}
+
 @(private = "file")
 rules_menu: struct {
-	is_open: bool,
-	pos:     [2]f32,
+	is_open:  bool,
+	opener:   Rules_Opener,
+	is_built: bool,
 }
 
-// pos is a point by the control that opens the rules. They open below it, or above it with no room below.
-open_shuffle_rules :: proc(pos: [2]f32) {
-	rules_menu = {true, pos}
+// Opens the rules by opener, or closes them when opener opened them.
+toggle_shuffle_rules :: proc(opener: Rules_Opener) {
+	is_closing := rules_menu.is_open && rules_menu.opener == opener
+	rules_menu.is_open = !is_closing
+	rules_menu.opener = opener
 }
 
-build_shuffle_rules :: proc() {
-	if kit.popover("shuffle_rules", &rules_menu.is_open, rules_menu.pos, width = ui.points(RULES_MENU_WIDTH)) {
+// Builds the rules by anchor, opener's box, while opener has them open. Call it right after the button.
+build_shuffle_rules :: proc(opener: Rules_Opener, anchor: ^ui.Box) {
+	if rules_menu.opener != opener do return
+	rules_menu.is_built = true
+
+	if kit.popover("shuffle_rules", &rules_menu.is_open, anchor, width = ui.points(RULES_MENU_WIDTH)) {
 		// With the popover's own 5, its content sits 14 points in on every side, as menu items' labels do.
-		if ui.col("rules", {width = ui.fill(), gap = RULES_GROUP_GAP, padding = 9}) {
+		if ui.col("rules", {width = ui.fill(), gap = RULES_GAP, padding = 9}) {
 			kit.heading("Shuffle", .Small)
-
-			if ui.col("recent", {width = ui.fill(), gap = RULES_LABEL_GAP}) {
-				kit.text("Play recent songs last")
-				build_recent_hours()
-			}
-
-			if ui.col("toggles", {width = ui.fill(), gap = RULES_TOGGLE_GAP}) {
-				build_rule_toggle("skipped", "Play often-skipped songs last", &shuffle_rules.is_skipped_last)
-				build_rule_toggle("albums", "Spread out songs from one album", &shuffle_rules.is_album_spread)
-				build_rule_toggle("favourites", "Play favourites earlier", &shuffle_rules.is_favourite_early)
-			}
+			kit.text("Play recent songs last")
+			build_recent_hours()
+			build_rule_toggle("skipped", "Play often-skipped songs last", &shuffle_rules.is_skipped_last)
+			build_rule_toggle("albums", "Spread out songs from one album", &shuffle_rules.is_album_spread)
+			build_rule_toggle("favourites", "Play favourites earlier", &shuffle_rules.is_favourite_early)
 		}
 	}
+}
+
+// Closes the rules when their button wasn't built this frame, as when the panel changes, so they don't come back with it.
+end_shuffle_rules :: proc() {
+	if !rules_menu.is_built do rules_menu.is_open = false
+	rules_menu.is_built = false
 }
 
 @(private = "file")

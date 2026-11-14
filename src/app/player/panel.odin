@@ -101,7 +101,8 @@ build_up_next :: proc() {
 
 			rules := kit.button("rules", "Rules", variant = .Soft, size = .Small)
 
-			if rules.is_activated do playback.open_shuffle_rules({rules.box.rect.x, rules.box.rect.w})
+			if rules.is_activated do playback.toggle_shuffle_rules(.Rules_Button)
+			playback.build_shuffle_rules(.Rules_Button, rules.box)
 		}
 	}
 

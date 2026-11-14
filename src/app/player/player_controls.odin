@@ -36,7 +36,8 @@ build_controls :: proc() {
 			shuffle := kit.button("shuffle", "Shuffle", "shuffle", variant = .Ghost, icon_size = 14, icon_color = shuffle_color, is_label_hidden = true)
 			is_shuffled := playback.queue.is_shuffled
 			if kit.as_toggle(shuffle.box, &is_shuffled, "Shuffle").is_changed do playback.toggle_shuffle()
-			if shuffle.is_secondary do playback.open_shuffle_rules(shuffle.box.rect.xy)
+			if shuffle.is_secondary do playback.toggle_shuffle_rules(.Shuffle_Button)
+			playback.build_shuffle_rules(.Shuffle_Button, shuffle.box)
 
 			resume_seconds :=
 				playback.queue.resume_point.pos_seconds if playback.is_resume_shown() else helper.read_pos_seconds(now_playing)

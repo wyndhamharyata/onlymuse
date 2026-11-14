@@ -859,7 +859,7 @@ ui.press_modifiers :: proc(key: platform.Key) -> platform.Modifiers</pre>
 	// A drag that began on another box ended over this one this frame.
 	is_dropped_on: bool,
 }</pre>
-<p>The behavior also changes: a press that became a drag never activates on release. What's dragged, and its ghost, stay in the app as plain data. thor only reports the drop, and the source already sees <code>is_dragged</code>. onlymuse's <code>ended_frame</code> and <code>is_mouse_released</code> go away.</p></td><td>Song dragging</td><td>Approved: build it</td></tr>
+<p>The behavior also changes: a press that became a drag never activates on release. What's dragged, and its ghost, stay in the app as plain data. thor only reports the drop, and the source already sees <code>is_dragged</code>. onlymuse's <code>ended_frame</code> and <code>is_mouse_released</code> go away.</p></td><td>Song dragging</td><td>Approved and built (thor, 14 Nov 2026)</td></tr>
 <tr><td>12</td><td><code>kit.button</code> has no on state, so shuffle, repeat and the panel button don't announce on or off.</td><td class="design"><p class="revised"><strong>Revised after your review:</strong> <strong>withdrawn.</strong> You're right: <code>kit.as_toggle</code> already does this, so there's no gap.</p><pre class="sig">is_shuffled := playback.queue.is_shuffled
 shuffle := kit.button("shuffle", "Shuffle", "shuffle", variant = .Ghost, icon_color = shuffle_color, is_label_hidden = true)
 if kit.as_toggle(shuffle.box, &amp;is_shuffled, "Shuffle").is_changed do playback.toggle_shuffle()</pre>

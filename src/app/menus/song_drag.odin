@@ -2,7 +2,6 @@ package menus
 
 import "om:app/core"
 import "om:app/look"
-import "thor:app"
 import "thor:kit"
 import "thor:ui"
 
@@ -10,7 +9,6 @@ import "thor:ui"
 drag: struct {
 	is_dragging: bool,
 	song:        core.Catalog_Song,
-	ended_frame: int,
 }
 
 apply_song_row_signal :: proc(signal: ui.Signal, song: core.Catalog_Song) -> bool {
@@ -27,28 +25,28 @@ apply_song_row_signal :: proc(signal: ui.Signal, song: core.Catalog_Song) -> boo
 	// The pressed row's cursor shows until the release, wherever the song is dragged.
 	if drag.is_dragging && signal.is_held do signal.box.style.cursor = .Closed_Hand
 
-	return signal.is_activated && drag.ended_frame != app.frame_count
+	return signal.is_activated
 }
 
+// Adds the dragged song to the playlist when it is dropped on its row, and says whether the row shows as
+// the drop target now.
 apply_song_drop :: proc(
-	is_hovered: bool,
+	signal: ui.Signal,
 	playlist_id, playlist_name: string,
 	can_edit: bool,
 ) -> bool {
-	if !drag.is_dragging || !is_hovered || !can_edit do return false
+	if !drag.is_dragging || !can_edit do return false
 
-	if !ui.interaction().is_held do add_to_playlist(playlist_id, playlist_name, drag.song)
+	if signal.is_dropped_on do add_to_playlist(playlist_id, playlist_name, drag.song)
 
-	return true
+	return signal.is_hovered
 }
 
 apply_drag_release :: proc() {
 	if !drag.is_dragging || ui.interaction().is_held do return
 
 	core.delete_song(drag.song)
-	drag = {
-		ended_frame = app.frame_count,
-	}
+	drag = {}
 }
 
 build_drag_ghost :: proc() {

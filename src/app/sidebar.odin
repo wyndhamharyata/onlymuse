@@ -93,7 +93,7 @@ build_sidebar_item :: proc(
 		row := ui.here()
 		if row.is_activated do core.navigate(page)
 
-		if menus.apply_song_drop(row.is_hovered, page.id, page.title, can_take_songs) {
+		if menus.apply_song_drop(row, page.id, page.title, can_take_songs) {
 			row.box.style.bg = kit.with_opacity(kit.colors.primary, kit.SOFT_OPACITY)
 			row.box.style.border_width = 1.5
 			row.box.style.border_color = kit.colors.primary

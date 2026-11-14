@@ -253,7 +253,7 @@ build_recent_hours :: proc() {
 		if choice == shuffle_rules.recent_hours do selected = RECENT_OPTIONS[index].id
 	}
 
-	if !kit.segmented("recent", &selected, RECENT_OPTIONS, width = ui.fill()).is_changed do return
+	if !kit.segmented("recent", &selected, RECENT_OPTIONS, size = .Small, width = ui.fill()).is_changed do return
 
 	for option, index in RECENT_OPTIONS {
 		if option.id == selected do shuffle_rules.recent_hours = choices[index]

@@ -252,6 +252,8 @@ Rebuild the helper first: `./build.sh helper`.
 - Song rows in Songs, playlists and albums show a heart: filled in the accent for a favourite, an
   empty outline for any other. Up Next has none.
 - A song that is not in your library cannot be a favourite in Music.app; the note says so.
+- Each player keeps the favourite on its own platform: YouTube likes the video, the web player sets
+  Apple Music's Favourite through Apple's ratings API, and Play in Music.app sets it in Music.app.
 - The app now keeps its own play log: a song heard to its middle is a play, one left sooner a skip.
 
 ### 6d. Lyrics translation
@@ -351,8 +353,8 @@ A song plays from Apple Music whenever Apple has it. YouTube Music adds what App
 - The web player keeps onlymuse on its own: no Music.app window opens, and a song need not be added
   to your library to play it. Media keys, Control Center, AirPlay and the seamless next song stay
   with Music.app.
-- A favourite needs Music.app, and so do the library facts: play counts, bit rate, sample rate and
-  the date a song was added.
+- The library facts need Music.app: play counts, bit rate, sample rate and the date a song was
+  added.
 
 ### 8. Console
 

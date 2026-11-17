@@ -60,6 +60,7 @@ apply_input :: proc() {
 	playback.update_queue()
 	playback.apply_now_playing_to_play_log()
 	menus.apply_write_results()
+	playback.apply_rating_results()
 	apply_keys()
 	apply_player_menu()
 }
@@ -162,7 +163,7 @@ toggle_playing_favourite :: proc() {
 	if !is_song do return
 
 	if !playback.can_favourite(song) {
-		kit.show_toast("Favourites need Music.app.", .Warning)
+		kit.show_toast("This song can't be a favourite.", .Warning)
 		return
 	}
 

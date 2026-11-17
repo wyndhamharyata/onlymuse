@@ -48,6 +48,15 @@ append_body :: proc "c" (data: [^]u8, size, count: c.size_t, user: rawptr) -> c.
 Method :: enum {
 	Get,
 	Post,
+	Put,
+	Delete,
+}
+
+METHOD_NAMES := [Method]string {
+	.Get    = "GET",
+	.Post   = "POST",
+	.Put    = "PUT",
+	.Delete = "DELETE",
 }
 
 // fetch never retries a POST. A retry after a lost answer could put a song in the library twice.
@@ -99,7 +108,11 @@ fetch_once :: proc(
 	curl_easy_setopt(handle, CURLOPT_WRITEDATA, rawptr(&body))
 	curl_easy_setopt(handle, CURLOPT_HTTPHEADER, rawptr(header_list))
 
-	if method == .Post {
+	if method == .Put || method == .Delete {
+		curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, strings.clone_to_cstring(METHOD_NAMES[method], context.temp_allocator))
+	}
+
+	if method == .Post || request_body != "" {
 		curl_easy_setopt(handle, CURLOPT_POST, c.long(1))
 		curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, c.long(len(request_body)))
 

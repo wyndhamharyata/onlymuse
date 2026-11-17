@@ -65,6 +65,11 @@ post :: proc(path: string, body := "") -> Answer {
 	return fetch_from_apple(path, .Post, context.temp_allocator, body)
 }
 
+// For PUT and DELETE, such as /v1/me/ratings/songs/{id}, which keeps a favourite.
+send :: proc(method: net.Method, path: string, body := "") -> Answer {
+	return fetch_from_apple(path, method, context.temp_allocator, body)
+}
+
 LANGUAGE :: "en-GB"
 
 // Apple answers 401 or 403 once a token expires. The helper then reads fresh tokens.
@@ -149,7 +154,7 @@ fetch_from_apple_once :: proc(
 		console.add(
 			"Apple",
 			"%s %s: %s",
-			"POST" if method == .Post else "GET",
+			net.METHOD_NAMES[method],
 			path,
 			console.to_status_text(response.status),
 		)

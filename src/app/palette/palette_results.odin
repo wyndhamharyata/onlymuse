@@ -199,7 +199,7 @@ append_actions :: proc(results: ^[dynamic]Palette_Result, term: string, allocato
 				result.subtitle = strings.clone(playing.name, allocator)
 			} else {
 				result.is_disabled = true
-				result.subtitle = strings.clone("Needs Music.app", allocator)
+				result.subtitle = strings.clone("Not available", allocator)
 			}
 		}
 

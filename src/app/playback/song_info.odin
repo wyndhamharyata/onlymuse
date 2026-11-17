@@ -2,13 +2,17 @@ package playback
 
 import "core:fmt"
 import "core:strings"
+import "core:sync"
+import "core:thread"
 import "om:app/core"
 import "om:app/youtube_lists"
 import "om:apple"
 import "om:helper"
+import "om:net"
 import "om:youtube"
 import "thor:app"
 import "thor:kit"
+import "thor:platform"
 
 find_shown_song :: proc() -> (helper.Song, bool) {
 	now_playing := core.app.now_playing
@@ -169,7 +173,7 @@ is_favourite :: proc(song: core.Catalog_Song, persistent_id := "") -> bool {
 }
 
 can_favourite :: proc(song: core.Catalog_Song) -> bool {
-	return core.app.drives_music_app || youtube.is_song_id(song.id)
+	return core.app.drives_music_app || song.id != ""
 }
 
 toggle_favourite :: proc(song: core.Catalog_Song, persistent_id: string) {
@@ -183,6 +187,12 @@ toggle_favourite :: proc(song: core.Catalog_Song, persistent_id: string) {
 		kit.show_toast(
 			"Added to Favourite Songs and liked on YouTube" if favorited else "Removed from Favourite Songs and unliked on YouTube",
 		)
+		return
+	}
+
+	if !core.app.drives_music_app {
+		start_rating(song.id, favorited)
+		kit.show_toast("Added to Favourite Songs" if favorited else "Removed from Favourite Songs")
 		return
 	}
 
@@ -216,12 +226,75 @@ apply_favourite_answer :: proc(message: helper.Message) {
 		return
 	}
 
+	refresh_favourite_songs()
+}
+
+@(private = "file")
+refresh_favourite_songs :: proc() {
 	_, playlist_id, _ := core.watch_playlists()
 	if playlist_id == "" do return
 
 	apple.refresh(
 		fmt.tprintf("/v1/me/library/playlists/%s/tracks?limit=100&offset=0", playlist_id),
 	)
+}
+
+@(private = "file")
+Rating_Job :: struct {
+	catalog_id: string,
+	favorited:  bool,
+	status:     int,
+}
+
+@(private = "file")
+rating_results: struct {
+	mutex: sync.Mutex,
+	done:  [dynamic]^Rating_Job,
+}
+
+// On the web player a favourite is Apple Music's rating of 1, which music.apple.com shows as Favourite.
+@(private = "file")
+start_rating :: proc(catalog_id: string, favorited: bool) {
+	job := new(Rating_Job)
+	job^ = {strings.clone(catalog_id), favorited, 0}
+	thread.create_and_start_with_data(job, proc(data: rawptr) {
+			job := cast(^Rating_Job)data
+			defer net.stop_thread()
+			defer free_all(context.temp_allocator)
+
+			kind := "library-songs" if strings.has_prefix(job.catalog_id, "i.") else "songs"
+			path := fmt.tprintf("/v1/me/ratings/%s/%s", kind, job.catalog_id)
+			if job.favorited {
+				job.status = apple.send(.Put, path, `{"type":"rating","attributes":{"value":1}}`).status
+			} else {
+				job.status = apple.send(.Delete, path).status
+			}
+
+			sync.guard(&rating_results.mutex)
+			append(&rating_results.done, job)
+			platform.request_frame_all()
+		}, self_cleanup = true)
+}
+
+apply_rating_results :: proc() {
+	sync.guard(&rating_results.mutex)
+
+	for job in rating_results.done {
+		// A song with no rating answers 404 to DELETE, which is the state asked for.
+		is_done := job.status >= 200 && job.status < 300 || !job.favorited && job.status == 404
+
+		if is_done {
+			refresh_favourite_songs()
+		} else {
+			set_favourite_change(job.catalog_id, !job.favorited)
+			kit.show_toast(fmt.tprintf("Apple Music did not save the favourite. It answered %d.", job.status), .Warning)
+		}
+
+		delete(job.catalog_id)
+		free(job)
+	}
+
+	clear(&rating_results.done)
 }
 
 build_favourite_button :: proc(id: string, is_favourite: bool) -> bool {

@@ -10,6 +10,7 @@ import "core:thread"
 import "om:apple"
 import "om:net"
 import "om:store"
+import "om:youtube"
 import "thor:platform"
 
 Word :: struct {
@@ -96,6 +97,7 @@ fetch_lyrics :: proc(data: rawptr) {
 	_ = virtual.arena_init_growing(&arena)
 
 	lines, songwriters := fetch_lines(
+		request.persistent_id,
 		request.name,
 		request.artist,
 		request.duration_seconds,
@@ -123,13 +125,21 @@ LYRICS_QUERY ::
 
 @(private)
 fetch_lines :: proc(
-	name, artist: string,
+	persistent_id, name, artist: string,
 	duration_seconds: f64,
 	allocator: mem.Allocator,
 ) -> (
 	[]Line,
 	[]string,
 ) {
+	// A written caption track is timed to the exact video, so it comes before the databases.
+	if video_id := youtube.to_video_id(persistent_id); video_id != "" {
+		if lines := to_caption_lines(youtube.read_caption_text(video_id), allocator);
+		   len(lines) > 0 {
+			return lines, nil
+		}
+	}
+
 	lines, songwriters := fetch_apple_lines(name, artist, allocator)
 	if len(lines) > 0 do return lines, songwriters
 

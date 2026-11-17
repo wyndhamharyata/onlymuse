@@ -110,6 +110,9 @@ The app now starts the Swift helper, as the gpuix app does, so build it once fir
 `./build.sh helper`. The panel on the right opens on Lyrics.
 
 - Play a song in Music.app, or in the gpuix app. The panel shows its name and lyrics.
+- A YouTube video whose uploader wrote captions in the video's own language shows those first.
+  YouTube's own auto-generated tracks never show, and a translation never takes the song's place.
+  Few music videos have written captions, so LRCLIB answers for most songs.
 - A song that plays from YouTube is on no Apple Music catalog, so its lyrics come from LRCLIB
   (lrclib.net), a free open lyrics database that needs no account. The words sync when LRCLIB has
   word timings. Only Apple's lyrics carry romaji and translation, so those toggles do not show.

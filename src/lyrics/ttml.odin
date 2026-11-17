@@ -46,6 +46,7 @@ to_plain_text :: proc(markup: string) -> string {
 		{"&lt;", "<"},
 		{"&gt;", ">"},
 		{"&apos;", "'"},
+		{"&#39;", "'"},
 		{"&quot;", "\""},
 		{"&amp;", "&"},
 	}

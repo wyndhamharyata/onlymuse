@@ -76,7 +76,6 @@ queue_state: struct {
 	handoff:             Handoff,
 	has_handoff:         bool,
 	handoff_key:         string,
-	preload_id:          string,
 	handoff_version:     int,
 	play_count:          int,
 	requests:            map[int]Request,
@@ -115,7 +114,6 @@ save_queue_and_handoff :: proc() {
 	bytes, error := json.marshal(queue, allocator = context.temp_allocator)
 	if error == nil do store.save_state("queue", string(bytes))
 	send_handoff()
-	send_preload()
 }
 
 to_song_match :: proc(song: core.Catalog_Song) -> helper.Song_Match {

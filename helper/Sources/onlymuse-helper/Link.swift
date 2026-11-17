@@ -11,7 +11,6 @@ struct Command: Decodable {
   let favorited: Bool?
   let keepsYouTube: Bool?
   let drivesMusicApp: Bool?
-  let videoID: String?
 }
 
 struct VolumePercent: Decodable {

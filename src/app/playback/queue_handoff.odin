@@ -64,22 +64,6 @@ send_handoff :: proc() {
 	}
 }
 
-// On the web player the helper loads the next YouTube song ahead, so it starts without loading.
-send_preload :: proc() {
-	if core.app.drives_music_app do return
-
-	video_id := ""
-	next := find_index_after_end() if core.app.preloads_next && queue.playing_persistent_id != "" else -1
-	if next >= 0 && next != queue.index {
-		video_id = youtube.to_video_id(matching.watch_playable(queue.songs[next]).id)
-	}
-	if video_id == queue_state.preload_id do return
-
-	delete(queue_state.preload_id)
-	queue_state.preload_id = strings.clone(video_id)
-	helper.send_prepare_next(video_id)
-}
-
 @(private = "file")
 find_index_after_end :: proc() -> int {
 	return queue.index if queue.repeat == "one" else find_next_index()

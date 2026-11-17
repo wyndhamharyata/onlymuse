@@ -28,11 +28,6 @@ final class YouTube: NSObject, WKNavigationDelegate {
   var song: SongMatch?
   var videoID = ""
   private var preparedID = ""
-  // While a song plays, the next song waits in a second page, so it starts without loading.
-  private var spareView: WKWebView?
-  private var spareWindow: NSWindow?
-  private var spareID = ""
-  private var isSpareLoaded = false
   var isPageLoaded = false
   private var pausedMusicAt = Date.distantPast
   var lastState: String?
@@ -105,11 +100,6 @@ final class YouTube: NSObject, WKNavigationDelegate {
   }
 
   func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-    if webView === spareView {
-      isSpareLoaded = true
-      return webView.evaluateJavaScript("window.onlymuseVideoID = \(toJavaScriptText(spareID)); window.onlymuseIsPreparing = true; true")
-    }
-
     guard webView === playerView else { return }
 
     isPageLoaded = true
@@ -129,7 +119,6 @@ final class YouTube: NSObject, WKNavigationDelegate {
   }
 
   func play(_ match: SongMatch, videoID: String) -> String {
-    if spareView != nil && videoID == spareID { swapToSpare(videoID: videoID) }
     stopIdleTimer()
     isActive = true
     song = match
@@ -170,49 +159,6 @@ final class YouTube: NSObject, WKNavigationDelegate {
     return Self.idPrefix + videoID
   }
 
-  // The web player's next YouTube song: a second page holds it while a song plays here, otherwise this page does.
-  func prepareNext(videoID: String) {
-    guard isActive else {
-      closeSpare()
-      return prepare(videoID: videoID)
-    }
-    guard videoID != spareID else { return }
-
-    spareID = videoID
-
-    guard videoID != "" else { return closeSpare() }
-
-    if let spareView, isSpareLoaded {
-      spareView.evaluateJavaScript("window.onlymuseVideoID = \(toJavaScriptText(videoID)); window.onlymuseIsPreparing = true; document.getElementById('movie_player').loadVideoById(\(toJavaScriptText(videoID))); true")
-    } else {
-      if spareView == nil { (spareView, spareWindow) = makePage() }
-      isSpareLoaded = false
-      spareView?.load(URLRequest(url: Self.toWatchURL(videoID: videoID, isPreparing: true)))
-    }
-
-    startNudging(isSpare: true)
-  }
-
-  // The old player page pauses and becomes the spare, ready for the song after.
-  private func swapToSpare(videoID: String) {
-    stopNudging()
-    playerView?.evaluateJavaScript("window.onlymuseIsPreparing = true; document.getElementById('movie_player')?.pauseVideo(); true")
-    swap(&playerView, &spareView)
-    swap(&playerWindow, &spareWindow)
-    swap(&isPageLoaded, &isSpareLoaded)
-    preparedID = videoID
-    spareID = ""
-  }
-
-  private func closeSpare() {
-    spareID = ""
-    isSpareLoaded = false
-    closePage(spareView)
-    spareWindow?.close()
-    spareWindow = nil
-    spareView = nil
-  }
-
   func prepare(videoID: String) {
     guard !isActive, videoID != preparedID else { return }
 
@@ -231,8 +177,7 @@ final class YouTube: NSObject, WKNavigationDelegate {
     startNudging()
   }
 
-  // A page loads a video only once it plays, so it plays muted until it has a duration, then the page pauses it.
-  private func startNudging(isSpare: Bool = false) {
+  private func startNudging() {
     var count = 0
 
     nudgeTimer?.invalidate()
@@ -241,11 +186,10 @@ final class YouTube: NSObject, WKNavigationDelegate {
         guard let self else { return }
 
         count += 1
-        let isWanted = isSpare ? self.spareID != "" : !self.isActive && self.preparedID != ""
-        guard isWanted, count <= Self.maxNudgeCount, let view = isSpare ? self.spareView : self.playerView else { return self.stopNudging() }
-        guard isSpare ? self.isSpareLoaded : self.isPageLoaded else { return }
+        guard !self.isActive, self.preparedID != "", count <= Self.maxNudgeCount, let playerView = self.playerView else { return self.stopNudging() }
+        guard self.isPageLoaded else { return }
 
-        view.evaluateJavaScript(Self.nudgeScript) { [weak self] result, _ in
+        playerView.evaluateJavaScript(Self.nudgeScript) { [weak self] result, _ in
           if result as? Bool == true { MainActor.assumeIsolated { self?.stopNudging() } }
         }
       }
@@ -263,7 +207,6 @@ final class YouTube: NSObject, WKNavigationDelegate {
     isActive = false
     pollTimer?.invalidate()
     pollTimer = nil
-    closeSpare()
     // Still buffering, the video could start after the pause; the page's playing listener pauses it again.
     run("window.onlymuseIsPreparing = true; document.getElementById('movie_player')?.pauseVideo()")
     startIdleTimer()
@@ -319,15 +262,6 @@ final class YouTube: NSObject, WKNavigationDelegate {
   private func startPlayerView() -> WKWebView {
     if let playerView { return playerView }
 
-    let (view, window) = makePage()
-
-    playerView = view
-    playerWindow = window
-
-    return view
-  }
-
-  private func makePage() -> (WKWebView, NSWindow) {
     let configuration = WKWebViewConfiguration()
 
     configuration.websiteDataStore = .default()
@@ -356,13 +290,15 @@ final class YouTube: NSObject, WKNavigationDelegate {
       view.setValue(false, forKey: "windowOcclusionDetectionEnabled")
     }
 
-    return (view, window)
+    playerView = view
+    playerWindow = window
+
+    return view
   }
 
   private func resetPlayer() {
     stop()
     stopIdleTimer()
-    closeSpare()
     closePage(playerView)
     playerWindow?.close()
     playerWindow = nil

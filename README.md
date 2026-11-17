@@ -350,8 +350,6 @@ A song plays from Apple Music whenever Apple has it. YouTube Music adds what App
   to drive Music.app instead, or run Play in Music.app from Cmd K. A checkmark shows the choice,
   which is saved and starts off.
 - Changing it stops the song that plays; the play button then starts it again from the other player.
-- On the web player, the next YouTube song loads ahead in a second hidden page while a song plays,
-  so it starts without waiting. Turn Off Preloading the Next Song in Cmd K stops it; it starts on.
 - The web player keeps onlymuse on its own: no Music.app window opens, and a song need not be added
   to your library to play it. Media keys, Control Center, AirPlay and the seamless next song stay
   with Music.app.

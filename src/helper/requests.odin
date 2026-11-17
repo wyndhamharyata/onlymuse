@@ -58,6 +58,16 @@ send_set_next :: proc(
 	return last_request_id
 }
 
+// An empty video_id lets go of the song loaded ahead.
+send_prepare_next :: proc(video_id: string) {
+	Command :: struct {
+		type:     string,
+		video_id: string `json:"videoID"`,
+	}
+
+	send_value(Command{"prepareNext", video_id})
+}
+
 send_set_player :: proc(is_driving_music_app: bool) {
 	Command :: struct {
 		type:                 string,

@@ -34,6 +34,7 @@ Palette_Action :: enum {
 	Previous,
 	Shuffle_All,
 	Toggle_Player,
+	Toggle_Preload,
 	Favourite,
 	Show_Lyrics,
 	Show_Up_Next,
@@ -189,6 +190,10 @@ run_result :: proc(result: Palette_Result) {
 		playback.shuffle_songs(songs)
 	case .Toggle_Player:
 		core.set_player_mode(!core.app.drives_music_app)
+	case .Toggle_Preload:
+		core.set_preloading(!core.app.preloads_next)
+		playback.send_preload()
+		kit.show_toast("The next YouTube song loads ahead" if core.app.preloads_next else "The next YouTube song loads when it starts")
 	case .Favourite:
 		if song, persistent_id, ok := playback.find_playing_song(); ok {
 			playback.toggle_favourite(song, persistent_id)

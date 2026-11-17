@@ -164,6 +164,8 @@ append_actions :: proc(results: ^[dynamic]Palette_Result, term: string, allocato
 		"Play in Apple's web player" if core.app.drives_music_app else "Play in Music.app"
 	player_subtitle :=
 		"Favourites, downloads and lossless turn off" if core.app.drives_music_app else "Favourites, downloads, lossless and gapless playback"
+	preload_action :=
+		"Turn Off Preloading the Next Song" if core.app.preloads_next else "Turn On Preloading the Next Song"
 	actions := []Action {
 		{"Go to Now Playing", "music.note", "", .Navigate},
 		{"Play or Pause", "playpause.fill", "Space", .Play_Pause},
@@ -171,6 +173,7 @@ append_actions :: proc(results: ^[dynamic]Palette_Result, term: string, allocato
 		{"Previous Song", "backward.fill", "⌘←", .Previous},
 		{"Shuffle All Songs", "shuffle", "", .Shuffle_All},
 		{player_action, "music.note", "", .Toggle_Player},
+		{preload_action, "arrow.down.circle", "", .Toggle_Preload},
 		{"Favourite the Song Playing", "heart.circle", "⌘L", .Favourite},
 		{"Show Lyrics", "quote.bubble", "", .Show_Lyrics},
 		{"Show Up Next", "list.bullet", "", .Show_Up_Next},
@@ -181,6 +184,8 @@ append_actions :: proc(results: ^[dynamic]Palette_Result, term: string, allocato
 
 	for action in actions {
 		if action.action == .Favourite && !has_song do continue
+		// Music.app's handoff always loads a YouTube song ahead.
+		if action.action == .Toggle_Preload && core.app.drives_music_app do continue
 		if !has_term(action.title, term) || count >= max_count do continue
 
 		result := Palette_Result {

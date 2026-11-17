@@ -14,7 +14,8 @@ extension YouTube {
 
     playerView.evaluateJavaScript(Self.readStateScript) { [weak self] result, _ in
       MainActor.assumeIsolated {
-        guard let self, self.isActive else { return }
+        // After a swap to the spare page, an answer from the old page is not about this song.
+        guard let self, self.isActive, self.playerView === playerView else { return }
 
         self.checkSlowStart()
         guard let text = result as? String, let data = text.data(using: .utf8), let page = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {

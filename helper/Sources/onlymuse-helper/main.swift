@@ -120,6 +120,7 @@ startReadingCommands(onCommand: { command in
       send(["type": "nowPlaying", "state": "stopped", "volumePercent": music.readVolumePercent() ?? 100])
     }
   case "playSong", "setNext": handoff.apply(command)
+  case "prepareNext": youTube.prepare(videoID: command.videoID ?? "")
   case "playPause", "seek", "setVolume":
     if youTube.isActive { return youTube.apply(command) }
     if !handoff.isDrivingMusicApp { return appleWeb.apply(command) }

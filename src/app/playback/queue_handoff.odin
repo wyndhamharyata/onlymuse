@@ -64,6 +64,23 @@ send_handoff :: proc() {
 	}
 }
 
+// On the web player, a YouTube song after an Apple one loads ahead in the idle YouTube page, so it starts at once.
+// Music.app's handoff does this itself, and while YouTube plays its page holds the song playing.
+@(private)
+send_prepare_next :: proc() {
+	if core.app.drives_music_app do return
+
+	video_id := ""
+	is_apple_playing := queue.playing_persistent_id != "" && !youtube.is_song_id(queue.playing_persistent_id)
+	next := find_index_after_end() if is_apple_playing else -1
+	if next >= 0 do video_id = youtube.to_video_id(matching.watch_playable(queue.songs[next]).id)
+	if video_id == queue_state.prepared_video_id do return
+
+	delete(queue_state.prepared_video_id)
+	queue_state.prepared_video_id = strings.clone(video_id)
+	helper.send_prepare_next(video_id)
+}
+
 @(private = "file")
 find_index_after_end :: proc() -> int {
 	return queue.index if queue.repeat == "one" else find_next_index()

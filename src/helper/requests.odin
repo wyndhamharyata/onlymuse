@@ -14,6 +14,7 @@ Song_Match :: struct {
 	duration_seconds: f64 `json:"durationSeconds"`,
 	apple_id:         string `json:"appleId"`,
 	youtube_id:       string `json:"youtubeId"`,
+	start_seconds:    f64 `json:"startSeconds"`,
 }
 
 @(private)

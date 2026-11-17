@@ -120,7 +120,8 @@ final class YouTube: NSObject, WKNavigationDelegate {
     reloadCount = 0
     startAskedAt = Date()
     startRetryCount = 0
-    resumeSeconds = 0
+    let startSeconds = match.startSeconds ?? 0
+    resumeSeconds = startSeconds
 
     if !isQuiet {
       music.pauseIfRunning()
@@ -135,12 +136,13 @@ final class YouTube: NSObject, WKNavigationDelegate {
     preparedID = ""
 
     if isPageLoaded {
-      run(toPlayScript())
+      run(toPlayScript(isLoadForced: startSeconds > 0, startSeconds: startSeconds))
+      resumeSeconds = 0
     } else if !isLoadingAhead {
       startPlayerView().load(URLRequest(url: Self.toWatchURL(videoID: videoID)))
     }
 
-    var loading = makeNowPlaying(state: "playing", positionSeconds: 0, durationSeconds: match.durationSeconds)
+    var loading = makeNowPlaying(state: "playing", positionSeconds: startSeconds, durationSeconds: match.durationSeconds)
     loading["isLoading"] = true
     send(loading)
     startPolling()

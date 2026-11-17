@@ -50,13 +50,13 @@ final class AppleWeb: NSObject, WKNavigationDelegate {
     lastState = nil
     lastError = ""
     hasReportedStart = false
-    resumeSeconds = 0
-    pendingSeek = -1
+    resumeSeconds = match.startSeconds ?? 0
+    pendingSeek = resumeSeconds > 0 ? resumeSeconds : -1
     startedAt = Date()
 
     if isPageLoaded { run(toPlayScript()) } else { _ = startView() }
 
-    var loading = makeNowPlaying(state: "playing", positionSeconds: 0, durationSeconds: match.durationSeconds)
+    var loading = makeNowPlaying(state: "playing", positionSeconds: resumeSeconds, durationSeconds: match.durationSeconds)
     loading["isLoading"] = true
     send(loading)
     startPolling()

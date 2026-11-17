@@ -28,6 +28,8 @@ struct SongMatch: Decodable {
   let durationSeconds: Double
   let appleId: String?
   let youtubeId: String?
+  // Where a resumed song starts, sent with the play so the web players start there instead of seeking after.
+  let startSeconds: Double?
 
   var youTubeVideoID: String? {
     guard let youtubeId, !youtubeId.isEmpty else { return nil }

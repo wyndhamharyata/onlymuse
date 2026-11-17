@@ -308,6 +308,7 @@ resume_last_song :: proc() {
 			duration_seconds = resume.song.duration_seconds,
 			apple_id = to_apple_id(song_id),
 			youtube_id = youtube.to_video_id(song_id),
+			start_seconds = resume.pos_seconds,
 		},
 	)
 	queue_state.requests[request_id] = {

@@ -5,13 +5,21 @@ extension YouTube {
   static let pageScript = """
     window.onlymuseVideoID = "";
     window.onlymuseIsPreparing = location.hash === "#\(YouTube.prepareHash)";
+    const onlymuseReport = () => window.webkit?.messageHandlers?.\(stateMessageName)?.postMessage(true);
     document.addEventListener("play", (event) => { if (window.onlymuseIsPreparing) event.target.muted = true }, true);
+    document.addEventListener("ended", onlymuseReport, true);
     document.addEventListener("playing", () => {
       const player = document.getElementById("movie_player");
       if (!player) return;
-      if (window.onlymuseIsPreparing || (window.onlymuseVideoID && player.getVideoData().video_id !== window.onlymuseVideoID)) player.pauseVideo();
+      const isOtherVideo = window.onlymuseVideoID && player.getVideoData().video_id !== window.onlymuseVideoID;
+      if (window.onlymuseIsPreparing || isOtherVideo) player.pauseVideo();
+      // YouTube Music can move on to a song of its own without an ended event.
+      if (isOtherVideo) onlymuseReport();
     }, true);
     """
+
+  // The pages post this the moment a song ends or changes, so the helper need not wait for its next poll.
+  static let stateMessageName = "onlymuseState"
 
   static let prepareHash = "onlymuse-prepare"
 

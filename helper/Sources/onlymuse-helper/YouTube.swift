@@ -2,7 +2,7 @@ import AppKit
 import WebKit
 
 @MainActor
-final class YouTube: NSObject, WKNavigationDelegate {
+final class YouTube: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
   static let idPrefix = "yt:"
 
   private static let nudgeSeconds = 1.0
@@ -97,6 +97,10 @@ final class YouTube: NSObject, WKNavigationDelegate {
 
     if let whenSet { return group.notify(queue: .main) { MainActor.assumeIsolated { whenSet() } } }
     if !isActive { resetPlayer() }
+  }
+
+  func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+    if message.webView === playerView { poll() }
   }
 
   func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -267,6 +271,7 @@ final class YouTube: NSObject, WKNavigationDelegate {
     configuration.websiteDataStore = .default()
     configuration.mediaTypesRequiringUserActionForPlayback = []
     configuration.userContentController.addUserScript(WKUserScript(source: Self.pageScript, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+    configuration.userContentController.add(self, name: Self.stateMessageName)
     if isQuiet { configuration.userContentController.addUserScript(WKUserScript(source: Self.muteScript, injectionTime: .atDocumentStart, forMainFrameOnly: true)) }
 
     let view = WKWebView(frame: NSRect(x: 0, y: 0, width: 800, height: 600), configuration: configuration)

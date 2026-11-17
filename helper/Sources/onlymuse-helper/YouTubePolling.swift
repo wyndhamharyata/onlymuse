@@ -9,7 +9,7 @@ extension YouTube {
     }
   }
 
-  private func poll() {
+  func poll() {
     guard isActive, let playerView else { return }
 
     playerView.evaluateJavaScript(Self.readStateScript) { [weak self] result, _ in

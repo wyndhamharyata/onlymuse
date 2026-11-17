@@ -2,7 +2,7 @@ import AppKit
 import WebKit
 
 @MainActor
-final class AppleWeb: NSObject, WKNavigationDelegate {
+final class AppleWeb: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
   static let idPrefix = "am:"
 
   private static let startURL = URL(string: "https://music.apple.com/id/browse")!
@@ -133,6 +133,10 @@ final class AppleWeb: NSObject, WKNavigationDelegate {
           window.onlymuseError = "the page has no player";
           return;
         }
+        if (!window.onlymuseIsReporting) {
+          window.onlymuseIsReporting = true;
+          music.addEventListener("playbackStateDidChange", () => window.webkit?.messageHandlers?.\(YouTube.stateMessageName)?.postMessage(true));
+        }
         // A song asked for or a stop while the queue loads takes over, so this one must not start.
         const isCurrent = () => window.onlymuseSong === id;
         music.setQueue({ song: id })
@@ -160,6 +164,11 @@ final class AppleWeb: NSObject, WKNavigationDelegate {
     pollTimer = Timer.scheduledTimer(withTimeInterval: Self.pollSeconds, repeats: true) { [weak self] _ in
       MainActor.assumeIsolated { self?.poll() }
     }
+  }
+
+  // MusicKit reports each change of state at once, so an end need not wait for the next poll.
+  func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+    if message.webView === view { poll() }
   }
 
   private func poll() {
@@ -272,6 +281,7 @@ final class AppleWeb: NSObject, WKNavigationDelegate {
 
     configuration.websiteDataStore = .default()
     configuration.mediaTypesRequiringUserActionForPlayback = []
+    configuration.userContentController.add(self, name: YouTube.stateMessageName)
 
     let view = WKWebView(frame: NSRect(x: 0, y: 0, width: 800, height: 600), configuration: configuration)
 

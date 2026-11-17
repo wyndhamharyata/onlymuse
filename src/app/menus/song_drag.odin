@@ -50,37 +50,16 @@ apply_drag_release :: proc() {
 }
 
 build_drag_ghost :: proc() {
-	if !drag.is_dragging do return
-
-	mouse := ui.pointer_pos()
-	ghost := ui.box(
+	if kit.drag_preview(
 		"drag_ghost",
-		{
-			height = ui.points(30),
-			axis = .X,
-			align = .Center,
-			gap = 7,
-			padding = {10, 0, 12, 0},
-			corner_radius = 8,
-			bg = look.colors.drag_ghost,
-			border_width = 1,
-			border_color = {kit.colors.primary.r, kit.colors.primary.g, kit.colors.primary.b, 0.6},
-			pos = mouse + {12, 8},
-			flags = {.Floating},
-		},
-	)
-
-	if ui.scope(ghost) {
+		drag.is_dragging,
+		{bg = look.colors.drag_ghost, height = ui.points(30)},
+	) {
 		kit.icon_box("music.note", 12, kit.colors.primary)
 		ui.box(
 			"",
-			{
-				text_color = kit.colors.base_content,
-				font_size = kit.SMALL_TEXT_SIZE,
-			},
+			{text_color = kit.colors.base_content, font_size = kit.SMALL_TEXT_SIZE},
 			drag.song.name,
 		)
 	}
-
-	ui.request_frame()
 }

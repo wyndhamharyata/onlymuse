@@ -61,7 +61,7 @@ build_now_playing_page :: proc() {
 			build_hero(details, info, shown, width)
 			if info.is_in_library do build_stats(details.song, info, width)
 			build_detail_cards(details, info, shown.persistent_id, width)
-			if watched.phase != .Ready do look.build_phase(watched.phase, "the song details")
+			if watched.phase != .Ready do look.build_phase(watched.phase)
 			build_more_by(details)
 
 			if details.copyright != "" {

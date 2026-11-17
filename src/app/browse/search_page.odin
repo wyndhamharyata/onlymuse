@@ -40,7 +40,7 @@ build_search_page :: proc(term: string) {
 		kit.heading(fmt.tprintf("Results for \"%s\"", term))
 
 		if watched.phase != .Ready {
-			look.build_phase(watched.phase, "the results")
+			look.build_phase(watched.phase)
 			return
 		}
 

@@ -19,10 +19,7 @@ build_song_grid :: proc(
 	dates: []string,
 	queue_songs: []core.Catalog_Song,
 ) {
-	grid := ui.box(
-		"grid",
-		{width = ui.fill(), axis = .X, gap = GRID_GAP},
-	)
+	grid := ui.box("grid", {width = ui.fill(), axis = .X, gap = GRID_GAP})
 	width := grid.size.x
 	is_narrow := width > 0 && (width - GRID_GAP) / 2 < MIN_GRID_COLUMN_WIDTH
 	column_count := 1 if is_narrow else 2
@@ -31,10 +28,7 @@ build_song_grid :: proc(
 
 	if ui.scope(grid) {
 		for column in 0 ..< column_count {
-			column_box := ui.box(
-				fmt.tprintf("column_%d", column),
-				{width = ui.fill(), axis = .Y},
-			)
+			column_box := ui.box(fmt.tprintf("column_%d", column), {width = ui.fill(), axis = .Y})
 
 			if ui.scope(column_box) {
 				for index := column; index < len(songs); index += column_count {
@@ -74,18 +68,33 @@ build_card_grid_page :: proc(
 
 		if ui.scope(heading) {
 			kit.heading(title)
-			kit.description(fmt.tprintf("%d items", len(cards)) if phase == .Ready else look.to_phase_text(phase))
+			kit.description(
+				fmt.tprintf("%d items", len(cards)) if phase == .Ready else look.to_phase_text(phase),
+			)
 		}
 
-		if phase == .Loading do look.build_loading(title)
+		if phase == .Loading do look.build_loading()
 		if phase == .Ready do build_card_grid(cards, is_round)
 	}
 }
 
 build_card_grid :: proc(cards: []apple.Card, is_round: bool) {
-	if first, last, tile, ok := kit.grid("grid", len(cards), MIN_TILE_WIDTH, TILE_TEXT_HEIGHT, CARD_GAP, 1, style = {width = ui.fill()}); ok {
+	if first, last, tile, ok := kit.grid(
+		"grid",
+		len(cards),
+		MIN_TILE_WIDTH,
+		TILE_TEXT_HEIGHT,
+		CARD_GAP,
+		1,
+		style = {width = ui.fill()},
+	); ok {
 		for index in first ..< last {
-			if build_card_tile(fmt.tprintf("%d_%s", index, cards[index].id), cards[index], tile.x, is_round) {
+			if build_card_tile(
+				fmt.tprintf("%d_%s", index, cards[index].id),
+				cards[index],
+				tile.x,
+				is_round,
+			) {
 				open_card(cards, index)
 			}
 		}

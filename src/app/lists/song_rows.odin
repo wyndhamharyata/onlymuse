@@ -23,16 +23,10 @@ build_song_list_page :: proc(
 ) {
 	page := look.page_scroll("song_list")
 	if ui.scope(page) {
-		header := ui.box(
-			"header",
-			{width = ui.fill(), axis = .X, align = .End, gap = 10},
-		)
+		header := ui.box("header", {width = ui.fill(), axis = .X, align = .End, gap = 10})
 
 		if ui.scope(header) {
-			heading := ui.box(
-				"heading",
-				{width = ui.fill(), axis = .Y},
-			)
+			heading := ui.box("heading", {width = ui.fill(), axis = .Y})
 
 			if ui.scope(heading) {
 				kit.heading(title)
@@ -51,7 +45,7 @@ build_song_list_page :: proc(
 			if phase == .Ready && len(songs) > 0 do build_play_buttons(songs)
 		}
 
-		if phase == .Loading do look.build_loading(title)
+		if phase == .Loading do look.build_loading()
 
 		if phase == .Ready {
 			if len(songs) == 0 do kit.description("Nothing here yet.")
@@ -67,7 +61,7 @@ build_play_buttons :: proc(songs: []core.Catalog_Song) {
 
 build_song_rows :: proc(songs: []core.Catalog_Song, dates: []string = nil) {
 	style := ui.Style {
-		width  = ui.fill(),
+		width = ui.fill(),
 	}
 
 	if first, last, ok := kit.list("rows", len(songs), SONG_ROW_HEIGHT, style); ok {
@@ -120,7 +114,10 @@ build_song_row :: proc(
 
 	if kit.clickable(id, song.name, style) {
 		look.artwork_box(
-			apple.to_artwork_url(song.artwork, images.to_texture_size_px(ui.to_px(SONG_ARTWORK_SIZE))),
+			apple.to_artwork_url(
+				song.artwork,
+				images.to_texture_size_px(ui.to_px(SONG_ARTWORK_SIZE)),
+			),
 			song.album_name,
 			SONG_ARTWORK_SIZE,
 			5,
@@ -137,10 +134,7 @@ build_song_row :: proc(
 		if date != "" {
 			ui.box(
 				"",
-				{
-					text_color = kit.with_opacity(kit.colors.base_content, 0.5),
-					font_size = 12,
-				},
+				{text_color = kit.with_opacity(kit.colors.base_content, 0.5), font_size = 12},
 				date,
 			)
 		}

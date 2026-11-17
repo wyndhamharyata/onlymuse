@@ -76,7 +76,7 @@ build_artist_page :: proc(page_id: string, name: string) {
 
 			if ui.scope(page) {
 				if phase != .Ready {
-					look.build_phase(phase, name)
+					look.build_phase(phase)
 				} else {
 					kit.text(
 						fmt.tprintf("Apple Music has no artist named %s.", name),
@@ -106,7 +106,7 @@ fit = .Wrap,
 	page := look.page_scroll("artist")
 	if ui.scope(page) {
 		if data.title == "" {
-			look.build_phase(watched.phase, name)
+			look.build_phase(watched.phase)
 			return
 		}
 

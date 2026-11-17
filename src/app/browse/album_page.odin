@@ -32,7 +32,7 @@ build_album_page :: proc(album_id: string) {
 
 			if ui.scope(page) {
 				if link.phase != .Ready {
-					look.build_phase(link.phase, "the album")
+					look.build_phase(link.phase)
 				} else {
 					kit.description("This album is only on the Mac, so Apple Music has no page for it.")
 				}
@@ -56,7 +56,7 @@ build_album_page :: proc(album_id: string) {
 	page := look.page_scroll("album")
 	if ui.scope(page) {
 		if data.title == "" {
-			look.build_phase(watched.phase, "the album")
+			look.build_phase(watched.phase)
 			return
 		}
 

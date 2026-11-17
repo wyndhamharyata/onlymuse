@@ -49,16 +49,10 @@ build_bring_over_page :: proc(page: core.Page) {
 	scroll := look.page_scroll("bring_over")
 
 	if ui.scope(scroll) {
-		header := ui.box(
-			"header",
-			{width = ui.fill(), axis = .X, align = .End, gap = 10},
-		)
+		header := ui.box("header", {width = ui.fill(), axis = .X, align = .End, gap = 10})
 
 		if ui.scope(header) {
-			heading := ui.box(
-				"heading",
-				{width = ui.fill(), axis = .Y, gap = 2},
-			)
+			heading := ui.box("heading", {width = ui.fill(), axis = .Y, gap = 2})
 
 			if ui.scope(heading) {
 				kit.heading(title)
@@ -69,12 +63,13 @@ build_bring_over_page :: proc(page: core.Page) {
 
 			is_ready := phase == .Ready && counts[.Checking] == 0 && len(songs) > 0
 
-			if is_ready && kit.button("bring_over", "Bring Over", "square.and.arrow.down", .Primary).is_activated {
+			if is_ready &&
+			   kit.button("bring_over", "Bring Over", "square.and.arrow.down", .Primary).is_activated {
 				bring_over(title, songs)
 			}
 		}
 
-		if phase == .Loading do look.build_loading(title)
+		if phase == .Loading do look.build_loading()
 
 		if phase == .Ready {
 			kit.description(

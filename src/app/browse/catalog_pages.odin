@@ -36,7 +36,7 @@ build_shelves_page :: proc(title, path: string, is_new: bool) {
 		kit.heading(title)
 
 		if watched.phase != .Ready {
-			look.build_phase(watched.phase, title)
+			look.build_phase(watched.phase)
 			return
 		}
 

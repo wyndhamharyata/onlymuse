@@ -49,16 +49,6 @@ MIN_WINDOW_WIDTH :: 1000
 
 MIN_WINDOW_HEIGHT :: 600
 
-LOADING_DELAY_SECONDS :: 0.3
-
-LOADING_FADE_SECONDS :: 0.2
-
-LOADING_DOT_SECONDS :: 0.4
-
-LOADING_BAR_WIDTH :: 160
-
-LOADING_TEXT_SIZE :: 13
-
 MIN_COVER_VIVIDNESS :: 0.015
 
 MIN_COVER_ACCENT_SATURATION :: 0.55
@@ -88,7 +78,12 @@ set_accent :: proc(since_last: time.Duration, artwork_source: string) {
 	is_cover_vivid := has_color && color.vividness >= MIN_COVER_VIVIDNESS
 	if is_cover_vivid do target = to_cover_accent(color.rgb)
 
-	amount := 1 - math.exp(-ACCENT_RATE_PER_SECOND * min(f32(time.duration_seconds(since_last)), MAX_ACCENT_FRAME_SECONDS))
+	amount :=
+		1 -
+		math.exp(
+			-ACCENT_RATE_PER_SECOND *
+			min(f32(time.duration_seconds(since_last)), MAX_ACCENT_FRAME_SECONDS),
+		)
 	kit.colors.primary += (target - kit.colors.primary) * amount
 	difference := target.rgb - kit.colors.primary.rgb
 	distance := abs(difference.r) + abs(difference.g) + abs(difference.b)

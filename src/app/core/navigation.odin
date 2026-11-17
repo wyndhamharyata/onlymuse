@@ -242,8 +242,7 @@ keep_scroll :: proc(page_box: ^ui.Box) {
 		if saved > 0 do ui.set_scroll(page_box, saved)
 	}
 
-	// thor keeps the offset set_scroll asked for until the page can reach it, so it owns the waiting.
-	if page_box._scroll_wanted != nil do return
+	if !ui.is_scrolled(page_box) do return
 
 	if page_box.scroll == saved do return
 

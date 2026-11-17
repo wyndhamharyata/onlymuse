@@ -10,6 +10,11 @@ func readAccentMessage() -> [String: Any] {
 }
 
 let application = NSApplication.shared
+// The helper shares onlymuse's bundle, so macOS would give it a Dock icon of its own. Set before the slow start below, and again once launched, as an early call alone sometimes does not hold.
+application.setActivationPolicy(.accessory)
+NotificationCenter.default.addObserver(forName: NSApplication.didFinishLaunchingNotification, object: nil, queue: .main) { _ in
+  MainActor.assumeIsolated { _ = NSApplication.shared.setActivationPolicy(.accessory) }
+}
 let isPausedWhenAppEnds = ProcessInfo.processInfo.environment["GPUIX_BACKGROUND"] != "1"
 let music = MusicApp()
 let youTube = YouTube(music: music, isQuiet: !isPausedWhenAppEnds)
@@ -36,8 +41,6 @@ func pauseWhenAppEnds() {
   youTube.stop()
   appleWeb.stop()
 }
-
-application.setActivationPolicy(.accessory)
 
 // ⌘V and other editing keys reach a sign-in page only through an Edit menu, even a hidden one.
 let bar = NSMenu()

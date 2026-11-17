@@ -54,10 +54,7 @@ build_now_playing_page :: proc() {
 		width := look.to_content_width(page)
 		if width <= 0 do return
 
-		stage := ui.box(
-			"stage",
-			{width = ui.fill(), axis = .Y, gap = 20},
-		)
+		stage := ui.box("stage", {width = ui.fill(), axis = .Y, gap = 20})
 
 		if ui.scope(stage) {
 			set_backdrop(details.song.artwork, shown.artwork_path)
@@ -85,7 +82,12 @@ build_now_playing_page :: proc() {
 
 @(private)
 build_current_lyric :: proc(shown: helper.Song) {
-	phase, lines := lyrics.watch(shown.persistent_id, shown.name, shown.artist_name)
+	phase, lines := lyrics.watch(
+		shown.persistent_id,
+		shown.name,
+		shown.artist_name,
+		shown.duration_seconds,
+	)
 	if phase != .Ready || len(lines) == 0 do return
 
 	pos_seconds := to_lyrics_pos_seconds(core.app.now_playing, lyrics_state.lead_ms)
@@ -95,15 +97,7 @@ build_current_lyric :: proc(shown: helper.Song) {
 	if index < 0 || lines[index].text == "" do return
 
 	line := lines[index]
-	box := ui.box(
-		"lyric_line",
-		{
-			width = ui.fill(),
-			axis = .Y,
-			gap = 2,
-			padding = {0, 14, 0, 0},
-		},
-	)
+	box := ui.box("lyric_line", {width = ui.fill(), axis = .Y, gap = 2, padding = {0, 14, 0, 0}})
 
 	if ui.scope(box) {
 		ui.box(
@@ -175,22 +169,11 @@ build_more_by :: proc(details: Song_Details) {
 
 	if len(data.cards) == 0 do return
 
-	shelf := ui.box(
-		"more_by",
-		{
-			width = ui.fill(),
-			axis = .Y,
-			gap = 10,
-			padding = {0, 4, 0, 0},
-		},
-	)
+	shelf := ui.box("more_by", {width = ui.fill(), axis = .Y, gap = 10, padding = {0, 4, 0, 0}})
 
 	if ui.scope(shelf) {
 		lists.build_shelf_title(fmt.tprintf("More by %s", details.song.artist_name), false)
-		row := ui.box(
-			"tiles",
-			{width = ui.fill(), axis = .X, gap = 12},
-		)
+		row := ui.box("tiles", {width = ui.fill(), axis = .X, gap = 12})
 
 		if ui.scope(row) {
 			for card, index in data.cards {

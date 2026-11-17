@@ -110,6 +110,9 @@ The app now starts the Swift helper, as the gpuix app does, so build it once fir
 `./build.sh helper`. The panel on the right opens on Lyrics.
 
 - Play a song in Music.app, or in the gpuix app. The panel shows its name and lyrics.
+- A song that plays from YouTube is on no Apple Music catalog, so its lyrics come from LRCLIB
+  (lrclib.net), a free open lyrics database that needs no account. The words sync when LRCLIB has
+  word timings. Only Apple's lyrics carry romaji and translation, so those toggles do not show.
 - Each word fades into your accent colour as it is sung. The line before fades back as the next one
   starts. The lines glide up so the current one stays fourth from the top.
 - A Japanese line shows its pronunciation in Latin letters under it, lit word by word too.

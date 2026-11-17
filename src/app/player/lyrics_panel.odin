@@ -149,14 +149,19 @@ build_lyrics :: proc() -> bool {
 		song.artist_name,
 	)
 
-	phase, lines := lyrics.watch(song.persistent_id, song.name, song.artist_name)
+	phase, lines := lyrics.watch(
+		song.persistent_id,
+		song.name,
+		song.artist_name,
+		song.duration_seconds,
+	)
 
 	switch phase {
 	case .None, .Loading:
 		build_panel_note("Loading the lyrics.")
 		return false
 	case .Missing:
-		build_panel_note("Apple Music has no lyrics for this song.")
+		build_panel_note("No lyrics for this song.")
 		return false
 	case .Ready:
 	}
@@ -241,20 +246,17 @@ build_lyric_toggles :: proc(lines: []lyrics.Line) {
 
 	toggles := ui.box(
 		"toggles",
-		{
-			width = ui.fill(),
-			axis = .X,
-			gap = 6,
-			padding = {PANEL_INSET, 0, PANEL_INSET, 10},
-		},
+		{width = ui.fill(), axis = .X, gap = 6, padding = {PANEL_INSET, 0, PANEL_INSET, 10}},
 	)
 
 	if ui.scope(toggles) {
-		if has_romaji && kit.toggle_chip("romaji", &lyrics_state.is_showing_romaji, "Romaji").is_changed {
+		if has_romaji &&
+		   kit.toggle_chip("romaji", &lyrics_state.is_showing_romaji, "Romaji").is_changed {
 			store.save_state("lyricsRomaji", "true" if lyrics_state.is_showing_romaji else "false")
 		}
 
-		if has_translation && kit.toggle_chip("translation", &lyrics_state.is_showing_translation, "Translation").is_changed {
+		if has_translation &&
+		   kit.toggle_chip("translation", &lyrics_state.is_showing_translation, "Translation").is_changed {
 			store.save_state(
 				"lyricsTranslation",
 				"true" if lyrics_state.is_showing_translation else "false",

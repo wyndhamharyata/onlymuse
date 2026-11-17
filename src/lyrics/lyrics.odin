@@ -9,8 +9,8 @@ import "core:sync"
 import "core:thread"
 import "om:apple"
 import "om:net"
-import "thor:platform"
 import "om:store"
+import "thor:platform"
 
 Word :: struct {
 	begin_seconds: f64,
@@ -35,9 +35,10 @@ Phase :: enum {
 
 @(private)
 Request :: struct {
-	persistent_id: string,
-	name:          string,
-	artist:        string,
+	persistent_id:    string,
+	name:             string,
+	artist:           string,
+	duration_seconds: f64,
 }
 
 @(private)
@@ -51,7 +52,7 @@ state: struct {
 	last_arena:    virtual.Arena,
 }
 
-watch :: proc(persistent_id, name, artist: string) -> (Phase, []Line) {
+watch :: proc(persistent_id, name, artist: string, duration_seconds: f64) -> (Phase, []Line) {
 	sync.guard(&state.mutex)
 
 	if persistent_id == state.persistent_id do return state.phase, state.lines
@@ -67,7 +68,12 @@ watch :: proc(persistent_id, name, artist: string) -> (Phase, []Line) {
 	state.arena = {}
 
 	request := new(Request)
-	request^ = {strings.clone(persistent_id), strings.clone(name), strings.clone(artist)}
+	request^ = {
+		strings.clone(persistent_id),
+		strings.clone(name),
+		strings.clone(artist),
+		duration_seconds,
+	}
 	thread.create_and_start_with_data(request, fetch_lyrics, self_cleanup = true)
 
 	return state.phase, nil
@@ -92,6 +98,7 @@ fetch_lyrics :: proc(data: rawptr) {
 	lines, songwriters := fetch_lines(
 		request.name,
 		request.artist,
+		request.duration_seconds,
 		virtual.arena_allocator(&arena),
 	)
 
@@ -115,7 +122,23 @@ LYRICS_QUERY ::
 	"?l%5Blyrics%5D=" + apple.LANGUAGE + "&l%5Bscript%5D=en-Latn&extend=ttmlLocalizations"
 
 @(private)
-fetch_lines :: proc(name, artist: string, allocator: mem.Allocator) -> ([]Line, []string) {
+fetch_lines :: proc(
+	name, artist: string,
+	duration_seconds: f64,
+	allocator: mem.Allocator,
+) -> (
+	[]Line,
+	[]string,
+) {
+	lines, songwriters := fetch_apple_lines(name, artist, allocator)
+	if len(lines) > 0 do return lines, songwriters
+
+	// A song that plays from YouTube is on no Apple Music catalog, so LRCLIB may hold its lyrics.
+	return fetch_lrclib_lines(name, artist, duration_seconds, allocator), nil
+}
+
+@(private)
+fetch_apple_lines :: proc(name, artist: string, allocator: mem.Allocator) -> ([]Line, []string) {
 	song_id, ok := find_song_id(name, artist)
 	if !ok do return nil, nil
 

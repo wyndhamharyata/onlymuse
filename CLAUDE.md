@@ -49,7 +49,7 @@ src/
   youtube/          The one package that calls music.youtube.com. Its answers go through apple's cache.
   console/          The errors and refused requests the Console page lists. Every package reports there.
   helper/           The helper process and its messages. The one package that talks to Music.app.
-  lyrics/           Lyrics from Apple, read from TTML, with romaji and translations.
+  lyrics/           Lyrics from Apple's TTML, and from LRCLIB for YouTube songs. Romaji and translation come from Apple only.
   store/            The SQLite file: Apple's answers, the play log and the saved state of the window.
   macos/            The wallpaper backdrop and the app menu, which onlymuse adds to thor's window.
   net/              HTTP through libcurl.

@@ -15,6 +15,8 @@ final class YouTube: NSObject, WKNavigationDelegate {
   private static let pauseSettleSeconds = 2.0
   private static let idleCloseSeconds = 5.0 * 60
   static let positionSendSeconds = 2.0
+  // Helium's session can be signed out too, so the page asks for its cookies again at most this often.
+  static let signInRefreshSeconds = 10.0 * 60
 
   private let music: MusicApp
   let isQuiet: Bool
@@ -31,6 +33,7 @@ final class YouTube: NSObject, WKNavigationDelegate {
   var lastState: String?
   var lastPositionSentAt = Date.distantPast
   var playedSeconds = 0.0
+  var signInRefreshedAt = Date.distantPast
   var stuckSince: Date?
   var reloadCount = 0
   var startAskedAt = Date.distantPast
@@ -55,19 +58,20 @@ final class YouTube: NSObject, WKNavigationDelegate {
     self.isQuiet = isQuiet
   }
 
-  func sendCookie() {
+  // whenSet runs once the page's store holds the cookies, in place of closing an idle page.
+  func sendCookie(whenSet: (@MainActor @Sendable () -> Void)? = nil) {
     guard !isQuiet else { return send(["type": "youtubeCookie", "cookie": ""]) }
 
     DispatchQueue.global().async {
       let result = HeliumCookies.readYouTubeCookies()
 
       DispatchQueue.main.async {
-        MainActor.assumeIsolated { self.apply(result) }
+        MainActor.assumeIsolated { self.apply(result, whenSet: whenSet) }
       }
     }
   }
 
-  private func apply(_ result: Result<[HeliumCookies.Cookie], HeliumCookies.Failure>) {
+  private func apply(_ result: Result<[HeliumCookies.Cookie], HeliumCookies.Failure>, whenSet: (@MainActor @Sendable () -> Void)?) {
     let cookies: [HeliumCookies.Cookie]
 
     switch result {
@@ -79,14 +83,19 @@ final class YouTube: NSObject, WKNavigationDelegate {
     send(["type": "youtubeCookie", "cookie": cookies.map { "\($0.name)=\($0.value)" }.joined(separator: "; ")])
 
     let store = WKWebsiteDataStore.default().httpCookieStore
+    let group = DispatchGroup()
 
     for cookie in cookies {
       var properties: [HTTPCookiePropertyKey: Any] = [.domain: cookie.host, .path: cookie.path, .name: cookie.name, .value: cookie.value]
       if cookie.isSecure { properties[.secure] = "TRUE" }
       if cookie.isHTTPOnly { properties[HTTPCookiePropertyKey("HttpOnly")] = "TRUE" }
-      if let httpCookie = HTTPCookie(properties: properties) { store.setCookie(httpCookie) }
+      if let httpCookie = HTTPCookie(properties: properties) {
+        group.enter()
+        store.setCookie(httpCookie) { group.leave() }
+      }
     }
 
+    if let whenSet { return group.notify(queue: .main) { MainActor.assumeIsolated { whenSet() } } }
     if !isActive { resetPlayer() }
   }
 

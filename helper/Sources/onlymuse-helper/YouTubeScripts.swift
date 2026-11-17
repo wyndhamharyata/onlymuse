@@ -41,7 +41,7 @@ extension YouTube {
     (() => {
       const player = document.getElementById("movie_player");
       if (!player || !player.getVideoData) return "";
-      return JSON.stringify({ id: player.getVideoData().video_id, state: player.getPlayerState(), position: player.getCurrentTime(), duration: player.getDuration() });
+      return JSON.stringify({ id: player.getVideoData().video_id, state: player.getPlayerState(), position: player.getCurrentTime(), duration: player.getDuration(), signedIn: window.ytcfg?.get?.("LOGGED_IN") ?? null });
     })()
     """
 

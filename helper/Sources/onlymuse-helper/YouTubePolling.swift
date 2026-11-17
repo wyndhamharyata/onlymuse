@@ -27,6 +27,8 @@ extension YouTube {
   }
 
   private func apply(page: [String: Any]) {
+    if page["signedIn"] as? Bool == false { refreshSignIn() }
+
     let pageID = page["id"] as? String ?? ""
     let playerState = page["state"] as? Int ?? -1
     let positionSeconds = page["position"] as? Double ?? 0
@@ -128,6 +130,20 @@ extension YouTube {
     }
 
     reopenPage(startSeconds: startSeconds)
+  }
+
+  // Helium and this page share one Google session. Google rotates its cookies, so the page's copy can go stale, and a signed-out page plays ads.
+  private func refreshSignIn() {
+    guard Date().timeIntervalSince(signInRefreshedAt) >= Self.signInRefreshSeconds else { return }
+
+    signInRefreshedAt = Date()
+    sendError("The YouTube page is signed out, so it can play ads. The helper reads Helium's cookies again and opens the page again.")
+    let startSeconds = playedSeconds
+    sendCookie { [weak self] in
+      guard let self, self.isActive else { return }
+
+      self.reopenPage(startSeconds: startSeconds)
+    }
   }
 
   // WebKit can keep a connection that sends nothing. Only a new network process drops it.

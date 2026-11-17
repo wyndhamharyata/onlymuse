@@ -20,12 +20,23 @@ YOUTUBE_SYMBOL :: "play.rectangle.fill"
 
 CARD_GAP :: 14
 
+// While the panel moves, the size blends from the one that fits beside it to the one that fits without it, so tiles never jump.
 to_tile_size :: proc(width, target_width, gap: f32) -> f32 {
-	// The count comes from the width the content settles at, so while the panel moves the tiles scale smoothly instead of jumping between counts.
-	settled_width := width + look.to_panel_travel_left()
-	count := max(1, math.round((settled_width + gap) / (target_width + gap)))
+	closed_width := width + look.panel_width
+	open_ratio := clamp(look.panel_width / look.PANEL_WIDTH, 0, 1)
 
-	// Not floored to whole points: thor snaps edges to pixels, and a floor makes every tile in a row jump a point at once.
+	return math.lerp(
+		to_fitting_tile_size(closed_width, target_width, gap),
+		to_fitting_tile_size(closed_width - look.PANEL_WIDTH, target_width, gap),
+		open_ratio,
+	)
+}
+
+// Not floored to whole points: thor snaps edges to pixels, and a floor makes every tile in a row jump a point at once.
+@(private = "file")
+to_fitting_tile_size :: proc(width, target_width, gap: f32) -> f32 {
+	count := max(1, math.round((width + gap) / (target_width + gap)))
+
 	return (width - gap * (count - 1)) / count
 }
 
